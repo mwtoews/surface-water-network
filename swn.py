@@ -4,6 +4,10 @@ import pandas as pd
 import geopandas
 from osgeo import gdal
 from warnings import warn
+try:
+    import rtree
+except ImportError:
+    rtree = False
 
 __version__ = '0.1'
 
@@ -13,13 +17,20 @@ class SurfaceWaterNetwork(object):
 
     Attributes
     ----------
-    lines : geopandas.geodataframe.GeoDataFrame
-        GeoDataFrame lines of surface water network.
     verbose : bool or int
         Show messages (or not).
+    lines : geopandas.geodataframe.GeoDataFrame
+        GeoDataFrame lines of surface water network. Index is treated as node
+        number, such as a reach ID.
+    END_NODE : int
+        Node number that indicates a line end, default is usually 0.
+    to_node : pandas.core.series.Series
+        Node number that line flow to.
     """
-    lines = None
     verbose = None
+    lines = None
+    END_NODE = None
+    to_node = None
 
     def __len__(self):
         return len(self.lines)
@@ -96,4 +107,36 @@ class SurfaceWaterNetwork(object):
         Parameters
         ----------
         """
-        raise NotImplementedError()
+        # Populate a spatial index for speed
+        if rtree:
+            self.lines_idx = rtree.Rtree()
+            for node, row in self.lines.bounds.iterrows():
+                self.lines_idx.add(node, row.tolist())
+            assert self.lines_idx.valid()
+        else:
+            self.lines_idx = None
+        if self.lines.index.min() > 0:
+            self.END_NODE = 0
+        else:
+            self.END_NODE = self.lines.index.min() - 1
+        self.to_node = pd.Series(self.END_NODE, index=self.lines.index)
+        for node, row in self.lines.iterrows():
+            end_coord = row.geometry.coords[-1]  # downstream end
+            if self.lines_idx:
+                # reduce number of rows to scan based on proximity in 2D
+                sub = self.lines.loc[self.lines_idx.intersection(end_coord[0:2])]
+            else:
+                # slow scan of full table
+                sub = self.lines
+            for node2, row2 in sub.iterrows():
+                if node2 == node:
+                    continue
+                start_coord = row2.geometry.coords[0]
+                if start_coord == end_coord:
+                    self.to_node.loc[node] = node2
+                    break
+                elif start_coord[0:2] == end_coord[0:2]:
+                    # 2D match only
+                    self.to_node.loc[node] = node2
+                    break
+        # raise NotImplementedError()

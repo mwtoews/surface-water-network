@@ -4,6 +4,10 @@ import pandas as pd
 import pytest
 import os
 from shapely import wkt
+try:
+    import rtree
+except ImportError:
+    rtree = False
 
 import sys
 sys.path.insert(
@@ -75,3 +79,16 @@ def test_init(basic):
     # Check defaults
     assert basic.verbose is False
     assert len(basic) == 3
+    assert basic.END_NODE is None
+    assert basic.to_node is None
+
+
+def test_process(basic):
+    basic.process()
+    assert basic.END_NODE == 0
+    if rtree:
+        assert basic.lines_idx is not None
+    else:
+        assert basic.lines_idx is None
+    assert basic.to_node.index is basic.lines.index
+    assert basic.to_node.values.tolist() == [103, 103, 0]
