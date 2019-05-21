@@ -71,13 +71,13 @@ def basic():
     })
     df.set_index('id', inplace=True)
     df['geometry'] = df['geometry'].apply(wkt.loads)
-    gdf = geopandas.GeoDataFrame(df, geometry='geometry')
-    return swn.SurfaceWaterNetwork(gdf, verbose=False)
+    lines = geopandas.GeoDataFrame(df, geometry='geometry')
+    return swn.SurfaceWaterNetwork(lines)
 
 
 def test_init(basic):
     # Check defaults
-    assert basic.verbose is False
+    assert basic.logger is not None
     assert len(basic) == 3
     assert basic.END_NODE is None
     assert basic.to_node is None

@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
+import logging
 import numpy as np
 import pandas as pd
 import geopandas
 from osgeo import gdal
-from warnings import warn
 try:
     import rtree
 except ImportError:
@@ -11,14 +11,24 @@ except ImportError:
 
 __version__ = '0.1'
 
+module_logger = logging.getLogger(__name__)
+if __name__ not in [_.name for _ in module_logger.handlers]:
+    if logging.root.handlers:
+        module_logger.addHandler(logging.root.handlers[0])
+    else:
+        formatter = logging.Formatter(logging.BASIC_FORMAT)
+        handler = logging.StreamHandler()
+        handler.name = __name__
+        handler.setFormatter(formatter)
+        module_logger.addHandler(handler)
+        del formatter, handler
+
 
 class SurfaceWaterNetwork(object):
     """Surface water network
 
     Attributes
     ----------
-    verbose : bool or int
-        Show messages (or not).
     lines : geopandas.geodataframe.GeoDataFrame
         GeoDataFrame lines of surface water network. Index is treated as node
         number, such as a reach ID.
@@ -26,8 +36,10 @@ class SurfaceWaterNetwork(object):
         Node number that indicates a line end, default is usually 0.
     to_node : pandas.core.series.Series
         Node number that line flow to.
+    logger : logging.Logger
+        Logger to show messages.
     """
-    verbose = None
+    logger = None
     lines = None
     END_NODE = None
     to_node = None
@@ -35,7 +47,7 @@ class SurfaceWaterNetwork(object):
     def __len__(self):
         return len(self.lines)
 
-    def __init__(self, lines, verbose=True):
+    def __init__(self, lines, logger=None):
         """
         Initialise SurfaceWaterNetwork
 
@@ -44,23 +56,27 @@ class SurfaceWaterNetwork(object):
         lines : geopandas.geodataframe.GeoDataFrame
             Input GeoDataFrame lines of surface water network. Geometries
             must be 'LINESTRING Z'.
-        verbose : bool or int, optional
-            Show messages, default True.
+        logger : logging.Logger, optional
+            Logger to show messages.
         """
-        self.verbose = verbose
+        if logger is None:
+            self.logger = logging.getLogger(self.__class__.__name__)
+            # self.logger.handlers = module_logger.handlers
+            self.logger.setLevel(module_logger.level)
         if not isinstance(lines, geopandas.geodataframe.GeoDataFrame):
             raise ValueError('lines must be a GeoDataFrame')
         elif len(lines) == 0:
             raise ValueError('one or more lines are required')
         elif not (lines.geom_type == 'LineString').all():
             raise ValueError('lines must all be LineString types')
-        elif not lines.has_z.all():
+        elif not lines.geometry.apply(lambda x: x.has_z).all():
             raise ValueError('lines must all have Z dimension')
         self.lines = lines
+        self.logger.info('creating network with %d lines', len(self.lines))
         return
 
     @classmethod
-    def init_from_gdal(cls, lines_srs, elevation_srs=None, verbose=True):
+    def init_from_gdal(cls, lines_srs, elevation_srs=None):
         """
         Initialise SurfaceWaterNetwork from GDAL source datasets
 
@@ -71,11 +87,11 @@ class SurfaceWaterNetwork(object):
         elevation_srs : str, optional
             Path to open raster GDAL dataset of elevation. If not provided,
             then Z-dimension from lines used. Not implemented yet.
-        verbose : bool, optional
-            Show messages, default True.
         """
-        if verbose:
-            print('reading lines from: {}'.format(lines_srs))
+        logger = logging.getLogger(cls.__class__.__name__)
+        logger.handlers = module_logger.handlers
+        logger.setLevel(module_logger.level)
+        logger.info('reading lines from: %s', lines_srs)
         lines_ds = gdal.Open(lines_srs, gdal.GA_ReadOnly)
         if lines_ds is None:
             raise IOError('cannot open lines: {}'.format(lines_srs))
@@ -83,14 +99,14 @@ class SurfaceWaterNetwork(object):
         if elevation_srs is None:
             elevation_ds = None
         else:
-            if verbose:
-                print('reading elevation from: {}'.format(elevation_srs))
+            logger.info('reading elevation from: %s', elevation_srs)
             elevation_ds = gdal.Open(elevation_srs, gdal.GA_ReadOnly)
             if elevation_ds is None:
                 raise IOError('cannot open elevation: {}'.format(elevation_ds))
             elif elevation_ds.RasterCount != 1:
-                warn('expected 1 raster band for elevation, found {}'
-                     .format(elevation_ds.RasterCount))
+                logger.warning(
+                    'expected 1 raster band for elevation, found %s',
+                    elevation_ds.RasterCount)
             band = elevation_ds.GetRasterBand(1)
             elevation = np.ma.array(band.ReadAsArray(), np.float64, copy=True)
             nodata = band.GetNoDataValue()
@@ -98,7 +114,7 @@ class SurfaceWaterNetwork(object):
             if nodata is not None:
                 elevation.mask = elevation == nodata
             raise NotImplementedError('nothing done with elevation yet')
-        return cls(projection=projection, verbose=verbose)
+        return cls(projection=projection, logger=logger)
 
     def process(self):
         """
