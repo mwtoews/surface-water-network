@@ -3,7 +3,11 @@ import logging
 import numpy as np
 import pandas as pd
 import geopandas
-from osgeo import gdal
+from shapely.geometry import Point
+try:
+    from osgeo import gdal
+except ImportError:
+    gdal = False
 try:
     import rtree
 except ImportError:
@@ -106,6 +110,7 @@ class SurfaceWaterNetwork(object):
         self.warnings = []
         for node, row in self.lines.iterrows():
             end_coord = row.geometry.coords[-1]  # downstream end
+            end_pt = Point(*end_coord)
             if self.lines_idx:
                 # reduce number of rows to scan based on proximity in 2D
                 subsel = self.lines_idx.intersection(end_coord[0:2])
@@ -117,16 +122,23 @@ class SurfaceWaterNetwork(object):
             for node2, row2 in sub.iterrows():
                 if node2 == node:
                     continue
-                start_coord = row2.geometry.coords[0]
-                if start_coord == end_coord:
+                start2_coord = row2.geometry.coords[0]
+                end2_coord = row2.geometry.coords[-1]
+                if start2_coord == end_coord:
                     # perfect 3D match from end of node to start of node2
                     to_nodes.append(node2)
-                elif start_coord[0:2] == end_coord[0:2]:
+                elif start2_coord[0:2] == end_coord[0:2]:
                     to_nodes.append(node2)
                     m = ('node %s matches %s in 2D, but not in Z-dimension',
                          node, node2)
                     self.logger.warning(*m)
                     self.warnings.append(m[0] % m[1:])
+                elif (row2.geometry.distance(end_pt) < 1e-6
+                      and Point(*end2_coord).distance(end_pt) > 1e-6):
+                    m = ('node %s connects to the middle of node %s',
+                         node, node2)
+                    self.logger.error(*m)
+                    self.errors.append(m[0] % m[1:])
             if len(to_nodes) > 1:
                 m = ('node %s has more than one downstream nodes: %s',
                      node, tuple(to_nodes))
@@ -148,13 +160,15 @@ class SurfaceWaterNetwork(object):
             Path to open raster GDAL dataset of elevation. If not provided,
             then Z-dimension from lines used. Not implemented yet.
         """
+        if not gdal:
+            raise ImportError('this method requires GDAL')
+        lines_ds = gdal.Open(lines_srs, gdal.GA_ReadOnly)
+        if lines_ds is None:
+            raise IOError('cannot open lines: {}'.format(lines_srs))
         logger = logging.getLogger(cls.__class__.__name__)
         logger.handlers = module_logger.handlers
         logger.setLevel(module_logger.level)
         logger.info('reading lines from: %s', lines_srs)
-        lines_ds = gdal.Open(lines_srs, gdal.GA_ReadOnly)
-        if lines_ds is None:
-            raise IOError('cannot open lines: {}'.format(lines_srs))
         projection = lines_ds.GetProjection()
         if elevation_srs is None:
             elevation_ds = None

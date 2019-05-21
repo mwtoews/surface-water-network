@@ -101,6 +101,18 @@ def test_init_all_converge():
     assert n.outlets.values.tolist() == [0, 1, 2]
 
 
+def test_init_line_connects_to_middle():
+    lines = wkt_to_gdf([
+        'LINESTRING Z (40 130 15, 60 100 14, 60 80 12)',
+        'LINESTRING Z (70 130 15, 60 100 14)',
+    ])
+    n = swn.SurfaceWaterNetwork(lines)
+    assert len(n.warnings) == 0
+    assert len(n.errors) == 1
+    assert n.errors[0] == 'node 1 connects to the middle of node 0'
+    assert n.outlets.values.tolist() == [0, 1]
+
+
 def test_init_defaults(lines):
     n = swn.SurfaceWaterNetwork(lines)
     assert n.logger is not None

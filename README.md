@@ -11,8 +11,8 @@ Creates surface water network to be used for MODFLOW's SFR.
 
 ### Optional
 
- - `rtree`
- - `gdal`
+ - `rtree` - fast spatial indexing
+ - `gdal` - import from different geospatial formats
 
 
 # Testing
