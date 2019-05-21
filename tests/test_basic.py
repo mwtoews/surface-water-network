@@ -1,0 +1,77 @@
+# -*- coding: utf-8 -*-
+import geopandas
+import pandas as pd
+import pytest
+import os
+from shapely import wkt
+
+import sys
+sys.path.insert(
+    0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
+
+import swn
+
+
+def test_bad_init():
+    with pytest.raises(ValueError, match='lines must be a GeoDataFrame'):
+        swn.SurfaceWaterNetwork(object())
+
+    df = pd.DataFrame({
+        'id': [101, 102, 103],
+        'wkt': [
+            'LINESTRING Z (40 130 15, 60 100 15)',
+            'LINESTRING Z (70 130 14, 60 100 14)',
+            'LINESTRING Z (60 100 14, 60 80 12)',
+        ],
+    })
+    df.set_index('id', inplace=True)
+    df['geometry'] = df['wkt'].apply(wkt.loads)
+    # Don't just pass a DataFrame
+    with pytest.raises(ValueError, match='lines must be a GeoDataFrame'):
+        swn.SurfaceWaterNetwork(df)
+
+    # This works
+    gdf = geopandas.GeoDataFrame(df, geometry='geometry')
+    swn.SurfaceWaterNetwork(gdf)
+
+    # Check number of rows
+    with pytest.raises(ValueError, match='one or more lines are required'):
+        swn.SurfaceWaterNetwork(gdf[0:0])
+
+    # Check geom_type
+    df['bad_wkt'] = df['wkt'].copy()
+    df.loc[102, 'bad_wkt'] = 'MULTILINESTRING Z ((70 130 14, 60 100 14))'
+    df['geometry'] = df['bad_wkt'].apply(wkt.loads)
+    gdf = geopandas.GeoDataFrame(df, geometry='geometry')
+    with pytest.raises(ValueError, match='lines must all be LineString types'):
+        swn.SurfaceWaterNetwork(gdf)
+
+    # Create 2D geometries
+    df['bad_wkt'] = df['wkt']\
+        .apply(wkt.loads).apply(wkt.dumps, output_dimension=2)
+    df['geometry'] = df['bad_wkt'].apply(wkt.loads)
+    gdf = geopandas.GeoDataFrame(df, geometry='geometry')
+    with pytest.raises(ValueError, match='lines must all have Z dimension'):
+        swn.SurfaceWaterNetwork(gdf)
+
+
+@pytest.fixture
+def basic():
+    df = pd.DataFrame({
+        'id': [101, 102, 103],
+        'geometry': [
+            'LINESTRING Z (40 130 15, 60 100 15)',
+            'LINESTRING Z (70 130 14, 60 100 14)',
+            'LINESTRING Z (60 100 14, 60 80 12)',
+        ],
+    })
+    df.set_index('id', inplace=True)
+    df['geometry'] = df['geometry'].apply(wkt.loads)
+    gdf = geopandas.GeoDataFrame(df, geometry='geometry')
+    return swn.SurfaceWaterNetwork(gdf, verbose=False)
+
+
+def test_init(basic):
+    # Check defaults
+    assert basic.verbose is False
+    assert len(basic) == 3
