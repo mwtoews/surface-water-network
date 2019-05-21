@@ -26,10 +26,6 @@ def dn():
 
 def test_init(dn):
     assert len(dn) == 304
-
-
-def test_evaluate_reaches(dn):
-    dn.evaluate_reaches()
     assert dn.END_NODE == 0
     if rtree:
         assert dn.lines_idx is not None

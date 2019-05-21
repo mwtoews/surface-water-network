@@ -43,18 +43,24 @@ class SurfaceWaterNetwork(object):
         Index nodes for each outlet.
     logger : logging.Logger
         Logger to show messages.
+    warnings : list
+        List of warning messages.
+    errors : list
+        List of error messages.
     """
-    logger = None
     lines = None
     END_NODE = None
     reaches = None
+    logger = None
+    warnings = None
+    errors = None
 
     def __len__(self):
         return len(self.lines)
 
     def __init__(self, lines, logger=None):
         """
-        Initialise SurfaceWaterNetwork
+        Initialise SurfaceWaterNetwork and evaluate reaches
 
         Parameters
         ----------
@@ -78,7 +84,56 @@ class SurfaceWaterNetwork(object):
             raise ValueError('lines must all have Z dimension')
         self.lines = lines
         self.logger.info('creating network with %d lines', len(self.lines))
-        return
+        # Populate a spatial index for speed
+        if rtree and len(self.lines) >= _rtree_threshold:
+            self.logger.debug('building R-tree index of lines')
+            self.lines_idx = rtree.Rtree()
+            for node, row in self.lines.bounds.iterrows():
+                self.lines_idx.add(node, row.tolist())
+            assert self.lines_idx.valid()
+        else:
+            if len(self.lines) >= _rtree_threshold:
+                self.logger.debug(
+                    'using slow sequence scanning; consider installing rtree')
+            self.lines_idx = None
+        if self.lines.index.min() > 0:
+            self.END_NODE = 0
+        else:
+            self.END_NODE = self.lines.index.min() - 1
+        self.reaches = pd.DataFrame(
+                {'to_node': self.END_NODE}, index=self.lines.index)
+        self.errors = []
+        self.warnings = []
+        for node, row in self.lines.iterrows():
+            end_coord = row.geometry.coords[-1]  # downstream end
+            if self.lines_idx:
+                # reduce number of rows to scan based on proximity in 2D
+                subsel = self.lines_idx.intersection(end_coord[0:2])
+                sub = self.lines.loc[list(subsel)]
+            else:
+                # slow scan of full table
+                sub = self.lines
+            to_nodes = []
+            for node2, row2 in sub.iterrows():
+                if node2 == node:
+                    continue
+                start_coord = row2.geometry.coords[0]
+                if start_coord == end_coord:
+                    # perfect 3D match from end of node to start of node2
+                    to_nodes.append(node2)
+                elif start_coord[0:2] == end_coord[0:2]:
+                    to_nodes.append(node2)
+                    m = ('node %s matches %s in 2D, but not in Z-dimension',
+                         node, node2)
+                    self.logger.warning(*m)
+                    self.warnings.append(m[0] % m[1:])
+            if len(to_nodes) > 1:
+                m = ('node %s has more than one downstream nodes: %s',
+                     node, tuple(to_nodes))
+                self.logger.error(*m)
+                self.errors.append(m[0] % m[1:])
+            if len(to_nodes) > 0:
+                self.reaches.loc[node, 'to_node'] = to_nodes[0]
 
     @classmethod
     def init_from_gdal(cls, lines_srs, elevation_srs=None):
@@ -121,63 +176,6 @@ class SurfaceWaterNetwork(object):
             raise NotImplementedError('nothing done with elevation yet')
         return cls(projection=projection, logger=logger)
 
-    def evaluate_reaches(self):
-        """
-        Evaluate surface water network reaches
-
-        Parameters
-        ----------
-        """
-        # Populate a spatial index for speed
-        if rtree and len(self.lines) >= _rtree_threshold:
-            self.logger.debug('building R-tree index of lines')
-            self.lines_idx = rtree.Rtree()
-            for node, row in self.lines.bounds.iterrows():
-                self.lines_idx.add(node, row.tolist())
-            assert self.lines_idx.valid()
-        else:
-            if len(self.lines) >= _rtree_threshold:
-                self.logger.debug(
-                    'using slow sequence scanning; consider installing rtree')
-            self.lines_idx = None
-        if self.lines.index.min() > 0:
-            self.END_NODE = 0
-        else:
-            self.END_NODE = self.lines.index.min() - 1
-        self.reaches = \
-            pd.DataFrame({'to_node': self.END_NODE}, index=self.lines.index)
-        for node, row in self.lines.iterrows():
-            end_coord = row.geometry.coords[-1]  # downstream end
-            if self.lines_idx:
-                # reduce number of rows to scan based on proximity in 2D
-                subsel = self.lines_idx.intersection(end_coord[0:2])
-                sub = self.lines.loc[list(subsel)]
-            else:
-                # slow scan of full table
-                sub = self.lines
-            to_nodes = []
-            for node2, row2 in sub.iterrows():
-                if node2 == node:
-                    continue
-                start_coord = row2.geometry.coords[0]
-                if start_coord == end_coord:
-                    to_nodes.append(node2)
-                elif start_coord[0:2] == end_coord[0:2]:
-                    # 2D match only
-                    self.logger.warning(
-                        'node %s matches %s in 2D, but not in Z-dimension',
-                        node, node2)
-                    to_nodes.append(node2)
-            if len(to_nodes) > 1:
-                self.logger.error(
-                    'node %s has more than one downstream nodes: %s',
-                    node, tuple(to_nodes))
-            if len(to_nodes) > 0:
-                self.reaches.loc[node, 'to_node'] = to_nodes[0]
-        # raise NotImplementedError()
-
     @property
     def outlets(self):
-        if self.reaches is None:
-            raise AttributeError("need to run 'evaluate_reaches'")
         return self.lines.index[self.reaches['to_node'] == self.END_NODE]
