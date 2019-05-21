@@ -39,6 +39,8 @@ class SurfaceWaterNetwork(object):
         Node number that indicates a line end, default is usually 0.
     reaches : pandas.core.frame.DataFrame
         DataFrame created by evaluate_reaches() and shares same index as lines.
+    outlets : pandas.core.index.Int64Index
+        Index nodes for each outlet.
     logger : logging.Logger
         Logger to show messages.
     """
@@ -64,7 +66,7 @@ class SurfaceWaterNetwork(object):
         """
         if logger is None:
             self.logger = logging.getLogger(self.__class__.__name__)
-            # self.logger.handlers = module_logger.handlers
+            self.logger.handlers = module_logger.handlers
             self.logger.setLevel(module_logger.level)
         if not isinstance(lines, geopandas.geodataframe.GeoDataFrame):
             raise ValueError('lines must be a GeoDataFrame')
@@ -148,8 +150,8 @@ class SurfaceWaterNetwork(object):
             end_coord = row.geometry.coords[-1]  # downstream end
             if self.lines_idx:
                 # reduce number of rows to scan based on proximity in 2D
-                sub = self.lines.loc[
-                    self.lines_idx.intersection(end_coord[0:2])]
+                subsel = self.lines_idx.intersection(end_coord[0:2])
+                sub = self.lines.loc[list(subsel)]
             else:
                 # slow scan of full table
                 sub = self.lines
@@ -162,6 +164,9 @@ class SurfaceWaterNetwork(object):
                     to_nodes.append(node2)
                 elif start_coord[0:2] == end_coord[0:2]:
                     # 2D match only
+                    self.logger.warning(
+                        'node %s matches %s in 2D, but not in Z-dimension',
+                        node, node2)
                     to_nodes.append(node2)
             if len(to_nodes) > 1:
                 self.logger.error(
@@ -170,3 +175,9 @@ class SurfaceWaterNetwork(object):
             if len(to_nodes) > 0:
                 self.reaches.loc[node, 'to_node'] = to_nodes[0]
         # raise NotImplementedError()
+
+    @property
+    def outlets(self):
+        if self.reaches is None:
+            raise AttributeError("need to run 'evaluate_reaches'")
+        return self.lines.index[self.reaches['to_node'] == self.END_NODE]

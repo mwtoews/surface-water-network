@@ -21,50 +21,79 @@ def test_bad_init():
         swn.SurfaceWaterNetwork(object())
 
     df = pd.DataFrame({
-        'id': [101, 102, 103],
         'wkt': [
-            'LINESTRING Z (40 130 15, 60 100 15)',
-            'LINESTRING Z (70 130 14, 60 100 14)',
+            'LINESTRING Z (40 130 15, 60 100 14)',
+            'LINESTRING Z (70 130 15, 60 100 14)',
             'LINESTRING Z (60 100 14, 60 80 12)',
         ],
     })
-    df.set_index('id', inplace=True)
     df['geometry'] = df['wkt'].apply(wkt.loads)
     # Don't just pass a DataFrame
     with pytest.raises(ValueError, match='lines must be a GeoDataFrame'):
         swn.SurfaceWaterNetwork(df)
 
     # This works
-    gdf = geopandas.GeoDataFrame(df, geometry='geometry')
-    swn.SurfaceWaterNetwork(gdf)
+    lines = geopandas.GeoDataFrame(df, geometry='geometry')
+    swn.SurfaceWaterNetwork(lines)
 
     # Check number of rows
     with pytest.raises(ValueError, match='one or more lines are required'):
-        swn.SurfaceWaterNetwork(gdf[0:0])
+        swn.SurfaceWaterNetwork(lines[0:0])
 
     # Check geom_type
     df['bad_wkt'] = df['wkt'].copy()
-    df.loc[102, 'bad_wkt'] = 'MULTILINESTRING Z ((70 130 14, 60 100 14))'
+    df.loc[1, 'bad_wkt'] = 'MULTILINESTRING Z ((70 130 15, 60 100 14))'
     df['geometry'] = df['bad_wkt'].apply(wkt.loads)
-    gdf = geopandas.GeoDataFrame(df, geometry='geometry')
+    lines = geopandas.GeoDataFrame(df, geometry='geometry')
     with pytest.raises(ValueError, match='lines must all be LineString types'):
-        swn.SurfaceWaterNetwork(gdf)
+        swn.SurfaceWaterNetwork(lines)
 
     # Create 2D geometries
     df['bad_wkt'] = df['wkt']\
         .apply(wkt.loads).apply(wkt.dumps, output_dimension=2)
     df['geometry'] = df['bad_wkt'].apply(wkt.loads)
-    gdf = geopandas.GeoDataFrame(df, geometry='geometry')
+    lines = geopandas.GeoDataFrame(df, geometry='geometry')
     with pytest.raises(ValueError, match='lines must all have Z dimension'):
-        swn.SurfaceWaterNetwork(gdf)
+        swn.SurfaceWaterNetwork(lines)
+
+
+def test_bad_network():
+    # Match in 2D, but not in Z-dimension
+    df = pd.DataFrame({
+        'wkt': [
+            'LINESTRING Z (40 130 15, 60 100 13)',
+            'LINESTRING Z (70 130 15, 60 100 14)',
+            'LINESTRING Z (60 100 14, 60 80 12)',
+        ],
+    })
+    df['geometry'] = df['wkt'].apply(wkt.loads)
+    lines = geopandas.GeoDataFrame(df, geometry='geometry')
+    n = swn.SurfaceWaterNetwork(lines)
+    n.evaluate_reaches()
+    # shows warning, but unable to capture!
+    assert n.outlets.values.tolist() == [2]
+
+    # Lines all converge to the same place
+    df = pd.DataFrame({
+        'wkt': [
+            'LINESTRING Z (40 130 15, 60 100 15)',
+            'LINESTRING Z (70 130 14, 60 100 14)',
+            'LINESTRING Z (60 80 12, 60 100 14)',
+        ],
+    })
+    df['geometry'] = df['wkt'].apply(wkt.loads)
+    lines = geopandas.GeoDataFrame(df, geometry='geometry')
+    n = swn.SurfaceWaterNetwork(lines)
+    n.evaluate_reaches()
+    assert n.outlets.values.tolist() == [0, 1, 2]
 
 
 @pytest.fixture
 def basic():
     df = pd.DataFrame({
         'geometry': [
-            'LINESTRING Z (40 130 15, 60 100 15)',
-            'LINESTRING Z (70 130 14, 60 100 14)',
+            'LINESTRING Z (40 130 15, 60 100 14)',
+            'LINESTRING Z (70 130 15, 60 100 14)',
             'LINESTRING Z (60 100 14, 60 80 12)',
         ],
     })
@@ -87,3 +116,4 @@ def test_evaluate_reaches(basic):
     assert basic.lines_idx is None
     assert basic.reaches.index is basic.lines.index
     assert basic.reaches['to_node'].values.tolist() == [2, 2, -1]
+    assert basic.outlets.values.tolist() == [2]

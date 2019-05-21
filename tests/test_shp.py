@@ -37,6 +37,4 @@ def test_evaluate_reaches(dn):
         assert dn.lines_idx is None
     assert dn.reaches.index is dn.lines.index
 
-    outlets = dn.reaches['to_node'] == dn.END_NODE
-    assert dn.reaches['to_node'][outlets].index.values.tolist() == \
-        [3046700, 3046737, 3046736]
+    assert dn.outlets.values.tolist() == [3046700, 3046737, 3046736]
