@@ -28,14 +28,15 @@ def test_init(dn):
     assert len(dn) == 304
 
 
-def test_process(dn):
-    dn.process()
+def test_evaluate_reaches(dn):
+    dn.evaluate_reaches()
     assert dn.END_NODE == 0
     if rtree:
         assert dn.lines_idx is not None
     else:
         assert dn.lines_idx is None
-    assert dn.to_node.index is dn.lines.index
-    # outlets
-    assert dn.to_node[dn.to_node == 0].index.values.tolist() == \
+    assert dn.reaches.index is dn.lines.index
+
+    outlets = dn.reaches['to_node'] == dn.END_NODE
+    assert dn.reaches['to_node'][outlets].index.values.tolist() == \
         [3046700, 3046737, 3046736]

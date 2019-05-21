@@ -62,14 +62,12 @@ def test_bad_init():
 @pytest.fixture
 def basic():
     df = pd.DataFrame({
-        'id': [101, 102, 103],
         'geometry': [
             'LINESTRING Z (40 130 15, 60 100 15)',
             'LINESTRING Z (70 130 14, 60 100 14)',
             'LINESTRING Z (60 100 14, 60 80 12)',
         ],
     })
-    df.set_index('id', inplace=True)
     df['geometry'] = df['geometry'].apply(wkt.loads)
     lines = geopandas.GeoDataFrame(df, geometry='geometry')
     return swn.SurfaceWaterNetwork(lines)
@@ -80,15 +78,12 @@ def test_init(basic):
     assert basic.logger is not None
     assert len(basic) == 3
     assert basic.END_NODE is None
-    assert basic.to_node is None
+    assert basic.reaches is None
 
 
-def test_process(basic):
-    basic.process()
-    assert basic.END_NODE == 0
-    if rtree:
-        assert basic.lines_idx is not None
-    else:
-        assert basic.lines_idx is None
-    assert basic.to_node.index is basic.lines.index
-    assert basic.to_node.values.tolist() == [103, 103, 0]
+def test_evaluate_reaches(basic):
+    basic.evaluate_reaches()
+    assert basic.END_NODE == -1
+    assert basic.lines_idx is None
+    assert basic.reaches.index is basic.lines.index
+    assert basic.reaches['to_node'].values.tolist() == [2, 2, -1]

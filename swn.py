@@ -23,6 +23,9 @@ if __name__ not in [_.name for _ in module_logger.handlers]:
         module_logger.addHandler(handler)
         del formatter, handler
 
+# default threshold size of geometries when Rtree index is built
+_rtree_threshold = 100
+
 
 class SurfaceWaterNetwork(object):
     """Surface water network
@@ -34,15 +37,15 @@ class SurfaceWaterNetwork(object):
         number, such as a reach ID.
     END_NODE : int
         Node number that indicates a line end, default is usually 0.
-    to_node : pandas.core.series.Series
-        Node number that line flow to.
+    reaches : pandas.core.frame.DataFrame
+        DataFrame created by evaluate_reaches() and shares same index as lines.
     logger : logging.Logger
         Logger to show messages.
     """
     logger = None
     lines = None
     END_NODE = None
-    to_node = None
+    reaches = None
 
     def __len__(self):
         return len(self.lines)
@@ -116,43 +119,54 @@ class SurfaceWaterNetwork(object):
             raise NotImplementedError('nothing done with elevation yet')
         return cls(projection=projection, logger=logger)
 
-    def process(self):
+    def evaluate_reaches(self):
         """
-        Process surface water network
+        Evaluate surface water network reaches
 
         Parameters
         ----------
         """
         # Populate a spatial index for speed
-        if rtree:
+        if rtree and len(self.lines) >= _rtree_threshold:
+            self.logger.debug('building R-tree index of lines')
             self.lines_idx = rtree.Rtree()
             for node, row in self.lines.bounds.iterrows():
                 self.lines_idx.add(node, row.tolist())
             assert self.lines_idx.valid()
         else:
+            if len(self.lines) >= _rtree_threshold:
+                self.logger.debug(
+                    'using slow sequence scanning; consider installing rtree')
             self.lines_idx = None
         if self.lines.index.min() > 0:
             self.END_NODE = 0
         else:
             self.END_NODE = self.lines.index.min() - 1
-        self.to_node = pd.Series(self.END_NODE, index=self.lines.index)
+        self.reaches = \
+            pd.DataFrame({'to_node': self.END_NODE}, index=self.lines.index)
         for node, row in self.lines.iterrows():
             end_coord = row.geometry.coords[-1]  # downstream end
             if self.lines_idx:
                 # reduce number of rows to scan based on proximity in 2D
-                sub = self.lines.loc[self.lines_idx.intersection(end_coord[0:2])]
+                sub = self.lines.loc[
+                    self.lines_idx.intersection(end_coord[0:2])]
             else:
                 # slow scan of full table
                 sub = self.lines
+            to_nodes = []
             for node2, row2 in sub.iterrows():
                 if node2 == node:
                     continue
                 start_coord = row2.geometry.coords[0]
                 if start_coord == end_coord:
-                    self.to_node.loc[node] = node2
-                    break
+                    to_nodes.append(node2)
                 elif start_coord[0:2] == end_coord[0:2]:
                     # 2D match only
-                    self.to_node.loc[node] = node2
-                    break
+                    to_nodes.append(node2)
+            if len(to_nodes) > 1:
+                self.logger.error(
+                    'node %s has more than one downstream nodes: %s',
+                    node, tuple(to_nodes))
+            if len(to_nodes) > 0:
+                self.reaches.loc[node, 'to_node'] = to_nodes[0]
         # raise NotImplementedError()
