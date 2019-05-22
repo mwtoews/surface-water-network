@@ -136,8 +136,8 @@ class SurfaceWaterNetwork(object):
                          node, node2)
                     self.logger.warning(*m)
                     self.warnings.append(m[0] % m[1:])
-                elif (row2.geometry.distance(end_pt) < 1e-6
-                      and Point(*end2_coord).distance(end_pt) > 1e-6):
+                elif (row2.geometry.distance(end_pt) < 1e-6 and
+                      Point(*end2_coord).distance(end_pt) > 1e-6):
                     m = ('node %s connects to the middle of node %s',
                          node, node2)
                     self.logger.error(*m)
@@ -184,6 +184,16 @@ class SurfaceWaterNetwork(object):
                  key, start_coords[key])
             self.logger.error(*m)
             self.errors.append(m[0] % m[1:])
+
+        # Recursive function that puts values to upstream nodes
+        def put_cat_group(node, value):
+            self.reaches.loc[node, 'cat_group'] = value
+            for upnode in self.reaches.index[self.reaches['to_node'] == node]:
+                put_cat_group(upnode, value)
+
+        self.reaches['cat_group'] = self.END_NODE
+        for node in self.reaches.loc[self.outlets].index:
+            put_cat_group(node, node)
 
     @classmethod
     def init_from_gdal(cls, lines_srs, elevation_srs=None):

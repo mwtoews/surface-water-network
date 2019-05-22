@@ -3,13 +3,13 @@ import geopandas
 import pandas as pd
 import pytest
 import os
+import sys
 from shapely import wkt
 try:
     import rtree
 except ImportError:
     rtree = False
 
-import sys
 sys.path.insert(
     0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 
@@ -85,6 +85,8 @@ def test_init_mismatch_3D():
     assert len(n.warnings) == 1
     assert n.warnings[0] == 'node 0 matches 2 in 2D, but not in Z-dimension'
     assert len(n.errors) == 0
+    assert list(n.reaches['to_node']) == [2, 2, -1]
+    assert list(n.reaches['cat_group']) == [2, 2, 2]
     assert list(n.headwater) == [0, 1]
     assert list(n.outlets) == [2]
 
@@ -99,6 +101,8 @@ def test_init_all_converge():
     n = swn.SurfaceWaterNetwork(lines)
     assert len(n.warnings) == 0
     assert len(n.errors) == 0
+    assert list(n.reaches['to_node']) == [-1, -1, -1]
+    assert list(n.reaches['cat_group']) == [0, 1, 2]
     assert list(n.headwater) == [0, 1, 2]
     assert list(n.outlets) == [0, 1, 2]
 
@@ -116,7 +120,10 @@ def test_init_all_diverge():
     assert n.warnings[0].endswith('but not in Z-dimension')
     assert len(n.errors) == 1
     assert n.errors[0] == \
-        'starting coordinate (60.0, 100.0) matches start nodes {0, 1, 2}'
+        'starting coordinate (60.0, 100.0) matches start nodes ' + \
+        str(set([0, 1, 2]))
+    assert list(n.reaches['to_node']) == [-1, -1, -1]
+    assert list(n.reaches['cat_group']) == [0, 1, 2]
     assert list(n.headwater) == [0, 1, 2]
     assert list(n.outlets) == [0, 1, 2]
 
@@ -130,6 +137,8 @@ def test_init_line_connects_to_middle():
     assert len(n.warnings) == 0
     assert len(n.errors) == 1
     assert n.errors[0] == 'node 1 connects to the middle of node 0'
+    assert list(n.reaches['to_node']) == [-1, -1]
+    assert list(n.reaches['cat_group']) == [0, 1]
     assert list(n.headwater) == [0, 1]
     assert list(n.outlets) == [0, 1]
 
@@ -142,6 +151,7 @@ def test_init_defaults(lines):
     assert n.lines_idx is None
     assert n.reaches.index is n.lines.index
     assert list(n.reaches['to_node']) == [2, 2, -1]
+    assert list(n.reaches['cat_group']) == [2, 2, 2]
     assert list(n.headwater) == [0, 1]
     assert list(n.outlets) == [2]
     assert len(n.warnings) == 0
