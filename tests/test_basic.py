@@ -34,7 +34,7 @@ def df():
     return wkt_to_df([
         'LINESTRING Z (40 130 15, 60 100 14)',
         'LINESTRING Z (70 130 15, 60 100 14)',
-        'LINESTRING Z (60 100 14, 60 80 12)',
+        'LINESTRING Z (60 100 14, 60  80 12)',
     ])
 
 
@@ -59,9 +59,9 @@ def test_init_zero_lines(lines):
 
 
 def test_init_geom_type(df):
-    wkt = df['wkt'].tolist()
-    wkt[1] = 'MULTILINESTRING Z ((70 130 15, 60 100 14))'
-    lines = wkt_to_gdf(wkt)
+    wkt_list = df['wkt'].tolist()
+    wkt_list[1] = 'MULTILINESTRING Z ((70 130 15, 60 100 14))'
+    lines = wkt_to_gdf(wkt_list)
     with pytest.raises(ValueError, match='lines must all be LineString types'):
         swn.SurfaceWaterNetwork(lines)
 
@@ -79,13 +79,14 @@ def test_init_mismatch_3D():
     lines = wkt_to_gdf([
         'LINESTRING Z (40 130 15, 60 100 13)',
         'LINESTRING Z (70 130 15, 60 100 14)',
-        'LINESTRING Z (60 100 14, 60 80 12)',
+        'LINESTRING Z (60 100 14, 60  80 12)',
     ])
     n = swn.SurfaceWaterNetwork(lines)
     assert len(n.warnings) == 1
     assert n.warnings[0] == 'node 0 matches 2 in 2D, but not in Z-dimension'
     assert len(n.errors) == 0
-    assert n.outlets.values.tolist() == [2]
+    assert list(n.headwater) == [0, 1]
+    assert list(n.outlets) == [2]
 
 
 def test_init_all_converge():
@@ -93,12 +94,31 @@ def test_init_all_converge():
     lines = wkt_to_gdf([
         'LINESTRING Z (40 130 15, 60 100 15)',
         'LINESTRING Z (70 130 14, 60 100 14)',
-        'LINESTRING Z (60 80 12, 60 100 14)',
+        'LINESTRING Z (60  80 12, 60 100 14)',
     ])
     n = swn.SurfaceWaterNetwork(lines)
     assert len(n.warnings) == 0
     assert len(n.errors) == 0
-    assert n.outlets.values.tolist() == [0, 1, 2]
+    assert list(n.headwater) == [0, 1, 2]
+    assert list(n.outlets) == [0, 1, 2]
+
+
+def test_init_all_diverge():
+    # Lines all diverge from the same place
+    lines = wkt_to_gdf([
+        'LINESTRING Z (60 100 15, 40 130 14)',
+        'LINESTRING Z (60 100 16, 70 130 14)',
+        'LINESTRING Z (60 100 15, 60  80 12)',
+    ])
+    n = swn.SurfaceWaterNetwork(lines)
+    assert len(n.warnings) == 4
+    assert n.warnings[0].startswith('starting node')
+    assert n.warnings[0].endswith('but not in Z-dimension')
+    assert len(n.errors) == 1
+    assert n.errors[0] == \
+        'starting coordinate (60.0, 100.0) matches start nodes {0, 1, 2}'
+    assert list(n.headwater) == [0, 1, 2]
+    assert list(n.outlets) == [0, 1, 2]
 
 
 def test_init_line_connects_to_middle():
@@ -110,7 +130,8 @@ def test_init_line_connects_to_middle():
     assert len(n.warnings) == 0
     assert len(n.errors) == 1
     assert n.errors[0] == 'node 1 connects to the middle of node 0'
-    assert n.outlets.values.tolist() == [0, 1]
+    assert list(n.headwater) == [0, 1]
+    assert list(n.outlets) == [0, 1]
 
 
 def test_init_defaults(lines):
@@ -120,7 +141,8 @@ def test_init_defaults(lines):
     assert n.END_NODE == -1
     assert n.lines_idx is None
     assert n.reaches.index is n.lines.index
-    assert n.reaches['to_node'].values.tolist() == [2, 2, -1]
-    assert n.outlets.values.tolist() == [2]
+    assert list(n.reaches['to_node']) == [2, 2, -1]
+    assert list(n.headwater) == [0, 1]
+    assert list(n.outlets) == [2]
     assert len(n.warnings) == 0
     assert len(n.errors) == 0

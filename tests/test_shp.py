@@ -32,5 +32,6 @@ def test_init(dn):
     else:
         assert dn.lines_idx is None
     assert dn.reaches.index is dn.lines.index
-
-    assert dn.outlets.values.tolist() == [3046700, 3046737, 3046736]
+    assert len(dn.headwater) == 154
+    assert set(dn.headwater).issuperset([3046700, 3046802, 3050418, 3048102])
+    assert list(dn.outlets) == [3046700, 3046737, 3046736]

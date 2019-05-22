@@ -43,6 +43,8 @@ class SurfaceWaterNetwork(object):
         Node number that indicates a line end, default is usually 0.
     reaches : pandas.core.frame.DataFrame
         DataFrame created by evaluate_reaches() and shares same index as lines.
+    headwater : pandas.core.index.Int64Index
+        Head water nodes at top of cachment.
     outlets : pandas.core.index.Int64Index
         Index nodes for each outlet.
     logger : logging.Logger
@@ -108,6 +110,7 @@ class SurfaceWaterNetwork(object):
                 {'to_node': self.END_NODE}, index=self.lines.index)
         self.errors = []
         self.warnings = []
+        # Cartesian join of lines to find where ends connect to
         for node, row in self.lines.iterrows():
             end_coord = row.geometry.coords[-1]  # downstream end
             end_pt = Point(*end_coord)
@@ -146,6 +149,41 @@ class SurfaceWaterNetwork(object):
                 self.errors.append(m[0] % m[1:])
             if len(to_nodes) > 0:
                 self.reaches.loc[node, 'to_node'] = to_nodes[0]
+        # Check headwater nodes
+        start_coords = {}  # key: 2D coord, value: list of nodes
+        for node, row in self.lines.loc[self.headwater].iterrows():
+            start_coord = row.geometry.coords[0]
+            start_coord2d = start_coord[0:2]
+            if self.lines_idx:
+                subsel = self.lines_idx.intersection(start_coord2d)
+                sub = self.lines.loc[list(subsel)]
+            else:
+                # slow scan of full table
+                sub = self.lines
+            for node2, row2 in sub.iterrows():
+                if node2 == node:
+                    continue
+                start2_coord = row2.geometry.coords[0]
+                match = False
+                if start2_coord == start_coord:
+                    # perfect 3D match from end of node to start of node2
+                    match = True
+                elif start2_coord[0:2] == start_coord[0:2]:
+                    match = True
+                    m = ('starting node %s matches %s in 2D, but not in '
+                         'Z-dimension', node, node2)
+                    self.logger.warning(*m)
+                    self.warnings.append(m[0] % m[1:])
+                if match:
+                    if start_coord2d in start_coords:
+                        start_coords[start_coord2d].add(node2)
+                    else:
+                        start_coords[start_coord2d] = set([node2])
+        for key in start_coords.keys():
+            m = ('starting coordinate %s matches start nodes %s',
+                 key, start_coords[key])
+            self.logger.error(*m)
+            self.errors.append(m[0] % m[1:])
 
     @classmethod
     def init_from_gdal(cls, lines_srs, elevation_srs=None):
@@ -189,6 +227,11 @@ class SurfaceWaterNetwork(object):
                 elevation.mask = elevation == nodata
             raise NotImplementedError('nothing done with elevation yet')
         return cls(projection=projection, logger=logger)
+
+    @property
+    def headwater(self):
+        return self.lines.index[
+                ~self.reaches.index.isin(self.reaches['to_node'])]
 
     @property
     def outlets(self):
