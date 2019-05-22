@@ -38,3 +38,10 @@ def test_init(dn):
     cat_group = dn.reaches.groupby('cat_group').count()['to_node']
     assert len(cat_group) == 3
     assert dict(cat_group) == {3046700: 1, 3046737: 173, 3046736: 130}
+
+
+def test_accumulate_values(dn):
+    catarea = dn.accumulate_values(dn.lines['CATAREA'])
+    res = catarea - dn.lines['CUM_AREA']
+    assert res.min() > -7.0
+    assert res.max() < 7.0

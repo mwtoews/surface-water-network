@@ -43,6 +43,11 @@ def lines(df):
     return geopandas.GeoDataFrame(df, geometry='geometry')
 
 
+@pytest.fixture
+def n(lines):
+    return swn.SurfaceWaterNetwork(lines)
+
+
 def test_init_object():
     with pytest.raises(ValueError, match='lines must be a GeoDataFrame'):
         swn.SurfaceWaterNetwork(object())
@@ -143,12 +148,12 @@ def test_init_line_connects_to_middle():
     assert list(n.outlets) == [0, 1]
 
 
-def test_init_defaults(lines):
-    n = swn.SurfaceWaterNetwork(lines)
+def test_init_defaults(n):
     assert n.logger is not None
     assert len(n) == 3
     assert n.END_NODE == -1
     assert n.lines_idx is None
+    assert n.index is n.lines.index
     assert n.reaches.index is n.lines.index
     assert list(n.reaches['to_node']) == [2, 2, -1]
     assert list(n.reaches['cat_group']) == [2, 2, 2]
@@ -156,3 +161,21 @@ def test_init_defaults(lines):
     assert list(n.outlets) == [2]
     assert len(n.warnings) == 0
     assert len(n.errors) == 0
+
+
+def test_accumulate_values_must_be_series(n):
+    with pytest.raises(ValueError, match='values must be a pandas Series'):
+        n.accumulate_values([1.0, 1.0, 1.0])
+
+
+def test_accumulate_values_different_index(n):
+    v = pd.Series([1.0, 1.0, 1.0])
+    v.index += 1
+    with pytest.raises(ValueError, match='index is different'):
+        n.accumulate_values(v)
+
+
+def test_accumulate_values_expected(n):
+    v = pd.Series(1.0, n.lines.index)
+    a = n.accumulate_values(v)
+    assert dict(a) == {0: 1.0, 1: 1.0, 2: 3.0}

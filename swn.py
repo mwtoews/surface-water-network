@@ -39,8 +39,11 @@ class SurfaceWaterNetwork(object):
     lines : geopandas.geodataframe.GeoDataFrame
         GeoDataFrame lines of surface water network. Index is treated as node
         number, such as a reach ID.
+    index : pandas.core.index.Int64Index
+        Shared index or node number.
     END_NODE : int
-        Node number that indicates a line end, default is usually 0.
+        Special node number that indicates a line end, default is usually 0.
+        This number is not part of the index.
     reaches : pandas.core.frame.DataFrame
         DataFrame created by evaluate_reaches() and shares same index as lines.
     headwater : pandas.core.index.Int64Index
@@ -55,6 +58,7 @@ class SurfaceWaterNetwork(object):
         List of error messages.
     """
     lines = None
+    index = None
     END_NODE = None
     reaches = None
     logger = None
@@ -62,7 +66,7 @@ class SurfaceWaterNetwork(object):
     errors = None
 
     def __len__(self):
-        return len(self.lines)
+        return len(self.index)
 
     def __init__(self, lines, logger=None):
         """
@@ -89,25 +93,26 @@ class SurfaceWaterNetwork(object):
         elif not lines.geometry.apply(lambda x: x.has_z).all():
             raise ValueError('lines must all have Z dimension')
         self.lines = lines
-        self.logger.info('creating network with %d lines', len(self.lines))
+        self.index = self.lines.index
+        self.logger.info('creating network with %d lines', len(self))
         # Populate a spatial index for speed
-        if rtree and len(self.lines) >= _rtree_threshold:
+        if rtree and len(self) >= _rtree_threshold:
             self.logger.debug('building R-tree index of lines')
             self.lines_idx = rtree.Rtree()
             for node, row in self.lines.bounds.iterrows():
                 self.lines_idx.add(node, row.tolist())
             assert self.lines_idx.valid()
         else:
-            if len(self.lines) >= _rtree_threshold:
+            if len(self) >= _rtree_threshold:
                 self.logger.debug(
                     'using slow sequence scanning; consider installing rtree')
             self.lines_idx = None
-        if self.lines.index.min() > 0:
+        if self.index.min() > 0:
             self.END_NODE = 0
         else:
-            self.END_NODE = self.lines.index.min() - 1
+            self.END_NODE = self.index.min() - 1
         self.reaches = pd.DataFrame(
-                {'to_node': self.END_NODE}, index=self.lines.index)
+                {'to_node': self.END_NODE}, index=self.index)
         self.errors = []
         self.warnings = []
         # Cartesian join of lines to find where ends connect to
@@ -240,9 +245,43 @@ class SurfaceWaterNetwork(object):
 
     @property
     def headwater(self):
-        return self.lines.index[
+        return self.index[
                 ~self.reaches.index.isin(self.reaches['to_node'])]
 
     @property
     def outlets(self):
-        return self.lines.index[self.reaches['to_node'] == self.END_NODE]
+        return self.index[self.reaches['to_node'] == self.END_NODE]
+
+    def accumulate_values(self, values):
+        """Accumulate values down the stream network
+
+        For example, calculate cumulative upstream catchment area for each
+        reach.
+
+        Parameters
+        ----------
+        values : pandas.core.series.Series
+            Series of values that align with lines.index.
+
+        Returns
+        -------
+        pandas.core.series.Series
+            Accumulated values.
+        """
+        if not isinstance(values, pd.core.series.Series):
+            raise ValueError('values must be a pandas Series')
+        elif (len(values.index) != len(self.reaches.index) or
+                not (values.index == self.reaches.index).all()):
+            raise ValueError('index is different')
+        accum = values.copy()
+        accum.name = None
+        ud = {}  # key: down node, values: up node set
+        for dn in set(self.reaches['to_node']).difference([self.END_NODE]):
+            ud[dn] = set(self.index[self.reaches['to_node'] == dn])
+        upstream = set(self.headwater)
+        while ud:
+            for dn in set(self.reaches.loc[upstream, 'to_node']):
+                if dn in ud and ud[dn].issubset(upstream):
+                    accum[dn] += accum[list(ud.pop(dn))].sum()
+                    upstream.add(dn)
+        return accum
