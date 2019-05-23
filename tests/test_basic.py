@@ -31,13 +31,18 @@ def wkt_to_gdf(wkt_list, geom_name='geometry'):
 
 
 @pytest.fixture
-def df():
+def wkt_list():
     # valid network
-    return wkt_to_df([
+    return [
         'LINESTRING Z (40 130 15, 60 100 14)',
         'LINESTRING Z (70 130 15, 60 100 14)',
         'LINESTRING Z (60 100 14, 60  80 12)',
-    ])
+    ]
+
+
+@pytest.fixture
+def df(wkt_list):
+    return wkt_to_df(wkt_list)
 
 
 @pytest.fixture
@@ -243,6 +248,18 @@ def test_init_line_connects_to_middle():
     assert list(n.reaches['stream_order']) == [1, 1]
     assert list(n.headwater) == [0, 1]
     assert list(n.outlets) == [0, 1]
+
+
+def test_init_geometry_name(wkt_list):
+    lines = wkt_to_gdf(wkt_list, geom_name='foo')
+    n = swn.SurfaceWaterNetwork(lines)
+    assert len(n.warnings) == 0
+    assert len(n.errors) == 0
+    assert len(n) == 3
+    assert n.has_z is True
+    v = pd.Series(1.0, n.lines.index)
+    a = n.accumulate_values(v)
+    assert dict(a) == {0: 1.0, 1: 1.0, 2: 3.0}
 
 
 def test_accumulate_values_must_be_series(n):

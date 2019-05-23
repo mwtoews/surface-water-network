@@ -121,8 +121,9 @@ class SurfaceWaterNetwork(object):
         self.warnings = []
         # Cartesian join of lines to find where ends connect to
         self.logger.debug('finding connections between pairs of lines')
+        geom_name = self.lines.geometry.name
         for node, row in self.lines.iterrows():
-            end_coord = row.geometry.coords[-1]  # downstream end
+            end_coord = row[geom_name].coords[-1]  # downstream end
             end_pt = Point(*end_coord)
             if self.lines_idx:
                 # reduce number of rows to scan based on proximity in 2D
@@ -135,8 +136,9 @@ class SurfaceWaterNetwork(object):
             for node2, row2 in sub.iterrows():
                 if node2 == node:
                     continue
-                start2_coord = row2.geometry.coords[0]
-                end2_coord = row2.geometry.coords[-1]
+                geom2 = row2[geom_name]
+                start2_coord = geom2.coords[0]
+                end2_coord = geom2.coords[-1]
                 if start2_coord == end_coord:
                     # perfect 3D match from end of node to start of node2
                     to_nodes.append(node2)
@@ -146,7 +148,7 @@ class SurfaceWaterNetwork(object):
                          node, node2)
                     self.logger.warning(*m)
                     self.warnings.append(m[0] % m[1:])
-                elif (row2.geometry.distance(end_pt) < 1e-6 and
+                elif (geom2.distance(end_pt) < 1e-6 and
                       Point(*end2_coord).distance(end_pt) > 1e-6):
                     m = ('node %s connects to the middle of node %s',
                          node, node2)
@@ -165,7 +167,7 @@ class SurfaceWaterNetwork(object):
             self.reaches.loc[node, 'cat_group'] = cat_group
             num += 1
             self.reaches.loc[node, 'num_to_outlet'] = num
-            length += self.lines.geometry[node].length
+            length += self.lines.loc[node, geom_name].length
             self.reaches.loc[node, 'length_to_outlet'] = length
             # Branch to zero or more upstream reaches
             for upnode in self.reaches.index[self.reaches['to_node'] == node]:
@@ -184,7 +186,7 @@ class SurfaceWaterNetwork(object):
         self.logger.debug('checking %d headwater nodes', len(headwater))
         start_coords = {}  # key: 2D coord, value: list of nodes
         for node, row in self.lines.loc[headwater].iterrows():
-            start_coord = row.geometry.coords[0]
+            start_coord = row[geom_name].coords[0]
             start_coord2d = start_coord[0:2]
             if self.lines_idx:
                 subsel = self.lines_idx.intersection(start_coord2d)
@@ -195,7 +197,8 @@ class SurfaceWaterNetwork(object):
             for node2, row2 in sub.iterrows():
                 if node2 == node:
                     continue
-                start2_coord = row2.geometry.coords[0]
+                geom2 = row2[geom_name]
+                start2_coord = geom2.coords[0]
                 match = False
                 if start2_coord == start_coord:
                     # perfect 3D match from end of node to start of node2
