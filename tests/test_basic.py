@@ -6,6 +6,7 @@ import numpy as np
 import os
 import sys
 from shapely import wkt
+from shapely.geometry import LineString
 try:
     import rtree
 except ImportError:
@@ -72,17 +73,12 @@ def test_init_geom_type(df):
         swn.SurfaceWaterNetwork(lines)
 
 
-def test_init_2D_geom(df):
-    # Rewrite WKT as 2D
-    lines = wkt_to_gdf(
-        df['wkt'].apply(wkt.loads).apply(wkt.dumps, output_dimension=2))
-    with pytest.raises(ValueError, match='lines must all have Z dimension'):
-        swn.SurfaceWaterNetwork(lines)
-
-
 def test_init_defaults(n):
     assert n.logger is not None
+    assert len(n.warnings) == 0
+    assert len(n.errors) == 0
     assert len(n) == 3
+    assert n.has_z is True
     assert n.END_NODE == -1
     assert n.lines_idx is None
     assert n.index is n.lines.index
@@ -97,21 +93,21 @@ def test_init_defaults(n):
     assert list(n.reaches['stream_order']) == [1, 1, 2]
     assert list(n.headwater) == [0, 1]
     assert list(n.outlets) == [2]
+
+
+def test_init_2D_geom(df):
+    # Rewrite WKT as 2D
+    lines = wkt_to_gdf(
+        df['wkt'].apply(wkt.loads).apply(wkt.dumps, output_dimension=2))
+    n = swn.SurfaceWaterNetwork(lines)
     assert len(n.warnings) == 0
     assert len(n.errors) == 0
-
-
-def test_init_mismatch_3D():
-    # Match in 2D, but not in Z-dimension
-    lines = wkt_to_gdf([
-        'LINESTRING Z (40 130 15, 60 100 13)',
-        'LINESTRING Z (70 130 15, 60 100 14)',
-        'LINESTRING Z (60 100 14, 60  80 12)',
-    ])
-    n = swn.SurfaceWaterNetwork(lines)
-    assert len(n.warnings) == 1
-    assert n.warnings[0] == 'node 0 matches 2 in 2D, but not in Z-dimension'
-    assert len(n.errors) == 0
+    assert len(n) == 3
+    assert n.has_z is False
+    assert n.END_NODE == -1
+    assert n.lines_idx is None
+    assert n.index is n.lines.index
+    assert n.reaches.index is n.lines.index
     assert list(n.reaches['to_node']) == [2, 2, -1]
     assert list(n.reaches['cat_group']) == [2, 2, 2]
     assert list(n.reaches['num_to_outlet']) == [2, 2, 1]
@@ -124,6 +120,55 @@ def test_init_mismatch_3D():
     assert list(n.outlets) == [2]
 
 
+def test_init_mismatch_3D():
+    # Match in 2D, but not in Z dimension
+    lines = wkt_to_gdf([
+        'LINESTRING Z (40 130 15, 60 100 13)',
+        'LINESTRING Z (70 130 15, 60 100 14)',
+        'LINESTRING Z (60 100 14, 60  80 12)',
+    ])
+    n = swn.SurfaceWaterNetwork(lines)
+    assert len(n.warnings) == 1
+    assert n.warnings[0] == 'node 0 matches 2 in 2D, but not in Z dimension'
+    assert len(n.errors) == 0
+    assert len(n) == 3
+    assert n.has_z is True
+    assert list(n.reaches['to_node']) == [2, 2, -1]
+    assert list(n.reaches['cat_group']) == [2, 2, 2]
+    assert list(n.reaches['num_to_outlet']) == [2, 2, 1]
+    np.testing.assert_allclose(
+        n.reaches['length_to_outlet'], [56.05551, 51.622776, 20.0])
+    assert list(n.reaches['sequence']) == [1, 2, 3]
+    assert list(n.reaches['numiter']) == [0, 0, 1]
+    assert list(n.reaches['stream_order']) == [1, 1, 2]
+    assert list(n.headwater) == [0, 1]
+    assert list(n.outlets) == [2]
+
+
+def test_init_reversed_lines(lines):
+    # same as the working lines, but reversed in the opposite direction
+    lines.geometry = lines.geometry.apply(lambda x: LineString(x.coords[::-1]))
+    n = swn.SurfaceWaterNetwork(lines)
+    assert len(n.warnings) == 0
+    assert len(n.errors) == 2
+    assert n.errors[0] == 'node 2 has more than one downstream nodes: [0, 1]'
+    assert n.errors[1] == 'starting coordinate (60.0, 100.0) ' + \
+        'matches start node: ' + str(set([0]))
+    assert len(n) == 3
+    assert n.has_z is True
+    # This is all non-sense
+    assert list(n.reaches['to_node']) == [-1, -1, 0]
+    assert list(n.reaches['cat_group']) == [0, 1, 0]
+    assert list(n.reaches['num_to_outlet']) == [1, 1, 2]
+    np.testing.assert_allclose(
+        n.reaches['length_to_outlet'], [36.05551, 31.622776, 56.05551])
+    assert list(n.reaches['sequence']) == [3, 2, 1]
+    assert list(n.reaches['numiter']) == [1, 0, 0]
+    assert list(n.reaches['stream_order']) == [1, 1, 1]
+    assert list(n.headwater) == [1, 2]
+    assert list(n.outlets) == [0, 1]
+
+
 def test_init_all_converge():
     # Lines all converge to the same place. Should this be a warning / error?
     lines = wkt_to_gdf([
@@ -134,6 +179,8 @@ def test_init_all_converge():
     n = swn.SurfaceWaterNetwork(lines)
     assert len(n.warnings) == 0
     assert len(n.errors) == 0
+    assert len(n) == 3
+    assert n.has_z is True
     assert list(n.reaches['to_node']) == [-1, -1, -1]
     assert list(n.reaches['cat_group']) == [0, 1, 2]
     assert list(n.reaches['num_to_outlet']) == [1, 1, 1]
@@ -156,11 +203,13 @@ def test_init_all_diverge():
     n = swn.SurfaceWaterNetwork(lines)
     assert len(n.warnings) == 4
     assert n.warnings[0].startswith('starting node')
-    assert n.warnings[0].endswith('but not in Z-dimension')
+    assert n.warnings[0].endswith('but not in Z dimension')
     assert len(n.errors) == 1
     assert n.errors[0] == \
-        'starting coordinate (60.0, 100.0) matches start nodes ' + \
+        'starting coordinate (60.0, 100.0) matches start nodes: ' + \
         str(set([0, 1, 2]))
+    assert len(n) == 3
+    assert n.has_z is True
     assert list(n.reaches['to_node']) == [-1, -1, -1]
     assert list(n.reaches['num_to_outlet']) == [1, 1, 1]
     assert list(n.reaches['cat_group']) == [0, 1, 2]
@@ -182,6 +231,8 @@ def test_init_line_connects_to_middle():
     assert len(n.warnings) == 0
     assert len(n.errors) == 1
     assert n.errors[0] == 'node 1 connects to the middle of node 0'
+    assert len(n) == 2
+    assert n.has_z is True
     assert list(n.reaches['to_node']) == [-1, -1]
     assert list(n.reaches['cat_group']) == [0, 1]
     assert list(n.reaches['num_to_outlet']) == [1, 1]

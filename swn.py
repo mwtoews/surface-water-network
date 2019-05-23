@@ -49,6 +49,8 @@ class SurfaceWaterNetwork(object):
     upstream_nodes : dict
         Key is downstream node, and values are a set of zero or more upstream
         nodes. END_NODE and headwater nodes are not included.
+    has_z : bool
+        Property that indicates all lines have Z dimension coordinates.
     headwater : pandas.core.index.Int64Index
         Head water nodes at top of cachment.
     outlets : pandas.core.index.Int64Index
@@ -80,7 +82,7 @@ class SurfaceWaterNetwork(object):
         ----------
         lines : geopandas.geodataframe.GeoDataFrame
             Input GeoDataFrame lines of surface water network. Geometries
-            must be 'LINESTRING Z'.
+            must be 'LINESTRING' or 'LINESTRING Z'.
         logger : logging.Logger, optional
             Logger to show messages.
         """
@@ -94,12 +96,10 @@ class SurfaceWaterNetwork(object):
             raise ValueError('one or more lines are required')
         elif not (lines.geom_type == 'LineString').all():
             raise ValueError('lines must all be LineString types')
-        elif not lines.geometry.apply(lambda x: x.has_z).all():
-            raise ValueError('lines must all have Z dimension')
         self.lines = lines
         self.index = self.lines.index
         self.logger.info('creating network with %d lines', len(self))
-        # Populate a spatial index for speed
+        # Populate a 2D spatial index for speed
         if rtree and len(self) >= _rtree_threshold:
             self.logger.debug('building R-tree index of lines')
             self.lines_idx = rtree.Rtree()
@@ -142,7 +142,7 @@ class SurfaceWaterNetwork(object):
                     to_nodes.append(node2)
                 elif start2_coord[0:2] == end_coord[0:2]:
                     to_nodes.append(node2)
-                    m = ('node %s matches %s in 2D, but not in Z-dimension',
+                    m = ('node %s matches %s in 2D, but not in Z dimension',
                          node, node2)
                     self.logger.warning(*m)
                     self.warnings.append(m[0] % m[1:])
@@ -154,7 +154,7 @@ class SurfaceWaterNetwork(object):
                     self.errors.append(m[0] % m[1:])
             if len(to_nodes) > 1:
                 m = ('node %s has more than one downstream nodes: %s',
-                     node, tuple(to_nodes))
+                     node, str(to_nodes))
                 self.logger.error(*m)
                 self.errors.append(m[0] % m[1:])
             if len(to_nodes) > 0:
@@ -203,7 +203,7 @@ class SurfaceWaterNetwork(object):
                 elif start2_coord[0:2] == start_coord[0:2]:
                     match = True
                     m = ('starting node %s matches %s in 2D, but not in '
-                         'Z-dimension', node, node2)
+                         'Z dimension', node, node2)
                     self.logger.warning(*m)
                     self.warnings.append(m[0] % m[1:])
                 if match:
@@ -212,8 +212,9 @@ class SurfaceWaterNetwork(object):
                     else:
                         start_coords[start_coord2d] = set([node2])
         for key in start_coords.keys():
-            m = ('starting coordinate %s matches start nodes %s',
-                 key, start_coords[key])
+            v = start_coords[key]
+            m = ('starting coordinate %s matches start node%s: %s',
+                 key, 's' if len(v) != 1 else '', v)
             self.logger.error(*m)
             self.errors.append(m[0] % m[1:])
 
@@ -273,7 +274,7 @@ class SurfaceWaterNetwork(object):
             Path to open vector GDAL dataset of stream network lines.
         elevation_srs : str, optional
             Path to open raster GDAL dataset of elevation. If not provided,
-            then Z-dimension from lines used. Not implemented yet.
+            then Z dimension from lines used. Not implemented yet.
         """
         if not gdal:
             raise ImportError('this method requires GDAL')
@@ -306,12 +307,19 @@ class SurfaceWaterNetwork(object):
         return cls(projection=projection, logger=logger)
 
     @property
+    def has_z(self):
+        """Returns True if all lines have Z dimension"""
+        return bool(self.lines.geometry.apply(lambda x: x.has_z).all())
+
+    @property
     def headwater(self):
+        """Returns index of headwater reaches"""
         return self.index[
                 ~self.reaches.index.isin(self.reaches['to_node'])]
 
     @property
     def outlets(self):
+        """Returns index of outlets"""
         return self.index[self.reaches['to_node'] == self.END_NODE]
 
     def accumulate_values(self, values):
