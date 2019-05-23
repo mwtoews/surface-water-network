@@ -220,6 +220,7 @@ class SurfaceWaterNetwork(object):
         self.logger.debug('evaluating downstream sequence')
         self.reaches['sequence'] = 0
         self.reaches['numiter'] = -1
+        self.reaches['stream_order'] = 0
         # Sort headwater nodes from the furthest to outlet to closest
         furthest_upstream = self.reaches.loc[headwater]\
             .sort_values('length_to_outlet', ascending=False).index
@@ -227,6 +228,7 @@ class SurfaceWaterNetwork(object):
             np.arange(len(furthest_upstream)) + 1, index=furthest_upstream)
         self.reaches.loc[sequence.index, 'sequence'] = sequence
         self.reaches.loc[sequence.index, 'numiter'] = 0
+        self.reaches.loc[sequence.index, 'stream_order'] = 1
         # Build a dict that describes downstream nodes to one or more upstream
         self.upstream_nodes = {}
         for node in set(self.reaches['to_node']).difference([self.END_NODE]):
@@ -247,6 +249,14 @@ class SurfaceWaterNetwork(object):
                     sequence += 1
                     self.reaches.loc[node, 'sequence'] = sequence
                     self.reaches.loc[node, 'numiter'] = numiter
+                    up_ord = list(
+                        self.reaches.loc[
+                            list(self.upstream_nodes[node]), 'stream_order'])
+                    max_ord = max(up_ord)
+                    if up_ord.count(max_ord) > 1:
+                        self.reaches.loc[node, 'stream_order'] = max_ord + 1
+                    else:
+                        self.reaches.loc[node, 'stream_order'] = max_ord
                     completed.add(node)
             if self.reaches['sequence'].min() > 0:
                 break
@@ -326,8 +336,10 @@ class SurfaceWaterNetwork(object):
                 not (values.index == self.reaches.index).all()):
             raise ValueError('index is different')
         accum = values.copy()
-        if isinstance(accum.name, str):
+        try:
             accum.name = 'accumulated_' + accum.name
+        except TypeError:
+            pass
         for node in self.reaches.sort_values('sequence').index:
             if node in self.upstream_nodes:
                 upstream_nodes = list(self.upstream_nodes[node])

@@ -57,6 +57,11 @@ def test_init(dn):
     assert list(dn.reaches['sequence'])[-6:] == [156, 4, 155, 1, 3, 2]
     assert dn.reaches['numiter'].min() == 0
     assert dn.reaches['numiter'].max() == 4
+    stream_order = dn.reaches.groupby('stream_order').count()['to_node']
+    assert len(stream_order) == 5
+    assert dict(stream_order) == {1: 154, 2: 72, 3: 46, 4: 28, 5: 4}
+    np.testing.assert_array_equal(
+        dn.reaches['stream_order'], dn.lines['StreamOrde'])
 
 
 def test_accumulate_values(dn):

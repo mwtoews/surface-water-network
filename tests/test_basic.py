@@ -94,6 +94,7 @@ def test_init_defaults(n):
         n.reaches['length_to_outlet'], [56.05551, 51.622776, 20.0])
     assert list(n.reaches['sequence']) == [1, 2, 3]
     assert list(n.reaches['numiter']) == [0, 0, 1]
+    assert list(n.reaches['stream_order']) == [1, 1, 2]
     assert list(n.headwater) == [0, 1]
     assert list(n.outlets) == [2]
     assert len(n.warnings) == 0
@@ -118,6 +119,7 @@ def test_init_mismatch_3D():
         n.reaches['length_to_outlet'], [56.05551, 51.622776, 20.0])
     assert list(n.reaches['sequence']) == [1, 2, 3]
     assert list(n.reaches['numiter']) == [0, 0, 1]
+    assert list(n.reaches['stream_order']) == [1, 1, 2]
     assert list(n.headwater) == [0, 1]
     assert list(n.outlets) == [2]
 
@@ -139,6 +141,7 @@ def test_init_all_converge():
         n.reaches['length_to_outlet'], [36.05551, 31.622776, 20.0])
     assert list(n.reaches['sequence']) == [1, 2, 3]
     assert list(n.reaches['numiter']) == [0, 0, 0]
+    assert list(n.reaches['stream_order']) == [1, 1, 1]
     assert list(n.headwater) == [0, 1, 2]
     assert list(n.outlets) == [0, 1, 2]
 
@@ -165,6 +168,7 @@ def test_init_all_diverge():
         n.reaches['length_to_outlet'], [36.05551, 31.622776, 20.0])
     assert list(n.reaches['sequence']) == [1, 2, 3]
     assert list(n.reaches['numiter']) == [0, 0, 0]
+    assert list(n.reaches['stream_order']) == [1, 1, 1]
     assert list(n.headwater) == [0, 1, 2]
     assert list(n.outlets) == [0, 1, 2]
 
@@ -185,6 +189,7 @@ def test_init_line_connects_to_middle():
         n.reaches['length_to_outlet'], [56.05551, 31.622776])
     assert list(n.reaches['sequence']) == [1, 2]
     assert list(n.reaches['numiter']) == [0, 0]
+    assert list(n.reaches['stream_order']) == [1, 1]
     assert list(n.headwater) == [0, 1]
     assert list(n.outlets) == [0, 1]
 
