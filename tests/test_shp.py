@@ -53,6 +53,10 @@ def test_init(dn):
     res = dn.lines['LENGTHDOWN'] - ln + dn.lines.geometry.length
     np.testing.assert_almost_equal(res.min(), 0.0)
     np.testing.assert_almost_equal(res.max(), 15.00362636)
+    assert list(dn.reaches['sequence'])[:6] == [141, 222, 151, 217, 139, 131]
+    assert list(dn.reaches['sequence'])[-6:] == [156, 4, 155, 1, 3, 2]
+    assert dn.reaches['numiter'].min() == 0
+    assert dn.reaches['numiter'].max() == 4
 
 
 def test_accumulate_values(dn):

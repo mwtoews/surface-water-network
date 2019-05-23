@@ -213,6 +213,40 @@ class SurfaceWaterNetwork(object):
             self.logger.error(*m)
             self.errors.append(m[0] % m[1:])
 
+        self.logger.debug('evaluating downstream sequence')
+        self.reaches['sequence'] = 0
+        self.reaches['numiter'] = -1
+        # Sort headwater nodes from the furthest to outlet to closest
+        furthest_upstream = self.reaches.loc[headwater]\
+            .sort_values('length_to_outlet', ascending=False).index
+        sequence = pd.Series(
+            np.arange(len(furthest_upstream)) + 1, index=furthest_upstream)
+        self.reaches.loc[sequence.index, 'sequence'] = sequence
+        self.reaches.loc[sequence.index, 'numiter'] = 0
+        # Build a dict that describes downstream nodes to one or more upstream
+        ud = {}  # key: downstream node, values: upstream node set
+        for dn in set(self.reaches['to_node']).difference([self.END_NODE]):
+            ud[dn] = set(self.index[self.reaches['to_node'] == dn])
+        completed = set(headwater)
+        sequence = int(sequence.max())
+        for numiter in range(1, self.reaches['num_to_outlet'].max() + 1):
+            # Gather nodes downstream from completed upstream set
+            downstream = set(
+                self.reaches.loc[completed, 'to_node'])\
+                .difference(completed.union([self.END_NODE]))
+            # Sort them to evaluate the furthest first
+            downstream_sorted = self.reaches.loc[downstream]\
+                .sort_values('length_to_outlet', ascending=False).index
+            for node in downstream_sorted:
+                if ud[node].issubset(completed):
+                    sequence += 1
+                    self.reaches.loc[node, 'sequence'] = sequence
+                    self.reaches.loc[node, 'numiter'] = numiter
+                    completed.add(node)
+            if self.reaches['sequence'].min() > 0:
+                break
+        self.logger.debug('sequence evaluated with %d iterations', numiter)
+
     @classmethod
     def init_from_gdal(cls, lines_srs, elevation_srs=None):
         """
