@@ -116,6 +116,7 @@ class SurfaceWaterNetwork(object):
         self.errors = []
         self.warnings = []
         # Cartesian join of lines to find where ends connect to
+        self.logger.debug('finding connections between pairs of lines')
         for node, row in self.lines.iterrows():
             end_coord = row.geometry.coords[-1]  # downstream end
             end_pt = Point(*end_coord)
@@ -154,9 +155,10 @@ class SurfaceWaterNetwork(object):
                 self.errors.append(m[0] % m[1:])
             if len(to_nodes) > 0:
                 self.reaches.loc[node, 'to_node'] = to_nodes[0]
-        # Check headwater nodes
         start_coords = {}  # key: 2D coord, value: list of nodes
-        for node, row in self.lines.loc[self.headwater].iterrows():
+        headwater = self.headwater
+        self.logger.debug('checking %d headwater nodes', len(headwater))
+        for node, row in self.lines.loc[headwater].iterrows():
             start_coord = row.geometry.coords[0]
             start_coord2d = start_coord[0:2]
             if self.lines_idx:
@@ -190,15 +192,22 @@ class SurfaceWaterNetwork(object):
             self.logger.error(*m)
             self.errors.append(m[0] % m[1:])
 
-        # Recursive function that puts values to upstream nodes
-        def put_cat_group(node, value):
-            self.reaches.loc[node, 'cat_group'] = value
+        # Recursive function that accumulates information upstream
+        def resurse_upstream(node, cat_group, length):
+            self.reaches.loc[node, 'cat_group'] = cat_group
+            length += self.lines.geometry[node].length
+            self.reaches.loc[node, 'length_to_outlet'] = length
+            # Branch to zero or more upstream reaches
             for upnode in self.reaches.index[self.reaches['to_node'] == node]:
-                put_cat_group(upnode, value)
+                resurse_upstream(upnode, cat_group, length)
 
         self.reaches['cat_group'] = self.END_NODE
-        for node in self.reaches.loc[self.outlets].index:
-            put_cat_group(node, node)
+        self.reaches['length_to_outlet'] = 0.0
+        outlets = self.outlets
+        self.logger.debug('evaluating lines upstream from %d outlet%s',
+                          len(outlets), 's' if len(outlets) != 1 else '')
+        for node in self.reaches.loc[outlets].index:
+            resurse_upstream(node, node, 0.0)
 
     @classmethod
     def init_from_gdal(cls, lines_srs, elevation_srs=None):

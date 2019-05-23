@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 import geopandas
-import pytest
 import os
+import pytest
+import numpy as np
 try:
     import rtree
 except ImportError:
@@ -38,6 +39,13 @@ def test_init(dn):
     cat_group = dn.reaches.groupby('cat_group').count()['to_node']
     assert len(cat_group) == 3
     assert dict(cat_group) == {3046700: 1, 3046737: 173, 3046736: 130}
+    ln = dn.reaches['length_to_outlet']
+    np.testing.assert_almost_equal(ln.min(), 42.43659279)
+    np.testing.assert_almost_equal(ln.max(), 21077.7486858)
+    # supplied LENGTHDOWN is similar
+    res = dn.lines['LENGTHDOWN'] - ln + dn.lines.geometry.length
+    np.testing.assert_almost_equal(res.min(), 0.0)
+    np.testing.assert_almost_equal(res.max(), 15.00362636)
 
 
 def test_accumulate_values(dn):

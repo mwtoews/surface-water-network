@@ -2,6 +2,7 @@
 import geopandas
 import pandas as pd
 import pytest
+import numpy as np
 import os
 import sys
 from shapely import wkt
@@ -92,6 +93,8 @@ def test_init_mismatch_3D():
     assert len(n.errors) == 0
     assert list(n.reaches['to_node']) == [2, 2, -1]
     assert list(n.reaches['cat_group']) == [2, 2, 2]
+    np.testing.assert_allclose(
+        n.reaches['length_to_outlet'], [56.05551, 51.622776, 20.0])
     assert list(n.headwater) == [0, 1]
     assert list(n.outlets) == [2]
 
@@ -108,6 +111,8 @@ def test_init_all_converge():
     assert len(n.errors) == 0
     assert list(n.reaches['to_node']) == [-1, -1, -1]
     assert list(n.reaches['cat_group']) == [0, 1, 2]
+    np.testing.assert_allclose(
+        n.reaches['length_to_outlet'], [36.05551, 31.622776, 20.0])
     assert list(n.headwater) == [0, 1, 2]
     assert list(n.outlets) == [0, 1, 2]
 
@@ -129,6 +134,8 @@ def test_init_all_diverge():
         str(set([0, 1, 2]))
     assert list(n.reaches['to_node']) == [-1, -1, -1]
     assert list(n.reaches['cat_group']) == [0, 1, 2]
+    np.testing.assert_allclose(
+        n.reaches['length_to_outlet'], [36.05551, 31.622776, 20.0])
     assert list(n.headwater) == [0, 1, 2]
     assert list(n.outlets) == [0, 1, 2]
 
@@ -144,6 +151,8 @@ def test_init_line_connects_to_middle():
     assert n.errors[0] == 'node 1 connects to the middle of node 0'
     assert list(n.reaches['to_node']) == [-1, -1]
     assert list(n.reaches['cat_group']) == [0, 1]
+    np.testing.assert_allclose(
+        n.reaches['length_to_outlet'], [56.05551, 31.622776])
     assert list(n.headwater) == [0, 1]
     assert list(n.outlets) == [0, 1]
 
@@ -157,6 +166,8 @@ def test_init_defaults(n):
     assert n.reaches.index is n.lines.index
     assert list(n.reaches['to_node']) == [2, 2, -1]
     assert list(n.reaches['cat_group']) == [2, 2, 2]
+    np.testing.assert_allclose(
+        n.reaches['length_to_outlet'], [56.05551, 51.622776, 20.0])
     assert list(n.headwater) == [0, 1]
     assert list(n.outlets) == [2]
     assert len(n.warnings) == 0
