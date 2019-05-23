@@ -205,3 +205,4 @@ def test_accumulate_values_expected(n):
     v = pd.Series(1.0, n.lines.index)
     a = n.accumulate_values(v)
     assert dict(a) == {0: 1.0, 1: 1.0, 2: 3.0}
+    assert a.name is None

@@ -46,6 +46,9 @@ class SurfaceWaterNetwork(object):
         This number is not part of the index.
     reaches : pandas.core.frame.DataFrame
         DataFrame created by evaluate_reaches() and shares same index as lines.
+    upstream_nodes : dict
+        Key is downstream node, and values are a set of zero or more upstream
+        nodes. END_NODE and headwater nodes are not included.
     headwater : pandas.core.index.Int64Index
         Head water nodes at top of cachment.
     outlets : pandas.core.index.Int64Index
@@ -61,6 +64,7 @@ class SurfaceWaterNetwork(object):
     index = None
     END_NODE = None
     reaches = None
+    upstream_nodes = None
     logger = None
     warnings = None
     errors = None
@@ -224,9 +228,10 @@ class SurfaceWaterNetwork(object):
         self.reaches.loc[sequence.index, 'sequence'] = sequence
         self.reaches.loc[sequence.index, 'numiter'] = 0
         # Build a dict that describes downstream nodes to one or more upstream
-        ud = {}  # key: downstream node, values: upstream node set
-        for dn in set(self.reaches['to_node']).difference([self.END_NODE]):
-            ud[dn] = set(self.index[self.reaches['to_node'] == dn])
+        self.upstream_nodes = {}
+        for node in set(self.reaches['to_node']).difference([self.END_NODE]):
+            self.upstream_nodes[node] = \
+                set(self.index[self.reaches['to_node'] == node])
         completed = set(headwater)
         sequence = int(sequence.max())
         for numiter in range(1, self.reaches['num_to_outlet'].max() + 1):
@@ -238,7 +243,7 @@ class SurfaceWaterNetwork(object):
             downstream_sorted = self.reaches.loc[downstream]\
                 .sort_values('length_to_outlet', ascending=False).index
             for node in downstream_sorted:
-                if ud[node].issubset(completed):
+                if self.upstream_nodes[node].issubset(completed):
                     sequence += 1
                     self.reaches.loc[node, 'sequence'] = sequence
                     self.reaches.loc[node, 'numiter'] = numiter
@@ -321,14 +326,11 @@ class SurfaceWaterNetwork(object):
                 not (values.index == self.reaches.index).all()):
             raise ValueError('index is different')
         accum = values.copy()
-        accum.name = None
-        ud = {}  # key: down node, values: up node set
-        for dn in set(self.reaches['to_node']).difference([self.END_NODE]):
-            ud[dn] = set(self.index[self.reaches['to_node'] == dn])
-        upstream = set(self.headwater)
-        while ud:
-            for dn in set(self.reaches.loc[upstream, 'to_node']):
-                if dn in ud and ud[dn].issubset(upstream):
-                    accum[dn] += accum[list(ud.pop(dn))].sum()
-                    upstream.add(dn)
+        if isinstance(accum.name, str):
+            accum.name = 'accumulated_' + accum.name
+        for node in self.reaches.sort_values('sequence').index:
+            if node in self.upstream_nodes:
+                upstream_nodes = list(self.upstream_nodes[node])
+                if upstream_nodes:
+                    accum[node] += accum[upstream_nodes].sum()
         return accum

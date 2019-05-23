@@ -64,3 +64,4 @@ def test_accumulate_values(dn):
     res = catarea - dn.lines['CUM_AREA']
     assert res.min() > -7.0
     assert res.max() < 7.0
+    assert catarea.name == 'accumulated_CATAREA'
