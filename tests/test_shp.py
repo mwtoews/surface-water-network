@@ -36,6 +36,13 @@ def test_init(dn):
     assert len(dn.headwater) == 154
     assert set(dn.headwater).issuperset([3046700, 3046802, 3050418, 3048102])
     assert list(dn.outlets) == [3046700, 3046737, 3046736]
+    nto = dn.reaches['num_to_outlet']
+    assert nto.min() == 1
+    assert nto.max() == 32
+    assert list(nto[nto == 1].index) == [3046700, 3046737, 3046736]
+    assert list(nto[nto == 2].index) == [3046539, 3046745, 3046951, 3046952]
+    assert list(nto[nto == 31].index) == [3050175, 3050176, 3050337, 3050338]
+    assert list(nto[nto == 32].index) == [3050413, 3050418]
     cat_group = dn.reaches.groupby('cat_group').count()['to_node']
     assert len(cat_group) == 3
     assert dict(cat_group) == {3046700: 1, 3046737: 173, 3046736: 130}
