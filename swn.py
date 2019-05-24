@@ -161,6 +161,13 @@ class SurfaceWaterNetwork(object):
             if len(to_nodes) > 0:
                 self.reaches.loc[node, 'to_node'] = to_nodes[0]
 
+        outlets = self.outlets
+        self.logger.debug('evaluating reaches upstream from %d outlet%s',
+                          len(outlets), 's' if len(outlets) != 1 else '')
+        self.reaches['cat_group'] = self.END_NODE
+        self.reaches['num_to_outlet'] = 0
+        self.reaches['length_to_outlet'] = 0.0
+
         # Recursive function that accumulates information upstream
         def resurse_upstream(node, cat_group, num, length):
             self.reaches.loc[node, 'cat_group'] = cat_group
@@ -172,17 +179,13 @@ class SurfaceWaterNetwork(object):
             for upnode in self.reaches.index[self.reaches['to_node'] == node]:
                 resurse_upstream(upnode, cat_group, num, length)
 
-        outlets = self.outlets
-        self.logger.debug('evaluating reaches upstream from %d outlet%s',
-                          len(outlets), 's' if len(outlets) != 1 else '')
-        self.reaches['cat_group'] = self.END_NODE
-        self.reaches['num_to_outlet'] = 0
-        self.reaches['length_to_outlet'] = 0.0
         for node in self.reaches.loc[outlets].index:
             resurse_upstream(node, node, 0, 0.0)
 
+        # Check to see if headwater and outlets have common locations
         headwater = self.headwater
-        self.logger.debug('checking %d headwater nodes', len(headwater))
+        self.logger.debug('checking %d headwater nodes and %d outlet nodes',
+                          len(headwater), len(outlets))
         start_coords = {}  # key: 2D coord, value: list of nodes
         for node, row in self.reaches.loc[headwater].iterrows():
             start_coord = row[geom_name].coords[0]
@@ -202,7 +205,7 @@ class SurfaceWaterNetwork(object):
                 if start2_coord == start_coord:
                     # perfect 3D match from end of node to start of node2
                     match = True
-                elif start2_coord[0:2] == start_coord[0:2]:
+                elif start2_coord[0:2] == start_coord2d:
                     match = True
                     m = ('starting node %s matches %s in 2D, but not in '
                          'Z dimension', node, node2)
@@ -219,6 +222,43 @@ class SurfaceWaterNetwork(object):
                  key, 's' if len(v) != 1 else '', v)
             self.logger.error(*m)
             self.errors.append(m[0] % m[1:])
+
+        end_coords = {}  # key: 2D coord, value: list of nodes
+        for node, row in self.reaches.loc[outlets].iterrows():
+            end_coord = row[geom_name].coords[-1]
+            end_coord2d = end_coord[0:2]
+            if self.geom_idx:
+                subsel = self.geom_idx.intersection(end_coord2d)
+                sub = self.reaches.loc[list(subsel)]
+            else:
+                # slow scan of full table
+                sub = self.reaches
+            for node2, row2 in sub.iterrows():
+                if node2 == node:
+                    continue
+                geom2 = row2[geom_name]
+                end2_coord = geom2.coords[-1]
+                match = False
+                if end2_coord == end_coord:
+                    # perfect 3D match from end of node to start of node2
+                    match = True
+                elif end2_coord[0:2] == end_coord2d:
+                    match = True
+                    m = ('ending node %s matches %s in 2D, but not in '
+                         'Z dimension', node, node2)
+                    self.logger.warning(*m)
+                    self.warnings.append(m[0] % m[1:])
+                if match:
+                    if end_coord2d in end_coords:
+                        end_coords[end_coord2d].add(node2)
+                    else:
+                        end_coords[end_coord2d] = set([node2])
+        for key in end_coords.keys():
+            v = end_coords[key]
+            m = ('ending coordinate %s matches end node%s: %s',
+                 key, 's' if len(v) != 1 else '', v)
+            self.logger.warning(*m)
+            self.warnings.append(m[0] % m[1:])
 
         self.logger.debug('evaluating downstream sequence')
         self.reaches['sequence'] = 0

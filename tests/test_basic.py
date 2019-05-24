@@ -170,14 +170,19 @@ def test_init_reversed_lines(lines):
 
 
 def test_init_all_converge():
-    # Lines all converge to the same place. Should this be a warning / error?
+    # Lines all converge to the same place
     lines = wkt_to_gdf([
         'LINESTRING Z (40 130 15, 60 100 15)',
         'LINESTRING Z (70 130 14, 60 100 14)',
         'LINESTRING Z (60  80 12, 60 100 14)',
     ])
     n = swn.SurfaceWaterNetwork(lines)
-    assert len(n.warnings) == 0
+    assert len(n.warnings) == 5
+    assert n.warnings[0] == \
+        'ending node 0 matches 1 in 2D, but not in Z dimension'
+    assert n.warnings[4] == \
+        'ending coordinate (60.0, 100.0) matches end nodes: ' + \
+        str(set([0, 1, 2]))
     assert len(n.errors) == 0
     assert len(n) == 3
     assert n.has_z is True

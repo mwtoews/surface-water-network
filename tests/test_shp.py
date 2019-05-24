@@ -31,7 +31,13 @@ def dn(lines):
 
 
 def test_init(dn, lines):
+    assert len(dn.warnings) == 1
+    assert dn.warnings[0].startswith('ending coordinate ')
+    assert dn.warnings[0].endswith(
+            ' matches end nodes: ' + str(set([3046736, 3046737])))
+    assert len(dn.errors) == 0
     assert len(dn) == 304
+    assert dn.has_z is True
     assert dn.END_NODE == 0
     if rtree:
         assert dn.geom_idx is not None
