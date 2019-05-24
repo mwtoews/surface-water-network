@@ -85,9 +85,8 @@ def test_init_defaults(n):
     assert len(n) == 3
     assert n.has_z is True
     assert n.END_NODE == -1
-    assert n.lines_idx is None
-    assert n.index is n.lines.index
-    assert n.reaches.index is n.lines.index
+    assert n.geom_idx is None
+    assert n.index is n.reaches.index
     assert list(n.reaches['to_node']) == [2, 2, -1]
     assert list(n.reaches['cat_group']) == [2, 2, 2]
     assert list(n.reaches['num_to_outlet']) == [2, 2, 1]
@@ -109,10 +108,6 @@ def test_init_2D_geom(df):
     assert len(n.errors) == 0
     assert len(n) == 3
     assert n.has_z is False
-    assert n.END_NODE == -1
-    assert n.lines_idx is None
-    assert n.index is n.lines.index
-    assert n.reaches.index is n.lines.index
     assert list(n.reaches['to_node']) == [2, 2, -1]
     assert list(n.reaches['cat_group']) == [2, 2, 2]
     assert list(n.reaches['num_to_outlet']) == [2, 2, 1]
@@ -257,7 +252,7 @@ def test_init_geometry_name(wkt_list):
     assert len(n.errors) == 0
     assert len(n) == 3
     assert n.has_z is True
-    v = pd.Series(1.0, n.lines.index)
+    v = pd.Series(1.0, n.index)
     a = n.accumulate_values(v)
     assert dict(a) == {0: 1.0, 1: 1.0, 2: 3.0}
 
@@ -275,7 +270,7 @@ def test_accumulate_values_different_index(n):
 
 
 def test_accumulate_values_expected(n):
-    v = pd.Series(1.0, n.lines.index)
+    v = pd.Series(1.0, n.index)
     a = n.accumulate_values(v)
     assert dict(a) == {0: 1.0, 1: 1.0, 2: 3.0}
     assert a.name is None

@@ -18,21 +18,26 @@ datadir = os.path.join('tests', 'data')
 
 
 @pytest.fixture
-def dn():
+def lines():
     shp_srs = os.path.join(datadir, 'DN2_Coastal_strahler1z_stream_vf.shp')
     lines = geopandas.read_file(shp_srs)
     lines.set_index('nzsegment', inplace=True)
+    return lines
+
+
+@pytest.fixture
+def dn(lines):
     return swn.SurfaceWaterNetwork(lines)
 
 
-def test_init(dn):
+def test_init(dn, lines):
     assert len(dn) == 304
     assert dn.END_NODE == 0
     if rtree:
-        assert dn.lines_idx is not None
+        assert dn.geom_idx is not None
     else:
-        assert dn.lines_idx is None
-    assert dn.reaches.index is dn.lines.index
+        assert dn.geom_idx is None
+    assert dn.reaches.index is dn.index
     assert len(dn.headwater) == 154
     assert set(dn.headwater).issuperset([3046700, 3046802, 3050418, 3048102])
     assert list(dn.outlets) == [3046700, 3046737, 3046736]
@@ -50,7 +55,7 @@ def test_init(dn):
     np.testing.assert_almost_equal(ln.min(), 42.43659279)
     np.testing.assert_almost_equal(ln.max(), 21077.7486858)
     # supplied LENGTHDOWN is similar
-    res = dn.lines['LENGTHDOWN'] - ln + dn.lines.geometry.length
+    res = lines['LENGTHDOWN'] + lines.geometry.length - ln
     np.testing.assert_almost_equal(res.min(), 0.0)
     np.testing.assert_almost_equal(res.max(), 15.00362636)
     assert list(dn.reaches['sequence'])[:6] == [141, 222, 151, 217, 139, 131]
@@ -61,12 +66,12 @@ def test_init(dn):
     assert len(stream_order) == 5
     assert dict(stream_order) == {1: 154, 2: 72, 3: 46, 4: 28, 5: 4}
     np.testing.assert_array_equal(
-        dn.reaches['stream_order'], dn.lines['StreamOrde'])
+        dn.reaches['stream_order'], lines['StreamOrde'])
 
 
-def test_accumulate_values(dn):
-    catarea = dn.accumulate_values(dn.lines['CATAREA'])
-    res = catarea - dn.lines['CUM_AREA']
+def test_accumulate_values(dn, lines):
+    catarea = dn.accumulate_values(lines['CATAREA'])
+    res = catarea - lines['CUM_AREA']
     assert res.min() > -7.0
     assert res.max() < 7.0
     assert catarea.name == 'accumulated_CATAREA'

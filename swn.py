@@ -36,21 +36,20 @@ class SurfaceWaterNetwork(object):
 
     Attributes
     ----------
-    lines : geopandas.geodataframe.GeoDataFrame
-        GeoDataFrame lines of surface water network. Index is treated as node
+    reaches : geopandas.geodataframe.GeoDataFrame
+        Primary GeoDataFrame created from 'lines' input, containing
+        attributes evaluated during initialisation. Index is treated as node
         number, such as a reach ID.
     index : pandas.core.index.Int64Index
-        Shared index or node number.
+        Shortcut to reaches.index or node number.
     END_NODE : int
         Special node number that indicates a line end, default is usually 0.
         This number is not part of the index.
-    reaches : pandas.core.frame.DataFrame
-        DataFrame created by evaluate_reaches() and shares same index as lines.
     upstream_nodes : dict
         Key is downstream node, and values are a set of zero or more upstream
         nodes. END_NODE and headwater nodes are not included.
     has_z : bool
-        Property that indicates all lines have Z dimension coordinates.
+        Property that indicates all reach lines have Z dimension coordinates.
     headwater : pandas.core.index.Int64Index
         Head water nodes at top of cachment.
     outlets : pandas.core.index.Int64Index
@@ -62,7 +61,6 @@ class SurfaceWaterNetwork(object):
     errors : list
         List of error messages.
     """
-    lines = None
     index = None
     END_NODE = None
     reaches = None
@@ -82,7 +80,8 @@ class SurfaceWaterNetwork(object):
         ----------
         lines : geopandas.geodataframe.GeoDataFrame
             Input GeoDataFrame lines of surface water network. Geometries
-            must be 'LINESTRING' or 'LINESTRING Z'.
+            must be 'LINESTRING' or 'LINESTRING Z'. Index is used for node
+            numbers. The geometry is copied to the reaches property.
         logger : logging.Logger, optional
             Logger to show messages.
         """
@@ -96,42 +95,42 @@ class SurfaceWaterNetwork(object):
             raise ValueError('one or more lines are required')
         elif not (lines.geom_type == 'LineString').all():
             raise ValueError('lines must all be LineString types')
-        self.lines = lines
-        self.index = self.lines.index
-        self.logger.info('creating network with %d lines', len(self))
+        geom_name = lines.geometry.name
+        # Create a new GeoDataFrame with a copy of line's geometry
+        self.reaches = lines.loc[:, [geom_name]].copy()
+        self.index = self.reaches.index
+        self.logger.info('creating network with %d reaches', len(self))
         # Populate a 2D spatial index for speed
         if rtree and len(self) >= _rtree_threshold:
-            self.logger.debug('building R-tree index of lines')
-            self.lines_idx = rtree.Rtree()
-            for node, row in self.lines.bounds.iterrows():
-                self.lines_idx.add(node, row.tolist())
-            assert self.lines_idx.valid()
+            self.logger.debug('building R-tree index of reaches')
+            self.geom_idx = rtree.Rtree()
+            for node, row in self.reaches.bounds.iterrows():
+                self.geom_idx.add(node, row.tolist())
+            assert self.geom_idx.valid()
         else:
             if len(self) >= _rtree_threshold:
                 self.logger.debug(
                     'using slow sequence scanning; consider installing rtree')
-            self.lines_idx = None
+            self.geom_idx = None
         if self.index.min() > 0:
             self.END_NODE = 0
         else:
             self.END_NODE = self.index.min() - 1
-        self.reaches = pd.DataFrame(
-                {'to_node': self.END_NODE}, index=self.index)
+        self.reaches['to_node'] = self.END_NODE
         self.errors = []
         self.warnings = []
-        # Cartesian join of lines to find where ends connect to
-        self.logger.debug('finding connections between pairs of lines')
-        geom_name = self.lines.geometry.name
-        for node, row in self.lines.iterrows():
+        # Cartesian join of reaches to find where ends connect to
+        self.logger.debug('finding connections between pairs of reach lines')
+        for node, row in self.reaches.iterrows():
             end_coord = row[geom_name].coords[-1]  # downstream end
             end_pt = Point(*end_coord)
-            if self.lines_idx:
+            if self.geom_idx:
                 # reduce number of rows to scan based on proximity in 2D
-                subsel = self.lines_idx.intersection(end_coord[0:2])
-                sub = self.lines.loc[list(subsel)]
+                subsel = self.geom_idx.intersection(end_coord[0:2])
+                sub = self.reaches.loc[list(subsel)]
             else:
                 # slow scan of full table
-                sub = self.lines
+                sub = self.reaches
             to_nodes = []
             for node2, row2 in sub.iterrows():
                 if node2 == node:
@@ -167,14 +166,14 @@ class SurfaceWaterNetwork(object):
             self.reaches.loc[node, 'cat_group'] = cat_group
             num += 1
             self.reaches.loc[node, 'num_to_outlet'] = num
-            length += self.lines.loc[node, geom_name].length
+            length += self.reaches.loc[node, geom_name].length
             self.reaches.loc[node, 'length_to_outlet'] = length
             # Branch to zero or more upstream reaches
             for upnode in self.reaches.index[self.reaches['to_node'] == node]:
                 resurse_upstream(upnode, cat_group, num, length)
 
         outlets = self.outlets
-        self.logger.debug('evaluating lines upstream from %d outlet%s',
+        self.logger.debug('evaluating reaches upstream from %d outlet%s',
                           len(outlets), 's' if len(outlets) != 1 else '')
         self.reaches['cat_group'] = self.END_NODE
         self.reaches['num_to_outlet'] = 0
@@ -185,15 +184,15 @@ class SurfaceWaterNetwork(object):
         headwater = self.headwater
         self.logger.debug('checking %d headwater nodes', len(headwater))
         start_coords = {}  # key: 2D coord, value: list of nodes
-        for node, row in self.lines.loc[headwater].iterrows():
+        for node, row in self.reaches.loc[headwater].iterrows():
             start_coord = row[geom_name].coords[0]
             start_coord2d = start_coord[0:2]
-            if self.lines_idx:
-                subsel = self.lines_idx.intersection(start_coord2d)
-                sub = self.lines.loc[list(subsel)]
+            if self.geom_idx:
+                subsel = self.geom_idx.intersection(start_coord2d)
+                sub = self.reaches.loc[list(subsel)]
             else:
                 # slow scan of full table
-                sub = self.lines
+                sub = self.reaches
             for node2, row2 in sub.iterrows():
                 if node2 == node:
                     continue
@@ -311,8 +310,8 @@ class SurfaceWaterNetwork(object):
 
     @property
     def has_z(self):
-        """Returns True if all lines have Z dimension"""
-        return bool(self.lines.geometry.apply(lambda x: x.has_z).all())
+        """Returns True if all reach lines have Z dimension"""
+        return bool(self.reaches.geometry.apply(lambda x: x.has_z).all())
 
     @property
     def headwater(self):
@@ -334,7 +333,7 @@ class SurfaceWaterNetwork(object):
         Parameters
         ----------
         values : pandas.core.series.Series
-            Series of values that align with lines.index.
+            Series of values that align with the index.
 
         Returns
         -------
