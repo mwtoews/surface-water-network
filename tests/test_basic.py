@@ -19,15 +19,22 @@ import swn
 
 
 # Helper functions
-def wkt_to_df(wkt_list, geom_name='geometry'):
+def wkt_to_dataframe(wkt_list, geom_name='geometry'):
     df = pd.DataFrame({'wkt': wkt_list})
     df[geom_name] = df['wkt'].apply(wkt.loads)
     return df
 
 
-def wkt_to_gdf(wkt_list, geom_name='geometry'):
-    return geopandas.GeoDataFrame(
-            wkt_to_df(wkt_list, geom_name), geometry=geom_name)
+# def wkt_to_geodataframe(wkt_list, geom_name='geometry'):
+#    return geopandas.GeoSeries(
+#            wkt_to_dataframe(wkt_list, geom_name), geometry=geom_name)
+
+
+def wkt_to_geoseries(wkt_list, geom_name=None):
+    geom = geopandas.GeoSeries([wkt.loads(x) for x in wkt_list])
+    if geom_name is not None:
+        geom.name = geom_name
+    return geom
 
 
 @pytest.fixture
@@ -42,12 +49,12 @@ def wkt_list():
 
 @pytest.fixture
 def df(wkt_list):
-    return wkt_to_df(wkt_list)
+    return wkt_to_dataframe(wkt_list)
 
 
 @pytest.fixture
-def lines(df):
-    return geopandas.GeoDataFrame(df, geometry='geometry')
+def lines(wkt_list):
+    return wkt_to_geoseries(wkt_list)
 
 
 @pytest.fixture
@@ -73,7 +80,7 @@ def test_init_zero_lines(lines):
 def test_init_geom_type(df):
     wkt_list = df['wkt'].tolist()
     wkt_list[1] = 'MULTILINESTRING Z ((70 130 15, 60 100 14))'
-    lines = wkt_to_gdf(wkt_list)
+    lines = wkt_to_geoseries(wkt_list)
     with pytest.raises(ValueError, match='lines must all be LineString types'):
         swn.SurfaceWaterNetwork(lines)
 
@@ -101,7 +108,7 @@ def test_init_defaults(n):
 
 def test_init_2D_geom(df):
     # Rewrite WKT as 2D
-    lines = wkt_to_gdf(
+    lines = wkt_to_geoseries(
         df['wkt'].apply(wkt.loads).apply(wkt.dumps, output_dimension=2))
     n = swn.SurfaceWaterNetwork(lines)
     assert len(n.warnings) == 0
@@ -122,7 +129,7 @@ def test_init_2D_geom(df):
 
 def test_init_mismatch_3D():
     # Match in 2D, but not in Z dimension
-    lines = wkt_to_gdf([
+    lines = wkt_to_geoseries([
         'LINESTRING Z (40 130 15, 60 100 13)',
         'LINESTRING Z (70 130 15, 60 100 14)',
         'LINESTRING Z (60 100 14, 60  80 12)',
@@ -147,7 +154,7 @@ def test_init_mismatch_3D():
 
 def test_init_reversed_lines(lines):
     # same as the working lines, but reversed in the opposite direction
-    lines.geometry = lines.geometry.apply(lambda x: LineString(x.coords[::-1]))
+    lines = lines.geometry.apply(lambda x: LineString(x.coords[::-1]))
     n = swn.SurfaceWaterNetwork(lines)
     assert len(n.warnings) == 0
     assert len(n.errors) == 2
@@ -171,7 +178,7 @@ def test_init_reversed_lines(lines):
 
 def test_init_all_converge():
     # Lines all converge to the same place
-    lines = wkt_to_gdf([
+    lines = wkt_to_geoseries([
         'LINESTRING Z (40 130 15, 60 100 15)',
         'LINESTRING Z (70 130 14, 60 100 14)',
         'LINESTRING Z (60  80 12, 60 100 14)',
@@ -200,7 +207,7 @@ def test_init_all_converge():
 
 def test_init_all_diverge():
     # Lines all diverge from the same place
-    lines = wkt_to_gdf([
+    lines = wkt_to_geoseries([
         'LINESTRING Z (60 100 15, 40 130 14)',
         'LINESTRING Z (60 100 16, 70 130 14)',
         'LINESTRING Z (60 100 15, 60  80 12)',
@@ -228,7 +235,7 @@ def test_init_all_diverge():
 
 
 def test_init_line_connects_to_middle():
-    lines = wkt_to_gdf([
+    lines = wkt_to_geoseries([
         'LINESTRING Z (40 130 15, 60 100 14, 60 80 12)',
         'LINESTRING Z (70 130 15, 60 100 14)',
     ])
@@ -250,9 +257,9 @@ def test_init_line_connects_to_middle():
     assert list(n.outlets) == [0, 1]
 
 
-def test_init_geometry_name(wkt_list):
-    lines = wkt_to_gdf(wkt_list, geom_name='foo')
-    n = swn.SurfaceWaterNetwork(lines)
+def test_init_geoseries(wkt_list):
+    gs = wkt_to_geoseries(wkt_list, geom_name='foo')
+    n = swn.SurfaceWaterNetwork(gs)
     assert len(n.warnings) == 0
     assert len(n.errors) == 0
     assert len(n) == 3

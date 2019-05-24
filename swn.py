@@ -36,7 +36,7 @@ class SurfaceWaterNetwork(object):
 
     Attributes
     ----------
-    reaches : geopandas.geodataframe.GeoDataFrame
+    reaches : geopandas.GeoDataFrame
         Primary GeoDataFrame created from 'lines' input, containing
         attributes evaluated during initialisation. Index is treated as node
         number, such as a reach ID.
@@ -78,10 +78,10 @@ class SurfaceWaterNetwork(object):
 
         Parameters
         ----------
-        lines : geopandas.geodataframe.GeoDataFrame
-            Input GeoDataFrame lines of surface water network. Geometries
-            must be 'LINESTRING' or 'LINESTRING Z'. Index is used for node
-            numbers. The geometry is copied to the reaches property.
+        lines : geopandas.GeoSeries or geopandas.GeoDataFrame
+            Input lines of surface water network. Geometries must be
+            'LINESTRING' or 'LINESTRING Z'. Index is used for node numbers.
+            The geometry is copied to the reaches property.
         logger : logging.Logger, optional
             Logger to show messages.
         """
@@ -89,15 +89,18 @@ class SurfaceWaterNetwork(object):
             self.logger = logging.getLogger(self.__class__.__name__)
             self.logger.handlers = module_logger.handlers
             self.logger.setLevel(module_logger.level)
-        if not isinstance(lines, geopandas.geodataframe.GeoDataFrame):
-            raise ValueError('lines must be a GeoDataFrame')
-        elif len(lines) == 0:
+        if isinstance(lines, geopandas.GeoSeries):
+            lines = lines.copy()
+        elif isinstance(lines, geopandas.GeoDataFrame):
+            lines = lines.geometry.copy()
+        else:
+            raise ValueError('lines must be a GeoDataFrame or GeoSeries')
+        if len(lines) == 0:
             raise ValueError('one or more lines are required')
         elif not (lines.geom_type == 'LineString').all():
             raise ValueError('lines must all be LineString types')
-        geom_name = lines.geometry.name
         # Create a new GeoDataFrame with a copy of line's geometry
-        self.reaches = lines.loc[:, [geom_name]].copy()
+        self.reaches = geopandas.GeoDataFrame(geometry=lines)
         self.index = self.reaches.index
         self.logger.info('creating network with %d reaches', len(self))
         # Populate a 2D spatial index for speed
@@ -121,6 +124,7 @@ class SurfaceWaterNetwork(object):
         self.warnings = []
         # Cartesian join of reaches to find where ends connect to
         self.logger.debug('finding connections between pairs of reach lines')
+        geom_name = self.reaches.geometry.name
         for node, row in self.reaches.iterrows():
             end_coord = row[geom_name].coords[-1]  # downstream end
             end_pt = Point(*end_coord)
@@ -396,3 +400,20 @@ class SurfaceWaterNetwork(object):
                 if upstream_nodes:
                     accum[node] += accum[upstream_nodes].sum()
         return accum
+
+    def adjust_elevation_profile(self, min_slope=0.001):
+        """Check and adjust (if necessary) Z coordinates of elevation profiles
+
+        Parameters
+        ----------
+        min_slope : float, optional
+            Global minimum downwards slope imposed on reaches.
+            TODO: also accept a series to adjust per-reach.
+        """
+        if not self.has_z:
+            raise AttributeError('line geometry does not have Z dimension')
+        raise NotImplementedError()
+        lines = self.reaches
+        numiter = 0
+        while True:
+            numiter += 1
