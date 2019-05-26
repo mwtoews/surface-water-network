@@ -3,7 +3,8 @@ import logging
 import numpy as np
 import pandas as pd
 import geopandas
-from shapely.geometry import Point
+from math import sqrt
+from shapely.geometry import LineString, Point
 try:
     from osgeo import gdal
 except ImportError:
@@ -125,8 +126,8 @@ class SurfaceWaterNetwork(object):
         # Cartesian join of reaches to find where ends connect to
         self.logger.debug('finding connections between pairs of reach lines')
         geom_name = self.reaches.geometry.name
-        for node, row in self.reaches.iterrows():
-            end_coord = row[geom_name].coords[-1]  # downstream end
+        for node, geom in self.reaches.geometry.iteritems():
+            end_coord = geom.coords[-1]  # downstream end
             end_pt = Point(*end_coord)
             if self.geom_idx:
                 # reduce number of rows to scan based on proximity in 2D
@@ -136,10 +137,9 @@ class SurfaceWaterNetwork(object):
                 # slow scan of full table
                 sub = self.reaches
             to_nodes = []
-            for node2, row2 in sub.iterrows():
+            for node2, geom2 in sub.geometry.iteritems():
                 if node2 == node:
                     continue
-                geom2 = row2[geom_name]
                 start2_coord = geom2.coords[0]
                 end2_coord = geom2.coords[-1]
                 if start2_coord == end_coord:
@@ -191,8 +191,8 @@ class SurfaceWaterNetwork(object):
         self.logger.debug('checking %d headwater nodes and %d outlet nodes',
                           len(headwater), len(outlets))
         start_coords = {}  # key: 2D coord, value: list of nodes
-        for node, row in self.reaches.loc[headwater].iterrows():
-            start_coord = row[geom_name].coords[0]
+        for node, geom in self.reaches.loc[headwater].geometry.iteritems():
+            start_coord = geom.coords[0]
             start_coord2d = start_coord[0:2]
             if self.geom_idx:
                 subsel = self.geom_idx.intersection(start_coord2d)
@@ -200,10 +200,9 @@ class SurfaceWaterNetwork(object):
             else:
                 # slow scan of full table
                 sub = self.reaches
-            for node2, row2 in sub.iterrows():
+            for node2, geom2 in sub.geometry.iteritems():
                 if node2 == node:
                     continue
-                geom2 = row2[geom_name]
                 start2_coord = geom2.coords[0]
                 match = False
                 if start2_coord == start_coord:
@@ -228,8 +227,8 @@ class SurfaceWaterNetwork(object):
             self.errors.append(m[0] % m[1:])
 
         end_coords = {}  # key: 2D coord, value: list of nodes
-        for node, row in self.reaches.loc[outlets].iterrows():
-            end_coord = row[geom_name].coords[-1]
+        for node, geom in self.reaches.loc[outlets].geometry.iteritems():
+            end_coord = geom.coords[-1]
             end_coord2d = end_coord[0:2]
             if self.geom_idx:
                 subsel = self.geom_idx.intersection(end_coord2d)
@@ -237,10 +236,9 @@ class SurfaceWaterNetwork(object):
             else:
                 # slow scan of full table
                 sub = self.reaches
-            for node2, row2 in sub.iterrows():
+            for node2, geom2 in sub.geometry.iteritems():
                 if node2 == node:
                     continue
-                geom2 = row2[geom_name]
                 end2_coord = geom2.coords[-1]
                 match = False
                 if end2_coord == end_coord:
@@ -412,8 +410,32 @@ class SurfaceWaterNetwork(object):
         """
         if not self.has_z:
             raise AttributeError('line geometry does not have Z dimension')
-        raise NotImplementedError()
-        lines = self.reaches
+        # Build elevation profiles as 2D coordinates,
+        # where X is distance from upstream coordinate and Y is elevation
+        profiles = []
+        for node, geom in self.reaches.geometry.iteritems():
+            c0 = geom.coords[0]
+            d = 0.0
+            profile_coords = [(d, c0[2])]
+            min_x_y = (d, c0[2])
+            for c1 in geom.coords[1:]:
+                d += sqrt((c0[0] - c1[0]) ** 2 + (c0[1] - c1[1]) ** 2)
+                profile_coords.append((d, c1[2]))
+                if c1[2] < min_x_y[1]:
+                    min_x_y = (d, c1[2])
+                c0 = c1
+            # If min_x_y is not the last node, then adjust
+            if min_x_y != (d, c1[2]):
+                # TODO
+                pass
+        for node, geom in self.reaches.geometry.iteritems():
+            profiles.append(LineString(profile_coords))
+        self.profiles = geopandas.GeoSeries(profiles)
+        return
+        # Find minimum elevation, then force any nodes downstream to flow down
+        self.profiles.geometry.bounds.miny.sort_values()
+
+        # lines = self.reaches
         numiter = 0
         while True:
             numiter += 1
