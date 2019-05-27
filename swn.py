@@ -382,7 +382,7 @@ class SurfaceWaterNetwork(object):
         pandas.core.series.Series
             Accumulated values.
         """
-        if not isinstance(values, pd.core.series.Series):
+        if not isinstance(values, pd.Series):
             raise ValueError('values must be a pandas Series')
         elif (len(values.index) != len(self.reaches.index) or
                 not (values.index == self.reaches.index).all()):
@@ -399,39 +399,59 @@ class SurfaceWaterNetwork(object):
                     accum[node] += accum[upstream_nodes].sum()
         return accum
 
-    def adjust_elevation_profile(self, min_slope=0.001):
+    def adjust_elevation_profile(self, min_slope=1./1000):
         """Check and adjust (if necessary) Z coordinates of elevation profiles
 
         Parameters
         ----------
-        min_slope : float, optional
-            Global minimum downwards slope imposed on reaches.
-            TODO: also accept a series to adjust per-reach.
+        min_slope : float or pandas.Series, optional
+            Minimum downwards slope imposed on reaches. If float, then this is
+            a global value, otherwise it is per-reach with a Series.
+            Default 1./1000 (or 0.001).
         """
-        if not self.has_z:
+        if not isinstance(min_slope, pd.Series):
+            min_slope = pd.Series(min_slope, index=self.reaches.index)
+        elif (len(min_slope.index) != len(self.reaches.index) or
+                not (min_slope.index == self.reaches.index).all()):
+            raise ValueError('index for min_slope is different')
+        if (min_slope < 0.0).any():
+            raise ValueError('min_slope must be greater than zero')
+        elif not self.has_z:
             raise AttributeError('line geometry does not have Z dimension')
+        geom_name = self.reaches.geometry.name
         # Build elevation profiles as 2D coordinates,
-        # where X is distance from upstream coordinate and Y is elevation
+        # where X is 2D distance from downstream coordinate and Y is elevation
         profiles = []
+        self.messages = []
         for node, geom in self.reaches.geometry.iteritems():
-            c0 = geom.coords[0]
-            d = 0.0
-            profile_coords = [(d, c0[2])]
-            min_x_y = (d, c0[2])
-            for c1 in geom.coords[1:]:
-                d += sqrt((c0[0] - c1[0]) ** 2 + (c0[1] - c1[1]) ** 2)
-                profile_coords.append((d, c1[2]))
-                if c1[2] < min_x_y[1]:
-                    min_x_y = (d, c1[2])
-                c0 = c1
-            # If min_x_y is not the last node, then adjust
-            if min_x_y != (d, c1[2]):
-                # TODO
-                pass
-        for node, geom in self.reaches.geometry.iteritems():
+            modified = 0
+            coords = geom.coords[:]  # coordinates
+            x0, y0, z0 = coords[0]  # upstream coordinate
+            dist = geom.length  # total 2D distance from downstream coordinate
+            profile_coords = [(dist, z0)]
+            for idx, (x1, y1, z1) in enumerate(coords[1:], 1):
+                dz = z0 - z1
+                dx = sqrt((x0 - x1) ** 2 + (y0 - y1) ** 2)
+                dist -= dx
+                # Check and enforce minimum slope
+                slope = dz / dx
+                if slope < min_slope[node]:
+                    modified += 1
+                    z1 = z0 - dx * min_slope[node]
+                    coords[idx] = (x1, y1, z1)
+                profile_coords.append((dist, z1))
+                x0, y0, z0 = x1, y1, z1
+            if modified > 0:
+                m = ('adjusting %d coordinate elevation%s in reach %s',
+                     modified, 's' if modified != 1 else '', node)
+                self.logger.debug(*m)
+                self.messages.append(m[0] % m[1:])
+            if modified:
+                self.reaches.loc[node, geom_name] = LineString(coords)
             profiles.append(LineString(profile_coords))
         self.profiles = geopandas.GeoSeries(profiles)
         return
+        # TODO: adjust connected reaches
         # Find minimum elevation, then force any nodes downstream to flow down
         self.profiles.geometry.bounds.miny.sort_values()
 

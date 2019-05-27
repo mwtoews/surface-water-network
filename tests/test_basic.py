@@ -104,6 +104,8 @@ def test_init_defaults(n):
     assert list(n.reaches['stream_order']) == [1, 1, 2]
     assert list(n.headwater) == [0, 1]
     assert list(n.outlets) == [2]
+    n.adjust_elevation_profile()
+    assert len(n.messages) == 0
 
 
 def test_init_2D_geom(df):
@@ -286,3 +288,71 @@ def test_accumulate_values_expected(n):
     a = n.accumulate_values(v)
     assert dict(a) == {0: 1.0, 1: 1.0, 2: 3.0}
     assert a.name is None
+
+
+def test_adjust_elevation_profile_min_slope_float(n):
+    n.adjust_elevation_profile(2./1000)
+
+
+def test_adjust_elevation_profile_min_slope_series(n):
+    min_slope = pd.Series(2./1000, index=n.index)
+    min_slope[1] = 3./1000
+    n.adjust_elevation_profile(min_slope)
+
+
+def test_adjust_elevation_profile_different_index(n):
+    min_slope = pd.Series(2./1000, index=n.index)
+    min_slope[1] = 3./1000
+    min_slope.index += 1
+    with pytest.raises(ValueError, match='index for min_slope is different'):
+        n.adjust_elevation_profile(min_slope)
+
+
+def test_adjust_elevation_profile_min_slope_gt_zero(n):
+    with pytest.raises(ValueError,
+                       match='min_slope must be greater than zero'):
+        n.adjust_elevation_profile(-2./1000)
+
+
+def test_adjust_elevation_profile_no_change():
+    lines = wkt_to_geoseries(['LINESTRING Z (0 0 8, 1 0 7, 2 0 6)'])
+    n = swn.SurfaceWaterNetwork(lines)
+    n.adjust_elevation_profile()
+    assert len(n.messages) == 0
+    assert (lines == n.reaches.geometry).all()
+    expected_profiles = wkt_to_geoseries(['LINESTRING (2 8, 1 7, 0 6)'])
+    assert (n.profiles == expected_profiles).all()
+
+
+def test_adjust_elevation_profile_use_min_slope():
+    lines = wkt_to_geoseries(['LINESTRING Z (0 0 8, 1 0 9)'])
+    n = swn.SurfaceWaterNetwork(lines)
+    n.adjust_elevation_profile()
+    assert len(n.messages) == 1
+    assert n.messages[0] == 'adjusting 1 coordinate elevation in reach 0'
+    expected = wkt_to_geoseries(['LINESTRING Z (0 0 8, 1 0 7.999)'])
+    assert (expected == n.reaches.geometry).all()
+    expected_profiles = wkt_to_geoseries(['LINESTRING (1 8, 0 7.999)'])
+    assert (n.profiles == expected_profiles).all()
+
+    lines = wkt_to_geoseries(['LINESTRING Z (0 0 8, 1 0 9, 2 0 6)'])
+    n = swn.SurfaceWaterNetwork(lines)
+    n.adjust_elevation_profile(0.1)
+    assert len(n.messages) == 1
+    assert n.messages[0] == 'adjusting 1 coordinate elevation in reach 0'
+    expected = wkt_to_geoseries(['LINESTRING Z (0 0 8, 1 0 7.9, 2 0 6)'])
+    assert (expected == n.reaches.geometry).all()
+    expected_profiles = wkt_to_geoseries(['LINESTRING (2 8, 1 7.9, 0 6)'])
+    assert (n.profiles == expected_profiles).all()
+
+    lines = wkt_to_geoseries(['LINESTRING Z (0 0 8, 1 0 5, 2 0 6, 3 0 5)'])
+    n = swn.SurfaceWaterNetwork(lines)
+    n.adjust_elevation_profile(0.2)
+    assert len(n.messages) == 1
+    assert n.messages[0] == 'adjusting 2 coordinate elevations in reach 0'
+    expected = wkt_to_geoseries(
+            ['LINESTRING Z (0 0 8, 1 0 5, 2 0 4.8, 3 0 4.6)'])
+    assert (expected == n.reaches.geometry).all()
+    expected_profiles = wkt_to_geoseries(
+            ['LINESTRING (3 8, 2 5, 1 4.8, 0 4.6)'])
+    assert (n.profiles == expected_profiles).all()

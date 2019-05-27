@@ -31,7 +31,6 @@ Read from Shapefile:
 shp_srs = 'tests/data/DN2_Coastal_strahler1z_stream_vf.shp'
 lines = geopandas.read_file(shp_srs)
 lines.set_index('nzsegment', inplace=True)  # optional
-n = swn.SurfaceWaterNetwork(lines)
 ```
 
 Or, read from PostGIS:
@@ -43,12 +42,15 @@ con = create_engine(con_url)
 sql = 'SELECT * FROM wrc.rec2_riverlines_coastal'
 lines = geopandas.read_postgis(sql, con)
 lines.set_index('nzsegment', inplace=True)  # optional
+```
+
+Initialise and create network:
+```python
 n = swn.SurfaceWaterNetwork(lines)
 ```
 
-Initialise and create network, plot something, write a Shapefile:
+Plot something, write a Shapefile:
 ```python
-n = swn.SurfaceWaterNetwork(lines)
 n.reaches.sort_values('stream_order').plot('stream_order', legend=True)
 n.reaches.to_file('reaches.shp')
 ```
