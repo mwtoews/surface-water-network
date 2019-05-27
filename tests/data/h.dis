@@ -1,0 +1,10 @@
+# Subset of Hauraki model
+3    18      17      1      4      2              NLAY NROW NCOL NPER ITMUNI LENUNI
+0 0 0                                             LAYCBD
+CONSTANT 1000.0                                   DELR(NCOL)
+CONSTANT 1000.0                                   DELC(NROW)
+OPEN/CLOSE h.top.ref   1.0 (free) -1              Top
+OPEN/CLOSE h.botm1.ref 1.0 (free) -1              BOTM, Layer 1
+OPEN/CLOSE h.botm2.ref 1.0 (free) -1                    Layer 2
+OPEN/CLOSE h.botm3.ref 1.0 (free) -1                    Layer 3
+1.0   1   1.0   Ss                                PERLEN NSTP TSMULT Ss/tr

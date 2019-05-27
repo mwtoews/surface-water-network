@@ -1,0 +1,13 @@
+# Subset of Hauraki model
+50        -888.0    0         0                   IUPWCB HDRY NPUPW IPHDRY
+1  0  0                                           LAYTYP
+0  0  0                                           LAYAVG
+1.0  1.0  1.0                                     CHANI
+0  0  0                                           LAYVKA
+0  0  0                                           LAYWET
+CONSTANT 10.0                                     Layer 1, HK
+CONSTANT 1.0                                               VK
+CONSTANT 10.0                                     Layer 2, HK
+CONSTANT 1.0                                               VK
+CONSTANT 10.0                                     Layer 3, HK
+CONSTANT 1.0                                               VK

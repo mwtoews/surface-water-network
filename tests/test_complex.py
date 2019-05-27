@@ -81,3 +81,13 @@ def test_accumulate_values(dn, lines):
     assert res.min() > -7.0
     assert res.max() < 7.0
     assert catarea.name == 'accumulated_CATAREA'
+
+
+@pytest.fixture
+def m():
+    flopy = pytest.importorskip('flopy')
+    return flopy.modflow.Modflow.load('h.nam', model_ws=datadir)
+
+
+def test_nothing(m):
+    assert m.modelgrid.extent == (1802000.0, 1819000.0, 5874000.0, 5892000.0)

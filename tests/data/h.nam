@@ -1,0 +1,13 @@
+# Subset of Hauraki model
+#xul:1802000; yul:5892000; rotation:0; proj4_str:+init=EPSG:2193; units:meters; lenuni:2;start_datetime:01-01-2000
+LIST                 7       h.lst
+UPW                 11       h.upw
+NWT                 19       h.nwt
+DIS                 29       h.dis
+BAS6                28       h.bas
+RCH                 16       h.rch
+# SFR                 24       h.sfr
+OC                  22       h.oc
+DATA(BINARY)        30       h.hds  REPLACE
+DATA(BINARY)        50       h.cbb  REPLACE
+# DATA(BINARY)        51       h.sfo  REPLACE
