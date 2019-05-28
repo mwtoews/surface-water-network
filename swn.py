@@ -269,15 +269,15 @@ class SurfaceWaterNetwork(object):
 
         self.logger.debug('evaluating downstream sequence')
         self.reaches['sequence'] = 0
-        self.reaches['numiter'] = -1
         self.reaches['stream_order'] = 0
-        # Sort headwater nodes from the furthest to outlet to closest
+        # self.reaches['numiter'] = 0  # should be same as stream_order
+        # Sort headwater nodes from the furthest from outlet to closest
+        search_order = ['num_to_outlet', 'length_to_outlet']
         furthest_upstream = self.reaches.loc[headwater]\
-            .sort_values('length_to_outlet', ascending=False).index
+            .sort_values(search_order, ascending=False).index
         sequence = pd.Series(
             np.arange(len(furthest_upstream)) + 1, index=furthest_upstream)
         self.reaches.loc[sequence.index, 'sequence'] = sequence
-        self.reaches.loc[sequence.index, 'numiter'] = 0
         self.reaches.loc[sequence.index, 'stream_order'] = 1
         # Build a dict that describes downstream nodes to one or more upstream
         self.upstream_nodes = {}
@@ -293,12 +293,12 @@ class SurfaceWaterNetwork(object):
                 .difference(completed.union([self.END_NODE]))
             # Sort them to evaluate the furthest first
             downstream_sorted = self.reaches.loc[downstream]\
-                .sort_values('length_to_outlet', ascending=False).index
+                .sort_values(search_order, ascending=False).index
             for node in downstream_sorted:
                 if self.upstream_nodes[node].issubset(completed):
                     sequence += 1
                     self.reaches.loc[node, 'sequence'] = sequence
-                    self.reaches.loc[node, 'numiter'] = numiter
+                    # self.reaches.loc[node, 'numiter'] = numiter
                     up_ord = list(
                         self.reaches.loc[
                             list(self.upstream_nodes[node]), 'stream_order'])

@@ -64,10 +64,8 @@ def test_init(dn, lines):
     res = lines['LENGTHDOWN'] + lines.geometry.length - ln
     np.testing.assert_almost_equal(res.min(), 0.0)
     np.testing.assert_almost_equal(res.max(), 15.00362636)
-    assert list(dn.reaches['sequence'])[:6] == [141, 222, 151, 217, 139, 131]
+    assert list(dn.reaches['sequence'])[:6] == [149, 225, 152, 222, 145, 142]
     assert list(dn.reaches['sequence'])[-6:] == [156, 4, 155, 1, 3, 2]
-    assert dn.reaches['numiter'].min() == 0
-    assert dn.reaches['numiter'].max() == 4
     stream_order = dn.reaches.groupby('stream_order').count()['to_node']
     assert len(stream_order) == 5
     assert dict(stream_order) == {1: 154, 2: 72, 3: 46, 4: 28, 5: 4}
