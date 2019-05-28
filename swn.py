@@ -3,6 +3,11 @@ import logging
 import numpy as np
 import pandas as pd
 import geopandas
+try:
+    from geopandas.tools import sjoin
+except ImportError:
+    sjoin = False
+from fiona import crs as fiona_crs
 from math import sqrt
 from shapely.geometry import LineString, Point, Polygon, box
 try:
@@ -514,5 +519,14 @@ class SurfaceWaterNetwork(object):
         for idx, row in grid_df.iterrows():
             geoms.append(
                 Polygon(m.modelgrid.get_cell_vertices(row.row, row.col)))
-        grid_gdf = geopandas.GeoDataFrame(grid_df, geometry=geoms)
-        # TODO: merge this with reaches
+        crs = None
+        if m.modelgrid.proj4 is not None:
+            crs = fiona_crs.from_string(m.modelgrid.proj4)
+        elif self.reaches.geometry.crs is not None:
+            crs = self.reaches.geometry.crs
+        grid_gdf = geopandas.GeoDataFrame(grid_df, geometry=geoms, crs=crs)
+        sel_cols = [self.reaches.geometry.name, 'sequence']
+        lines_gdf = self.reaches.loc[:, sel_cols]
+        self.j = sjoin(grid_gdf, lines_gdf).sort_values('sequence')
+        for node
+        self.grid_gdf = grid_gdf
