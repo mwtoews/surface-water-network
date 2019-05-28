@@ -92,7 +92,6 @@ def test_init_defaults(n):
     assert len(n) == 3
     assert n.has_z is True
     assert n.END_NODE == -1
-    assert n.geom_idx is None
     assert n.index is n.reaches.index
     assert list(n.reaches['to_node']) == [2, 2, -1]
     assert list(n.reaches['cat_group']) == [2, 2, 2]
@@ -183,8 +182,8 @@ def test_init_all_converge():
     ])
     n = swn.SurfaceWaterNetwork(lines)
     assert len(n.warnings) == 5
-    assert n.warnings[0] == \
-        'ending node 0 matches 1 in 2D, but not in Z dimension'
+    assert n.warnings[0].startswith('ending node 0 matches ')
+    assert n.warnings[0].endswith('in 2D, but not in Z dimension')
     assert n.warnings[4] == \
         'ending coordinate (60.0, 100.0) matches end nodes: ' + \
         str(set([0, 1, 2]))

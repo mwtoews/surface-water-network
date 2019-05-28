@@ -39,10 +39,6 @@ def test_init(dn, lines):
     assert len(dn) == 304
     assert dn.has_z is True
     assert dn.END_NODE == 0
-    if rtree:
-        assert dn.geom_idx is not None
-    else:
-        assert dn.geom_idx is None
     assert dn.reaches.index is dn.index
     assert len(dn.headwater) == 154
     assert set(dn.headwater).issuperset([3046700, 3046802, 3050418, 3048102])
