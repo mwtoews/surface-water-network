@@ -356,3 +356,32 @@ def test_adjust_elevation_profile_use_min_slope():
     expected_profiles = wkt_to_geoseries(
             ['LINESTRING (3 8, 2 5, 1 4.8, 0 4.6)'])
     assert (n.profiles == expected_profiles).all()
+
+
+# def test_process_flopy_required(n):
+#    with pytest.raises(ImportError, match='this method requires flopy'):
+#        n.process_flopy(object())
+
+
+def test_process_flopy_instance_errors(n):
+    flopy = pytest.importorskip('flopy')
+    with pytest.raises(ValueError,
+                       match=r'must be a flopy\.modflow\.mf\.Modflow object'):
+        n.process_flopy(object())
+
+    m = flopy.modflow.Modflow()
+    with pytest.raises(ValueError, match='DIS package required'):
+        n.process_flopy(m)
+
+    flopy.modflow.ModflowDis(m, xul=10000, yul=10000)
+    with pytest.raises(ValueError, match='BAS6 package required'):
+        n.process_flopy(m)
+
+    flopy.modflow.ModflowBas(m)
+    with pytest.raises(ValueError,
+                       match='modelgrid extent does not cover reaches extent'):
+        n.process_flopy(m)
+
+    m.modelgrid.set_coord_info(xoff=0.0, yoff=0.0)
+    with pytest.raises(ValueError, match='ibound_action must be one of'):
+        n.process_flopy(m, ibound_action='foo')

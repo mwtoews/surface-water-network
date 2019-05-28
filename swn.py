@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import geopandas
 from math import sqrt
-from shapely.geometry import LineString, Point
+from shapely.geometry import LineString, Point, Polygon, box
 try:
     from osgeo import gdal
 except ImportError:
@@ -13,8 +13,13 @@ try:
     import rtree
 except ImportError:
     rtree = False
+try:
+    import flopy
+except ImportError:
+    flopy = False
 
 __version__ = '0.1'
+__author__ = 'Mike Toews'
 
 module_logger = logging.getLogger(__name__)
 if __name__ not in [_.name for _ in module_logger.handlers]:
@@ -459,3 +464,52 @@ class SurfaceWaterNetwork(object):
         numiter = 0
         while True:
             numiter += 1
+
+    def process_flopy(self, m, ibound_action='freeze'):
+        """Process MODFLOW groundwater model information from flopy
+
+        Parameters
+        ----------
+        m : flopy.modflow.mf.Modflow
+            Instance of a flopy MODFLOW model with
+        ibound_action : str, optional
+            Action to handle IBOUND:
+                'freeze' : Freeze IBOUND, but clip streams to fit
+                'modify' : Modify IBOUND to fit streams (not done)
+        """
+        if not flopy:
+            raise ImportError('this method requires flopy')
+        elif not isinstance(m, flopy.modflow.mf.Modflow):
+            raise ValueError('m must be a flopy.modflow.mf.Modflow object')
+        elif ibound_action not in ('freeze', 'modify'):
+            raise ValueError('ibound_action must be one of freeze or modify')
+        elif not m.has_package('DIS'):
+            raise ValueError('DIS package required')
+        elif not m.has_package('BAS6'):
+            raise ValueError('BAS6 package required')
+        # Make sure their extents overlap
+        minx, maxx, miny, maxy = m.modelgrid.extent
+        model_bbox = box(minx, miny, maxx, maxy)
+        rstats = self.reaches.bounds.describe()
+        reaches_bbox = box(
+                rstats.loc['min', 'minx'], rstats.loc['min', 'miny'],
+                rstats.loc['max', 'maxx'], rstats.loc['max', 'maxy'])
+        if model_bbox.disjoint(reaches_bbox):
+            raise ValueError('modelgrid extent does not cover reaches extent')
+        # More careful check of overlap of lines with grid polygons
+        cols, rows = np.meshgrid(np.arange(m.dis.ncol), np.arange(m.dis.nrow))
+        ibound = m.bas6.ibound[0].array
+        grid_df = pd.DataFrame({
+                'col': cols.flatten(),
+                'row': rows.flatten(),
+                'ibound': ibound.flatten()
+        })
+        if ibound_action == 'freeze' and (ibound == 0).any():
+            # Remove any invalid cells from analysis
+            grid_df = grid_df.loc[grid_df['ibound'] != 0]
+        geoms = []
+        for idx, row in grid_df.iterrows():
+            geoms.append(
+                Polygon(m.modelgrid.get_cell_vertices(row.row, row.col)))
+        grid_gdf = geopandas.GeoDataFrame(grid_df, geometry=geoms)
+        # TODO: merge this with reaches

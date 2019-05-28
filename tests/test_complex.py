@@ -86,7 +86,7 @@ def test_accumulate_values(dn, lines):
 @pytest.fixture
 def m():
     flopy = pytest.importorskip('flopy')
-    return flopy.modflow.Modflow.load('h.nam', model_ws=datadir)
+    return flopy.modflow.Modflow.load('h.nam', model_ws=datadir, check=False)
 
 
 def test_nothing(m):
