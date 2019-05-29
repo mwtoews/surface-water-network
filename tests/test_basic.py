@@ -257,19 +257,24 @@ def test_init_geoseries(wkt_list):
     assert len(n) == 3
     assert list(n.index) == [0, 1, 2]
     assert n.has_z is True
-    v = pd.Series([2.0, 3.0, 4.0])
+    v = pd.Series([3.0, 2.0, 4.0])
     a = n.accumulate_values(v)
-    assert dict(a) == {0: 9.0, 1: 3.0, 2: 4.0}
+    assert dict(a) == {0: 9.0, 1: 2.0, 2: 4.0}
 
 
 def test_accumulate_values_must_be_series(n):
     with pytest.raises(ValueError, match='values must be a pandas Series'):
-        n.accumulate_values([2.0, 3.0, 4.0])
+        n.accumulate_values([3.0, 2.0, 4.0])
 
 
 def test_accumulate_values_different_index(n):
-    v = pd.Series([2.0, 3.0, 4.0])
+    # indexes don't completely overlap
+    v = pd.Series([3.0, 2.0, 4.0])
     v.index += 1
+    with pytest.raises(ValueError, match='index is different'):
+        n.accumulate_values(v)
+    # indexes overlap, but have a different sequence
+    v = pd.Series([3.0, 2.0, 4.0]).sort_values()
     with pytest.raises(ValueError, match='index is different'):
         n.accumulate_values(v)
 
