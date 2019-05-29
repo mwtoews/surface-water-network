@@ -1,5 +1,5 @@
 # Subset of Hauraki model
-#xll:1802000; yll:5874000; rotation:0; proj4_str:+init=epsg:2193; units:meters; lenuni:2; start_datetime:01-01-2000
+#xll:1802000; yll:5861000; rotation:0; proj4_str:+init=epsg:2193; units:meters; lenuni:2; start_datetime:01-01-2000
 LIST               7  h.lst
 DIS               29  h.dis
 UPW               11  h.upw

@@ -483,7 +483,7 @@ class SurfaceWaterNetwork(object):
         Parameters
         ----------
         m : flopy.modflow.mf.Modflow
-            Instance of a flopy MODFLOW model with
+            Instance of a flopy MODFLOW model with DIS and BAS6 packages.
         ibound_action : str, optional
             Action to handle IBOUND:
                 'freeze' : Freeze IBOUND, but clip streams to fit
@@ -519,18 +519,51 @@ class SurfaceWaterNetwork(object):
         if ibound_action == 'freeze' and (ibound == 0).any():
             # Remove any invalid cells from analysis
             grid_df = grid_df.loc[grid_df['ibound'] != 0]
-        geoms = []
-        for idx, row in grid_df.iterrows():
-            geoms.append(
-                Polygon(m.modelgrid.get_cell_vertices(row.row, row.col)))
+        grid_list = [
+            Polygon(m.modelgrid.get_cell_vertices(item.row, item.col))
+            for _, item in grid_df.iterrows()]
         crs = None
         if m.modelgrid.proj4 is not None:
             crs = fiona_crs.from_string(m.modelgrid.proj4)
         elif self.reaches.geometry.crs is not None:
             crs = self.reaches.geometry.crs
-        grid_gdf = geopandas.GeoDataFrame(grid_df, geometry=geoms, crs=crs)
-        sel_cols = [self.reaches.geometry.name, 'sequence']
-        lines_gdf = self.reaches.loc[:, sel_cols]
-        self.j = sjoin(grid_gdf, lines_gdf).sort_values('sequence')
-        # for node
+        grid_gdf = geopandas.GeoDataFrame(grid_df, geometry=grid_list, crs=crs)
+        grid_sindex = grid_gdf.geometry.sindex
         self.grid_gdf = grid_gdf
+        # sel_cols = [self.reaches.geometry.name, 'sequence']
+        # lines_gdf = self.reaches.loc[:, sel_cols]
+        # self.j = sjoin(grid_gdf, lines_gdf).sort_values('sequence')
+        seg_df = pd.DataFrame(
+            columns=['lineseg', 'node', 'dist', 'row', 'col'])
+
+        def append_seg(lineseg, node, dist, row, col):
+            seg_df.loc[len(seg_df) + 1] = {
+                'lineseg': lineseg,
+                'node': node,
+                'dist': dist,
+                'row': grid.row,
+                'col': grid.col,
+            }
+
+        for node, line in self.reaches.geometry.iteritems():
+            bbox_match = sorted(grid_sindex.intersection(line.bounds))
+            if not bbox_match:
+                continue
+            for idx, grid in grid_gdf.iloc[bbox_match].iterrows():
+                lineseg = grid.geometry.intersection(line)
+                if lineseg.length == 0.0:
+                    pass  # GEOMETRYCOLLECTION EMPTY or POINT
+                elif lineseg.geom_type == 'LineString':
+                    append_seg(lineseg, node,
+                               line.project(Point(lineseg.coords[0])),
+                               grid.row, grid.col)
+                elif lineseg.geom_type == 'MultiLineString':
+                    for sublineseg in lineseg.geoms:
+                        append_seg(sublineseg, node,
+                                   line.project(Point(sublineseg.coords[0])),
+                                   grid.row, grid.col)
+                else:
+                    raise NotImplementedError(lineseg.geom_type)
+
+        self.seg_df = geopandas.GeoDataFrame(seg_df, geometry='lineseg')\
+            .sort_values(['node', 'dist'])

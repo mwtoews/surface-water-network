@@ -84,4 +84,4 @@ def m():
 
 
 def test_nothing(m):
-    assert m.modelgrid.extent == (1802000.0, 1819000.0, 5874000.0, 5892000.0)
+    assert m.modelgrid.extent == (1802000.0, 1819000.0, 5861000.0, 5879000.0)
