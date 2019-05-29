@@ -92,15 +92,15 @@ def test_init_defaults(n):
     assert len(n) == 3
     assert n.has_z is True
     assert n.END_NODE == -1
-    assert n.index is n.reaches.index
+    assert n.index is n.segments.index
     assert list(n.index) == [0, 1, 2]
-    assert list(n.reaches['to_node']) == [-1, 0, 0]
-    assert list(n.reaches['cat_group']) == [0, 0, 0]
-    assert list(n.reaches['num_to_outlet']) == [1, 2, 2]
+    assert list(n.segments['to_node']) == [-1, 0, 0]
+    assert list(n.segments['cat_group']) == [0, 0, 0]
+    assert list(n.segments['num_to_outlet']) == [1, 2, 2]
     np.testing.assert_allclose(
-        n.reaches['length_to_outlet'], [20.0, 56.05551, 51.622776])
-    assert list(n.reaches['sequence']) == [3, 1, 2]
-    assert list(n.reaches['stream_order']) == [2, 1, 1]
+        n.segments['length_to_outlet'], [20.0, 56.05551, 51.622776])
+    assert list(n.segments['sequence']) == [3, 1, 2]
+    assert list(n.segments['stream_order']) == [2, 1, 1]
     assert list(n.headwater) == [1, 2]
     assert list(n.outlets) == [0]
     n.adjust_elevation_profile()
@@ -117,13 +117,13 @@ def test_init_2D_geom(df):
     assert len(n) == 3
     assert n.has_z is False
     assert list(n.index) == [0, 1, 2]
-    assert list(n.reaches['to_node']) == [-1, 0, 0]
-    assert list(n.reaches['cat_group']) == [0, 0, 0]
-    assert list(n.reaches['num_to_outlet']) == [1, 2, 2]
+    assert list(n.segments['to_node']) == [-1, 0, 0]
+    assert list(n.segments['cat_group']) == [0, 0, 0]
+    assert list(n.segments['num_to_outlet']) == [1, 2, 2]
     np.testing.assert_allclose(
-        n.reaches['length_to_outlet'], [20.0, 56.05551, 51.622776])
-    assert list(n.reaches['sequence']) == [3, 1, 2]
-    assert list(n.reaches['stream_order']) == [2, 1, 1]
+        n.segments['length_to_outlet'], [20.0, 56.05551, 51.622776])
+    assert list(n.segments['sequence']) == [3, 1, 2]
+    assert list(n.segments['stream_order']) == [2, 1, 1]
     assert list(n.headwater) == [1, 2]
     assert list(n.outlets) == [0]
 
@@ -157,13 +157,13 @@ def test_init_reversed_lines(lines):
     assert n.has_z is True
     assert list(n.index) == [0, 1, 2]
     # This is all non-sense
-    assert list(n.reaches['to_node']) == [1, -1, -1]
-    assert list(n.reaches['cat_group']) == [1, 1, 2]
-    assert list(n.reaches['num_to_outlet']) == [2, 1, 1]
+    assert list(n.segments['to_node']) == [1, -1, -1]
+    assert list(n.segments['cat_group']) == [1, 1, 2]
+    assert list(n.segments['num_to_outlet']) == [2, 1, 1]
     np.testing.assert_allclose(
-        n.reaches['length_to_outlet'], [56.05551, 36.05551, 31.622776])
-    assert list(n.reaches['sequence']) == [1, 3, 2]
-    assert list(n.reaches['stream_order']) == [1, 1, 1]
+        n.segments['length_to_outlet'], [56.05551, 36.05551, 31.622776])
+    assert list(n.segments['sequence']) == [1, 3, 2]
+    assert list(n.segments['stream_order']) == [1, 1, 1]
     assert list(n.headwater) == [0, 2]
     assert list(n.outlets) == [1, 2]
 
@@ -186,13 +186,13 @@ def test_init_all_converge():
     assert len(n) == 3
     assert n.has_z is True
     assert list(n.index) == [0, 1, 2]
-    assert list(n.reaches['to_node']) == [-1, -1, -1]
-    assert list(n.reaches['cat_group']) == [0, 1, 2]
-    assert list(n.reaches['num_to_outlet']) == [1, 1, 1]
+    assert list(n.segments['to_node']) == [-1, -1, -1]
+    assert list(n.segments['cat_group']) == [0, 1, 2]
+    assert list(n.segments['num_to_outlet']) == [1, 1, 1]
     np.testing.assert_allclose(
-        n.reaches['length_to_outlet'], [36.05551, 31.622776, 20.0])
-    assert list(n.reaches['sequence']) == [1, 2, 3]
-    assert list(n.reaches['stream_order']) == [1, 1, 1]
+        n.segments['length_to_outlet'], [36.05551, 31.622776, 20.0])
+    assert list(n.segments['sequence']) == [1, 2, 3]
+    assert list(n.segments['stream_order']) == [1, 1, 1]
     assert list(n.headwater) == [0, 1, 2]
     assert list(n.outlets) == [0, 1, 2]
 
@@ -215,13 +215,13 @@ def test_init_all_diverge():
     assert len(n) == 3
     assert n.has_z is True
     assert list(n.index) == [0, 1, 2]
-    assert list(n.reaches['to_node']) == [-1, -1, -1]
-    assert list(n.reaches['num_to_outlet']) == [1, 1, 1]
-    assert list(n.reaches['cat_group']) == [0, 1, 2]
+    assert list(n.segments['to_node']) == [-1, -1, -1]
+    assert list(n.segments['num_to_outlet']) == [1, 1, 1]
+    assert list(n.segments['cat_group']) == [0, 1, 2]
     np.testing.assert_allclose(
-        n.reaches['length_to_outlet'], [36.05551, 31.622776, 20.0])
-    assert list(n.reaches['sequence']) == [1, 2, 3]
-    assert list(n.reaches['stream_order']) == [1, 1, 1]
+        n.segments['length_to_outlet'], [36.05551, 31.622776, 20.0])
+    assert list(n.segments['sequence']) == [1, 2, 3]
+    assert list(n.segments['stream_order']) == [1, 1, 1]
     assert list(n.headwater) == [0, 1, 2]
     assert list(n.outlets) == [0, 1, 2]
 
@@ -238,13 +238,13 @@ def test_init_line_connects_to_middle():
     assert len(n) == 2
     assert n.has_z is True
     assert list(n.index) == [0, 1]
-    assert list(n.reaches['to_node']) == [-1, -1]
-    assert list(n.reaches['cat_group']) == [0, 1]
-    assert list(n.reaches['num_to_outlet']) == [1, 1]
+    assert list(n.segments['to_node']) == [-1, -1]
+    assert list(n.segments['cat_group']) == [0, 1]
+    assert list(n.segments['num_to_outlet']) == [1, 1]
     np.testing.assert_allclose(
-        n.reaches['length_to_outlet'], [56.05551, 31.622776])
-    assert list(n.reaches['sequence']) == [1, 2]
-    assert list(n.reaches['stream_order']) == [1, 1]
+        n.segments['length_to_outlet'], [56.05551, 31.622776])
+    assert list(n.segments['sequence']) == [1, 2]
+    assert list(n.segments['stream_order']) == [1, 1]
     assert list(n.headwater) == [0, 1]
     assert list(n.outlets) == [0, 1]
 
@@ -315,7 +315,7 @@ def test_adjust_elevation_profile_no_change():
     n = swn.SurfaceWaterNetwork(lines)
     n.adjust_elevation_profile()
     assert len(n.messages) == 0
-    assert (lines == n.reaches.geometry).all()
+    assert (lines == n.segments.geometry).all()
     expected_profiles = wkt_to_geoseries(['LINESTRING (2 8, 1 7, 0 6)'])
     assert (n.profiles == expected_profiles).all()
 
@@ -325,9 +325,9 @@ def test_adjust_elevation_profile_use_min_slope():
     n = swn.SurfaceWaterNetwork(lines)
     n.adjust_elevation_profile()
     assert len(n.messages) == 1
-    assert n.messages[0] == 'adjusting 1 coordinate elevation in reach 0'
+    assert n.messages[0] == 'adjusting 1 coordinate elevation in segment 0'
     expected = wkt_to_geoseries(['LINESTRING Z (0 0 8, 1 0 7.999)'])
-    assert (expected == n.reaches.geometry).all()
+    assert (expected == n.segments.geometry).all()
     expected_profiles = wkt_to_geoseries(['LINESTRING (1 8, 0 7.999)'])
     assert (n.profiles == expected_profiles).all()
 
@@ -335,9 +335,9 @@ def test_adjust_elevation_profile_use_min_slope():
     n = swn.SurfaceWaterNetwork(lines)
     n.adjust_elevation_profile(0.1)
     assert len(n.messages) == 1
-    assert n.messages[0] == 'adjusting 1 coordinate elevation in reach 0'
+    assert n.messages[0] == 'adjusting 1 coordinate elevation in segment 0'
     expected = wkt_to_geoseries(['LINESTRING Z (0 0 8, 1 0 7.9, 2 0 6)'])
-    assert (expected == n.reaches.geometry).all()
+    assert (expected == n.segments.geometry).all()
     expected_profiles = wkt_to_geoseries(['LINESTRING (2 8, 1 7.9, 0 6)'])
     assert (n.profiles == expected_profiles).all()
 
@@ -345,10 +345,10 @@ def test_adjust_elevation_profile_use_min_slope():
     n = swn.SurfaceWaterNetwork(lines)
     n.adjust_elevation_profile(0.2)
     assert len(n.messages) == 1
-    assert n.messages[0] == 'adjusting 2 coordinate elevations in reach 0'
+    assert n.messages[0] == 'adjusting 2 coordinate elevations in segment 0'
     expected = wkt_to_geoseries(
             ['LINESTRING Z (0 0 8, 1 0 5, 2 0 4.8, 3 0 4.6)'])
-    assert (expected == n.reaches.geometry).all()
+    assert (expected == n.segments.geometry).all()
     expected_profiles = wkt_to_geoseries(
             ['LINESTRING (3 8, 2 5, 1 4.8, 0 4.6)'])
     assert (n.profiles == expected_profiles).all()
@@ -374,8 +374,8 @@ def test_process_flopy_instance_errors(n):
         n.process_flopy(m)
 
     flopy.modflow.ModflowBas(m)
-    with pytest.raises(ValueError,
-                       match='modelgrid extent does not cover reaches extent'):
+    with pytest.raises(ValueError, match='modelgrid extent does not cover '
+                       'segments extent'):
         n.process_flopy(m)
 
     m.modelgrid.set_coord_info(xoff=0.0, yoff=0.0)
