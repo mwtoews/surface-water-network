@@ -52,7 +52,7 @@ class SurfaceWaterNetwork(object):
         attributes evaluated during initialisation. Index is treated as node
         number, such as a reach ID.
     index : pandas.core.index.Int64Index
-        Shortcut to reaches.index or node number.
+        Shortcut property to reaches.index or node number.
     END_NODE : int
         Special node number that indicates a line end, default is usually 0.
         This number is not part of the index.
@@ -112,7 +112,6 @@ class SurfaceWaterNetwork(object):
             raise ValueError('lines must all be LineString types')
         # Create a new GeoDataFrame with a copy of line's geometry
         self.reaches = geopandas.GeoDataFrame(geometry=lines)
-        self.index = self.reaches.index
         self.logger.info('creating network with %d reaches', len(self))
         has_sindex = hasattr(self.reaches, 'sindex')
         if has_sindex:
@@ -193,7 +192,7 @@ class SurfaceWaterNetwork(object):
             length += self.reaches.loc[node, geom_name].length
             self.reaches.loc[node, 'length_to_outlet'] = length
             # Branch to zero or more upstream reaches
-            for upnode in self.reaches.index[self.reaches['to_node'] == node]:
+            for upnode in self.index[self.reaches['to_node'] == node]:
                 resurse_upstream(upnode, cat_group, num, length)
 
         for node in self.reaches.loc[outlets].index:
@@ -319,6 +318,7 @@ class SurfaceWaterNetwork(object):
             if self.reaches['sequence'].min() > 0:
                 break
         self.logger.debug('sequence evaluated with %d iterations', numiter)
+        self.reaches
 
     @classmethod
     def init_from_gdal(cls, lines_srs, elevation_srs=None):
@@ -369,10 +369,14 @@ class SurfaceWaterNetwork(object):
         return bool(self.reaches.geometry.apply(lambda x: x.has_z).all())
 
     @property
+    def index(self):
+        """Returns Int64Index pandas index from reaches"""
+        return self.reaches.index
+
+    @property
     def headwater(self):
         """Returns index of headwater reaches"""
-        return self.index[
-                ~self.reaches.index.isin(self.reaches['to_node'])]
+        return self.index[~self.index.isin(self.reaches['to_node'])]
 
     @property
     def outlets(self):
@@ -397,8 +401,8 @@ class SurfaceWaterNetwork(object):
         """
         if not isinstance(values, pd.Series):
             raise ValueError('values must be a pandas Series')
-        elif (len(values.index) != len(self.reaches.index) or
-                not (values.index == self.reaches.index).all()):
+        elif (len(values.index) != len(self.index) or
+                not (values.index == self.index).all()):
             raise ValueError('index is different')
         accum = values.copy()
         try:
@@ -423,9 +427,9 @@ class SurfaceWaterNetwork(object):
             Default 1./1000 (or 0.001).
         """
         if not isinstance(min_slope, pd.Series):
-            min_slope = pd.Series(min_slope, index=self.reaches.index)
-        elif (len(min_slope.index) != len(self.reaches.index) or
-                not (min_slope.index == self.reaches.index).all()):
+            min_slope = pd.Series(min_slope, index=self.index)
+        elif (len(min_slope.index) != len(self.index) or
+                not (min_slope.index == self.index).all()):
             raise ValueError('index for min_slope is different')
         if (min_slope < 0.0).any():
             raise ValueError('min_slope must be greater than zero')
@@ -528,5 +532,5 @@ class SurfaceWaterNetwork(object):
         sel_cols = [self.reaches.geometry.name, 'sequence']
         lines_gdf = self.reaches.loc[:, sel_cols]
         self.j = sjoin(grid_gdf, lines_gdf).sort_values('sequence')
-        for node
+        # for node
         self.grid_gdf = grid_gdf
