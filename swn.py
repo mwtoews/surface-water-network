@@ -16,6 +16,7 @@ except ImportError:
     gdal = False
 try:
     import rtree
+    from rtree.index import Index as RTreeIndex
 except ImportError:
     rtree = False
 try:
@@ -40,6 +41,26 @@ if __name__ not in [_.name for _ in module_logger.handlers]:
 
 # default threshold size of geometries when Rtree index is built
 _rtree_threshold = 100
+
+
+def get_sindex(gdf):
+    """Helper function to get or build a spatial index
+
+    Particularly useful for geopandas<0.2.0
+    """
+    assert isinstance(gdf, geopandas.GeoDataFrame)
+    has_sindex = hasattr(gdf, 'sindex')
+    if has_sindex:
+        sindex = gdf.geometry.sindex
+    elif rtree and len(gdf) >= _rtree_threshold:
+        # Manually populate a 2D spatial index for speed
+        sindex = RTreeIndex()
+        # slow, but reliable
+        for idx, (node, row) in enumerate(gdf.bounds.iterrows()):
+            sindex.add(idx, tuple(row))
+    else:
+        sindex = None
+    return sindex
 
 
 class SurfaceWaterNetwork(object):
@@ -113,21 +134,7 @@ class SurfaceWaterNetwork(object):
         # Create a new GeoDataFrame with a copy of line's geometry
         self.reaches = geopandas.GeoDataFrame(geometry=lines)
         self.logger.info('creating network with %d reaches', len(self))
-        has_sindex = hasattr(self.reaches, 'sindex')
-        if has_sindex:
-            reaches_sindex = self.reaches.sindex
-        elif rtree and len(self) >= _rtree_threshold and not has_sindex:
-            # Manually populate a 2D spatial index for speed
-            self.logger.debug('building R-tree index of reaches')
-            reaches_sindex = rtree.Rtree()
-            for idx, (node, row) in enumerate(self.reaches.bounds.iterrows()):
-                reaches_sindex.add(idx, tuple(row))
-            assert reaches_sindex.valid()
-        else:
-            if len(self) >= _rtree_threshold:
-                self.logger.debug(
-                    'using slow sequence scanning; consider installing rtree')
-            reaches_sindex = None
+        reaches_sindex = get_sindex(self.reaches)
         if self.index.min() > 0:
             self.END_NODE = 0
         else:
@@ -142,11 +149,9 @@ class SurfaceWaterNetwork(object):
             end_coord = geom.coords[-1]  # downstream end
             end_pt = Point(*end_coord)
             if reaches_sindex:
-                # reduce number of rows to scan based on proximity in 2D
                 subsel = reaches_sindex.intersection(end_coord[0:2])
                 sub = self.reaches.iloc[list(subsel)]
-            else:
-                # slow scan of full table
+            else:  # slow scan of all reaches
                 sub = self.reaches
             to_nodes = []
             for node2, geom2 in sub.geometry.iteritems():
@@ -209,8 +214,7 @@ class SurfaceWaterNetwork(object):
             if reaches_sindex:
                 subsel = reaches_sindex.intersection(start_coord2d)
                 sub = self.reaches.iloc[list(subsel)]
-            else:
-                # slow scan of full table
+            else:  # slow scan of all reaches
                 sub = self.reaches
             for node2, geom2 in sub.geometry.iteritems():
                 if node2 == node:
@@ -245,8 +249,7 @@ class SurfaceWaterNetwork(object):
             if reaches_sindex:
                 subsel = reaches_sindex.intersection(end_coord2d)
                 sub = self.reaches.iloc[list(subsel)]
-            else:
-                # slow scan of full table
+            else:  # slow scan of all reaches
                 sub = self.reaches
             for node2, geom2 in sub.geometry.iteritems():
                 if node2 == node:
@@ -517,7 +520,7 @@ class SurfaceWaterNetwork(object):
                 'ibound': ibound.flatten()
         })
         if ibound_action == 'freeze' and (ibound == 0).any():
-            # Remove any invalid cells from analysis
+            # Remove any inactive grid cells from analysis
             grid_df = grid_df.loc[grid_df['ibound'] != 0]
         grid_list = [
             Polygon(m.modelgrid.get_cell_vertices(item.row, item.col))
@@ -527,12 +530,13 @@ class SurfaceWaterNetwork(object):
             crs = fiona_crs.from_string(m.modelgrid.proj4)
         elif self.reaches.geometry.crs is not None:
             crs = self.reaches.geometry.crs
-        grid_gdf = geopandas.GeoDataFrame(grid_df, geometry=grid_list, crs=crs)
-        grid_sindex = grid_gdf.geometry.sindex
-        self.grid_gdf = grid_gdf
+        grid_cells = geopandas.GeoDataFrame(
+                                        grid_df, geometry=grid_list, crs=crs)
+        grid_sindex = get_sindex(grid_cells)
+        self.grid_cells = grid_cells
         # sel_cols = [self.reaches.geometry.name, 'sequence']
         # lines_gdf = self.reaches.loc[:, sel_cols]
-        # self.j = sjoin(grid_gdf, lines_gdf).sort_values('sequence')
+        # self.j = sjoin(grid_cells, lines_gdf).sort_values('sequence')
         seg_df = pd.DataFrame(
             columns=['lineseg', 'node', 'dist', 'row', 'col'])
 
@@ -546,10 +550,13 @@ class SurfaceWaterNetwork(object):
             }
 
         for node, line in self.reaches.geometry.iteritems():
-            bbox_match = sorted(grid_sindex.intersection(line.bounds))
-            if not bbox_match:
-                continue
-            for idx, grid in grid_gdf.iloc[bbox_match].iterrows():
+            if grid_sindex:
+                bbox_match = sorted(grid_sindex.intersection(line.bounds))
+                if not bbox_match:
+                    continue
+            else:  # slow scan of all cells
+                bbox_match = np.arange(len(grid_cells))
+            for idx, grid in grid_cells.iloc[bbox_match].iterrows():
                 lineseg = grid.geometry.intersection(line)
                 if lineseg.length == 0.0:
                     pass  # GEOMETRYCOLLECTION EMPTY or POINT
