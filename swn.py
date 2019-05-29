@@ -115,19 +115,19 @@ class SurfaceWaterNetwork(object):
         self.logger.info('creating network with %d reaches', len(self))
         has_sindex = hasattr(self.reaches, 'sindex')
         if has_sindex:
-            self._geom_idx = self.reaches.sindex
+            reaches_sindex = self.reaches.sindex
         elif rtree and len(self) >= _rtree_threshold and not has_sindex:
             # Manually populate a 2D spatial index for speed
             self.logger.debug('building R-tree index of reaches')
-            self._geom_idx = rtree.Rtree()
+            reaches_sindex = rtree.Rtree()
             for idx, (node, row) in enumerate(self.reaches.bounds.iterrows()):
-                self._geom_idx.add(idx, tuple(row))
-            assert self._geom_idx.valid()
+                reaches_sindex.add(idx, tuple(row))
+            assert reaches_sindex.valid()
         else:
             if len(self) >= _rtree_threshold:
                 self.logger.debug(
                     'using slow sequence scanning; consider installing rtree')
-            self._geom_idx = None
+            reaches_sindex = None
         if self.index.min() > 0:
             self.END_NODE = 0
         else:
@@ -141,9 +141,9 @@ class SurfaceWaterNetwork(object):
         for node, geom in self.reaches.geometry.iteritems():
             end_coord = geom.coords[-1]  # downstream end
             end_pt = Point(*end_coord)
-            if self._geom_idx:
+            if reaches_sindex:
                 # reduce number of rows to scan based on proximity in 2D
-                subsel = self._geom_idx.intersection(end_coord[0:2])
+                subsel = reaches_sindex.intersection(end_coord[0:2])
                 sub = self.reaches.iloc[list(subsel)]
             else:
                 # slow scan of full table
@@ -206,8 +206,8 @@ class SurfaceWaterNetwork(object):
         for node, geom in self.reaches.loc[headwater].geometry.iteritems():
             start_coord = geom.coords[0]
             start_coord2d = start_coord[0:2]
-            if self._geom_idx:
-                subsel = self._geom_idx.intersection(start_coord2d)
+            if reaches_sindex:
+                subsel = reaches_sindex.intersection(start_coord2d)
                 sub = self.reaches.iloc[list(subsel)]
             else:
                 # slow scan of full table
@@ -242,8 +242,8 @@ class SurfaceWaterNetwork(object):
         for node, geom in self.reaches.loc[outlets].geometry.iteritems():
             end_coord = geom.coords[-1]
             end_coord2d = end_coord[0:2]
-            if self._geom_idx:
-                subsel = self._geom_idx.intersection(end_coord2d)
+            if reaches_sindex:
+                subsel = reaches_sindex.intersection(end_coord2d)
                 sub = self.reaches.iloc[list(subsel)]
             else:
                 # slow scan of full table
@@ -318,7 +318,7 @@ class SurfaceWaterNetwork(object):
             if self.reaches['sequence'].min() > 0:
                 break
         self.logger.debug('sequence evaluated with %d iterations', numiter)
-        self.reaches
+        # Don't do this: self.reaches.sort_values('sequence', inplace=True)
 
     @classmethod
     def init_from_gdal(cls, lines_srs, elevation_srs=None):

@@ -26,7 +26,7 @@ def wkt_to_dataframe(wkt_list, geom_name='geometry'):
 
 
 # def wkt_to_geodataframe(wkt_list, geom_name='geometry'):
-#    return geopandas.GeoSeries(
+#    return geopandas.GeoDataFrame(
 #            wkt_to_dataframe(wkt_list, geom_name), geometry=geom_name)
 
 
@@ -41,9 +41,9 @@ def wkt_to_geoseries(wkt_list, geom_name=None):
 def wkt_list():
     # valid network
     return [
+        'LINESTRING Z (60 100 14, 60  80 12)',
         'LINESTRING Z (40 130 15, 60 100 14)',
         'LINESTRING Z (70 130 15, 60 100 14)',
-        'LINESTRING Z (60 100 14, 60  80 12)',
     ]
 
 
@@ -93,15 +93,16 @@ def test_init_defaults(n):
     assert n.has_z is True
     assert n.END_NODE == -1
     assert n.index is n.reaches.index
-    assert list(n.reaches['to_node']) == [2, 2, -1]
-    assert list(n.reaches['cat_group']) == [2, 2, 2]
-    assert list(n.reaches['num_to_outlet']) == [2, 2, 1]
+    assert list(n.index) == [0, 1, 2]
+    assert list(n.reaches['to_node']) == [-1, 0, 0]
+    assert list(n.reaches['cat_group']) == [0, 0, 0]
+    assert list(n.reaches['num_to_outlet']) == [1, 2, 2]
     np.testing.assert_allclose(
-        n.reaches['length_to_outlet'], [56.05551, 51.622776, 20.0])
-    assert list(n.reaches['sequence']) == [1, 2, 3]
-    assert list(n.reaches['stream_order']) == [1, 1, 2]
-    assert list(n.headwater) == [0, 1]
-    assert list(n.outlets) == [2]
+        n.reaches['length_to_outlet'], [20.0, 56.05551, 51.622776])
+    assert list(n.reaches['sequence']) == [3, 1, 2]
+    assert list(n.reaches['stream_order']) == [2, 1, 1]
+    assert list(n.headwater) == [1, 2]
+    assert list(n.outlets) == [0]
     n.adjust_elevation_profile()
     assert len(n.messages) == 0
 
@@ -115,39 +116,32 @@ def test_init_2D_geom(df):
     assert len(n.errors) == 0
     assert len(n) == 3
     assert n.has_z is False
-    assert list(n.reaches['to_node']) == [2, 2, -1]
-    assert list(n.reaches['cat_group']) == [2, 2, 2]
-    assert list(n.reaches['num_to_outlet']) == [2, 2, 1]
+    assert list(n.index) == [0, 1, 2]
+    assert list(n.reaches['to_node']) == [-1, 0, 0]
+    assert list(n.reaches['cat_group']) == [0, 0, 0]
+    assert list(n.reaches['num_to_outlet']) == [1, 2, 2]
     np.testing.assert_allclose(
-        n.reaches['length_to_outlet'], [56.05551, 51.622776, 20.0])
-    assert list(n.reaches['sequence']) == [1, 2, 3]
-    assert list(n.reaches['stream_order']) == [1, 1, 2]
-    assert list(n.headwater) == [0, 1]
-    assert list(n.outlets) == [2]
+        n.reaches['length_to_outlet'], [20.0, 56.05551, 51.622776])
+    assert list(n.reaches['sequence']) == [3, 1, 2]
+    assert list(n.reaches['stream_order']) == [2, 1, 1]
+    assert list(n.headwater) == [1, 2]
+    assert list(n.outlets) == [0]
 
 
 def test_init_mismatch_3D():
     # Match in 2D, but not in Z dimension
     lines = wkt_to_geoseries([
-        'LINESTRING Z (40 130 15, 60 100 13)',
         'LINESTRING Z (70 130 15, 60 100 14)',
         'LINESTRING Z (60 100 14, 60  80 12)',
+        'LINESTRING Z (40 130 15, 60 100 13)',
     ])
     n = swn.SurfaceWaterNetwork(lines)
     assert len(n.warnings) == 1
-    assert n.warnings[0] == 'node 0 matches 2 in 2D, but not in Z dimension'
+    assert n.warnings[0] == 'node 2 matches 1 in 2D, but not in Z dimension'
     assert len(n.errors) == 0
     assert len(n) == 3
     assert n.has_z is True
-    assert list(n.reaches['to_node']) == [2, 2, -1]
-    assert list(n.reaches['cat_group']) == [2, 2, 2]
-    assert list(n.reaches['num_to_outlet']) == [2, 2, 1]
-    np.testing.assert_allclose(
-        n.reaches['length_to_outlet'], [56.05551, 51.622776, 20.0])
-    assert list(n.reaches['sequence']) == [1, 2, 3]
-    assert list(n.reaches['stream_order']) == [1, 1, 2]
-    assert list(n.headwater) == [0, 1]
-    assert list(n.outlets) == [2]
+    assert list(n.index) == [0, 1, 2]
 
 
 def test_init_reversed_lines(lines):
@@ -156,21 +150,22 @@ def test_init_reversed_lines(lines):
     n = swn.SurfaceWaterNetwork(lines)
     assert len(n.warnings) == 0
     assert len(n.errors) == 2
-    assert n.errors[0] == 'node 2 has more than one downstream nodes: [0, 1]'
+    assert n.errors[0] == 'node 0 has more than one downstream nodes: [1, 2]'
     assert n.errors[1] == 'starting coordinate (60.0, 100.0) ' + \
-        'matches start node: ' + str(set([0]))
+        'matches start node: ' + str(set([1]))
     assert len(n) == 3
     assert n.has_z is True
+    assert list(n.index) == [0, 1, 2]
     # This is all non-sense
-    assert list(n.reaches['to_node']) == [-1, -1, 0]
-    assert list(n.reaches['cat_group']) == [0, 1, 0]
-    assert list(n.reaches['num_to_outlet']) == [1, 1, 2]
+    assert list(n.reaches['to_node']) == [1, -1, -1]
+    assert list(n.reaches['cat_group']) == [1, 1, 2]
+    assert list(n.reaches['num_to_outlet']) == [2, 1, 1]
     np.testing.assert_allclose(
-        n.reaches['length_to_outlet'], [36.05551, 31.622776, 56.05551])
-    assert list(n.reaches['sequence']) == [3, 2, 1]
+        n.reaches['length_to_outlet'], [56.05551, 36.05551, 31.622776])
+    assert list(n.reaches['sequence']) == [1, 3, 2]
     assert list(n.reaches['stream_order']) == [1, 1, 1]
-    assert list(n.headwater) == [1, 2]
-    assert list(n.outlets) == [0, 1]
+    assert list(n.headwater) == [0, 2]
+    assert list(n.outlets) == [1, 2]
 
 
 def test_init_all_converge():
@@ -190,6 +185,7 @@ def test_init_all_converge():
     assert len(n.errors) == 0
     assert len(n) == 3
     assert n.has_z is True
+    assert list(n.index) == [0, 1, 2]
     assert list(n.reaches['to_node']) == [-1, -1, -1]
     assert list(n.reaches['cat_group']) == [0, 1, 2]
     assert list(n.reaches['num_to_outlet']) == [1, 1, 1]
@@ -218,6 +214,7 @@ def test_init_all_diverge():
         str(set([0, 1, 2]))
     assert len(n) == 3
     assert n.has_z is True
+    assert list(n.index) == [0, 1, 2]
     assert list(n.reaches['to_node']) == [-1, -1, -1]
     assert list(n.reaches['num_to_outlet']) == [1, 1, 1]
     assert list(n.reaches['cat_group']) == [0, 1, 2]
@@ -240,6 +237,7 @@ def test_init_line_connects_to_middle():
     assert n.errors[0] == 'node 1 connects to the middle of node 0'
     assert len(n) == 2
     assert n.has_z is True
+    assert list(n.index) == [0, 1]
     assert list(n.reaches['to_node']) == [-1, -1]
     assert list(n.reaches['cat_group']) == [0, 1]
     assert list(n.reaches['num_to_outlet']) == [1, 1]
@@ -257,28 +255,29 @@ def test_init_geoseries(wkt_list):
     assert len(n.warnings) == 0
     assert len(n.errors) == 0
     assert len(n) == 3
+    assert list(n.index) == [0, 1, 2]
     assert n.has_z is True
-    v = pd.Series(1.0, n.index)
+    v = pd.Series([2.0, 3.0, 4.0])
     a = n.accumulate_values(v)
-    assert dict(a) == {0: 1.0, 1: 1.0, 2: 3.0}
+    assert dict(a) == {0: 9.0, 1: 3.0, 2: 4.0}
 
 
 def test_accumulate_values_must_be_series(n):
     with pytest.raises(ValueError, match='values must be a pandas Series'):
-        n.accumulate_values([1.0, 1.0, 1.0])
+        n.accumulate_values([2.0, 3.0, 4.0])
 
 
 def test_accumulate_values_different_index(n):
-    v = pd.Series([1.0, 1.0, 1.0])
+    v = pd.Series([2.0, 3.0, 4.0])
     v.index += 1
     with pytest.raises(ValueError, match='index is different'):
         n.accumulate_values(v)
 
 
 def test_accumulate_values_expected(n):
-    v = pd.Series(1.0, n.index)
+    v = pd.Series([2.0, 3.0, 4.0])
     a = n.accumulate_values(v)
-    assert dict(a) == {0: 1.0, 1: 1.0, 2: 3.0}
+    assert dict(a) == {0: 9.0, 1: 3.0, 2: 4.0}
     assert a.name is None
 
 
