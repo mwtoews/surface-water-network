@@ -137,7 +137,9 @@ def test_init_mismatch_3D():
     ])
     n = swn.SurfaceWaterNetwork(lines)
     assert len(n.warnings) == 1
-    assert n.warnings[0] == 'segment 2 matches 1 in 2D, but not in Z dimension'
+    assert n.warnings[0] == \
+        'end of segment 2 matches start of segment 1 in 2D, but not in '\
+        'Z dimension'
     assert len(n.errors) == 0
     assert len(n) == 3
     assert n.has_z is True
@@ -179,8 +181,9 @@ def test_init_all_converge():
     ])
     n = swn.SurfaceWaterNetwork(lines)
     assert len(n.warnings) == 5
-    assert n.warnings[0].startswith('ending segment 0 matches ')
-    assert n.warnings[0].endswith('in 2D, but not in Z dimension')
+    assert n.warnings[0] == \
+        'ending segment 0 matches end of segment 1 '\
+        'in 2D, but not in Z dimension'
     assert n.warnings[4] == \
         'ending coordinate (60.0, 100.0) matches end segments: ' + \
         str(set([0, 1, 2]))
@@ -208,8 +211,9 @@ def test_init_all_diverge():
     ])
     n = swn.SurfaceWaterNetwork(lines)
     assert len(n.warnings) == 4
-    assert n.warnings[0].startswith('starting segment')
-    assert n.warnings[0].endswith('but not in Z dimension')
+    assert n.warnings[0] == \
+        'starting segment 0 matches start of segment 1 in 2D, '\
+        'but not in Z dimension'
     assert len(n.errors) == 1
     assert n.errors[0] == \
         'starting coordinate (60.0, 100.0) matches start segments: ' + \

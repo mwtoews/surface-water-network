@@ -151,7 +151,7 @@ class SurfaceWaterNetwork(object):
             end1_pt = Point(*end1_coord)
             if segments_sindex:
                 subsel = segments_sindex.intersection(end1_coord2d)
-                sub = self.segments.iloc[list(subsel)]
+                sub = self.segments.iloc[sorted(subsel)]
             else:  # slow scan of all segments
                 sub = self.segments
             to_segnums = []
@@ -164,8 +164,8 @@ class SurfaceWaterNetwork(object):
                     to_segnums.append(segnum2)  # perfect 3D match
                 elif end1_coord2d == start2_coord[0:2]:
                     to_segnums.append(segnum2)
-                    m = ('segment %s matches %s in 2D, but not in Z dimension',
-                         segnum1, segnum2)
+                    m = ('end of segment %s matches start of segment %s in '
+                         '2D, but not in Z dimension', segnum1, segnum2)
                     self.logger.warning(*m)
                     self.warnings.append(m[0] % m[1:])
                 elif (geom2.distance(end1_pt) < 1e-6 and
@@ -215,7 +215,7 @@ class SurfaceWaterNetwork(object):
             start1_coord2d = start1_coord[0:2]
             if segments_sindex:
                 subsel = segments_sindex.intersection(start1_coord2d)
-                sub = self.segments.iloc[list(subsel)]
+                sub = self.segments.iloc[sorted(subsel)]
             else:  # slow scan of all segments
                 sub = self.segments
             for segnum2, geom2 in sub.geometry.iteritems():
@@ -227,8 +227,8 @@ class SurfaceWaterNetwork(object):
                     match = True  # perfect 3D match
                 elif start1_coord2d == start2_coord[0:2]:
                     match = True
-                    m = ('starting segment %s matches start of %s in 2D, but '
-                         'not in Z dimension', segnum1, segnum2)
+                    m = ('starting segment %s matches start of segment %s in '
+                         '2D, but not in Z dimension', segnum1, segnum2)
                     self.logger.warning(*m)
                     self.warnings.append(m[0] % m[1:])
                 if match:
@@ -249,7 +249,7 @@ class SurfaceWaterNetwork(object):
             end1_coord2d = end1_coord[0:2]
             if segments_sindex:
                 subsel = segments_sindex.intersection(end1_coord2d)
-                sub = self.segments.iloc[list(subsel)]
+                sub = self.segments.iloc[sorted(subsel)]
             else:  # slow scan of all segments
                 sub = self.segments
             for segnum2, geom2 in sub.geometry.iteritems():
@@ -261,8 +261,8 @@ class SurfaceWaterNetwork(object):
                     match = True  # perfect 3D match
                 elif end1_coord2d == end2_coord[0:2]:
                     match = True
-                    m = ('ending segment %s matches end of %s in 2D, but not '
-                         'in Z dimension', segnum1, segnum2)
+                    m = ('ending segment %s matches end of segment %s in 2D, '
+                         'but not in Z dimension', segnum1, segnum2)
                     self.logger.warning(*m)
                     self.warnings.append(m[0] % m[1:])
                 if match:
