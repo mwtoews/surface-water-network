@@ -91,10 +91,10 @@ def test_init_defaults(n):
     assert len(n.errors) == 0
     assert len(n) == 3
     assert n.has_z is True
-    assert n.END_NODE == -1
+    assert n.END_SEGNUM == -1
     assert n.index is n.segments.index
     assert list(n.index) == [0, 1, 2]
-    assert list(n.segments['to_node']) == [-1, 0, 0]
+    assert list(n.segments['to_segnum']) == [-1, 0, 0]
     assert list(n.segments['cat_group']) == [0, 0, 0]
     assert list(n.segments['num_to_outlet']) == [1, 2, 2]
     np.testing.assert_allclose(
@@ -117,7 +117,7 @@ def test_init_2D_geom(df):
     assert len(n) == 3
     assert n.has_z is False
     assert list(n.index) == [0, 1, 2]
-    assert list(n.segments['to_node']) == [-1, 0, 0]
+    assert list(n.segments['to_segnum']) == [-1, 0, 0]
     assert list(n.segments['cat_group']) == [0, 0, 0]
     assert list(n.segments['num_to_outlet']) == [1, 2, 2]
     np.testing.assert_allclose(
@@ -137,7 +137,7 @@ def test_init_mismatch_3D():
     ])
     n = swn.SurfaceWaterNetwork(lines)
     assert len(n.warnings) == 1
-    assert n.warnings[0] == 'node 2 matches 1 in 2D, but not in Z dimension'
+    assert n.warnings[0] == 'segment 2 matches 1 in 2D, but not in Z dimension'
     assert len(n.errors) == 0
     assert len(n) == 3
     assert n.has_z is True
@@ -150,14 +150,16 @@ def test_init_reversed_lines(lines):
     n = swn.SurfaceWaterNetwork(lines)
     assert len(n.warnings) == 0
     assert len(n.errors) == 2
-    assert n.errors[0] == 'node 0 has more than one downstream nodes: [1, 2]'
-    assert n.errors[1] == 'starting coordinate (60.0, 100.0) ' + \
-        'matches start node: ' + str(set([1]))
+    assert n.errors[0] == \
+        'segment 0 has more than one downstream segments: [1, 2]'
+    assert n.errors[1] == \
+        'starting coordinate (60.0, 100.0) matches start segment: ' + \
+        str(set([1]))
     assert len(n) == 3
     assert n.has_z is True
     assert list(n.index) == [0, 1, 2]
     # This is all non-sense
-    assert list(n.segments['to_node']) == [1, -1, -1]
+    assert list(n.segments['to_segnum']) == [1, -1, -1]
     assert list(n.segments['cat_group']) == [1, 1, 2]
     assert list(n.segments['num_to_outlet']) == [2, 1, 1]
     np.testing.assert_allclose(
@@ -177,16 +179,16 @@ def test_init_all_converge():
     ])
     n = swn.SurfaceWaterNetwork(lines)
     assert len(n.warnings) == 5
-    assert n.warnings[0].startswith('ending node 0 matches ')
+    assert n.warnings[0].startswith('ending segment 0 matches ')
     assert n.warnings[0].endswith('in 2D, but not in Z dimension')
     assert n.warnings[4] == \
-        'ending coordinate (60.0, 100.0) matches end nodes: ' + \
+        'ending coordinate (60.0, 100.0) matches end segments: ' + \
         str(set([0, 1, 2]))
     assert len(n.errors) == 0
     assert len(n) == 3
     assert n.has_z is True
     assert list(n.index) == [0, 1, 2]
-    assert list(n.segments['to_node']) == [-1, -1, -1]
+    assert list(n.segments['to_segnum']) == [-1, -1, -1]
     assert list(n.segments['cat_group']) == [0, 1, 2]
     assert list(n.segments['num_to_outlet']) == [1, 1, 1]
     np.testing.assert_allclose(
@@ -206,16 +208,16 @@ def test_init_all_diverge():
     ])
     n = swn.SurfaceWaterNetwork(lines)
     assert len(n.warnings) == 4
-    assert n.warnings[0].startswith('starting node')
+    assert n.warnings[0].startswith('starting segment')
     assert n.warnings[0].endswith('but not in Z dimension')
     assert len(n.errors) == 1
     assert n.errors[0] == \
-        'starting coordinate (60.0, 100.0) matches start nodes: ' + \
+        'starting coordinate (60.0, 100.0) matches start segments: ' + \
         str(set([0, 1, 2]))
     assert len(n) == 3
     assert n.has_z is True
     assert list(n.index) == [0, 1, 2]
-    assert list(n.segments['to_node']) == [-1, -1, -1]
+    assert list(n.segments['to_segnum']) == [-1, -1, -1]
     assert list(n.segments['num_to_outlet']) == [1, 1, 1]
     assert list(n.segments['cat_group']) == [0, 1, 2]
     np.testing.assert_allclose(
@@ -234,11 +236,11 @@ def test_init_line_connects_to_middle():
     n = swn.SurfaceWaterNetwork(lines)
     assert len(n.warnings) == 0
     assert len(n.errors) == 1
-    assert n.errors[0] == 'node 1 connects to the middle of node 0'
+    assert n.errors[0] == 'segment 1 connects to the middle of segment 0'
     assert len(n) == 2
     assert n.has_z is True
     assert list(n.index) == [0, 1]
-    assert list(n.segments['to_node']) == [-1, -1]
+    assert list(n.segments['to_segnum']) == [-1, -1]
     assert list(n.segments['cat_group']) == [0, 1]
     assert list(n.segments['num_to_outlet']) == [1, 1]
     np.testing.assert_allclose(
