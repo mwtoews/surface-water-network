@@ -513,64 +513,83 @@ class SurfaceWaterNetwork(object):
             raise ValueError('modelgrid extent does not cover segments extent')
         # More careful check of overlap of lines with grid polygons
         cols, rows = np.meshgrid(np.arange(m.dis.ncol), np.arange(m.dis.nrow))
-        ibound = m.bas6.ibound[0].array
-        grid_df = pd.DataFrame({
-                'col': cols.flatten(),
-                'row': rows.flatten(),
-                'ibound': ibound.flatten()
-        })
+        ibound = m.bas6.ibound[0].array.copy()
+        ibound_modified = 0
+        grid_df = pd.DataFrame({'row': rows.flatten(), 'col': cols.flatten()})
+        grid_df.set_index(['row', 'col'], inplace=True)
+        grid_df['ibound'] = ibound.flatten()
         if ibound_action == 'freeze' and (ibound == 0).any():
             # Remove any inactive grid cells from analysis
             grid_df = grid_df.loc[grid_df['ibound'] != 0]
-        grid_list = [
-            Polygon(m.modelgrid.get_cell_vertices(item.row, item.col))
-            for _, item in grid_df.iterrows()]
         crs = None
         if m.modelgrid.proj4 is not None:
             crs = fiona_crs.from_string(m.modelgrid.proj4)
         elif self.segments.geometry.crs is not None:
             crs = self.segments.geometry.crs
         grid_cells = geopandas.GeoDataFrame(
-                                        grid_df, geometry=grid_list, crs=crs)
+                grid_df, crs=crs,
+                geometry=[Polygon(m.modelgrid.get_cell_vertices(row, col))
+                          for row, col in grid_df.index])
         grid_sindex = get_sindex(grid_cells)
         self.grid_cells = grid_cells
         # sel_cols = [self.segments.geometry.name, 'sequence']
         # lines_gdf = self.segments.loc[:, sel_cols]
         # self.j = sjoin(grid_cells, lines_gdf).sort_values('sequence')
-        seg_df = pd.DataFrame(
-            columns=['lineseg', 'node', 'dist', 'row', 'col'])
+        reach_df = pd.DataFrame(
+            columns=['geometry', 'node', 'dist', 'row', 'col'])
 
-        def append_seg(lineseg, node, dist, row, col):
-            seg_df.loc[len(seg_df) + 1] = {
-                'lineseg': lineseg,
-                'node': node,
-                'dist': dist,
-                'row': grid.row,
-                'col': grid.col,
-            }
+        def append_reach(node, row, col, line, reach_geom):
+            if reach_geom.geom_type == 'LineString':
+                reach_df.loc[len(reach_df) + 1] = {
+                    'geometry': reach_geom,
+                    'node': node,
+                    'dist': line.project(Point(reach_geom.coords[0])),
+                    'row': row,
+                    'col': col,
+                }
+            elif reach_geom.geom_type.startswith('Multi'):
+                for sub_reach_geom in reach_geom.geoms:  # recurse
+                    append_reach(node, row, col, line, sub_reach_geom)
+            else:
+                raise NotImplementedError(reach_geom.geom_type)
 
         for node, line in self.segments.geometry.iteritems():
             if grid_sindex:
                 bbox_match = sorted(grid_sindex.intersection(line.bounds))
                 if not bbox_match:
                     continue
+                sub = grid_cells.geometry.iloc[bbox_match]
             else:  # slow scan of all cells
-                bbox_match = np.arange(len(grid_cells))
-            for idx, grid in grid_cells.iloc[bbox_match].iterrows():
-                lineseg = grid.geometry.intersection(line)
-                if lineseg.length == 0.0:
-                    pass  # GEOMETRYCOLLECTION EMPTY or POINT
-                elif lineseg.geom_type == 'LineString':
-                    append_seg(lineseg, node,
-                               line.project(Point(lineseg.coords[0])),
-                               grid.row, grid.col)
-                elif lineseg.geom_type == 'MultiLineString':
-                    for sublineseg in lineseg.geoms:
-                        append_seg(sublineseg, node,
-                                   line.project(Point(sublineseg.coords[0])),
-                                   grid.row, grid.col)
-                else:
-                    raise NotImplementedError(lineseg.geom_type)
-
-        self.seg_df = geopandas.GeoDataFrame(seg_df, geometry='lineseg')\
-            .sort_values(['node', 'dist'])
+                sub = grid_cells.geometry
+            for (row, col), grid_geom in sub.iteritems():
+                reach_geom = grid_geom.intersection(line)
+                if not reach_geom.is_empty:
+                    append_reach(node, row, col, line, reach_geom)
+                    if ibound_action == 'modify' and ibound[row, col] == 0:
+                        ibound_modified += 1
+                        ibound[row, col] = 1
+        self.reaches = geopandas.GeoDataFrame(reach_df, geometry='geometry')
+        if ibound_modified:
+            self.logger.debug(
+                'updating %d cells from IBOUND array for top layer',
+                ibound_modified)
+            m.bas6.ibound[0] = ibound
+            self.reaches = self.reaches.merge(
+                    grid_df[['ibound']], on=['row', 'col'])
+            self.reaches.rename(
+                    columns={'ibound': 'prev_ibound'}, inplace=True)
+        # Add information from segments
+        self.reaches['iseg'] = self.reaches['node'].apply(
+                lambda x: self.segments.loc[x, 'sequence'])
+        self.reaches.sort_values(['iseg', 'dist'], inplace=True)
+        self.reaches['ireach'] = 0
+        previseg = 0
+        ireach = 0
+        for idx, item in self.reaches.iterrows():
+            if item.iseg != previseg:
+                ireach = 0
+            ireach += 1
+            self.reaches.loc[idx, 'ireach'] = ireach
+            previseg = item.iseg
+        # self.reaches.set_index(['iseg', 'ireach'], inplace=True)
+        self.reaches.reset_index(inplace=True)
