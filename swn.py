@@ -569,27 +569,37 @@ class SurfaceWaterNetwork(object):
                         ibound_modified += 1
                         ibound[row, col] = 1
         self.reaches = geopandas.GeoDataFrame(reach_df, geometry='geometry')
-        if ibound_modified:
-            self.logger.debug(
-                'updating %d cells from IBOUND array for top layer',
-                ibound_modified)
-            m.bas6.ibound[0] = ibound
-            self.reaches = self.reaches.merge(
-                    grid_df[['ibound']], on=['row', 'col'])
-            self.reaches.rename(
-                    columns={'ibound': 'prev_ibound'}, inplace=True)
+        if ibound_action == 'modify':
+            if ibound_modified:
+                self.logger.debug(
+                    'updating %d cells from IBOUND array for top layer',
+                    ibound_modified)
+                m.bas6.ibound[0] = ibound
+                self.reaches = self.reaches.merge(
+                    grid_df[['ibound']],
+                    left_on=['row', 'col'], right_index=True)
+                self.reaches.rename(
+                        columns={'ibound': 'prev_ibound'}, inplace=True)
+            else:
+                self.reaches['prev_ibound'] = 1
         # Add information from segments
-        self.reaches['iseg'] = self.reaches['node'].apply(
-                lambda x: self.segments.loc[x, 'sequence'])
-        self.reaches.sort_values(['iseg', 'dist'], inplace=True)
+        self.reaches = self.reaches.merge(
+            self.segments[['sequence']], 'left',
+            left_on='node', right_index=True)
+        self.reaches.sort_values(['sequence', 'dist'], inplace=True)
+        del self.reaches['sequence']
+        del self.reaches['dist']
+        # Use MODFLOW SFR dataset 2 terms ISEG and IREACH, counting from 1
+        self.reaches['iseg'] = 0
         self.reaches['ireach'] = 0
-        previseg = 0
-        ireach = 0
+        iseg = ireach = prev_seg = 0
         for idx, item in self.reaches.iterrows():
-            if item.iseg != previseg:
+            if item.node != prev_seg:
+                iseg += 1
                 ireach = 0
             ireach += 1
+            self.reaches.loc[idx, 'iseg'] = iseg
             self.reaches.loc[idx, 'ireach'] = ireach
-            previseg = item.iseg
+            prev_seg = item.node
         # self.reaches.set_index(['iseg', 'ireach'], inplace=True)
         self.reaches.reset_index(inplace=True)
