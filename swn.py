@@ -533,12 +533,13 @@ class SurfaceWaterNetwork(object):
                 geometry=[Polygon(m.modelgrid.get_cell_vertices(row, col))
                           for row, col in grid_df.index])
         grid_sindex = get_sindex(grid_cells)
-        self.grid_cells = grid_cells
-        # sel_cols = [self.segments.geometry.name, 'sequence']
-        # lines_gdf = self.segments.loc[:, sel_cols]
-        # self.j = sjoin(grid_cells, lines_gdf).sort_values('sequence')
-        reach_df = pd.DataFrame(
-            columns=['geometry', 'segnum', 'dist', 'row', 'col'])
+        # Make an empty DataFrame for reaches
+        reach_df = pd.DataFrame(columns=['geometry'])
+        reach_df.insert(1, column='segnum',
+                        value=pd.Series(dtype=self.index.dtype))
+        reach_df.insert(2, column='dist', value=pd.Series(dtype=float))
+        reach_df.insert(3, column='row', value=pd.Series(dtype=int))
+        reach_df.insert(4, column='col', value=pd.Series(dtype=int))
 
         def append_reach(segnum, row, col, line, reach_geom):
             if reach_geom.geom_type == 'LineString':
@@ -603,5 +604,27 @@ class SurfaceWaterNetwork(object):
             self.reaches.loc[idx, 'iseg'] = iseg
             self.reaches.loc[idx, 'ireach'] = ireach
             prev_seg = item.segnum
-        # self.reaches.set_index(['iseg', 'ireach'], inplace=True)
-        self.reaches.reset_index(inplace=True)
+        self.reaches.reset_index(inplace=True, drop=True)
+        self.reaches.index += 1
+        self.reaches.index.name = 'node'
+        # Build reach_data for Data Set 2
+        # See flopy.modflow.ModflowSfr2.get_default_reach_dtype()
+        self.reach_data = pd.DataFrame(self.reaches.drop(columns='geometry'))
+        if 'prev_ibound' in self.reach_data:
+            self.reach_data.drop(columns='prev_ibound', inplace=True)
+        self.reach_data.insert(2, column='k', value=1)  # only top layer
+        self.reach_data.insert(3, column='rchlen',
+                               value=self.reaches.geometry.length)
+        self.reach_data.rename(
+            columns={'row': 'i', 'col': 'j', 'segnum': 'reachID'},
+            inplace=True)
+        # Build segment_data for Data Set 5
+        self.segment_data = self.reaches[['iseg', 'segnum']].drop_duplicates()
+        self.segment_data.rename(columns={'iseg': 'nseg'}, inplace=True)
+        self.segment_data.set_index('nseg', inplace=True)
+        self.segment_data.drop(columns='segnum', inplace=True)
+        # Create flopy Sfr2 package
+        sfr = flopy.modflow.mfsfr2.ModflowSfr2(
+                m,
+                reach_data=self.reach_data.to_records(),
+                segment_data=self.segment_data.to_records())
