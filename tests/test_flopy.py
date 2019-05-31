@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import numpy as np
 import os
 import pytest
 from hashlib import md5
@@ -7,7 +8,41 @@ try:
 except ImportError:
     pytest.skip("skipping tests that require flopy", allow_module_level=True)
 
+from .common import swn, wkt_to_geoseries
+
+
 datadir = os.path.join('tests', 'data')
+
+
+def test_process_flopy_instance_errors():
+    # same valid network used in test_basic
+    lines = wkt_to_geoseries([
+        'LINESTRING Z (60 100 14, 60  80 12)',
+        'LINESTRING Z (40 130 15, 60 100 14)',
+        'LINESTRING Z (70 130 15, 60 100 14)',
+    ])
+    n = swn.SurfaceWaterNetwork(lines)
+
+    with pytest.raises(ValueError,
+                       match=r'must be a flopy\.modflow\.mf\.Modflow object'):
+        n.process_flopy(object())
+
+    m = flopy.modflow.Modflow()
+    with pytest.raises(ValueError, match='DIS package required'):
+        n.process_flopy(m)
+
+    flopy.modflow.ModflowDis(m, xul=10000, yul=10000)
+    with pytest.raises(ValueError, match='BAS6 package required'):
+        n.process_flopy(m)
+
+    flopy.modflow.ModflowBas(m)
+    with pytest.raises(ValueError, match='modelgrid extent does not cover '
+                       'segments extent'):
+        n.process_flopy(m)
+
+    m.modelgrid.set_coord_info(xoff=0.0, yoff=0.0)
+    with pytest.raises(ValueError, match='ibound_action must be one of'):
+        n.process_flopy(m, ibound_action='foo')
 
 
 @pytest.fixture

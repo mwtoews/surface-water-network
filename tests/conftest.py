@@ -2,11 +2,8 @@
 import geopandas
 import os
 import pytest
-import sys
-sys.path.insert(
-    0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 
-import swn
+from .common import swn
 
 datadir = os.path.join('tests', 'data')
 

@@ -51,6 +51,14 @@ n = swn.SurfaceWaterNetwork(lines)
 
 Plot something, write a Shapefile:
 ```python
-n.reaches.sort_values('stream_order').plot('stream_order', legend=True)
-n.reaches.to_file('reaches.shp')
+n.segments.sort_values('stream_order').plot('stream_order')
+n.segments.to_file('segments.shp')
+```
+
+Process a MODFLOW/flopy model:
+```python
+import flopy
+
+m = flopy.modflow.Modflow.load('h.nam', model_ws='tests/data', check=False)
+n.process_flopy(m)
 ```

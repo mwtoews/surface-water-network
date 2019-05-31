@@ -1,40 +1,11 @@
 # -*- coding: utf-8 -*-
-import geopandas
 import pandas as pd
 import pytest
 import numpy as np
-import os
-import sys
 from shapely import wkt
 from shapely.geometry import LineString
-try:
-    import rtree
-except ImportError:
-    rtree = False
 
-sys.path.insert(
-    0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
-
-import swn
-
-
-# Helper functions
-def wkt_to_dataframe(wkt_list, geom_name='geometry'):
-    df = pd.DataFrame({'wkt': wkt_list})
-    df[geom_name] = df['wkt'].apply(wkt.loads)
-    return df
-
-
-# def wkt_to_geodataframe(wkt_list, geom_name='geometry'):
-#    return geopandas.GeoDataFrame(
-#            wkt_to_dataframe(wkt_list, geom_name), geometry=geom_name)
-
-
-def wkt_to_geoseries(wkt_list, geom_name=None):
-    geom = geopandas.GeoSeries([wkt.loads(x) for x in wkt_list])
-    if geom_name is not None:
-        geom.name = geom_name
-    return geom
+from .common import swn, wkt_to_dataframe, wkt_to_geoseries
 
 
 @pytest.fixture
@@ -368,27 +339,3 @@ def test_adjust_elevation_profile_use_min_slope():
 # def test_process_flopy_required(n):
 #    with pytest.raises(ImportError, match='this method requires flopy'):
 #        n.process_flopy(object())
-
-
-def test_process_flopy_instance_errors(n):
-    flopy = pytest.importorskip('flopy')
-    with pytest.raises(ValueError,
-                       match=r'must be a flopy\.modflow\.mf\.Modflow object'):
-        n.process_flopy(object())
-
-    m = flopy.modflow.Modflow()
-    with pytest.raises(ValueError, match='DIS package required'):
-        n.process_flopy(m)
-
-    flopy.modflow.ModflowDis(m, xul=10000, yul=10000)
-    with pytest.raises(ValueError, match='BAS6 package required'):
-        n.process_flopy(m)
-
-    flopy.modflow.ModflowBas(m)
-    with pytest.raises(ValueError, match='modelgrid extent does not cover '
-                       'segments extent'):
-        n.process_flopy(m)
-
-    m.modelgrid.set_coord_info(xoff=0.0, yoff=0.0)
-    with pytest.raises(ValueError, match='ibound_action must be one of'):
-        n.process_flopy(m, ibound_action='foo')
