@@ -491,8 +491,8 @@ class SurfaceWaterNetwork(object):
             Instance of a flopy MODFLOW model with DIS and BAS6 packages.
         ibound_action : str, optional
             Action to handle IBOUND:
-                'freeze' : Freeze IBOUND, but clip streams to fit
-                'modify' : Modify IBOUND to fit streams (not done)
+                - ``freeze`` : Freeze IBOUND, but clip streams to fit bounds.
+                - ``modify`` : Modify IBOUND to fit streams, where possible.
         """
         if not flopy:
             raise ImportError('this method requires flopy')

@@ -1,87 +1,61 @@
 # -*- coding: utf-8 -*-
-import geopandas
-import os
-import pytest
 import numpy as np
-try:
-    import rtree
-except ImportError:
-    rtree = False
-
-import sys
-sys.path.insert(
-    0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
-
-import swn
-
-datadir = os.path.join('tests', 'data')
 
 
-@pytest.fixture
-def lines():
-    shp_srs = os.path.join(datadir, 'DN2_Coastal_strahler1z_stream_vf.shp')
-    lines = geopandas.read_file(shp_srs)
-    lines.set_index('nzsegment', inplace=True)
-    return lines
-
-
-@pytest.fixture
-def dn(lines):
-    return swn.SurfaceWaterNetwork(lines)
-
-
-def test_init(dn, lines):
-    assert len(dn.warnings) == 1
-    assert dn.warnings[0].startswith('ending coordinate ')
-    assert dn.warnings[0].endswith(
+def test_init(costal_swn, costal_lines):
+    n = costal_swn
+    assert len(n.warnings) == 1
+    assert n.warnings[0].startswith('ending coordinate ')
+    assert n.warnings[0].endswith(
             ' matches end segments: ' + str(set([3046736, 3046737])))
-    assert len(dn.errors) == 0
-    assert len(dn) == 304
-    assert dn.has_z is True
-    assert dn.END_SEGNUM == 0
-    assert dn.segments.index is dn.index
-    assert len(dn.headwater) == 154
-    assert set(dn.headwater).issuperset([3046700, 3046802, 3050418, 3048102])
-    assert list(dn.outlets) == [3046700, 3046737, 3046736]
-    nto = dn.segments['num_to_outlet']
+    assert len(n.errors) == 0
+    assert len(n) == 304
+    assert n.has_z is True
+    assert n.END_SEGNUM == 0
+    assert n.segments.index is n.index
+    assert len(n.headwater) == 154
+    assert set(n.headwater).issuperset([3046700, 3046802, 3050418, 3048102])
+    assert list(n.outlets) == [3046700, 3046737, 3046736]
+    assert len(n.upstream_segnums) == 150
+    assert n.END_SEGNUM not in n.upstream_segnums
+    # one segment catchment
+    assert 3046700 not in n.upstream_segnums
+    # near outlet
+    assert n.upstream_segnums[3046737] == set([3046539, 3046745])
+    # at hedwater
+    assert n.upstream_segnums[3047762] == set([3047898, 3047899])
+    # three tributaries
+    assert n.upstream_segnums[3048157] == set([3048237, 3048250, 3048251])
+    nto = n.segments['num_to_outlet']
     assert nto.min() == 1
     assert nto.max() == 32
     assert list(nto[nto == 1].index) == [3046700, 3046737, 3046736]
     assert list(nto[nto == 2].index) == [3046539, 3046745, 3046951, 3046952]
     assert list(nto[nto == 31].index) == [3050175, 3050176, 3050337, 3050338]
     assert list(nto[nto == 32].index) == [3050413, 3050418]
-    cat_group = dn.segments.groupby('cat_group').count()['to_segnum']
+    cat_group = n.segments.groupby('cat_group').count()['to_segnum']
     assert len(cat_group) == 3
     assert dict(cat_group) == {3046700: 1, 3046737: 173, 3046736: 130}
-    ln = dn.segments['length_to_outlet']
+    ln = n.segments['length_to_outlet']
     np.testing.assert_almost_equal(ln.min(), 42.43659279)
     np.testing.assert_almost_equal(ln.max(), 21077.7486858)
     # supplied LENGTHDOWN is similar
-    res = lines['LENGTHDOWN'] + lines.geometry.length - ln
+    res = costal_lines['LENGTHDOWN'] + costal_lines.geometry.length - ln
     np.testing.assert_almost_equal(res.min(), 0.0)
     np.testing.assert_almost_equal(res.max(), 15.00362636)
-    assert list(dn.segments['sequence'])[:6] == [149, 225, 152, 222, 145, 142]
-    assert list(dn.segments['sequence'])[-6:] == [156, 4, 155, 1, 3, 2]
-    stream_order = dn.segments.groupby('stream_order').count()['to_segnum']
+    assert list(n.segments['sequence'])[:6] == [149, 225, 152, 222, 145, 142]
+    assert list(n.segments['sequence'])[-6:] == [156, 4, 155, 1, 3, 2]
+    stream_order = n.segments.groupby('stream_order').count()['to_segnum']
     assert len(stream_order) == 5
     assert dict(stream_order) == {1: 154, 2: 72, 3: 46, 4: 28, 5: 4}
     np.testing.assert_array_equal(
-        dn.segments['stream_order'], lines['StreamOrde'])
+        n.segments['stream_order'], costal_lines['StreamOrde'])
 
 
-def test_accumulate_values(dn, lines):
-    catarea = dn.accumulate_values(lines['CATAREA'])
-    res = catarea - lines['CUM_AREA']
+def test_accumulate_values(costal_swn, costal_lines):
+    n = costal_swn
+    catarea = n.accumulate_values(costal_lines['CATAREA'])
+    res = catarea - costal_lines['CUM_AREA']
     assert res.min() > -7.0
     assert res.max() < 7.0
     assert catarea.name == 'accumulated_CATAREA'
-
-
-@pytest.fixture
-def m():
-    flopy = pytest.importorskip('flopy')
-    return flopy.modflow.Modflow.load('h.nam', model_ws=datadir, check=False)
-
-
-def test_nothing(m):
-    assert m.modelgrid.extent == (1802000.0, 1819000.0, 5861000.0, 5879000.0)
