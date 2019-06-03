@@ -528,7 +528,7 @@ class SurfaceWaterNetwork(object):
             crs = fiona_crs.from_string(m.modelgrid.proj4)
         elif self.segments.geometry.crs is not None:
             crs = self.segments.geometry.crs
-        grid_cells = geopandas.GeoDataFrame(
+        self.grid_cells = grid_cells = geopandas.GeoDataFrame(
                 grid_df, crs=crs,
                 geometry=[Polygon(m.modelgrid.get_cell_vertices(row, col))
                           for row, col in grid_df.index])
@@ -566,11 +566,12 @@ class SurfaceWaterNetwork(object):
                 sub = grid_cells.geometry
             for (row, col), grid_geom in sub.iteritems():
                 reach_geom = grid_geom.intersection(line)
-                if not reach_geom.is_empty:
+                if not reach_geom.is_empty and reach_geom.geom_type != 'Point':
                     append_reach(segnum, row, col, line, reach_geom)
                     if ibound_action == 'modify' and ibound[row, col] == 0:
                         ibound_modified += 1
                         ibound[row, col] = 1
+        # Some reaches match multiple cells if they share a border
         self.reaches = geopandas.GeoDataFrame(reach_df, geometry='geometry')
         if ibound_action == 'modify':
             if ibound_modified:
@@ -595,18 +596,20 @@ class SurfaceWaterNetwork(object):
         # Use MODFLOW SFR dataset 2 terms ISEG and IREACH, counting from 1
         self.reaches['iseg'] = 0
         self.reaches['ireach'] = 0
-        iseg = ireach = prev_seg = 0
-        for idx, item in self.reaches.iterrows():
-            if item.segnum != prev_seg:
+        iseg = ireach = 0
+        prev_segnum = None
+        for idx, segnum in self.reaches['segnum'].iteritems():
+            if segnum != prev_segnum:
                 iseg += 1
                 ireach = 0
             ireach += 1
             self.reaches.loc[idx, 'iseg'] = iseg
             self.reaches.loc[idx, 'ireach'] = ireach
-            prev_seg = item.segnum
+            prev_segnum = segnum
         self.reaches.reset_index(inplace=True, drop=True)
-        self.reaches.index += 1
-        self.reaches.index.name = 'node'
+        if not hasattr(self.reaches.geometry, 'geom_type'):
+            # workaround needed for reaches.to_file()
+            self.reaches.geometry.geom_type = self.reaches.geom_type
         # Build reach_data for Data Set 2
         # See flopy.modflow.ModflowSfr2.get_default_reach_dtype()
         self.reach_data = \
@@ -614,8 +617,8 @@ class SurfaceWaterNetwork(object):
         self.reach_data.rename(
             columns={'row': 'i', 'col': 'j', 'segnum': 'reachID'},
             inplace=True)
-        self.reach_data.insert(0, column='k', value=1)  # only top layer
-        self.reach_data.insert(4, column='rchlen', value=self.reaches.length)
+        self.reach_data.insert(0, column='k', value=0)  # only top layer
+        self.reach_data.insert(5, column='rchlen', value=self.reaches.length)
         # Build segment_data for Data Set 5
         self.segment_data = self.reaches[['segnum', 'iseg']].drop_duplicates()
         self.segment_data.rename(columns={'iseg': 'nseg'}, inplace=True)
@@ -623,5 +626,5 @@ class SurfaceWaterNetwork(object):
         # Create flopy Sfr2 package
         sfr = flopy.modflow.mfsfr2.ModflowSfr2(
                 model=m,
-                reach_data=self.reach_data.to_records(index=True),
+                reach_data=self.reach_data.to_records(index=False),
                 segment_data=self.segment_data.to_records(index=False))

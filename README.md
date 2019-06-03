@@ -61,4 +61,7 @@ import flopy
 
 m = flopy.modflow.Modflow.load('h.nam', model_ws='tests/data', check=False)
 n.process_flopy(m)
+m.sfr.write_file('file.sfr')
+n.grid_cells.to_file('grid_cells.shp')
+n.reaches.to_file('reaches.shp')
 ```
