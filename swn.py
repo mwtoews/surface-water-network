@@ -607,24 +607,33 @@ class SurfaceWaterNetwork(object):
             self.reaches.loc[idx, 'ireach'] = ireach
             prev_segnum = segnum
         self.reaches.reset_index(inplace=True, drop=True)
+        self.reaches.index += 1
+        self.reaches.index.name = 'reachID'  # starts at one
         if not hasattr(self.reaches.geometry, 'geom_type'):
             # workaround needed for reaches.to_file()
             self.reaches.geometry.geom_type = self.reaches.geom_type
         # Build reach_data for Data Set 2
         # See flopy.modflow.ModflowSfr2.get_default_reach_dtype()
-        self.reach_data = \
-            self.reaches[['row', 'col', 'iseg', 'ireach', 'segnum']]
-        self.reach_data.rename(
-            columns={'row': 'i', 'col': 'j', 'segnum': 'reachID'},
-            inplace=True)
+        self.reach_data = pd.DataFrame(
+            self.reaches[['row', 'col', 'iseg', 'ireach']])
+        self.reach_data.rename(columns={'row': 'i', 'col': 'j'}, inplace=True)
         self.reach_data.insert(0, column='k', value=0)  # only top layer
         self.reach_data.insert(5, column='rchlen', value=self.reaches.length)
         # Build segment_data for Data Set 5
-        self.segment_data = self.reaches[['segnum', 'iseg']].drop_duplicates()
+        self.segment_data = self.reaches[['iseg', 'segnum']].drop_duplicates()
         self.segment_data.rename(columns={'iseg': 'nseg'}, inplace=True)
         self.segment_data.set_index('segnum', inplace=True)
+        self.segment_data.index.name = self.segments.index.name
+        # Translate 'to_segnum' to 'outseg' via 'nseg'
+        self.segment_data['outseg'] = 0
+        for insegnum, inseg in self.segment_data.nseg.iteritems():
+            outsegnum = self.segments.loc[insegnum, 'to_segnum']
+            if outsegnum in self.segment_data.index:
+                self.segment_data.loc[insegnum, 'outseg'] = \
+                    self.segment_data.loc[outsegnum, 'nseg']
+        self.segment_data['icalc'] = 1  # assumption
         # Create flopy Sfr2 package
         sfr = flopy.modflow.mfsfr2.ModflowSfr2(
                 model=m,
-                reach_data=self.reach_data.to_records(index=False),
-                segment_data=self.segment_data.to_records(index=False))
+                reach_data=self.reach_data.to_records(index=True),
+                segment_data={0: self.segment_data.to_records(index=False)})

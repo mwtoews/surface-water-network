@@ -55,10 +55,12 @@ def test_process_flopy_n(n, tmpdir_factory):
         :  1:  2:  row 0
         :__\:_/_:
         :   \/  :  row 1
-        :__ :|__:
+        :__ :0__:
         :   :|  :  row 2
-        :___:3__:
-      col 0 | col 1
+        :___:|__:
+      col 0 ' col 1
+
+      Segment IDs: 0 (bottom), 1 & 2 (top)
     """
     m = flopy.modflow.Modflow()
     flopy.modflow.ModflowDis(
@@ -72,15 +74,23 @@ def test_process_flopy_n(n, tmpdir_factory):
     assert sfr.const == 86400.0
     # Data set 2
     # Base-0
+    assert list(sfr.reach_data.node) == [0, 1, 3, 1, 3, 3, 5]
     assert list(sfr.reach_data.k) == [0, 0, 0, 0, 0, 0, 0]
     assert list(sfr.reach_data.i) == [0, 0, 1, 0, 1, 1, 2]
     assert list(sfr.reach_data.j) == [0, 1, 1, 1, 1, 1, 1]
     # Base-1
+    assert list(sfr.reach_data.reachID) == [1, 2, 3, 4, 5, 6, 7]
     assert list(sfr.reach_data.iseg) == [1, 1, 1, 2, 2, 3, 3]
     assert list(sfr.reach_data.ireach) == [1, 2, 3, 1, 2, 1, 2]
     np.testing.assert_array_almost_equal(
         n.reach_data.rchlen,
         [18.027756, 6.009252, 12.018504, 21.081851, 10.540926, 10.0, 10.0])
+    sd = m.sfr.segment_data[0]
+    assert list(sd.nseg) == [1, 2, 3]
+    assert list(sd.icalc) == [1, 1, 1]
+    assert list(sd.outseg) == [3, 3, 0]
+    assert list(sd.iupseg) == [0, 0, 0]
+    assert list(sd.iprior) == [0, 0, 0]
     # TODO: more tests needed
     # Write output files
     outdir = tmpdir_factory.mktemp('out')
