@@ -648,12 +648,8 @@ class SurfaceWaterNetwork(object):
                 dz = z0 - z1
                 dx = geom.length
                 slope = dz / dx
-                if slope < item.min_slope:
-                    self.logger.error('reachID %s: slope: %s -> %s',
-                                      reachID, slope, item.min_slope)
-                    slope = item.min_slope
                 self.reaches.loc[reachID, 'slope'] = slope
-                # Get Z from LineString mid-point
+                # Get strtop from LineString mid-point Z
                 zm = geom.interpolate(0.5, normalized=True).z
                 self.reaches.loc[reachID, 'strtop'] = zm
         else:
@@ -669,10 +665,14 @@ class SurfaceWaterNetwork(object):
             px, py = np.gradient(m.dis.top.array, dc, dr)
             grid_slope = np.sqrt(px ** 2 + py ** 2)
             self.reaches['slope'] = grid_slope[r, c]
-            sel = self.reaches['slope'] < self.reaches['min_slope']
-            self.reaches.loc[sel, 'slope'] = self.reaches.loc[sel, 'min_slope']
             # Get stream values from top of model
             self.reaches['strtop'] = m.dis.top.array[r, c]
+        # Enforce min_slope
+        sel = self.reaches['slope'] < self.reaches['min_slope']
+        if sel.any():
+            self.logger.warning('enforcing min_slope for %d reaches (%.2f%%)',
+                                sel.sum(), 100.0 * sel.sum() / len(sel))
+            self.reaches.loc[sel, 'slope'] = self.reaches.loc[sel, 'min_slope']
         if not hasattr(self.reaches.geometry, 'geom_type'):
             # workaround needed for reaches.to_file()
             self.reaches.geometry.geom_type = self.reaches.geom_type

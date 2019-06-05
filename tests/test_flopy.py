@@ -79,31 +79,45 @@ def test_process_flopy_n3d(n3d, tmpdir_factory):
         xul=30.0, yul=130.0)
     flopy.modflow.ModflowBas(m)
     n.process_flopy(m)
-    sfr = m.sfr
     # Data set 1c
-    assert abs(sfr.nstrm) == 7
-    assert sfr.nss == 3
-    assert sfr.const == 86400.0
+    assert abs(m.sfr.nstrm) == 7
+    assert m.sfr.nss == 3
+    assert m.sfr.const == 86400.0
     # Data set 2
     # Base-0
-    assert list(sfr.reach_data.node) == [0, 1, 3, 1, 3, 3, 5]
-    assert list(sfr.reach_data.k) == [0, 0, 0, 0, 0, 0, 0]
-    assert list(sfr.reach_data.i) == [0, 0, 1, 0, 1, 1, 2]
-    assert list(sfr.reach_data.j) == [0, 1, 1, 1, 1, 1, 1]
+    assert list(m.sfr.reach_data.node) == [0, 1, 3, 1, 3, 3, 5]
+    assert list(m.sfr.reach_data.k) == [0, 0, 0, 0, 0, 0, 0]
+    assert list(m.sfr.reach_data.i) == [0, 0, 1, 0, 1, 1, 2]
+    assert list(m.sfr.reach_data.j) == [0, 1, 1, 1, 1, 1, 1]
     # Base-1
-    assert list(sfr.reach_data.reachID) == [1, 2, 3, 4, 5, 6, 7]
-    assert list(sfr.reach_data.iseg) == [1, 1, 1, 2, 2, 3, 3]
-    assert list(sfr.reach_data.ireach) == [1, 2, 3, 1, 2, 1, 2]
+    assert list(m.sfr.reach_data.reachID) == [1, 2, 3, 4, 5, 6, 7]
+    assert list(m.sfr.reach_data.iseg) == [1, 1, 1, 2, 2, 3, 3]
+    assert list(m.sfr.reach_data.ireach) == [1, 2, 3, 1, 2, 1, 2]
     np.testing.assert_array_almost_equal(
-        sfr.reach_data.rchlen,
+        m.sfr.reach_data.rchlen,
         [18.027756, 6.009252, 12.018504, 21.081851, 10.540926, 10.0, 10.0])
     np.testing.assert_array_almost_equal(
-        sfr.reach_data.strtop,
+        m.sfr.reach_data.strtop,
         [14.75, 14.416667, 14.166667, 14.666667, 14.166667, 13.5, 12.5])
     np.testing.assert_array_almost_equal(
-        sfr.reach_data.slope,
+        m.sfr.reach_data.slope,
         [0.027735, 0.027735, 0.027735, 0.031622775, 0.031622775, 0.1, 0.1])
-    sd = sfr.segment_data[0]
+    # Repeat, but with min_slope enforced
+    sfr_unit = m.sfr.unit_number[0]
+    m.remove_package('sfr')
+    if sfr_unit in m.package_units:
+        m.package_units.remove(sfr_unit)
+    n.process_flopy(m, min_slope=0.03)
+    np.testing.assert_array_almost_equal(
+        m.sfr.reach_data.rchlen,
+        [18.027756, 6.009252, 12.018504, 21.081851, 10.540926, 10.0, 10.0])
+    np.testing.assert_array_almost_equal(
+        m.sfr.reach_data.strtop,
+        [14.75, 14.416667, 14.166667, 14.666667, 14.166667, 13.5, 12.5])
+    np.testing.assert_array_almost_equal(
+        m.sfr.reach_data.slope,
+        [0.03, 0.03, 0.03, 0.031622775, 0.031622775, 0.1, 0.1])
+    sd = m.sfr.segment_data[0]
     assert list(sd.nseg) == [1, 2, 3]
     assert list(sd.icalc) == [1, 1, 1]
     assert list(sd.outseg) == [3, 3, 0]
@@ -114,7 +128,7 @@ def test_process_flopy_n3d(n3d, tmpdir_factory):
     outdir = tmpdir_factory.mktemp('n3d')
     m.model_ws = str(outdir)
     m.write_input()
-    # sfr.write_file(str(outdir.join('file.sfr')))
+    # m.sfr.write_file(str(outdir.join('file.sfr')))
     n.grid_cells.to_file(str(outdir.join('grid_cells.shp')))
     n.reaches.to_file(str(outdir.join('reaches.shp')))
 
@@ -133,33 +147,35 @@ def test_process_flopy_n2d(n2d, tmpdir_factory):
         xul=30.0, yul=130.0)
     flopy.modflow.ModflowBas(m)
     n.process_flopy(m)
-    sfr = m.sfr
     # Data set 1c
-    assert abs(sfr.nstrm) == 7
-    assert sfr.nss == 3
+    assert abs(m.sfr.nstrm) == 7
+    assert m.sfr.nss == 3
     # Data set 2
     np.testing.assert_array_almost_equal(
-        sfr.reach_data.rchlen,
+        m.sfr.reach_data.rchlen,
         [18.027756, 6.009252, 12.018504, 21.081851, 10.540926, 10.0, 10.0])
     np.testing.assert_array_equal(
-        sfr.reach_data.strtop,
+        m.sfr.reach_data.strtop,
         [16.0, 15.0, 15.0, 15.0, 15.0, 15.0, 14.0])
     np.testing.assert_array_almost_equal(
-        sfr.reach_data.slope,
+        m.sfr.reach_data.slope,
         [0.070710681, 0.05, 0.025, 0.05, 0.025, 0.025, 0.05])
     # Repeat, but with min_slope enforced
+    sfr_unit = m.sfr.unit_number[0]
+    m.remove_package('sfr')
+    if sfr_unit in m.package_units:
+        m.package_units.remove(sfr_unit)
     n.process_flopy(m, min_slope=0.03)
-    sfr = m.sfr
     np.testing.assert_array_almost_equal(
-        sfr.reach_data.rchlen,
+        m.sfr.reach_data.rchlen,
         [18.027756, 6.009252, 12.018504, 21.081851, 10.540926, 10.0, 10.0])
     np.testing.assert_array_equal(
-        sfr.reach_data.strtop,
+        m.sfr.reach_data.strtop,
         [16.0, 15.0, 15.0, 15.0, 15.0, 15.0, 14.0])
     np.testing.assert_array_almost_equal(
-        sfr.reach_data.slope,
+        m.sfr.reach_data.slope,
         [0.070710681, 0.05, 0.03, 0.05, 0.03, 0.03, 0.05])
-    sd = sfr.segment_data[0]
+    sd = m.sfr.segment_data[0]
     assert list(sd.nseg) == [1, 2, 3]
     assert list(sd.icalc) == [1, 1, 1]
     assert list(sd.outseg) == [3, 3, 0]
@@ -170,7 +186,7 @@ def test_process_flopy_n2d(n2d, tmpdir_factory):
     outdir = tmpdir_factory.mktemp('n2d')
     m.model_ws = str(outdir)
     m.write_input()
-    # sfr.write_file(str(outdir.join('file.sfr')))
+    # m.sfr.write_file(str(outdir.join('file.sfr')))
     n.grid_cells.to_file(str(outdir.join('grid_cells.shp')))
     n.reaches.to_file(str(outdir.join('reaches.shp')))
 
