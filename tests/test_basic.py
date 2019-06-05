@@ -282,7 +282,7 @@ def test_adjust_elevation_profile_different_index(n):
     min_slope = pd.Series(2./1000, index=n.index)
     min_slope[1] = 3./1000
     min_slope.index += 1
-    with pytest.raises(ValueError, match='index for min_slope is different'):
+    with pytest.raises(ValueError, match='index is different'):
         n.adjust_elevation_profile(min_slope)
 
 

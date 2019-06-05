@@ -421,6 +421,26 @@ class SurfaceWaterNetwork(object):
                     accum[segnum] += accum[upstream_segnums].sum()
         return accum
 
+    def segment_series(self, value):
+        """Returns a pandas.Series along the segment index
+
+        Parameters
+        ----------
+        value : float or pandas.Series
+            If value is a float, it is repated for each segment, otherwise
+            a Series is used, with a check to ensure it is the same index.
+
+        Returns
+        -------
+        pandas.Series
+        """
+        if not isinstance(value, pd.Series):
+            value = pd.Series(value, index=self.index)
+        elif (len(value.index) != len(self.index) or
+                not (value.index == self.index).all()):
+            raise ValueError('index is different than for segments')
+        return value
+
     def adjust_elevation_profile(self, min_slope=1./1000):
         """Check and adjust (if necessary) Z coordinates of elevation profiles
 
@@ -431,11 +451,7 @@ class SurfaceWaterNetwork(object):
             a global value, otherwise it is per-segment with a Series.
             Default 1./1000 (or 0.001).
         """
-        if not isinstance(min_slope, pd.Series):
-            min_slope = pd.Series(min_slope, index=self.index)
-        elif (len(min_slope.index) != len(self.index) or
-                not (min_slope.index == self.index).all()):
-            raise ValueError('index for min_slope is different')
+        min_slope = self.segment_series(min_slope)
         if (min_slope < 0.0).any():
             raise ValueError('min_slope must be greater than zero')
         elif not self.has_z:
@@ -482,7 +498,7 @@ class SurfaceWaterNetwork(object):
         while True:
             numiter += 1
 
-    def process_flopy(self, m, ibound_action='freeze'):
+    def process_flopy(self, m, ibound_action='freeze', min_slope=1./1000):
         """Process MODFLOW groundwater model information from flopy
 
         Parameters
@@ -493,6 +509,10 @@ class SurfaceWaterNetwork(object):
             Action to handle IBOUND:
                 - ``freeze`` : Freeze IBOUND, but clip streams to fit bounds.
                 - ``modify`` : Modify IBOUND to fit streams, where possible.
+        min_slope : float or pandas.Series, optional
+            Minimum downwards slope imposed on segments. If float, then this is
+            a global value, otherwise it is per-segment with a Series.
+            Default 1./1000 (or 0.001).
         """
         if not flopy:
             raise ImportError('this method requires flopy')
@@ -504,6 +524,9 @@ class SurfaceWaterNetwork(object):
             raise ValueError('DIS package required')
         elif not m.has_package('BAS6'):
             raise ValueError('BAS6 package required')
+        self.segments['min_slope'] = self.segment_series(min_slope)
+        if (self.segments['min_slope'] < 0.0).any():
+            raise ValueError('min_slope must be greater than zero')
         # Make sure their extents overlap
         minx, maxx, miny, maxy = m.modelgrid.extent
         model_bbox = box(minx, miny, maxx, maxy)
@@ -543,6 +566,11 @@ class SurfaceWaterNetwork(object):
 
         def append_reach(segnum, row, col, line, reach_geom):
             if reach_geom.geom_type == 'LineString':
+                if line.has_z:
+                    # intersection(line) does not preserve Z coords,
+                    # but line.interpolate(d) works as expected
+                    reach_geom = LineString(line.interpolate(
+                        line.project(Point(c))) for c in reach_geom.coords)
                 reach_df.loc[len(reach_df) + 1] = {
                     'geometry': reach_geom,
                     'segnum': segnum,
@@ -588,7 +616,7 @@ class SurfaceWaterNetwork(object):
                 self.reaches['prev_ibound'] = 1
         # Add information from segments
         self.reaches = self.reaches.merge(
-            self.segments[['sequence']], 'left',
+            self.segments[['sequence', 'min_slope']], 'left',
             left_on='segnum', right_index=True)
         self.reaches.sort_values(['sequence', 'dist'], inplace=True)
         del self.reaches['sequence']
@@ -609,13 +637,49 @@ class SurfaceWaterNetwork(object):
         self.reaches.reset_index(inplace=True, drop=True)
         self.reaches.index += 1
         self.reaches.index.name = 'reachID'  # starts at one
+        self.reaches['strtop'] = 0.0
+        self.reaches['slope'] = 0.0
+        if self.has_z:
+            for reachID, item in self.reaches.iterrows():
+                geom = item.geometry
+                # Get Z from each end
+                z0 = geom.coords[0][2]
+                z1 = geom.coords[-1][2]
+                dz = z0 - z1
+                dx = geom.length
+                slope = dz / dx
+                if slope < item.min_slope:
+                    self.logger.error('reachID %s: slope: %s -> %s',
+                                      reachID, slope, item.min_slope)
+                    slope = item.min_slope
+                self.reaches.loc[reachID, 'slope'] = slope
+                # Get Z from LineString mid-point
+                zm = geom.interpolate(0.5, normalized=True).z
+                self.reaches.loc[reachID, 'strtop'] = zm
+        else:
+            r = self.reaches['row'].values
+            c = self.reaches['col'].values
+            # Estimate slope from top and grid spacing
+            dc = np.median(m.dis.delr.array)
+            if m.dis.delr.array.min() != m.dis.delr.array.max():
+                self.logger.warning('assuming constant column spacing %s', dc)
+            dr = np.median(m.dis.delc.array)
+            if m.dis.delc.array.min() != m.dis.delc.array.max():
+                self.logger.warning('assuming constant row spacing %s', dr)
+            px, py = np.gradient(m.dis.top.array, dc, dr)
+            grid_slope = np.sqrt(px ** 2 + py ** 2)
+            self.reaches['slope'] = grid_slope[r, c]
+            sel = self.reaches['slope'] < self.reaches['min_slope']
+            self.reaches.loc[sel, 'slope'] = self.reaches.loc[sel, 'min_slope']
+            # Get stream values from top of model
+            self.reaches['strtop'] = m.dis.top.array[r, c]
         if not hasattr(self.reaches.geometry, 'geom_type'):
             # workaround needed for reaches.to_file()
             self.reaches.geometry.geom_type = self.reaches.geom_type
         # Build reach_data for Data Set 2
         # See flopy.modflow.ModflowSfr2.get_default_reach_dtype()
         self.reach_data = pd.DataFrame(
-            self.reaches[['row', 'col', 'iseg', 'ireach']])
+            self.reaches[['row', 'col', 'iseg', 'ireach', 'strtop', 'slope']])
         self.reach_data.rename(columns={'row': 'i', 'col': 'j'}, inplace=True)
         self.reach_data.insert(0, column='k', value=0)  # only top layer
         self.reach_data.insert(5, column='rchlen', value=self.reaches.length)

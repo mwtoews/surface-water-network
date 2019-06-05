@@ -15,7 +15,7 @@ datadir = os.path.join('tests', 'data')
 
 
 @pytest.fixture
-def n():
+def n3d():
     # same valid network used in test_basic
     lines = wkt_to_geoseries([
         'LINESTRING Z (60 100 14, 60  80 12)',
@@ -25,8 +25,18 @@ def n():
     return swn.SurfaceWaterNetwork(lines)
 
 
-def test_process_flopy_instance_errors(n):
+@pytest.fixture
+def n2d():
+    lines = wkt_to_geoseries([
+        'LINESTRING (60 100, 60  80)',
+        'LINESTRING (40 130, 60 100)',
+        'LINESTRING (70 130, 60 100)',
+    ])
+    return swn.SurfaceWaterNetwork(lines)
 
+
+def test_process_flopy_instance_errors(n3d):
+    n = n3d
     with pytest.raises(ValueError,
                        match=r'must be a flopy\.modflow\.mf\.Modflow object'):
         n.process_flopy(object())
@@ -49,7 +59,7 @@ def test_process_flopy_instance_errors(n):
         n.process_flopy(m, ibound_action='foo')
 
 
-def test_process_flopy_n(n, tmpdir_factory):
+def test_process_flopy_n3d(n3d, tmpdir_factory):
     r"""
         .___.___.
         :  1:  2:  row 0
@@ -62,9 +72,11 @@ def test_process_flopy_n(n, tmpdir_factory):
 
       Segment IDs: 0 (bottom), 1 & 2 (top)
     """
+    n = n3d
     m = flopy.modflow.Modflow()
     flopy.modflow.ModflowDis(
-        m, nrow=3, ncol=2, delr=20, delc=20, xul=30, yul=130)
+        m, nlay=1, nrow=3, ncol=2, delr=20.0, delc=20.0, top=15.0, botm=10.0,
+        xul=30.0, yul=130.0)
     flopy.modflow.ModflowBas(m)
     n.process_flopy(m)
     sfr = m.sfr
@@ -83,9 +95,15 @@ def test_process_flopy_n(n, tmpdir_factory):
     assert list(sfr.reach_data.iseg) == [1, 1, 1, 2, 2, 3, 3]
     assert list(sfr.reach_data.ireach) == [1, 2, 3, 1, 2, 1, 2]
     np.testing.assert_array_almost_equal(
-        n.reach_data.rchlen,
+        sfr.reach_data.rchlen,
         [18.027756, 6.009252, 12.018504, 21.081851, 10.540926, 10.0, 10.0])
-    sd = m.sfr.segment_data[0]
+    np.testing.assert_array_almost_equal(
+        sfr.reach_data.strtop,
+        [14.75, 14.416667, 14.166667, 14.666667, 14.166667, 13.5, 12.5])
+    np.testing.assert_array_almost_equal(
+        sfr.reach_data.slope,
+        [0.027735, 0.027735, 0.027735, 0.031622775, 0.031622775, 0.1, 0.1])
+    sd = sfr.segment_data[0]
     assert list(sd.nseg) == [1, 2, 3]
     assert list(sd.icalc) == [1, 1, 1]
     assert list(sd.outseg) == [3, 3, 0]
@@ -93,7 +111,63 @@ def test_process_flopy_n(n, tmpdir_factory):
     assert list(sd.iprior) == [0, 0, 0]
     # TODO: more tests needed
     # Write output files
-    outdir = tmpdir_factory.mktemp('out')
+    outdir = tmpdir_factory.mktemp('n3d')
+    m.model_ws = str(outdir)
+    m.write_input()
+    # sfr.write_file(str(outdir.join('file.sfr')))
+    n.grid_cells.to_file(str(outdir.join('grid_cells.shp')))
+    n.reaches.to_file(str(outdir.join('reaches.shp')))
+
+
+def test_process_flopy_n2d(n2d, tmpdir_factory):
+    # similar to 3D version, but getting information from model
+    n = n2d
+    m = flopy.modflow.Modflow()
+    top = np.array([
+        [16.0, 15.0],
+        [15.0, 15.0],
+        [14.0, 14.0],
+    ])
+    flopy.modflow.ModflowDis(
+        m, nlay=1, nrow=3, ncol=2, delr=20.0, delc=20.0, top=top, botm=10.0,
+        xul=30.0, yul=130.0)
+    flopy.modflow.ModflowBas(m)
+    n.process_flopy(m)
+    sfr = m.sfr
+    # Data set 1c
+    assert abs(sfr.nstrm) == 7
+    assert sfr.nss == 3
+    # Data set 2
+    np.testing.assert_array_almost_equal(
+        sfr.reach_data.rchlen,
+        [18.027756, 6.009252, 12.018504, 21.081851, 10.540926, 10.0, 10.0])
+    np.testing.assert_array_equal(
+        sfr.reach_data.strtop,
+        [16.0, 15.0, 15.0, 15.0, 15.0, 15.0, 14.0])
+    np.testing.assert_array_almost_equal(
+        sfr.reach_data.slope,
+        [0.070710681, 0.05, 0.025, 0.05, 0.025, 0.025, 0.05])
+    # Repeat, but with min_slope enforced
+    n.process_flopy(m, min_slope=0.03)
+    sfr = m.sfr
+    np.testing.assert_array_almost_equal(
+        sfr.reach_data.rchlen,
+        [18.027756, 6.009252, 12.018504, 21.081851, 10.540926, 10.0, 10.0])
+    np.testing.assert_array_equal(
+        sfr.reach_data.strtop,
+        [16.0, 15.0, 15.0, 15.0, 15.0, 15.0, 14.0])
+    np.testing.assert_array_almost_equal(
+        sfr.reach_data.slope,
+        [0.070710681, 0.05, 0.03, 0.05, 0.03, 0.03, 0.05])
+    sd = sfr.segment_data[0]
+    assert list(sd.nseg) == [1, 2, 3]
+    assert list(sd.icalc) == [1, 1, 1]
+    assert list(sd.outseg) == [3, 3, 0]
+    assert list(sd.iupseg) == [0, 0, 0]
+    assert list(sd.iprior) == [0, 0, 0]
+    # TODO: more tests needed
+    # Write output files
+    outdir = tmpdir_factory.mktemp('n2d')
     m.model_ws = str(outdir)
     m.write_input()
     # sfr.write_file(str(outdir.join('file.sfr')))
