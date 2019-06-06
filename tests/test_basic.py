@@ -74,7 +74,8 @@ def test_init_defaults(n):
     assert list(n.segments['stream_order']) == [2, 1, 1]
     assert list(n.headwater) == [1, 2]
     assert list(n.outlets) == [0]
-    assert n.upstream_segnums == {0: set([1, 2])}
+    assert dict(n.to_segnums) == {1: 0, 2: 0}
+    assert n.from_segnums == {0: set([1, 2])}
     n.adjust_elevation_profile()
     assert len(n.messages) == 0
 
@@ -142,7 +143,8 @@ def test_init_reversed_lines(lines):
     assert list(n.segments['stream_order']) == [1, 1, 1]
     assert list(n.headwater) == [0, 2]
     assert list(n.outlets) == [1, 2]
-    assert n.upstream_segnums == {1: set([0])}
+    assert dict(n.to_segnums) == {0: 1}
+    assert n.from_segnums == {1: set([0])}
 
 
 def test_init_all_converge():
@@ -173,7 +175,8 @@ def test_init_all_converge():
     assert list(n.segments['stream_order']) == [1, 1, 1]
     assert list(n.headwater) == [0, 1, 2]
     assert list(n.outlets) == [0, 1, 2]
-    assert n.upstream_segnums == {}
+    assert dict(n.to_segnums) == {}
+    assert n.from_segnums == {}
 
 
 def test_init_all_diverge():
@@ -204,7 +207,8 @@ def test_init_all_diverge():
     assert list(n.segments['stream_order']) == [1, 1, 1]
     assert list(n.headwater) == [0, 1, 2]
     assert list(n.outlets) == [0, 1, 2]
-    assert n.upstream_segnums == {}
+    assert dict(n.to_segnums) == {}
+    assert n.from_segnums == {}
 
 
 def test_init_line_connects_to_middle():
@@ -228,7 +232,8 @@ def test_init_line_connects_to_middle():
     assert list(n.segments['stream_order']) == [1, 1]
     assert list(n.headwater) == [0, 1]
     assert list(n.outlets) == [0, 1]
-    assert n.upstream_segnums == {}
+    assert dict(n.to_segnums) == {}
+    assert n.from_segnums == {}
 
 
 def test_init_geoseries(wkt_list):

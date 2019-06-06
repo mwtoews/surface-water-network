@@ -16,16 +16,28 @@ def test_init(costal_swn, costal_lines):
     assert len(n.headwater) == 154
     assert set(n.headwater).issuperset([3046700, 3046802, 3050418, 3048102])
     assert list(n.outlets) == [3046700, 3046737, 3046736]
-    assert len(n.upstream_segnums) == 150
-    assert n.END_SEGNUM not in n.upstream_segnums
+    to_segnums = n.to_segnums
+    to_segnums_d = dict(to_segnums)
+    assert len(to_segnums) == 301
+    assert len(n.from_segnums) == 150
+    assert n.END_SEGNUM not in to_segnums_d
+    assert n.END_SEGNUM not in n.from_segnums
     # one segment catchment
-    assert 3046700 not in n.upstream_segnums
+    assert 3046700 not in to_segnums_d
+    assert 3046700 not in n.from_segnums
     # near outlet
-    assert n.upstream_segnums[3046737] == set([3046539, 3046745])
+    assert to_segnums_d[3046539] == 3046737
+    assert to_segnums_d[3046745] == 3046737
+    assert n.from_segnums[3046737] == set([3046539, 3046745])
     # at hedwater
-    assert n.upstream_segnums[3047762] == set([3047898, 3047899])
+    assert to_segnums_d[3047898] == 3047762
+    assert to_segnums_d[3047899] == 3047762
+    assert n.from_segnums[3047762] == set([3047898, 3047899])
     # three tributaries
-    assert n.upstream_segnums[3048157] == set([3048237, 3048250, 3048251])
+    assert to_segnums_d[3048237] == 3048157
+    assert to_segnums_d[3048250] == 3048157
+    assert to_segnums_d[3048251] == 3048157
+    assert n.from_segnums[3048157] == set([3048237, 3048250, 3048251])
     nto = n.segments['num_to_outlet']
     assert nto.min() == 1
     assert nto.max() == 32

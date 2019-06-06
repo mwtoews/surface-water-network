@@ -77,7 +77,7 @@ class SurfaceWaterNetwork(object):
     END_SEGNUM : int
         Special segment number that indicates a line end, default is usually 0.
         This number is not part of the index.
-    upstream_segnums : dict
+    from_segnums : dict
         Key is downstream segment number, and values are a set of zero or more
         upstream segment numbers. END_SEGNUM and headwater segment numbers are
         not included.
@@ -87,6 +87,8 @@ class SurfaceWaterNetwork(object):
         Head water segment numbers at top of cachment.
     outlets : pandas.core.index.Int64Index
         Index segment numbers for each outlet.
+    to_segnums : pandas.core.series.Series
+        Series of segnum identifiers that connect downstream.
     logger : logging.Logger
         Logger to show messages.
     warnings : list
@@ -97,7 +99,7 @@ class SurfaceWaterNetwork(object):
     index = None
     END_SEGNUM = None
     segments = None
-    upstream_segnums = None
+    from_segnums = None
     logger = None
     warnings = None
     errors = None
@@ -180,6 +182,7 @@ class SurfaceWaterNetwork(object):
                 self.logger.error(*m)
                 self.errors.append(m[0] % m[1:])
             if len(to_segnums) > 0:
+                # do not diverge flow; only flow to one downstream segment
                 self.segments.loc[segnum1, 'to_segnum'] = to_segnums[0]
 
         outlets = self.outlets
@@ -290,10 +293,10 @@ class SurfaceWaterNetwork(object):
         self.segments.loc[sequence.index, 'sequence'] = sequence
         self.segments.loc[sequence.index, 'stream_order'] = 1
         # Build a dict that describes downstream segs to one or more upstream
-        self.upstream_segnums = {}
+        self.from_segnums = {}
         for segnum in set(self.segments['to_segnum'])\
                 .difference([self.END_SEGNUM]):
-            self.upstream_segnums[segnum] = \
+            self.from_segnums[segnum] = \
                 set(self.index[self.segments['to_segnum'] == segnum])
         completed = set(headwater)
         sequence = int(sequence.max())
@@ -306,13 +309,13 @@ class SurfaceWaterNetwork(object):
             downstream_sorted = self.segments.loc[downstream]\
                 .sort_values(search_order, ascending=False).index
             for segnum in downstream_sorted:
-                if self.upstream_segnums[segnum].issubset(completed):
+                if self.from_segnums[segnum].issubset(completed):
                     sequence += 1
                     self.segments.loc[segnum, 'sequence'] = sequence
                     # self.segments.loc[segnum, 'numiter'] = numiter
                     up_ord = list(
                         self.segments.loc[
-                            list(self.upstream_segnums[segnum]),
+                            list(self.from_segnums[segnum]),
                             'stream_order'])
                     max_ord = max(up_ord)
                     if up_ord.count(max_ord) > 1:
@@ -388,6 +391,12 @@ class SurfaceWaterNetwork(object):
         """Returns index of outlets"""
         return self.index[self.segments['to_segnum'] == self.END_SEGNUM]
 
+    @property
+    def to_segnums(self):
+        """Returns Series of segnum to connect downstream"""
+        return self.segments.loc[
+            self.segments['to_segnum'] != self.END_SEGNUM, 'to_segnum']
+
     def accumulate_values(self, values):
         """Accumulate values down the stream network
 
@@ -415,10 +424,10 @@ class SurfaceWaterNetwork(object):
         except TypeError:
             pass
         for segnum in self.segments.sort_values('sequence').index:
-            if segnum in self.upstream_segnums:
-                upstream_segnums = list(self.upstream_segnums[segnum])
-                if upstream_segnums:
-                    accum[segnum] += accum[upstream_segnums].sum()
+            if segnum in self.from_segnums:
+                from_segnums = list(self.from_segnums[segnum])
+                if from_segnums:
+                    accum[segnum] += accum[from_segnums].sum()
         return accum
 
     def segment_series(self, value):
@@ -439,6 +448,27 @@ class SurfaceWaterNetwork(object):
         elif (len(value.index) != len(self.index) or
                 not (value.index == self.index).all()):
             raise ValueError('index is different than for segments')
+        return value
+
+    def outlet_series(self, value):
+        """Returns a pandas.Series along the outlet index
+
+        Parameters
+        ----------
+        value : float or pandas.Series
+            If value is a float, it is repated for each outlet, otherwise
+            a Series is used, with a check to ensure it is the same index.
+
+        Returns
+        -------
+        pandas.Series
+        """
+        outlets_index = self.outlets.index
+        if not isinstance(value, pd.Series):
+            value = pd.Series(value, index=outlets_index)
+        elif (len(value.index) != len(outlets_index) or
+                not (value.index == outlets_index).all()):
+            raise ValueError('index is different than for outlets')
         return value
 
     def adjust_elevation_profile(self, min_slope=1./1000):
@@ -498,7 +528,8 @@ class SurfaceWaterNetwork(object):
         while True:
             numiter += 1
 
-    def process_flopy(self, m, ibound_action='freeze', min_slope=1./1000):
+    def process_flopy(self, m, ibound_action='freeze', min_slope=1./1000,
+                      thickness1=1., thickness_out=None):
         """Process MODFLOW groundwater model information from flopy
 
         Parameters
@@ -513,6 +544,14 @@ class SurfaceWaterNetwork(object):
             Minimum downwards slope imposed on segments. If float, then this is
             a global value, otherwise it is per-segment with a Series.
             Default 1./1000 (or 0.001).
+        thickness1 : float or pandas.Series, optional
+            Thickness of the streambed, as a global or per top of each segment.
+            The bottom of each segment is connected to the top of the next
+            segment, or thickness_out (if defined). Default 1.
+        thickness_out : None, float or pandas.Series, optional
+            Thickness of the streambed, as a global or per bottom of each
+            segment outlet. If None (default), the same thickness1 value
+            for the top of the outlet segment is used for the bottom.
         """
         if not flopy:
             raise ImportError('this method requires flopy')
@@ -527,6 +566,12 @@ class SurfaceWaterNetwork(object):
         self.segments['min_slope'] = self.segment_series(min_slope)
         if (self.segments['min_slope'] < 0.0).any():
             raise ValueError('min_slope must be greater than zero')
+        self.segments['thickness1'] = self.segment_series(thickness1)
+        self.segments['thickness2'] = self.segments['thickness1']
+        to_segnum = self.segments.loc[
+            self.segments['to_segnum'].isin(self.segments.index), 'to_segnum']
+        if thickness_out is not None:
+            pass
         # Make sure their extents overlap
         minx, maxx, miny, maxy = m.modelgrid.extent
         model_bbox = box(minx, miny, maxx, maxy)
