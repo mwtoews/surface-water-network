@@ -17,7 +17,7 @@ Creates surface water network to be used for MODFLOW's SFR.
 
 ## Testing
 
-Run `pytest -v`
+Run `py.test -v`
 
 ## Examples
 

@@ -430,7 +430,7 @@ class SurfaceWaterNetwork(object):
                     accum[segnum] += accum[from_segnums].sum()
         return accum
 
-    def segment_series(self, value):
+    def segment_series(self, value, name=None):
         """Returns a pandas.Series along the segment index
 
         Parameters
@@ -438,6 +438,8 @@ class SurfaceWaterNetwork(object):
         value : float or pandas.Series
             If value is a float, it is repated for each segment, otherwise
             a Series is used, with a check to ensure it is the same index.
+        name : str, optional
+            Name used for series, if provided. Default is None.
 
         Returns
         -------
@@ -449,6 +451,8 @@ class SurfaceWaterNetwork(object):
         elif (len(value.index) != len(segments_index) or
                 not (value.index == segments_index).all()):
             raise ValueError('index is different than for segments')
+        if name is not None:
+            value.name = name
         return value
 
     def outlet_series(self, value):
@@ -472,7 +476,7 @@ class SurfaceWaterNetwork(object):
             raise ValueError('index is different than for outlets')
         return value
 
-    def pair_segment_values(self, value0, outlet_value=None):
+    def pair_segment_values(self, value1, outlet_value=None, name=None):
         """Returns a pair of values that connect the segments
 
         The first value applies to the top of each segment, and the bottom
@@ -481,27 +485,33 @@ class SurfaceWaterNetwork(object):
 
         Parameters
         ----------
-        value0 : float or pandas.Series
+        value1 : float or pandas.Series
             Value to assign to the top of each segment.
         outlet_value : None, float or pandas.Series
             If None (default), the value used for the bottom of outlet segments
             is assumed to be the same as the top. Otherwise, a Series
             for each outlet can be specified.
+        name : str, optional
+            Base name used for each series pair, if provided. Default is None.
 
         Returns
         -------
         pandas.DataFrame
+            Resulting DataFrame has two columns for top (1) and bottom (2) of
+            each segment.
         """
-        value0 = self.segment_series(value0)
-        df = pd.concat([value0, value0], axis=1)
-        if value0.name is not None:
-            df.columns = df.columns + ['0', '1']
+        value1 = self.segment_series(value1, name=name)
+        df = pd.concat([value1, value1], axis=1)
+        if value1.name is not None:
+            df.columns = df.columns + ['1', '2']
+        else:
+            df.columns += 1
         to_segnums = self.to_segnums
-        c0, c1 = df.columns
-        df.loc[to_segnums.index, c1] = df.loc[to_segnums, c0].values
+        c1, c2 = df.columns
+        df.loc[to_segnums.index, c2] = df.loc[to_segnums, c1].values
         if outlet_value is not None:
             outlet_value = self.outlet_series(outlet_value)
-            df.loc[outlet_value.index, c1] = outlet_value
+            df.loc[outlet_value.index, c2] = outlet_value
         return df
 
     def adjust_elevation_profile(self, min_slope=1./1000):
@@ -579,12 +589,18 @@ class SurfaceWaterNetwork(object):
             Default 1./1000 (or 0.001).
         thickness1 : float or pandas.Series, optional
             Thickness of the streambed, as a global or per top of each segment.
-            The bottom of each segment is connected to the top of the next
-            segment, or thickness_out (if defined). Default 1.
+            Default 1.
         thickness_out : None, float or pandas.Series, optional
-            Thickness of the streambed, as a global or per bottom of each
-            segment outlet. If None (default), the same thickness1 value
-            for the top of the outlet segment is used for the bottom.
+            Similar to thickness1, but for the bottom of each segment outlet.
+            If None (default), the same thickness1 value for the top of the
+            outlet segment is used for the bottom.
+        width1 : float or pandas.Series, optional
+            Channel width, as a global or per top of each segment.
+            Default 10.
+        width_out : None, float or pandas.Series, optional
+            Similar to width1, but for the bottom of each segment outlet.
+            If None (default), the same width1 value for the top of the
+            outlet segment is used for the bottom.
         """
         if not flopy:
             raise ImportError('this method requires flopy')

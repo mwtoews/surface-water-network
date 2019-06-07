@@ -279,6 +279,10 @@ def test_segment_series(n):
     assert list(v.index) == [0, 1, 2]
     assert list(v) == [8.0, 8.0, 8.0]
     assert v.name is None
+    v = n.segment_series(8.0, name='eight')
+    assert list(v.index) == [0, 1, 2]
+    assert list(v) == [8.0, 8.0, 8.0]
+    assert v.name == 'eight'
     v = n.segment_series('$VAL$')
     assert list(v) == ['$VAL$', '$VAL$', '$VAL$']
     # from list
@@ -286,6 +290,10 @@ def test_segment_series(n):
     assert list(v.index) == [0, 1, 2]
     assert list(v) == [3, 4, 5]
     assert v.name is None
+    v = n.segment_series([3, 4, 5], name='list')
+    assert list(v.index) == [0, 1, 2]
+    assert list(v) == [3, 4, 5]
+    assert v.name == 'list'
     v = n.segment_series(['$VAL1$', '$VAL2$', '$VAL3$'])
     assert list(v.index) == [0, 1, 2]
     assert list(v) == ['$VAL1$', '$VAL2$', '$VAL3$']
@@ -299,6 +307,8 @@ def test_segment_series(n):
     s.name = 'foo'
     v = n.segment_series(s)
     assert v.name == 'foo'
+    v = n.segment_series(s, name='bar')
+    assert v.name == 'bar'
     # now break it
     s.index += 1
     with pytest.raises(ValueError,
@@ -348,48 +358,91 @@ def test_outlet_series():
 def test_pair_segment_values(n):
     # from scalar
     p = n.pair_segment_values(8.0)
-    assert list(p.columns) == [0, 1]
+    assert list(p.columns) == [1, 2]
     assert list(p.index) == [0, 1, 2]
     expected = np.ones((3, 2)) * 8.0
-    np.testing.assert_equal(p.to_numpy(), expected)
+    np.testing.assert_equal(p, expected)
+    p = n.pair_segment_values(8.0, name='foo')
+    assert list(p.columns) == ['foo1', 'foo2']
+    assert list(p.index) == [0, 1, 2]
     p = n.pair_segment_values(8.0, 9.0)
-    assert list(p.columns) == [0, 1]
+    assert list(p.columns) == [1, 2]
     assert list(p.index) == [0, 1, 2]
     expected[0, 1] = 9.0
-    np.testing.assert_equal(p.to_numpy(), expected)
+    np.testing.assert_equal(p, expected)
+    p = n.pair_segment_values(8.0, 9.0, name='foo')
+    assert list(p.columns) == ['foo1', 'foo2']
+    assert list(p.index) == [0, 1, 2]
+    np.testing.assert_equal(p, expected)
     # from list
     p = n.pair_segment_values([3, 4, 5])
-    assert list(p.columns) == [0, 1]
+    assert list(p.columns) == [1, 2]
     assert list(p.index) == [0, 1, 2]
     expected = np.array([
             [3, 3],
             [4, 3],
             [5, 3]])
-    np.testing.assert_equal(p.to_numpy(), expected)
+    np.testing.assert_equal(p, expected)
+    p = n.pair_segment_values([3, 4, 5], name='foo')
+    assert list(p.columns) == ['foo1', 'foo2']
+    assert list(p.index) == [0, 1, 2]
+    np.testing.assert_equal(p, expected)
     p = n.pair_segment_values([3, 4, 5], [6])
-    assert list(p.columns) == [0, 1]
+    assert list(p.columns) == [1, 2]
     assert list(p.index) == [0, 1, 2]
     expected[0, 1] = 6
-    np.testing.assert_equal(p.to_numpy(), expected)
-    p = n.pair_segment_values([3, 4, 5], 6)
-    assert list(p.columns) == [0, 1]
+    p = n.pair_segment_values([3, 4, 5], [6], name='foo')
+    assert list(p.columns) == ['foo1', 'foo2']
     assert list(p.index) == [0, 1, 2]
-    np.testing.assert_equal(p.to_numpy(), expected)
+    np.testing.assert_equal(p, expected)
+    p = n.pair_segment_values([3, 4, 5], 6)
+    assert list(p.columns) == [1, 2]
+    assert list(p.index) == [0, 1, 2]
+    np.testing.assert_equal(p, expected)
     p = n.pair_segment_values(['$VAL1$', '$VAL2$', '$VAL3$'])
-    assert list(p.columns) == [0, 1]
+    assert list(p.columns) == [1, 2]
     assert list(p.index) == [0, 1, 2]
     expected = np.array([
             ['$VAL1$', '$VAL1$'],
             ['$VAL2$', '$VAL1$'],
             ['$VAL3$', '$VAL1$']])
-    np.testing.assert_equal(p.to_numpy(), expected)
+    np.testing.assert_equal(p, expected)
     p = n.pair_segment_values(['$VAL1$', '$VAL2$', '$VAL3$'], ['$OUT1$'])
-    assert list(p.columns) == [0, 1]
+    assert list(p.columns) == [1, 2]
     assert list(p.index) == [0, 1, 2]
     expected[0, 1] = '$OUT1$'
-    np.testing.assert_equal(p.to_numpy(), expected)
+    np.testing.assert_equal(p, expected)
     return
-    # TODO: from Series
+    # from Series
+    s1 = pd.Series([3, 4, 5])
+    s1.name = 'foo'
+    p = n.pair_segment_values(s1)
+    assert list(p.columns) == ['foo1', 'foo2']
+    assert list(p.index) == [0, 1, 2]
+    expected = np.array([
+            [3, 3],
+            [4, 3],
+            [5, 3]])
+    np.testing.assert_equal(p, expected)
+    p = n.pair_segment_values(s1, name='bar')
+    assert list(p.columns) == ['bar1', 'bar2']
+    assert list(p.index) == [0, 1, 2]
+    np.testing.assert_equal(p, expected)
+    so = pd.Series([6], index=[2])
+    expected[0, 1] = 6
+    p = n.pair_segment_values(s1, so)
+    assert list(p.columns) == ['foo1', 'foo2']
+    assert list(p.index) == [0, 1, 2]
+    np.testing.assert_equal(p, expected)
+    so.name = 'bar'  # should be ignored
+    p = n.pair_segment_values(s1, so)
+    assert list(p.columns) == ['foo1', 'foo2']
+    assert list(p.index) == [0, 1, 2]
+    np.testing.assert_equal(p, expected)
+    p = n.pair_segment_values(s1, so, name='zap')
+    assert list(p.columns) == ['zap1', 'zap2']
+    assert list(p.index) == [0, 1, 2]
+    np.testing.assert_equal(p, expected)
 
 
 def test_adjust_elevation_profile_min_slope_float(n):
