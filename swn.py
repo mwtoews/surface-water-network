@@ -443,10 +443,11 @@ class SurfaceWaterNetwork(object):
         -------
         pandas.Series
         """
+        segments_index = self.segments.index
         if not isinstance(value, pd.Series):
-            value = pd.Series(value, index=self.index)
-        elif (len(value.index) != len(self.index) or
-                not (value.index == self.index).all()):
+            value = pd.Series(value, index=segments_index)
+        elif (len(value.index) != len(segments_index) or
+                not (value.index == segments_index).all()):
             raise ValueError('index is different than for segments')
         return value
 
@@ -463,13 +464,45 @@ class SurfaceWaterNetwork(object):
         -------
         pandas.Series
         """
-        outlets_index = self.outlets.index
+        outlets_index = self.outlets
         if not isinstance(value, pd.Series):
             value = pd.Series(value, index=outlets_index)
         elif (len(value.index) != len(outlets_index) or
                 not (value.index == outlets_index).all()):
             raise ValueError('index is different than for outlets')
         return value
+
+    def pair_segment_values(self, value0, outlet_value=None):
+        """Returns a pair of values that connect the segments
+
+        The first value applies to the top of each segment, and the bottom
+        value is determined from the top of the value it connects to. Special
+        consideration is applied to outlet segments.
+
+        Parameters
+        ----------
+        value0 : float or pandas.Series
+            Value to assign to the top of each segment.
+        outlet_value : None, float or pandas.Series
+            If None (default), the value used for the bottom of outlet segments
+            is assumed to be the same as the top. Otherwise, a Series
+            for each outlet can be specified.
+
+        Returns
+        -------
+        pandas.DataFrame
+        """
+        value0 = self.segment_series(value0)
+        df = pd.concat([value0, value0], axis=1)
+        if value0.name is not None:
+            df.columns = df.columns + ['0', '1']
+        to_segnums = self.to_segnums
+        c0, c1 = df.columns
+        df.loc[to_segnums.index, c1] = df.loc[to_segnums, c0].values
+        if outlet_value is not None:
+            outlet_value = self.outlet_series(outlet_value)
+            df.loc[outlet_value.index, c1] = outlet_value
+        return df
 
     def adjust_elevation_profile(self, min_slope=1./1000):
         """Check and adjust (if necessary) Z coordinates of elevation profiles
@@ -566,12 +599,14 @@ class SurfaceWaterNetwork(object):
         self.segments['min_slope'] = self.segment_series(min_slope)
         if (self.segments['min_slope'] < 0.0).any():
             raise ValueError('min_slope must be greater than zero')
+        to_segnums = self.to_segnums
         self.segments['thickness1'] = self.segment_series(thickness1)
         self.segments['thickness2'] = self.segments['thickness1']
-        to_segnum = self.segments.loc[
-            self.segments['to_segnum'].isin(self.segments.index), 'to_segnum']
+        self.segments.loc[to_segnums.index, 'thickness2'] = \
+            self.segments.loc[to_segnums, 'thickness1'].values
         if thickness_out is not None:
-            pass
+            self.segments.loc[thickness_out.index, 'thickness2'] = \
+                thickness_out
         # Make sure their extents overlap
         minx, maxx, miny, maxy = m.modelgrid.extent
         model_bbox = box(minx, miny, maxx, maxy)

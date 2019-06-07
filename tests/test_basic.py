@@ -273,6 +273,125 @@ def test_accumulate_values_expected(n):
     assert a.name is None
 
 
+def test_segment_series(n):
+    # from scalar
+    v = n.segment_series(8.0)
+    assert list(v.index) == [0, 1, 2]
+    assert list(v) == [8.0, 8.0, 8.0]
+    assert v.name is None
+    v = n.segment_series('$VAL$')
+    assert list(v) == ['$VAL$', '$VAL$', '$VAL$']
+    # from list
+    v = n.segment_series([3, 4, 5])
+    assert list(v.index) == [0, 1, 2]
+    assert list(v) == [3, 4, 5]
+    assert v.name is None
+    v = n.segment_series(['$VAL1$', '$VAL2$', '$VAL3$'])
+    assert list(v.index) == [0, 1, 2]
+    assert list(v) == ['$VAL1$', '$VAL2$', '$VAL3$']
+    assert v.name is None
+    # from Series
+    s = pd.Series([2.0, 3.0, 4.0])
+    v = n.segment_series(s)
+    assert list(v.index) == [0, 1, 2]
+    assert list(v) == [2.0, 3.0, 4.0]
+    assert v.name is None
+    s.name = 'foo'
+    v = n.segment_series(s)
+    assert v.name == 'foo'
+    # now break it
+    s.index += 1
+    with pytest.raises(ValueError,
+                       match='index is different than for segments'):
+        n.segment_series(s)
+
+
+def test_outlet_series():
+    # make a network with outlet on index 2
+    n = swn.SurfaceWaterNetwork(wkt_to_geoseries([
+        'LINESTRING Z (40 130 15, 60 100 14)',
+        'LINESTRING Z (70 130 15, 60 100 14)',
+        'LINESTRING Z (60 100 14, 60  80 12)',
+    ]))
+    # from scalar
+    v = n.outlet_series(8.0)
+    assert list(v.index) == [2]
+    assert list(v) == [8.0]
+    assert v.name is None
+    v = n.outlet_series('$VAL$')
+    assert list(v) == ['$VAL$']
+    # from list
+    v = n.outlet_series([8])
+    assert list(v.index) == [2]
+    assert list(v) == [8]
+    assert v.name is None
+    v = n.outlet_series(['$VAL_out$'])
+    assert list(v.index) == [2]
+    assert list(v) == ['$VAL_out$']
+    assert v.name is None
+    # from Series
+    s = pd.Series([5.0], index=[2])
+    v = n.outlet_series(s)
+    assert list(v.index) == [2]
+    assert list(v) == [5.0]
+    assert v.name is None
+    s.name = 'foo'
+    v = n.outlet_series(s)
+    assert v.name == 'foo'
+    # now break it
+    s.index -= 1
+    with pytest.raises(ValueError,
+                       match='index is different than for outlets'):
+        n.outlet_series(s)
+
+
+def test_pair_segment_values(n):
+    # from scalar
+    p = n.pair_segment_values(8.0)
+    assert list(p.columns) == [0, 1]
+    assert list(p.index) == [0, 1, 2]
+    expected = np.ones((3, 2)) * 8.0
+    np.testing.assert_equal(p.to_numpy(), expected)
+    p = n.pair_segment_values(8.0, 9.0)
+    assert list(p.columns) == [0, 1]
+    assert list(p.index) == [0, 1, 2]
+    expected[0, 1] = 9.0
+    np.testing.assert_equal(p.to_numpy(), expected)
+    # from list
+    p = n.pair_segment_values([3, 4, 5])
+    assert list(p.columns) == [0, 1]
+    assert list(p.index) == [0, 1, 2]
+    expected = np.array([
+            [3, 3],
+            [4, 3],
+            [5, 3]])
+    np.testing.assert_equal(p.to_numpy(), expected)
+    p = n.pair_segment_values([3, 4, 5], [6])
+    assert list(p.columns) == [0, 1]
+    assert list(p.index) == [0, 1, 2]
+    expected[0, 1] = 6
+    np.testing.assert_equal(p.to_numpy(), expected)
+    p = n.pair_segment_values([3, 4, 5], 6)
+    assert list(p.columns) == [0, 1]
+    assert list(p.index) == [0, 1, 2]
+    np.testing.assert_equal(p.to_numpy(), expected)
+    p = n.pair_segment_values(['$VAL1$', '$VAL2$', '$VAL3$'])
+    assert list(p.columns) == [0, 1]
+    assert list(p.index) == [0, 1, 2]
+    expected = np.array([
+            ['$VAL1$', '$VAL1$'],
+            ['$VAL2$', '$VAL1$'],
+            ['$VAL3$', '$VAL1$']])
+    np.testing.assert_equal(p.to_numpy(), expected)
+    p = n.pair_segment_values(['$VAL1$', '$VAL2$', '$VAL3$'], ['$OUT1$'])
+    assert list(p.columns) == [0, 1]
+    assert list(p.index) == [0, 1, 2]
+    expected[0, 1] = '$OUT1$'
+    np.testing.assert_equal(p.to_numpy(), expected)
+    return
+    # TODO: from Series
+
+
 def test_adjust_elevation_profile_min_slope_float(n):
     n.adjust_elevation_profile(2./1000)
 
