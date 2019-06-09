@@ -6,6 +6,7 @@ UPW               11  h.upw
 NWT               19  h.nwt
 BAS6              28  h.bas
 RCH               16  h.rch
+DRN               17  h.drn
 # SFR             24  h.sfr
 OC                22  h.oc
 DATA(BINARY)      50  h.cbb REPLACE
