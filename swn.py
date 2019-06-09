@@ -503,7 +503,7 @@ class SurfaceWaterNetwork(object):
         value1 = self.segment_series(value1, name=name)
         df = pd.concat([value1, value1], axis=1)
         if value1.name is not None:
-            df.columns = df.columns + ['1', '2']
+            df.columns = df.columns.str.cat(['1', '2'])
         else:
             df.columns += 1
         to_segnums = self.to_segnums
@@ -572,7 +572,9 @@ class SurfaceWaterNetwork(object):
             numiter += 1
 
     def process_flopy(self, m, ibound_action='freeze', min_slope=1./1000,
-                      thickness1=1., thickness_out=None):
+                      hyd_cond1=1., hyd_cond_out=None,
+                      thickness1=1., thickness_out=None,
+                      width1=10., width_out=None, roughch=0.024):
         """Process MODFLOW groundwater model information from flopy
 
         Parameters
@@ -587,20 +589,32 @@ class SurfaceWaterNetwork(object):
             Minimum downwards slope imposed on segments. If float, then this is
             a global value, otherwise it is per-segment with a Series.
             Default 1./1000 (or 0.001).
+        hyd_cond1 : float or pandas.Series, optional
+            Hydraulic conductivity of the streambed, as a global or per top of
+            each segment. Used for either STRHC1 or HCOND1/HCOND2 outputs.
+            Default 1.
+        hyd_cond_out : None, float or pandas.Series, optional
+            Similar to thickness1, but for the hydraulic conductivity of each
+            segment outlet. If None (default), the same hyd_cond1 value for the
+            top of the outlet segment is used for the bottom.
         thickness1 : float or pandas.Series, optional
             Thickness of the streambed, as a global or per top of each segment.
-            Default 1.
+            Used for either STRTHICK or THICKM1/THICKM2 outputs. Default 1.
         thickness_out : None, float or pandas.Series, optional
             Similar to thickness1, but for the bottom of each segment outlet.
             If None (default), the same thickness1 value for the top of the
             outlet segment is used for the bottom.
         width1 : float or pandas.Series, optional
-            Channel width, as a global or per top of each segment.
-            Default 10.
+            Channel width, as a global or per top of each segment. Used for
+            WIDTH1/WIDTH2 outputs. Default 10.
         width_out : None, float or pandas.Series, optional
             Similar to width1, but for the bottom of each segment outlet.
             If None (default), the same width1 value for the top of the
             outlet segment is used for the bottom.
+        roughch : float or pandas.Series, optional
+            Manning's roughness coefficient for the channel. If float, then
+            this is a global value, otherwise it is per-segment with a Series.
+            Default 0.024.
         """
         if not flopy:
             raise ImportError('this method requires flopy')
@@ -612,17 +626,6 @@ class SurfaceWaterNetwork(object):
             raise ValueError('DIS package required')
         elif not m.has_package('BAS6'):
             raise ValueError('BAS6 package required')
-        self.segments['min_slope'] = self.segment_series(min_slope)
-        if (self.segments['min_slope'] < 0.0).any():
-            raise ValueError('min_slope must be greater than zero')
-        to_segnums = self.to_segnums
-        self.segments['thickness1'] = self.segment_series(thickness1)
-        self.segments['thickness2'] = self.segments['thickness1']
-        self.segments.loc[to_segnums.index, 'thickness2'] = \
-            self.segments.loc[to_segnums, 'thickness1'].values
-        if thickness_out is not None:
-            self.segments.loc[thickness_out.index, 'thickness2'] = \
-                thickness_out
         # Make sure their extents overlap
         minx, maxx, miny, maxy = m.modelgrid.extent
         model_bbox = box(minx, miny, maxx, maxy)
@@ -643,10 +646,11 @@ class SurfaceWaterNetwork(object):
             # Remove any inactive grid cells from analysis
             grid_df = grid_df.loc[grid_df['ibound'] != 0]
         crs = None
+        segments_geometry_crs = getattr(self.segments.geometry, 'crs', None)
         if m.modelgrid.proj4 is not None:
             crs = fiona_crs.from_string(m.modelgrid.proj4)
-        elif self.segments.geometry.crs is not None:
-            crs = self.segments.geometry.crs
+        elif segments_geometry_crs is not None:
+            crs = segments_geometry_crs
         self.grid_cells = grid_cells = geopandas.GeoDataFrame(
                 grid_df, crs=crs,
                 geometry=[Polygon(m.modelgrid.get_cell_vertices(row, col))
@@ -667,10 +671,12 @@ class SurfaceWaterNetwork(object):
                     # but line.interpolate(d) works as expected
                     reach_geom = LineString(line.interpolate(
                         line.project(Point(c))) for c in reach_geom.coords)
+                # Get a point from the middle of the reach_geom
+                reach_mid_pt = reach_geom.interpolate(0.5, normalized=True)
                 reach_df.loc[len(reach_df) + 1] = {
                     'geometry': reach_geom,
                     'segnum': segnum,
-                    'dist': line.project(Point(reach_geom.coords[0])),
+                    'dist': line.project(reach_mid_pt, normalized=True),
                     'row': row,
                     'col': col,
                 }
@@ -695,7 +701,7 @@ class SurfaceWaterNetwork(object):
                     if ibound_action == 'modify' and ibound[row, col] == 0:
                         ibound_modified += 1
                         ibound[row, col] = 1
-        # Some reaches match multiple cells if they share a border
+        # TODO: Some reaches match multiple cells if they share a border
         self.reaches = geopandas.GeoDataFrame(reach_df, geometry='geometry')
         if ibound_action == 'modify':
             if ibound_modified:
@@ -710,13 +716,42 @@ class SurfaceWaterNetwork(object):
                         columns={'ibound': 'prev_ibound'}, inplace=True)
             else:
                 self.reaches['prev_ibound'] = 1
+        # Assign segment data
+        self.segments['min_slope'] = self.segment_series(min_slope)
+        if (self.segments['min_slope'] < 0.0).any():
+            raise ValueError('min_slope must be greater than zero')
+        # Tidy any previous attempts
+        cols = ['hcond1', 'hcond2', 'thickm1', 'thickm2', 'width1', 'width2']
+        for col in cols:
+            if col in self.segments.columns:
+                del self.segments[col]
+        # Combine pairs of series for each segment
+        self.segments = pd.concat([
+            self.segments,
+            self.pair_segment_values(hyd_cond1, hyd_cond_out, 'hcond'),
+            self.pair_segment_values(thickness1, thickness_out, 'thickm'),
+            self.pair_segment_values(width1, width_out, name='width')
+        ], axis=1, copy=False)
+        self.segments['roughch'] = self.segment_series(roughch)
         # Add information from segments
         self.reaches = self.reaches.merge(
-            self.segments[['sequence', 'min_slope']], 'left',
+            self.segments[['sequence', 'min_slope', 'roughch']], 'left',
             left_on='segnum', right_index=True)
         self.reaches.sort_values(['sequence', 'dist'], inplace=True)
+        # Interpolate segment properties to each reach
+        self.reaches['strhc1'] = 0.0
+        for segnum, seg in self.segments.iterrows():
+            if seg['hcond1'] == seg['hcond2']:
+                self.reaches.loc[self.reaches['segnum'] == segnum, 'strhc1'] \
+                    = seg['hcond1']
+            else:
+                lhcond1 = np.log10(seg['hcond1'])
+                lhcond2 = np.log10(seg['hcond2'])
+                dy = lcond2 - lcond1
+                dx = seg.geometry.length
+                raise NotImplementedError('not yet')
         del self.reaches['sequence']
-        del self.reaches['dist']
+        # del self.reaches['dist']
         # Use MODFLOW SFR dataset 2 terms ISEG and IREACH, counting from 1
         self.reaches['iseg'] = 0
         self.reaches['ireach'] = 0
