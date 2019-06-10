@@ -832,3 +832,59 @@ class SurfaceWaterNetwork(object):
                 model=m,
                 reach_data=self.reach_data.to_records(index=True),
                 segment_data={0: self.segment_data.to_records(index=False)})
+
+
+def sfr_rec_to_df(sfr):
+    """
+    Convert flopy rec arrays for ds2 and ds6 to pandas dataframes
+    """
+    d = sfr.segment_data
+    # multi index
+    reform = {(i, j): d[i][j] for i in d.keys() for j in d[i].dtype.names}
+    segdatadf = pd.DataFrame.from_dict(reform)
+    segdatadf.columns.names = ['kper', 'col']
+    reachdatadf = pd.DataFrame.from_records(sfr.reach_data)
+    return segdatadf, reachdatadf
+
+
+def sfr_dfs_to_rec(model, segdatadf, reachdatadf, set_outreaches=False,
+                   get_slopes=True, minslope=None):
+    """
+    Function to convert sfr ds6 (seg data) and ds2 (reach data) to model.sfr
+    rec arrays option to update slopes from reachdata dataframes
+    """
+    if get_slopes:
+        print('Getting slopes')
+        if minslope is None:
+            minslope = 1.0e-4
+            print('using default minslope of {}'.format(minslope))
+        else:
+            print('using specified minslope of {}'.format(minslope))
+    # segs ds6
+    # multiindex
+    g = segdatadf.groupby(level=0, axis=1)  # group multi index df by kper
+    model.sfr.segment_data = g.apply(
+        lambda k: k.xs(k.name, axis=1).to_records(index=False)).to_dict()
+    # # reaches ds2
+    model.sfr.reach_data = reachdatadf.to_records(index=False)
+    if set_outreaches:
+        # flopy method to set/fix outreaches from segment routing and reach number information
+        model.sfr.set_outreaches()
+    if get_slopes:
+        model.sfr.get_slopes(minimum_slope=minslope)
+    # as of 08/03/2018 flopy plotting of sfr plots whatever is in stress_period_data
+    # add
+    model.sfr.stress_period_data.data[0] = model.sfr.reach_data
+
+
+def get_seg_elevs_from_dis(m):
+    '''Get topsurface elevations associated with segment up and dn elevations'''
+    assert m.sfr is not None, "need sfr package"
+    for kper in range(m.nper):
+        segdata_df[kper,'top_up'] = m.dis.top.array[tuple(
+            segdata_df.loc[:,idx[kper,['i_up','j_up']]].values.T.tolist())]
+        segdata_df[kper,'top_dn'] = m.dis.top.array[tuple(
+            segdata_df.loc[:,idx[kper,['i_dn','j_dn']]].values.T.tolist())]
+    #segdata_df['top_up'] = m.dis.top.array[(segdata_df[['i_up','j_up']].values.T).tolist()]
+    #segdata_df['top_dn'] = m.dis.top.array[(segdata_df[['i_dn','j_dn']].values.T).tolist()]
+    return segdata_df
