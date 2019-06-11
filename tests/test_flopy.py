@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import numpy as np
 import os
+import pandas as pd
 import pytest
 from hashlib import md5
 try:
@@ -37,26 +38,90 @@ def n2d():
 
 def test_process_flopy_instance_errors(n3d):
     n = n3d
-    with pytest.raises(ValueError,
-                       match=r'must be a flopy\.modflow\.mf\.Modflow object'):
+    n.segments = n.segments.copy()
+    with pytest.raises(
+            ValueError,
+            match=r'must be a flopy\.modflow\.mf\.Modflow object'):
         n.process_flopy(object())
 
     m = flopy.modflow.Modflow()
     with pytest.raises(ValueError, match='DIS package required'):
         n.process_flopy(m)
 
-    flopy.modflow.ModflowDis(m, xul=10000, yul=10000)
+    flopy.modflow.ModflowDis(
+        m, nlay=1, nrow=3, ncol=2, nper=4, delr=20.0, delc=20.0)
     with pytest.raises(ValueError, match='BAS6 package required'):
         n.process_flopy(m)
 
     flopy.modflow.ModflowBas(m)
-    with pytest.raises(ValueError, match='modelgrid extent does not cover '
-                       'segments extent'):
+
+    m.modelgrid.set_coord_info(epsg=2193)
+    n.segments.crs = {'init': 'epsg:27200'}
+    with pytest.raises(
+            ValueError,
+            match='CRS for segments and modelgrid are different'):
         n.process_flopy(m)
 
-    m.modelgrid.set_coord_info(xoff=0.0, yoff=0.0)
+    n.segments.crs = None
+    with pytest.raises(
+            ValueError,
+            match='modelgrid extent does not cover segments extent'):
+        n.process_flopy(m)
+
+    m.modelgrid.set_coord_info(xoff=30.0, yoff=70.0)
+
     with pytest.raises(ValueError, match='ibound_action must be one of'):
         n.process_flopy(m, ibound_action='foo')
+
+    with pytest.raises(ValueError, match='flow must be a dict or DataFrame'):
+        n.process_flopy(m, flow=1.1)
+
+    with pytest.raises(
+            ValueError,
+            match=r'flow\.index must be a pandas\.DatetimeIndex'):
+        n.process_flopy(m, flow=pd.DataFrame({'1': [1.1]}))
+
+    with pytest.raises(
+            ValueError,
+            match='flow DataFrame length is different than nper'):
+        n.process_flopy(
+            m, flow=pd.DataFrame(
+                    {'1': [1.1]},
+                    index=pd.DatetimeIndex(['1970-01-01'])))
+
+    with pytest.raises(
+            ValueError,
+            match=r'flow\.index does not match expected \(1970\-01\-01, 1970'):
+        n.process_flopy(
+            m, flow=pd.DataFrame(
+                    {'1': 1.1},  # starts on the wrong day
+                    index=pd.DatetimeIndex(['1970-01-02'] * 4) +
+                    pd.TimedeltaIndex(range(4), 'days')))
+
+    with pytest.raises(
+            ValueError,
+            match=r'flow\.columns\.dtype must be same as segments\.index\.dt'):
+        n.process_flopy(
+            m, flow=pd.DataFrame(
+                    {'s1': 1.1},  # can't convert key to int
+                    index=pd.DatetimeIndex(['1970-01-01'] * 4) +
+                    pd.TimedeltaIndex(range(4), 'days')))
+
+    with pytest.raises(
+            ValueError,
+            match=r'flow\.columns not found in segments\.index'):
+        n.process_flopy(
+            m, flow=pd.DataFrame(
+                    {'3': 1.1},  # segnum 3 does not exist
+                    index=pd.DatetimeIndex(['1970-01-01'] * 4) +
+                    pd.TimedeltaIndex(range(4), 'days')))
+
+    # finally success!
+    n.process_flopy(
+        m, flow=pd.DataFrame(
+                {'1': 1.1, '3': 1.1},  # segnum 3 ignored
+                index=pd.DatetimeIndex(['1970-01-01'] * 4) +
+                pd.TimedeltaIndex(range(4), 'days')))
 
 
 def test_process_flopy_n3d(n3d, tmpdir_factory):

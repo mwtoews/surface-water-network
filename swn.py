@@ -571,10 +571,16 @@ class SurfaceWaterNetwork(object):
         while True:
             numiter += 1
 
+    def reduce(self):
+        """Remove segments, but retain information on all segments
+        """
+        raise NotImplementedError()
+
     def process_flopy(self, m, ibound_action='freeze', min_slope=1./1000,
                       hyd_cond1=1., hyd_cond_out=None,
                       thickness1=1., thickness_out=None,
-                      width1=10., width_out=None, roughch=0.024):
+                      width1=10., width_out=None, roughch=0.024,
+                      flow={}):
         """Process MODFLOW groundwater model information from flopy
 
         Parameters
@@ -615,6 +621,12 @@ class SurfaceWaterNetwork(object):
             Manning's roughness coefficient for the channel. If float, then
             this is a global value, otherwise it is per-segment with a Series.
             Default 0.024.
+        flow : dict or pandas.DataFrame, optional
+            Streamflow entering the upstream end of a segment. If the model
+            is steady state, a dict can be used to provide value(s) to
+            segnum identifiers. If a DataFrame is passed, the index must
+            be a DatetimeIndex aligned with the begining of each model stress
+            period. Default is {} (no flow added).
         """
         if not flopy:
             raise ImportError('this method requires flopy')
@@ -626,6 +638,56 @@ class SurfaceWaterNetwork(object):
             raise ValueError('DIS package required')
         elif not m.has_package('BAS6'):
             raise ValueError('BAS6 package required')
+        # Build stress period DataFrame from modflow model
+        stress_df = pd.DataFrame({'perlen': m.dis.perlen.array})
+        stress_df['duration'] = pd.TimedeltaIndex(
+                stress_df['perlen'].cumsum(), m.modeltime.time_units)
+        stress_df['start'] = pd.to_datetime(m.modeltime.start_datetime)
+        stress_df['end'] = stress_df['duration'] + stress_df.loc[0, 'start']
+        stress_df.loc[1:, 'start'] = stress_df['end'].iloc[:-1].values
+        if isinstance(flow, dict):
+            flow = pd.DataFrame(flow, index=stress_df['start'])
+        if not isinstance(flow, pd.DataFrame):
+            raise ValueError('flow must be a dict or DataFrame')
+        elif not isinstance(flow.index, pd.DatetimeIndex):
+            raise ValueError('flow.index must be a pandas.DatetimeIndex')
+        elif len(flow) != m.dis.nper:
+            raise ValueError('flow DataFrame length is different than '
+                             'nper ({0})'.format(m.dis.nper))
+        elif not (flow.index == stress_df['start']).all():
+            raise ValueError(
+                'flow.index does not match expected ({0})'.format(
+                    stress_df['start'].to_string(index=False, max_rows=5)
+                    .replace('\n', ', ')))
+        # Process and check segnums from flow.columns
+        try:
+            flow.columns = flow.columns.astype(self.segments.index.dtype)
+        except TypeError:
+            raise ValueError(
+                'flow.columns.dtype must be same as segments.index.dtype')
+        flow_segnums = set(flow.columns)
+        segments_segnums = set(self.segments.index)
+        if flow_segnums:
+            if flow_segnums.isdisjoint(segments_segnums):
+                raise ValueError('flow.columns not found in segments.index')
+            not_found = flow_segnums.difference(segments_segnums)
+            if not flow_segnums.issubset(segments_segnums):
+                self.logger.warning(
+                    '%s of %s flow.columns not found in segments.index',
+                    len(not_found), len(flow_segnums))
+                flow.drop(columns=not_found, inplace=True)
+        # Make sure both CRS' are the same (if defined)
+        crs = None
+        segments_crs = getattr(self.segments.geometry, 'crs', None)
+        modelgrid_crs = None
+        if m.modelgrid.proj4 is not None:
+            modelgrid_crs = fiona_crs.from_string(m.modelgrid.proj4)
+        if (segments_crs is not None and modelgrid_crs is not None
+                and segments_crs != modelgrid_crs):
+            raise ValueError(
+                'CRS for segments and modelgrid are different: {0} vs. {1}'
+                .format(segments_crs, modelgrid_crs))
+        crs = segments_crs or modelgrid_crs
         # Make sure their extents overlap
         minx, maxx, miny, maxy = m.modelgrid.extent
         model_bbox = box(minx, miny, maxx, maxy)
@@ -645,12 +707,6 @@ class SurfaceWaterNetwork(object):
         if ibound_action == 'freeze' and (ibound == 0).any():
             # Remove any inactive grid cells from analysis
             grid_df = grid_df.loc[grid_df['ibound'] != 0]
-        crs = None
-        segments_geometry_crs = getattr(self.segments.geometry, 'crs', None)
-        if m.modelgrid.proj4 is not None:
-            crs = fiona_crs.from_string(m.modelgrid.proj4)
-        elif segments_geometry_crs is not None:
-            crs = segments_geometry_crs
         self.grid_cells = grid_cells = geopandas.GeoDataFrame(
                 grid_df, crs=crs,
                 geometry=[Polygon(m.modelgrid.get_cell_vertices(row, col))
@@ -827,8 +883,15 @@ class SurfaceWaterNetwork(object):
                 self.segment_data.loc[insegnum, 'outseg'] = \
                     self.segment_data.loc[outsegnum, 'nseg']
         self.segment_data['icalc'] = 1  # assumption
+        segment_data = {}
+        for iper in range(m.dis.nper):
+            if flow_segnums:
+                item = flow.iloc[iper]
+                self.segment_data['flow'] = 0.0
+                self.segment_data.loc[item.index, 'flow'] = item
+            segment_data[iper] = self.segment_data.to_records(index=False)
         # Create flopy Sfr2 package
         sfr = flopy.modflow.mfsfr2.ModflowSfr2(
                 model=m,
                 reach_data=self.reach_data.to_records(index=True),
-                segment_data={0: self.segment_data.to_records(index=False)})
+                segment_data=segment_data)
