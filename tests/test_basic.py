@@ -68,7 +68,7 @@ def test_init_defaults(n):
     assert list(n.segments['cat_group']) == [0, 0, 0]
     assert list(n.segments['num_to_outlet']) == [1, 2, 2]
     np.testing.assert_allclose(
-        n.segments['length_to_outlet'], [20.0, 56.05551, 51.622776])
+        n.segments['dist_to_outlet'], [20.0, 56.05551, 51.622776])
     assert list(n.segments['sequence']) == [3, 1, 2]
     assert list(n.segments['stream_order']) == [2, 1, 1]
     assert list(n.headwater) == [1, 2]
@@ -93,7 +93,7 @@ def test_init_2D_geom(df):
     assert list(n.segments['cat_group']) == [0, 0, 0]
     assert list(n.segments['num_to_outlet']) == [1, 2, 2]
     np.testing.assert_allclose(
-        n.segments['length_to_outlet'], [20.0, 56.05551, 51.622776])
+        n.segments['dist_to_outlet'], [20.0, 56.05551, 51.622776])
     assert list(n.segments['sequence']) == [3, 1, 2]
     assert list(n.segments['stream_order']) == [2, 1, 1]
     assert list(n.headwater) == [1, 2]
@@ -137,7 +137,7 @@ def test_init_reversed_lines(lines):
     assert list(n.segments['cat_group']) == [1, 1, 2]
     assert list(n.segments['num_to_outlet']) == [2, 1, 1]
     np.testing.assert_allclose(
-        n.segments['length_to_outlet'], [56.05551, 36.05551, 31.622776])
+        n.segments['dist_to_outlet'], [56.05551, 36.05551, 31.622776])
     assert list(n.segments['sequence']) == [1, 3, 2]
     assert list(n.segments['stream_order']) == [1, 1, 1]
     assert list(n.headwater) == [0, 2]
@@ -169,7 +169,7 @@ def test_init_all_converge():
     assert list(n.segments['cat_group']) == [0, 1, 2]
     assert list(n.segments['num_to_outlet']) == [1, 1, 1]
     np.testing.assert_allclose(
-        n.segments['length_to_outlet'], [36.05551, 31.622776, 20.0])
+        n.segments['dist_to_outlet'], [36.05551, 31.622776, 20.0])
     assert list(n.segments['sequence']) == [1, 2, 3]
     assert list(n.segments['stream_order']) == [1, 1, 1]
     assert list(n.headwater) == [0, 1, 2]
@@ -201,7 +201,7 @@ def test_init_all_diverge():
     assert list(n.segments['num_to_outlet']) == [1, 1, 1]
     assert list(n.segments['cat_group']) == [0, 1, 2]
     np.testing.assert_allclose(
-        n.segments['length_to_outlet'], [36.05551, 31.622776, 20.0])
+        n.segments['dist_to_outlet'], [36.05551, 31.622776, 20.0])
     assert list(n.segments['sequence']) == [1, 2, 3]
     assert list(n.segments['stream_order']) == [1, 1, 1]
     assert list(n.headwater) == [0, 1, 2]
@@ -226,7 +226,7 @@ def test_init_line_connects_to_middle():
     assert list(n.segments['cat_group']) == [0, 1]
     assert list(n.segments['num_to_outlet']) == [1, 1]
     np.testing.assert_allclose(
-        n.segments['length_to_outlet'], [56.05551, 31.622776])
+        n.segments['dist_to_outlet'], [56.05551, 31.622776])
     assert list(n.segments['sequence']) == [1, 2]
     assert list(n.segments['stream_order']) == [1, 1]
     assert list(n.headwater) == [0, 1]

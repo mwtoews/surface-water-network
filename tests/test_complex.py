@@ -49,7 +49,7 @@ def test_init(costal_swn, costal_lines):
     cat_group = n.segments.groupby('cat_group').count()['to_segnum']
     assert len(cat_group) == 3
     assert dict(cat_group) == {3046700: 1, 3046737: 173, 3046736: 130}
-    ln = n.segments['length_to_outlet']
+    ln = n.segments['dist_to_outlet']
     np.testing.assert_almost_equal(ln.min(), 42.43659279)
     np.testing.assert_almost_equal(ln.max(), 21077.7486858)
     # supplied LENGTHDOWN is similar

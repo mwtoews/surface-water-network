@@ -32,7 +32,9 @@ if __name__ not in [_.name for _ in module_logger.handlers]:
     if logging.root.handlers:
         module_logger.addHandler(logging.root.handlers[0])
     else:
-        formatter = logging.Formatter(logging.BASIC_FORMAT)
+        formatter = logging.Formatter(
+            '%(asctime)s.%(msecs)03d:%(levelname)s:%(name)s:%(message)s',
+            '%H:%M:%S')
         handler = logging.StreamHandler()
         handler.name = __name__
         handler.setFormatter(formatter)
@@ -193,18 +195,18 @@ class SurfaceWaterNetwork(object):
                           len(outlets), 's' if len(outlets) != 1 else '')
         self.segments['cat_group'] = self.END_SEGNUM
         self.segments['num_to_outlet'] = 0
-        self.segments['length_to_outlet'] = 0.0
+        self.segments['dist_to_outlet'] = 0.0
 
         # Recursive function that accumulates information upstream
-        def resurse_upstream(segnum, cat_group, num, length):
+        def resurse_upstream(segnum, cat_group, num, dist):
             self.segments.loc[segnum, 'cat_group'] = cat_group
             num += 1
             self.segments.loc[segnum, 'num_to_outlet'] = num
-            length += self.segments.geometry[segnum].length
-            self.segments.loc[segnum, 'length_to_outlet'] = length
+            dist += self.segments.geometry[segnum].length
+            self.segments.loc[segnum, 'dist_to_outlet'] = dist
             # Branch to zero or more upstream segments
             for from_segnum in self.from_segnums.get(segnum, []):
-                resurse_upstream(from_segnum, cat_group, num, length)
+                resurse_upstream(from_segnum, cat_group, num, dist)
 
         for segnum in self.segments.loc[outlets].index:
             resurse_upstream(segnum, segnum, 0, 0.0)
@@ -288,7 +290,7 @@ class SurfaceWaterNetwork(object):
         self.segments['stream_order'] = 0
         # self.segments['numiter'] = 0  # should be same as stream_order
         # Sort headwater segments from the furthest from outlet to closest
-        search_order = ['num_to_outlet', 'length_to_outlet']
+        search_order = ['num_to_outlet', 'dist_to_outlet']
         furthest_upstream = self.segments.loc[headwater]\
             .sort_values(search_order, ascending=False).index
         sequence = pd.Series(
@@ -627,6 +629,7 @@ class SurfaceWaterNetwork(object):
             be a DatetimeIndex aligned with the begining of each model stress
             period. Default is {} (no flow added).
         """
+        self.logger.debug('checking flow against modflow model')
         if not flopy:
             raise ImportError('this method requires flopy')
         elif not isinstance(m, flopy.modflow.mf.Modflow):
@@ -697,6 +700,7 @@ class SurfaceWaterNetwork(object):
         if model_bbox.disjoint(segments_bbox):
             raise ValueError('modelgrid extent does not cover segments extent')
         # More careful check of overlap of lines with grid polygons
+        self.logger.debug('building model grid cell geometries')
         cols, rows = np.meshgrid(np.arange(m.dis.ncol), np.arange(m.dis.nrow))
         ibound = m.bas6.ibound[0].array.copy()
         ibound_modified = 0
@@ -706,10 +710,23 @@ class SurfaceWaterNetwork(object):
         if ibound_action == 'freeze' and (ibound == 0).any():
             # Remove any inactive grid cells from analysis
             grid_df = grid_df.loc[grid_df['ibound'] != 0]
+        # Note: m.modelgrid.get_cell_vertices(row, col) is slow!
+        xv = m.modelgrid.xvertices
+        yv = m.modelgrid.yvertices
+        r, c = grid_df.index.to_frame(index=False).iteritems()
+        r = np.array(r[1])
+        c = np.array(c[1])
+        cell_verts = zip(
+            zip(xv[r, c], yv[r, c]),
+            zip(xv[r, c + 1], yv[r, c + 1]),
+            zip(xv[r + 1, c + 1], yv[r + 1, c + 1]),
+            zip(xv[r + 1, c], yv[r + 1, c]))
+        # TODO: complete speedup
         self.grid_cells = grid_cells = geopandas.GeoDataFrame(
                 grid_df, crs=crs,
                 geometry=[Polygon(m.modelgrid.get_cell_vertices(row, col))
                           for row, col in grid_df.index])
+        self.logger.debug('evaluating reach data on grid')
         grid_sindex = get_sindex(grid_cells)
         # Make an empty DataFrame for reaches
         reach_df = pd.DataFrame(columns=['geometry'])
