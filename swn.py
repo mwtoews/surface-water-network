@@ -72,8 +72,6 @@ class SurfaceWaterNetwork(object):
         Primary GeoDataFrame created from 'lines' input, containing
         attributes evaluated during initialisation. Index is treated as a
         segment number or ID.
-    index : pandas.core.index.Int64Index
-        Shortcut property to segments.index or segment number.
     END_SEGNUM : int
         Special segment number that indicates a line end, default is usually 0.
         This number is not part of the index.
@@ -105,7 +103,7 @@ class SurfaceWaterNetwork(object):
     errors = None
 
     def __len__(self):
-        return len(self.index)
+        return len(self.segments.index)
 
     def __init__(self, lines, logger=None):
         """
@@ -138,10 +136,10 @@ class SurfaceWaterNetwork(object):
         self.segments = geopandas.GeoDataFrame(geometry=lines)
         self.logger.info('creating network with %d segments', len(self))
         segments_sindex = get_sindex(self.segments)
-        if self.index.min() > 0:
+        if self.segments.index.min() > 0:
             self.END_SEGNUM = 0
         else:
-            self.END_SEGNUM = self.index.min() - 1
+            self.END_SEGNUM = self.segments.index.min() - 1
         self.segments['to_segnum'] = self.END_SEGNUM
         self.errors = []
         self.warnings = []
@@ -184,7 +182,12 @@ class SurfaceWaterNetwork(object):
             if len(to_segnums) > 0:
                 # do not diverge flow; only flow to one downstream segment
                 self.segments.loc[segnum1, 'to_segnum'] = to_segnums[0]
-
+        # Build a dict that describes downstream segs to one or more upstream
+        self.from_segnums = {}
+        for segnum in set(self.segments['to_segnum'])\
+                .difference([self.END_SEGNUM]):
+            self.from_segnums[segnum] = \
+                set(self.segments.index[self.segments['to_segnum'] == segnum])
         outlets = self.outlets
         self.logger.debug('evaluating segments upstream from %d outlet%s',
                           len(outlets), 's' if len(outlets) != 1 else '')
@@ -200,8 +203,8 @@ class SurfaceWaterNetwork(object):
             length += self.segments.geometry[segnum].length
             self.segments.loc[segnum, 'length_to_outlet'] = length
             # Branch to zero or more upstream segments
-            for upsegnum in self.index[self.segments['to_segnum'] == segnum]:
-                resurse_upstream(upsegnum, cat_group, num, length)
+            for from_segnum in self.from_segnums.get(segnum, []):
+                resurse_upstream(from_segnum, cat_group, num, length)
 
         for segnum in self.segments.loc[outlets].index:
             resurse_upstream(segnum, segnum, 0, 0.0)
@@ -292,12 +295,6 @@ class SurfaceWaterNetwork(object):
             np.arange(len(furthest_upstream)) + 1, index=furthest_upstream)
         self.segments.loc[sequence.index, 'sequence'] = sequence
         self.segments.loc[sequence.index, 'stream_order'] = 1
-        # Build a dict that describes downstream segs to one or more upstream
-        self.from_segnums = {}
-        for segnum in set(self.segments['to_segnum'])\
-                .difference([self.END_SEGNUM]):
-            self.from_segnums[segnum] = \
-                set(self.index[self.segments['to_segnum'] == segnum])
         completed = set(headwater)
         sequence = int(sequence.max())
         for numiter in range(1, self.segments['num_to_outlet'].max() + 1):
@@ -384,12 +381,14 @@ class SurfaceWaterNetwork(object):
     @property
     def headwater(self):
         """Returns index of headwater segments"""
-        return self.index[~self.index.isin(self.segments['to_segnum'])]
+        return self.segments.index[
+                ~self.segments.index.isin(self.segments['to_segnum'])]
 
     @property
     def outlets(self):
         """Returns index of outlets"""
-        return self.index[self.segments['to_segnum'] == self.END_SEGNUM]
+        return self.segments.index[
+                self.segments['to_segnum'] == self.END_SEGNUM]
 
     @property
     def to_segnums(self):
@@ -415,8 +414,8 @@ class SurfaceWaterNetwork(object):
         """
         if not isinstance(values, pd.Series):
             raise ValueError('values must be a pandas Series')
-        elif (len(values.index) != len(self.index) or
-                not (values.index == self.index).all()):
+        elif (len(values.index) != len(self.segments.index) or
+                not (values.index == self.segments.index).all()):
             raise ValueError('index is different')
         accum = values.copy()
         try:
@@ -715,7 +714,7 @@ class SurfaceWaterNetwork(object):
         # Make an empty DataFrame for reaches
         reach_df = pd.DataFrame(columns=['geometry'])
         reach_df.insert(1, column='segnum',
-                        value=pd.Series(dtype=self.index.dtype))
+                        value=pd.Series(dtype=self.segments.index.dtype))
         reach_df.insert(2, column='dist', value=pd.Series(dtype=float))
         reach_df.insert(3, column='row', value=pd.Series(dtype=int))
         reach_df.insert(4, column='col', value=pd.Series(dtype=int))

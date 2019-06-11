@@ -12,7 +12,8 @@ def test_init(costal_swn, costal_lines):
     assert len(n) == 304
     assert n.has_z is True
     assert n.END_SEGNUM == 0
-    assert n.segments.index is n.index
+    assert 0 not in n.segments.index
+    assert 3046700 in n.segments.index
     assert len(n.headwater) == 154
     assert set(n.headwater).issuperset([3046700, 3046802, 3050418, 3048102])
     assert list(n.outlets) == [3046700, 3046737, 3046736]
