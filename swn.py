@@ -657,10 +657,13 @@ class SurfaceWaterNetwork(object):
             raise ValueError('flow DataFrame length is different than '
                              'nper ({0})'.format(m.dis.nper))
         elif not (flow.index == stress_df['start']).all():
+            try:
+                lst = stress_df['start'].to_string(index=False, max_rows=5)\
+                                                        .replace('\n', ', ')
+            except TypeError:
+                lst = ', '.join([str(x) for x in list(stress_df['start'][:5])])
             raise ValueError(
-                'flow.index does not match expected ({0})'.format(
-                    stress_df['start'].to_string(index=False, max_rows=5)
-                    .replace('\n', ', ')))
+                'flow.index does not match expected ({0})'.format(lst))
         # Process and check segnums from flow.columns
         try:
             flow.columns = flow.columns.astype(self.segments.index.dtype)
@@ -677,16 +680,16 @@ class SurfaceWaterNetwork(object):
                 self.logger.warning(
                     '%s of %s flow.columns not found in segments.index',
                     len(not_found), len(flow_segnums))
-                flow.drop(columns=not_found, inplace=True)
+                flow.drop(not_found, axis=1, inplace=True)
         # Make sure both CRS' are the same (if defined)
         crs = None
         segments_crs = getattr(self.segments.geometry, 'crs', None)
         modelgrid_crs = None
         if m.modelgrid.proj4 is not None:
             modelgrid_crs = fiona_crs.from_string(m.modelgrid.proj4)
-        if (segments_crs is not None and modelgrid_crs is not None
-                and segments_crs != modelgrid_crs):
-            raise ValueError(
+        if (segments_crs is not None and modelgrid_crs is not None and
+                segments_crs != modelgrid_crs):
+            self.logger.warning(
                 'CRS for segments and modelgrid are different: {0} vs. {1}'
                 .format(segments_crs, modelgrid_crs))
         crs = segments_crs or modelgrid_crs
@@ -713,19 +716,16 @@ class SurfaceWaterNetwork(object):
         # Note: m.modelgrid.get_cell_vertices(row, col) is slow!
         xv = m.modelgrid.xvertices
         yv = m.modelgrid.yvertices
-        r, c = grid_df.index.to_frame(index=False).iteritems()
-        r = np.array(r[1])
-        c = np.array(c[1])
+        r, c = [np.array(s[1])
+                for s in grid_df.reset_index()[['row', 'col']].iteritems()]
         cell_verts = zip(
             zip(xv[r, c], yv[r, c]),
             zip(xv[r, c + 1], yv[r, c + 1]),
             zip(xv[r + 1, c + 1], yv[r + 1, c + 1]),
-            zip(xv[r + 1, c], yv[r + 1, c]))
-        # TODO: complete speedup
+            zip(xv[r + 1, c], yv[r + 1, c])
+        )
         self.grid_cells = grid_cells = geopandas.GeoDataFrame(
-                grid_df, crs=crs,
-                geometry=[Polygon(m.modelgrid.get_cell_vertices(row, col))
-                          for row, col in grid_df.index])
+            grid_df, geometry=[Polygon(r) for r in cell_verts], crs=crs)
         self.logger.debug('evaluating reach data on grid')
         grid_sindex = get_sindex(grid_cells)
         # Make an empty DataFrame for reaches
@@ -813,15 +813,15 @@ class SurfaceWaterNetwork(object):
         # Interpolate segment properties to each reach
         self.reaches['strhc1'] = 0.0
         for segnum, seg in self.segments.iterrows():
+            sel = self.reaches['segnum'] == segnum
             if seg['hcond1'] == seg['hcond2']:
-                self.reaches.loc[self.reaches['segnum'] == segnum, 'strhc1'] \
-                    = seg['hcond1']
-            else:
-                lhcond1 = np.log10(seg['hcond1'])
-                lhcond2 = np.log10(seg['hcond2'])
-                dy = lcond2 - lcond1
-                dx = seg.geometry.length
-                raise NotImplementedError('not yet')
+                self.reaches.loc[sel, 'strhc1'] = seg['hcond1']
+            else:  # linear interpolate to mid points in log-10 space
+                lhc1 = np.log10(seg['hcond1'])
+                lhc2 = np.log10(seg['hcond2'])
+                dlhc = lhc2 - lhc1
+                self.reaches.loc[sel, 'strhc1'] = \
+                    10 ** (dlhc * self.reaches.loc[sel, 'dist'] + lhc1)
         del self.reaches['sequence']
         # del self.reaches['dist']
         # Use MODFLOW SFR dataset 2 terms ISEG and IREACH, counting from 1
