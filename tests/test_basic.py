@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
+import os
 import pandas as pd
 import pytest
 import numpy as np
 from shapely import wkt
 from shapely.geometry import LineString
 
-from .common import swn, wkt_to_dataframe, wkt_to_geoseries
+from .common import datadir, swn, wkt_to_dataframe, wkt_to_geoseries
 
 
 @pytest.fixture
@@ -512,6 +513,12 @@ def test_adjust_elevation_profile_use_min_slope():
     assert (n.profiles == expected_profiles).all()
 
 
-# def test_process_flopy_required(n):
-#    with pytest.raises(ImportError, match='this method requires flopy'):
-#        n.process_flopy(object())
+def test_topnet2df():
+    pytest.importorskip('netCDF4')
+    nc_fname = 'streamq_20170115_20170128_topnet_03046727_strahler1.nc'
+    flow = swn.topnet2df(os.path.join(datadir, nc_fname), 'mod_flow')
+    assert flow.shape == (14, 304)
+    # convert from m3/s to m3/day
+    flow *= 24 * 60 * 60
+    # remove time and truncat to closest day
+    flow.index = flow.index.floor('d')

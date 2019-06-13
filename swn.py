@@ -23,6 +23,11 @@ try:
     import flopy
 except ImportError:
     flopy = False
+try:
+    import netCDF4
+    from netCDF4 import Dataset, num2date
+except ImportError:
+    netCDF4 = False
 
 __version__ = '0.1'
 __author__ = 'Mike Toews'
@@ -911,3 +916,41 @@ class SurfaceWaterNetwork(object):
                 model=m,
                 reach_data=self.reach_data.to_records(index=True),
                 segment_data=segment_data)
+
+
+def topnet2df(nc_path, varname, log_level=logging.INFO):
+    """Read TopNet data from a netCDF file into a pandas.DataFrame
+
+    User may need to multiply DataFrame to convert units.
+
+    Parameters
+    ----------
+    nc_path : str
+        File path to netCDF file
+    varname : str
+        Variable name in netCDF file to read
+    verbose : int, optional
+        Level used by logging module; default is 20 (logging.INFO)
+
+    Returns
+    -------
+    pandas.DataFrame
+        Where columns is rchid and index is DatetimeIndex.
+    """
+    if not netCDF4:
+        raise ImportError('this function requires netCDF4')
+    logger = logging.getLogger('topnet2df')
+    logger.handlers = module_logger.handlers
+    logger.setLevel(log_level)
+    logger.info('reading file:%s', nc_path)
+    with Dataset(nc_path, 'r') as nc:
+        var = nc.variables[varname]
+        logger.info('variable %s: %s', varname, var)
+        assert len(var.shape) == 3
+        assert var.shape[-1] == 1
+        df = pd.DataFrame(var[:, :, 0])
+        df.columns = nc.variables['rchid']
+        time_v = nc.variables['time']
+        df.index = pd.DatetimeIndex(num2date(time_v[:], time_v.units))
+    logger.info('data successfully read')
+    return df

@@ -15,6 +15,9 @@ sys.path.insert(
 import swn
 
 
+datadir = os.path.join('tests', 'data')
+
+
 # Helper functions
 def wkt_to_dataframe(wkt_list, geom_name='geometry'):
     df = pd.DataFrame({'wkt': wkt_list})

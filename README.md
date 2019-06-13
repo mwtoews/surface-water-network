@@ -55,6 +55,16 @@ n.segments.sort_values('stream_order').plot('stream_order')
 n.segments.to_file('segments.shp')
 ```
 
+Read flow data from a TopNet netCDF file:
+```python
+nc_fname = 'streamq_20170115_20170128_topnet_03046727_strahler1.nc'
+flow = swn.topnet2df(os.path.join(datadir, nc_fname), 'mod_flow')
+# convert from m3/s to m3/day
+flow *= 24 * 60 * 60
+# remove time and truncate to closest day
+flow.index = flow.index.floor('d')
+```
+
 Process a MODFLOW/flopy model:
 ```python
 import flopy
