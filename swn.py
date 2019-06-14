@@ -586,7 +586,7 @@ class SurfaceWaterNetwork(object):
                       hyd_cond1=1., hyd_cond_out=None,
                       thickness1=1., thickness_out=None,
                       width1=10., width_out=None, roughch=0.024,
-                      flow={}):
+                      flow={}, runoff={}, etsw={}, pptsw={}):
         """Process MODFLOW groundwater model information from flopy
 
         Parameters
@@ -628,13 +628,20 @@ class SurfaceWaterNetwork(object):
             this is a global value, otherwise it is per-segment with a Series.
             Default 0.024.
         flow : dict or pandas.DataFrame, optional
-            Streamflow entering the upstream end of a segment. If the model
-            is steady state, a dict can be used to provide value(s) to
-            segnum identifiers. If a DataFrame is passed, the index must
-            be a DatetimeIndex aligned with the begining of each model stress
+            Streamflow at the bottom of each segment, which is used to to
+            determine the streamflow entering the upstream end of a segment if
+            it is not part of the SFR network. Internal flows are ignored.
+            A dict can be used to provide constant values to segnum
+            identifiers. If a DataFrame is passed, the index must be a
+            DatetimeIndex aligned with the begining of each model stress
             period. Default is {} (no flow added).
+        runoff : dict or pandas.DataFrame, optional
+            Runoff to each segment. Default is {} (zero).
+        etsw : dict or pandas.DataFrame, optional
+            Evapotranspiration removed from each segment. Default is {} (zero).
+        pptsw : dict or pandas.DataFrame, optional
+            Precipitation added to each segment. Default is {} (zero).
         """
-        self.logger.debug('checking flow against modflow model')
         if not flopy:
             raise ImportError('this method requires flopy')
         elif not isinstance(m, flopy.modflow.mf.Modflow):
@@ -652,41 +659,58 @@ class SurfaceWaterNetwork(object):
         stress_df['start'] = pd.to_datetime(m.modeltime.start_datetime)
         stress_df['end'] = stress_df['duration'] + stress_df.loc[0, 'start']
         stress_df.loc[1:, 'start'] = stress_df['end'].iloc[:-1].values
-        if isinstance(flow, dict):
-            flow = pd.DataFrame(flow, index=stress_df['start'])
-        if not isinstance(flow, pd.DataFrame):
-            raise ValueError('flow must be a dict or DataFrame')
-        elif not isinstance(flow.index, pd.DatetimeIndex):
-            raise ValueError('flow.index must be a pandas.DatetimeIndex')
-        elif len(flow) != m.dis.nper:
-            raise ValueError('flow DataFrame length is different than '
-                             'nper ({0})'.format(m.dis.nper))
-        elif not (flow.index == stress_df['start']).all():
-            try:
-                lst = stress_df['start'].to_string(index=False, max_rows=5)\
-                                                        .replace('\n', ', ')
-            except TypeError:
-                lst = ', '.join([str(x) for x in list(stress_df['start'][:5])])
-            raise ValueError(
-                'flow.index does not match expected ({0})'.format(lst))
-        # Process and check segnums from flow.columns
-        try:
-            flow.columns = flow.columns.astype(self.segments.index.dtype)
-        except TypeError:
-            raise ValueError(
-                'flow.columns.dtype must be same as segments.index.dtype')
-        flow_segnums = set(flow.columns)
         segments_segnums = set(self.segments.index)
-        if flow_segnums:
-            if flow_segnums.isdisjoint(segments_segnums):
-                raise ValueError('flow.columns not found in segments.index')
-            not_found = flow_segnums.difference(segments_segnums)
-            if not flow_segnums.issubset(segments_segnums):
-                self.logger.warning(
-                    '%s of %s flow.columns not found in segments.index',
-                    len(not_found), len(flow_segnums))
-                flow.drop(not_found, axis=1, inplace=True)
-        # Make sure both CRS' are the same (if defined)
+
+        def check_ts(data, name, drop_segnums=True):
+            if isinstance(data, dict):
+                data = pd.DataFrame(data, index=stress_df['start'])
+            elif not isinstance(data, pd.DataFrame):
+                raise ValueError(
+                    '{0} must be a dict or DataFrame'.format(name))
+            elif not isinstance(data.index, pd.DatetimeIndex):
+                raise ValueError(
+                    '{0}.index must be a pandas.DatetimeIndex'.format(name))
+            elif len(data) != m.dis.nper:
+                raise ValueError(
+                    '{0} DataFrame length is different than nper ({1})'
+                    .format(name, m.dis.nper))
+            elif not (data.index == stress_df['start']).all():
+                try:
+                    t = stress_df['start'].to_string(index=False, max_rows=5)\
+                                            .replace('\n', ', ')
+                except TypeError:
+                    t = ', '.join([str(x)
+                                   for x in list(stress_df['start'][:5])])
+                raise ValueError(
+                    '{0}.index does not match expected ({1})'.format(name, t))
+            try:
+                data.columns = data.columns.astype(self.segments.index.dtype)
+            except TypeError:
+                raise ValueError(
+                    '{0}.columns.dtype must be same as segments.index.dtype'
+                    .format(name))
+            data_segnums = set(data.columns)
+            if len(data_segnums) > 0:
+                if data_segnums.isdisjoint(segments_segnums):
+                    raise ValueError(
+                        '{0}.columns not found in segments.index'.format(name))
+                if drop_segnums:
+                    not_found = data_segnums.difference(segments_segnums)
+                    if not data_segnums.issubset(segments_segnums):
+                        self.logger.warning(
+                            'dropping %s of %s %s.columns, which are '
+                            'not found in segments.index',
+                            len(not_found), len(data_segnums), name)
+                        data.drop(not_found, axis=1, inplace=True)
+            return data
+
+        self.logger.debug('checking timeseries data against modflow model')
+        flow = check_ts(flow, 'flow', drop_segnums=False)
+        runoff = check_ts(runoff, 'runoff')
+        etsw = check_ts(etsw, 'etsw')
+        pptsw = check_ts(pptsw, 'pptsw')
+        self.logger.debug('building model grid cell geometries')
+        # Make sure model CRS and segments CRS are the same (if defined)
         crs = None
         segments_crs = getattr(self.segments.geometry, 'crs', None)
         modelgrid_crs = None
@@ -708,7 +732,6 @@ class SurfaceWaterNetwork(object):
         if model_bbox.disjoint(segments_bbox):
             raise ValueError('modelgrid extent does not cover segments extent')
         # More careful check of overlap of lines with grid polygons
-        self.logger.debug('building model grid cell geometries')
         cols, rows = np.meshgrid(np.arange(m.dis.ncol), np.arange(m.dis.nrow))
         ibound = m.bas6.ibound[0].array.copy()
         ibound_modified = 0
@@ -731,7 +754,7 @@ class SurfaceWaterNetwork(object):
         )
         self.grid_cells = grid_cells = geopandas.GeoDataFrame(
             grid_df, geometry=[Polygon(r) for r in cell_verts], crs=crs)
-        self.logger.debug('evaluating reach data on grid')
+        self.logger.debug('evaluating reach data on model grid')
         grid_sindex = get_sindex(grid_cells)
         # Make an empty DataFrame for reaches
         reach_df = pd.DataFrame(columns=['geometry'])
@@ -904,15 +927,55 @@ class SurfaceWaterNetwork(object):
                 self.segment_data.loc[insegnum, 'outseg'] = \
                     self.segment_data.loc[outsegnum, 'nseg']
         self.segment_data['icalc'] = 1  # assumption
+        flow_segnums = set(flow.columns)
+        inflow = pd.DataFrame(index=flow.index)
+        self.segments['inflow_segnums'] = None
+        if flow_segnums:
+            # Determine upstream flows needed for each SFR segment
+            sfr_segnums = set(self.segment_data.index)
+            for segnum in self.segment_data.index:
+                inflow_series = pd.Series(0.0, index=flow.index)
+                inflow_segnums = set()
+                for from_segnum in self.from_segnums.get(segnum, []):
+                    # gather segments outside SFR network
+                    if from_segnum not in sfr_segnums:
+                        if from_segnum in flow_segnums:
+                            inflow_series += flow[from_segnum]
+                            inflow_segnums.add(from_segnum)
+                        else:
+                            self.logger.warning(
+                                'flow to %s not provided (needed for %s)',
+                                from_segnum, segnum)
+                if inflow_segnums:
+                    inflow[segnum] = inflow_series
+                    self.segments.loc[segnum, 'inflow_segnums'] = \
+                        inflow_segnums
+
         segment_data = {}
+        has_inflow = len(inflow.columns) > 0
+        has_runoff = len(runoff.columns) > 0
+        has_etsw = len(etsw.columns) > 0
+        has_pptsw = len(pptsw.columns) > 0
         for iper in range(m.dis.nper):
-            if flow_segnums:
-                item = flow.iloc[iper]
+            if has_inflow:
+                item = inflow.iloc[iper]
                 self.segment_data['flow'] = 0.0
                 self.segment_data.loc[item.index, 'flow'] = item
+            if has_runoff:
+                item = runoff.iloc[iper]
+                self.segment_data['runoff'] = 0.0
+                self.segment_data.loc[item.index, 'runoff'] = item
+            if has_etsw:
+                item = etsw.iloc[iper]
+                self.segment_data['etsw'] = 0.0
+                self.segment_data.loc[item.index, 'etsw'] = item
+            if has_pptsw:
+                item = pptsw.iloc[iper]
+                self.segment_data['pptsw'] = 0.0
+                self.segment_data.loc[item.index, 'pptsw'] = item
             segment_data[iper] = self.segment_data.to_records(index=False)
         # Create flopy Sfr2 package
-        sfr = flopy.modflow.mfsfr2.ModflowSfr2(
+        flopy.modflow.mfsfr2.ModflowSfr2(
                 model=m,
                 reach_data=self.reach_data.to_records(index=True),
                 segment_data=segment_data)

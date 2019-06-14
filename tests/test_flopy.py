@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 import numpy as np
-import os
 import pandas as pd
 import pytest
 from hashlib import md5
@@ -45,12 +44,12 @@ def test_process_flopy_instance_errors(n3d):
     with pytest.raises(ValueError, match='DIS package required'):
         n.process_flopy(m)
 
-    flopy.modflow.ModflowDis(
+    _ = flopy.modflow.ModflowDis(
         m, nlay=1, nrow=3, ncol=2, nper=4, delr=20.0, delc=20.0)
     with pytest.raises(ValueError, match='BAS6 package required'):
         n.process_flopy(m)
 
-    flopy.modflow.ModflowBas(m)
+    _ = flopy.modflow.ModflowBas(m)
 
     m.modelgrid.set_coord_info(epsg=2193)
     n.segments.crs = {'init': 'epsg:27200'}
