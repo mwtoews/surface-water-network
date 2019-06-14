@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 import numpy as np
 
+from .common import swn
+
 
 def test_init(costal_swn, costal_lines):
     n = costal_swn
@@ -72,3 +74,14 @@ def test_accumulate_values(costal_swn, costal_lines):
     assert res.min() > -7.0
     assert res.max() < 7.0
     assert catarea.name == 'accumulated_CATAREA'
+
+
+def test_catchment_polygons(costal_lines, costal_polygons):
+    lines = costal_lines
+    polygons = costal_polygons
+    n = swn.SurfaceWaterNetwork(lines, polygons)
+    cat_areas = n.catchments.area
+    # pretty big absolute difference ~ 88 m2
+    np.testing.assert_allclose(cat_areas, polygons['Area'], atol=89.0)
+    up_cat_areas = n.accumulate_values(cat_areas)
+    # TODO: finish check

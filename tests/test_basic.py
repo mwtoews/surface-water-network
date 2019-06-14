@@ -30,6 +30,15 @@ def lines(wkt_list):
 
 
 @pytest.fixture
+def polygons(wkt_list):
+    return wkt_to_geoseries([
+        'POLYGON ((35 100, 75 100, 75  80, 35  80, 35 100))',
+        'POLYGON ((35 135, 60 135, 60 100, 35 100, 35 135))',
+        'POLYGON ((60 135, 75 135, 75 100, 60 100, 60 135))',
+    ])
+
+
+@pytest.fixture
 def n(lines):
     return swn.SurfaceWaterNetwork(lines)
 
@@ -62,6 +71,7 @@ def test_init_defaults(n):
     assert len(n.warnings) == 0
     assert len(n.errors) == 0
     assert len(n) == 3
+    assert n.catchments is None
     assert n.has_z is True
     assert n.END_SEGNUM == -1
     assert list(n.segments.index) == [0, 1, 2]
@@ -271,6 +281,24 @@ def test_accumulate_values_expected(n):
     a = n.accumulate_values(v)
     assert dict(a) == {0: 9.0, 1: 3.0, 2: 4.0}
     assert a.name is None
+
+
+def test_init_polygons(lines, polygons):
+    n = swn.SurfaceWaterNetwork(lines, polygons.geometry)
+    assert n.catchments is not None
+    np.testing.assert_array_equal(n.catchments.area, [800.0, 875.0, 525.0])
+    n = swn.SurfaceWaterNetwork(lines, polygons)
+    assert n.catchments is not None
+    np.testing.assert_array_equal(n.catchments.area, [800.0, 875.0, 525.0])
+    # upstream area
+    np.testing.assert_array_equal(
+        n.accumulate_values(n.catchments.area), [2200.0, 875.0, 525.0])
+
+
+@pytest.mark.skip
+def test_init_polygons_errors(lines):
+    # TODO: finish this
+    pass
 
 
 def test_segment_series(n):

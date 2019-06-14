@@ -79,6 +79,9 @@ class SurfaceWaterNetwork(object):
         Primary GeoDataFrame created from 'lines' input, containing
         attributes evaluated during initialisation. Index is treated as a
         segment number or ID.
+    catchments : geopandas.GeoSeries
+        Catchments created from optional 'polygons' input, containing only
+        the catchment polygon. Index must match segments.
     END_SEGNUM : int
         Special segment number that indicates a line end, default is usually 0.
         This number is not part of the index.
@@ -112,7 +115,7 @@ class SurfaceWaterNetwork(object):
     def __len__(self):
         return len(self.segments.index)
 
-    def __init__(self, lines, logger=None):
+    def __init__(self, lines, polygons=None, logger=None):
         """
         Initialise SurfaceWaterNetwork and evaluate segments
 
@@ -122,6 +125,9 @@ class SurfaceWaterNetwork(object):
             Input lines of surface water network. Geometries must be
             'LINESTRING' or 'LINESTRING Z'. Index is used for segment numbers.
             The geometry is copied to the segments property.
+        polygons : geopandas.GeoSeries or geopandas.GeoDataFrame, optional
+            Input polygons of surface water catchments. Geometries must be
+            'POLYGON'. Index must be the same as segment.index.
         logger : logging.Logger, optional
             Logger to show messages.
         """
@@ -142,6 +148,13 @@ class SurfaceWaterNetwork(object):
         # Create a new GeoDataFrame with a copy of line's geometry
         self.segments = geopandas.GeoDataFrame(geometry=lines)
         self.logger.info('creating network with %d segments', len(self))
+        if isinstance(polygons, geopandas.GeoSeries):
+            self.catchments = polygons.copy()
+        elif isinstance(polygons, geopandas.GeoDataFrame):
+            self.catchments = polygons.geometry.copy()
+        elif polygons is not None:
+            raise ValueError(
+                'polygons must be a GeoDataFrame, GeoSeries, or None')
         segments_sindex = get_sindex(self.segments)
         if self.segments.index.min() > 0:
             self.END_SEGNUM = 0
@@ -376,14 +389,29 @@ class SurfaceWaterNetwork(object):
         return cls(projection=projection, logger=logger)
 
     @property
+    def catchments(self):
+        """Returns Polygon GeoSeries of surface water catchments or None"""
+        return getattr(self, '_catchments', None)
+
+    @catchments.setter
+    def catchments(self, value):
+        if value is None:
+            del self['_catchments']
+            return
+        elif not isinstance(value, geopandas.GeoSeries):
+            raise ValueError('catchments must be a geopandas.GeoSeries')
+        segments_index = self.segments.index
+        if (len(value.index) != len(segments_index) or
+                not (value.index == segments_index).all()):
+            raise ValueError(
+                'catchments.index is different than for segments')
+        # TODO: check extent overlaps
+        self._catchments = value
+
+    @property
     def has_z(self):
         """Returns True if all segment lines have Z dimension"""
         return bool(self.segments.geometry.apply(lambda x: x.has_z).all())
-
-    @property
-    def index(self):
-        """Returns Int64Index pandas index from segments"""
-        return self.segments.index
 
     @property
     def headwater(self):
