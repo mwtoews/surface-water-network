@@ -121,11 +121,11 @@ class SurfaceWaterNetwork(object):
 
         Parameters
         ----------
-        lines : geopandas.GeoSeries or geopandas.GeoDataFrame
+        lines : geopandas.GeoSeries
             Input lines of surface water network. Geometries must be
             'LINESTRING' or 'LINESTRING Z'. Index is used for segment numbers.
             The geometry is copied to the segments property.
-        polygons : geopandas.GeoSeries or geopandas.GeoDataFrame, optional
+        polygons : geopandas.GeoSeries, optional
             Input polygons of surface water catchments. Geometries must be
             'POLYGON'. Index must be the same as segment.index.
         logger : logging.Logger, optional
@@ -135,13 +135,9 @@ class SurfaceWaterNetwork(object):
             self.logger = logging.getLogger(self.__class__.__name__)
             self.logger.handlers = module_logger.handlers
             self.logger.setLevel(module_logger.level)
-        if isinstance(lines, geopandas.GeoSeries):
-            lines = lines.copy()
-        elif isinstance(lines, geopandas.GeoDataFrame):
-            lines = lines.geometry.copy()
-        else:
-            raise ValueError('lines must be a GeoDataFrame or GeoSeries')
-        if len(lines) == 0:
+        if not isinstance(lines, geopandas.GeoSeries):
+            raise ValueError('lines must be a GeoSeries')
+        elif len(lines) == 0:
             raise ValueError('one or more lines are required')
         elif not (lines.geom_type == 'LineString').all():
             raise ValueError('lines must all be LineString types')
@@ -150,11 +146,9 @@ class SurfaceWaterNetwork(object):
         self.logger.info('creating network with %d segments', len(self))
         if isinstance(polygons, geopandas.GeoSeries):
             self.catchments = polygons.copy()
-        elif isinstance(polygons, geopandas.GeoDataFrame):
-            self.catchments = polygons.geometry.copy()
         elif polygons is not None:
             raise ValueError(
-                'polygons must be a GeoDataFrame, GeoSeries, or None')
+                'polygons must be a GeoSeries or None')
         segments_sindex = get_sindex(self.segments)
         if self.segments.index.min() > 0:
             self.END_SEGNUM = 0
@@ -396,10 +390,11 @@ class SurfaceWaterNetwork(object):
     @catchments.setter
     def catchments(self, value):
         if value is None:
-            del self['_catchments']
+            delattr(self, '_catchments')
             return
         elif not isinstance(value, geopandas.GeoSeries):
-            raise ValueError('catchments must be a geopandas.GeoSeries')
+            raise ValueError(
+                'catchments must be a GeoSeries or None')
         segments_index = self.segments.index
         if (len(value.index) != len(segments_index) or
                 not (value.index == segments_index).all()):
@@ -1009,8 +1004,8 @@ class SurfaceWaterNetwork(object):
                 segment_data=segment_data)
 
 
-def topnet2df(nc_path, varname, log_level=logging.INFO):
-    """Read TopNet data from a netCDF file into a pandas.DataFrame
+def topnet2ts(nc_path, varname, log_level=logging.INFO):
+    """Read TopNet data from a netCDF file into a pandas.DataFrame timeseries
 
     User may need to multiply DataFrame to convert units.
 
@@ -1030,7 +1025,7 @@ def topnet2df(nc_path, varname, log_level=logging.INFO):
     """
     if not netCDF4:
         raise ImportError('this function requires netCDF4')
-    logger = logging.getLogger('topnet2df')
+    logger = logging.getLogger('topnet2ts')
     logger.handlers = module_logger.handlers
     logger.setLevel(log_level)
     logger.info('reading file:%s', nc_path)

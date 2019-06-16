@@ -4,7 +4,7 @@ import numpy as np
 from .common import swn
 
 
-def test_init(costal_swn, costal_lines):
+def test_init(costal_swn, costal_lines_gdf):
     n = costal_swn
     assert len(n.warnings) == 1
     assert n.warnings[0].startswith('ending coordinate ')
@@ -55,7 +55,8 @@ def test_init(costal_swn, costal_lines):
     np.testing.assert_almost_equal(ln.min(), 42.43659279)
     np.testing.assert_almost_equal(ln.max(), 21077.7486858)
     # supplied LENGTHDOWN is similar
-    res = costal_lines['LENGTHDOWN'] + costal_lines.geometry.length - ln
+    res = costal_lines_gdf['LENGTHDOWN'] + \
+        costal_lines_gdf.geometry.length - ln
     np.testing.assert_almost_equal(res.min(), 0.0)
     np.testing.assert_almost_equal(res.max(), 15.00362636)
     assert list(n.segments['sequence'])[:6] == [149, 225, 152, 222, 145, 142]
@@ -64,24 +65,25 @@ def test_init(costal_swn, costal_lines):
     assert len(stream_order) == 5
     assert dict(stream_order) == {1: 154, 2: 72, 3: 46, 4: 28, 5: 4}
     np.testing.assert_array_equal(
-        n.segments['stream_order'], costal_lines['StreamOrde'])
+        n.segments['stream_order'], costal_lines_gdf['StreamOrde'])
 
 
-def test_accumulate_values(costal_swn, costal_lines):
+def test_accumulate_values(costal_swn, costal_lines_gdf):
     n = costal_swn
-    catarea = n.accumulate_values(costal_lines['CATAREA'])
-    res = catarea - costal_lines['CUM_AREA']
+    catarea = n.accumulate_values(costal_lines_gdf['CATAREA'])
+    res = catarea - costal_lines_gdf['CUM_AREA']
     assert res.min() > -7.0
     assert res.max() < 7.0
     assert catarea.name == 'accumulated_CATAREA'
 
 
-def test_catchment_polygons(costal_lines, costal_polygons):
-    lines = costal_lines
-    polygons = costal_polygons
+def test_catchment_polygons(costal_lines_gdf, costal_polygons_gdf):
+    lines = costal_lines_gdf.geometry
+    polygons = costal_polygons_gdf.geometry
     n = swn.SurfaceWaterNetwork(lines, polygons)
     cat_areas = n.catchments.area
     # pretty big absolute difference ~ 88 m2
-    np.testing.assert_allclose(cat_areas, polygons['Area'], atol=89.0)
+    np.testing.assert_allclose(
+        cat_areas, costal_polygons_gdf['Area'], atol=89.0)
     up_cat_areas = n.accumulate_values(cat_areas)
     # TODO: finish check

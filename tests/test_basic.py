@@ -43,17 +43,11 @@ def n(lines):
     return swn.SurfaceWaterNetwork(lines)
 
 
-def test_init_object():
-    with pytest.raises(ValueError, match='lines must be a GeoDataFrame'):
+def test_init_errors(lines):
+    with pytest.raises(ValueError, match='lines must be a GeoSeries'):
         swn.SurfaceWaterNetwork(object())
-
-
-def test_init_dataframe(df):
-    with pytest.raises(ValueError, match='lines must be a GeoDataFrame'):
+    with pytest.raises(ValueError, match='lines must be a GeoSeries'):
         swn.SurfaceWaterNetwork(df)
-
-
-def test_init_zero_lines(lines):
     with pytest.raises(ValueError, match='one or more lines are required'):
         swn.SurfaceWaterNetwork(lines[0:0])
 
@@ -284,21 +278,41 @@ def test_accumulate_values_expected(n):
 
 
 def test_init_polygons(lines, polygons):
+    # from GeoSeries
     n = swn.SurfaceWaterNetwork(lines, polygons.geometry)
     assert n.catchments is not None
     np.testing.assert_array_equal(n.catchments.area, [800.0, 875.0, 525.0])
+    # from GeoDataFrame
     n = swn.SurfaceWaterNetwork(lines, polygons)
     assert n.catchments is not None
     np.testing.assert_array_equal(n.catchments.area, [800.0, 875.0, 525.0])
     # upstream area
     np.testing.assert_array_equal(
         n.accumulate_values(n.catchments.area), [2200.0, 875.0, 525.0])
+    # check error
+    with pytest.raises(
+            ValueError,
+            match='polygons must be a GeoSeries or None'):
+        swn.SurfaceWaterNetwork(lines, 1.0)
 
 
-@pytest.mark.skip
-def test_init_polygons_errors(lines):
-    # TODO: finish this
-    pass
+def test_catchments_property(lines, polygons):
+    n = swn.SurfaceWaterNetwork(lines)
+    assert n.catchments is None
+    n.catchments = polygons.geometry
+    assert n.catchments is not None
+    np.testing.assert_array_equal(n.catchments.area, [800.0, 875.0, 525.0])
+    n.catchments = None
+    assert n.catchments is None
+    # check errors
+    with pytest.raises(
+            ValueError,
+            match='catchments must be a GeoSeries or None'):
+        n.catchments = 1.0
+    with pytest.raises(
+            ValueError,
+            match=r'catchments\.index is different than for segments'):
+        n.catchments = polygons.iloc[1:]
 
 
 def test_segment_series(n):
@@ -541,12 +555,22 @@ def test_adjust_elevation_profile_use_min_slope():
     assert (n.profiles == expected_profiles).all()
 
 
-def test_topnet2df():
+def test_topnet2ts(clostal_flow_ts):
     pytest.importorskip('netCDF4')
     nc_fname = 'streamq_20170115_20170128_topnet_03046727_strahler1.nc'
-    flow = swn.topnet2df(os.path.join(datadir, nc_fname), 'mod_flow')
+    flow = swn.topnet2ts(os.path.join(datadir, nc_fname), 'mod_flow')
     assert flow.shape == (14, 304)
     # convert from m3/s to m3/day
     flow *= 24 * 60 * 60
     # remove time and truncat to closest day
-    flow.index = flow.index.floor('d')
+    try:
+        flow.index = flow.index.floor('d')
+    except AttributeError:
+        # older pandas
+        flow.index = pd.to_datetime(
+            flow.index.map(lambda x: x.strftime('%Y-%m-%d')))
+    # Compare against CSV version of this data
+    assert flow.shape == (14, 304)
+    np.testing.assert_array_equal(flow.columns, clostal_flow_ts.columns)
+    np.testing.assert_array_equal(flow.index, clostal_flow_ts.index)
+    np.testing.assert_array_almost_equal(flow, clostal_flow_ts, 2)
