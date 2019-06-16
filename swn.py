@@ -858,21 +858,30 @@ class SurfaceWaterNetwork(object):
         self.segments['roughch'] = self.segment_series(roughch)
         # Add information from segments
         self.reaches = self.reaches.merge(
-            self.segments[['sequence', 'min_slope', 'roughch']], 'left',
+            self.segments[['sequence', 'min_slope']], 'left',
             left_on='segnum', right_index=True)
         self.reaches.sort_values(['sequence', 'dist'], inplace=True)
         # Interpolate segment properties to each reach
+        self.reaches['strthick'] = 0.0
         self.reaches['strhc1'] = 0.0
         for segnum, seg in self.segments.iterrows():
             sel = self.reaches['segnum'] == segnum
+            if seg['thickm1'] == seg['thickm2']:
+                val = seg['thickm1']
+            else:  # linear interpolate to mid points
+                tk1 = seg['thickm1']
+                tk2 = seg['thickm2']
+                dtk = tk2 - tk1
+                val = dtk * self.reaches.loc[sel, 'dist'] + tk1
+            self.reaches.loc[sel, 'strthick'] = val
             if seg['hcond1'] == seg['hcond2']:
-                self.reaches.loc[sel, 'strhc1'] = seg['hcond1']
+                val = seg['hcond1']
             else:  # linear interpolate to mid points in log-10 space
                 lhc1 = np.log10(seg['hcond1'])
                 lhc2 = np.log10(seg['hcond2'])
                 dlhc = lhc2 - lhc1
-                self.reaches.loc[sel, 'strhc1'] = \
-                    10 ** (dlhc * self.reaches.loc[sel, 'dist'] + lhc1)
+                val = 10 ** (dlhc * self.reaches.loc[sel, 'dist'] + lhc1)
+            self.reaches.loc[sel, 'strhc1'] = val
         del self.reaches['sequence']
         # del self.reaches['dist']
         # Use MODFLOW SFR dataset 2 terms ISEG and IREACH, counting from 1
@@ -933,7 +942,9 @@ class SurfaceWaterNetwork(object):
         # Build reach_data for Data Set 2
         # See flopy.modflow.ModflowSfr2.get_default_reach_dtype()
         self.reach_data = pd.DataFrame(
-            self.reaches[['row', 'col', 'iseg', 'ireach', 'strtop', 'slope']])
+            self.reaches[[
+                'row', 'col', 'iseg', 'ireach',
+                'strtop', 'slope', 'strthick', 'strhc1']])
         self.reach_data.rename(columns={'row': 'i', 'col': 'j'}, inplace=True)
         self.reach_data.insert(0, column='k', value=0)  # only top layer
         self.reach_data.insert(5, column='rchlen', value=self.reaches.length)
@@ -942,6 +953,7 @@ class SurfaceWaterNetwork(object):
         self.segment_data.rename(columns={'iseg': 'nseg'}, inplace=True)
         self.segment_data.set_index('segnum', inplace=True)
         self.segment_data.index.name = self.segments.index.name
+        self.segment_data['icalc'] = 1  # assumption
         # Translate 'to_segnum' to 'outseg' via 'nseg'
         self.segment_data['outseg'] = 0
         for insegnum, inseg in self.segment_data.nseg.iteritems():
@@ -949,7 +961,19 @@ class SurfaceWaterNetwork(object):
             if outsegnum in self.segment_data.index:
                 self.segment_data.loc[insegnum, 'outseg'] = \
                     self.segment_data.loc[outsegnum, 'nseg']
-        self.segment_data['icalc'] = 1  # assumption
+        self.segment_data['iupseg'] = 0  # no diversions (yet)
+        self.segment_data['iprior'] = 0
+        self.segment_data['flow'] = 0.0
+        self.segment_data['runoff'] = 0.0
+        self.segment_data['etsw'] = 0.0
+        self.segment_data['pptsw'] = 0.0
+        # copy several columns over
+        cols = ['roughch',
+                'hcond1', 'thickm1', 'elevup', 'width1',
+                'hcond2', 'thickm2', 'elevdn', 'width2']
+        cols.remove('elevup')  # not yet
+        cols.remove('elevdn')  # not yet
+        self.segment_data[cols] = self.segments[cols]
         flow_segnums = set(flow.columns)
         inflow = pd.DataFrame(index=flow.index)
         self.segments['inflow_segnums'] = None

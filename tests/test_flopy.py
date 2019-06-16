@@ -163,12 +163,33 @@ def test_process_flopy_n3d(n3d, tmpdir_factory):
     np.testing.assert_array_almost_equal(
         m.sfr.reach_data.slope,
         [0.027735, 0.027735, 0.027735, 0.031622775, 0.031622775, 0.1, 0.1])
-    # Repeat, but with min_slope enforced
+    np.testing.assert_array_equal(m.sfr.reach_data.strthick, [1.0] * 7)
+    np.testing.assert_array_equal(m.sfr.reach_data.strhc1, [1.0] * 7)
+    assert len(m.sfr.segment_data) == 1
+    sd = m.sfr.segment_data[0]
+    np.testing.assert_array_equal(sd.nseg, [1, 2, 3])
+    np.testing.assert_array_equal(sd.icalc, [1, 1, 1])
+    np.testing.assert_array_equal(sd.outseg, [3, 3, 0])
+    np.testing.assert_array_equal(sd.iupseg, [0, 0, 0])
+    np.testing.assert_array_equal(sd.iprior, [0, 0, 0])
+    np.testing.assert_array_almost_equal(sd.flow, [0.0, 0.0, 0.0])
+    np.testing.assert_array_almost_equal(sd.runoff, [0.0, 0.0, 0.0])
+    np.testing.assert_array_almost_equal(sd.etsw, [0.0, 0.0, 0.0])
+    np.testing.assert_array_almost_equal(sd.pptsw, [0.0, 0.0, 0.0])
+    np.testing.assert_array_almost_equal(sd.roughch, [0.024, 0.024, 0.024])
+    np.testing.assert_array_almost_equal(sd.hcond1, [1.0, 1.0, 1.0])
+    np.testing.assert_array_almost_equal(sd.thickm1, [1.0, 1.0, 1.0])
+    np.testing.assert_array_almost_equal(sd.width1, [10.0, 10.0, 10.0])
+    np.testing.assert_array_almost_equal(sd.hcond2, [1.0, 1.0, 1.0])
+    np.testing.assert_array_almost_equal(sd.thickm2, [1.0, 1.0, 1.0])
+    np.testing.assert_array_almost_equal(sd.width2, [10.0, 10.0, 10.0])
+    # Repeat, but with min_slope enforced, and other options
     sfr_unit = m.sfr.unit_number[0]
     m.remove_package('sfr')
     if sfr_unit in m.package_units:
         m.package_units.remove(sfr_unit)
-    n.process_flopy(m, min_slope=0.03)
+    n.process_flopy(m, min_slope=0.03, hyd_cond1=12, thickness1=2.0,
+                    runoff={1: 5}, etsw={0: 3, 1: 9.1, 2: 6}, pptsw={2: 8.8})
     np.testing.assert_array_almost_equal(
         m.sfr.reach_data.rchlen,
         [18.027756, 6.009252, 12.018504, 21.081851, 10.540926, 10.0, 10.0])
@@ -178,13 +199,26 @@ def test_process_flopy_n3d(n3d, tmpdir_factory):
     np.testing.assert_array_almost_equal(
         m.sfr.reach_data.slope,
         [0.03, 0.03, 0.03, 0.031622775, 0.031622775, 0.1, 0.1])
+    np.testing.assert_array_equal(m.sfr.reach_data.strthick, [2.0] * 7)
+    np.testing.assert_array_equal(m.sfr.reach_data.strhc1, [12.0] * 7)
+    assert len(m.sfr.segment_data) == 1
     sd = m.sfr.segment_data[0]
-    assert list(sd.nseg) == [1, 2, 3]
-    assert list(sd.icalc) == [1, 1, 1]
-    assert list(sd.outseg) == [3, 3, 0]
-    assert list(sd.iupseg) == [0, 0, 0]
-    assert list(sd.iprior) == [0, 0, 0]
-    # TODO: more tests needed
+    np.testing.assert_array_equal(sd.nseg, [1, 2, 3])
+    np.testing.assert_array_equal(sd.icalc, [1, 1, 1])
+    np.testing.assert_array_equal(sd.outseg, [3, 3, 0])
+    np.testing.assert_array_equal(sd.iupseg, [0, 0, 0])
+    np.testing.assert_array_equal(sd.iprior, [0, 0, 0])
+    np.testing.assert_array_almost_equal(sd.flow, [0.0, 0.0, 0.0])
+    np.testing.assert_array_almost_equal(sd.runoff, [5.0, 0.0, 0.0])
+    np.testing.assert_array_almost_equal(sd.etsw, [9.1, 6.0, 3.0])
+    np.testing.assert_array_almost_equal(sd.pptsw, [0.0, 8.8, 0.0])
+    np.testing.assert_array_almost_equal(sd.roughch, [0.024, 0.024, 0.024])
+    np.testing.assert_array_almost_equal(sd.hcond1, [12.0, 12.0, 12.0])
+    np.testing.assert_array_almost_equal(sd.thickm1, [2.0, 2.0, 2.0])
+    np.testing.assert_array_almost_equal(sd.width1, [10.0, 10.0, 10.0])
+    np.testing.assert_array_almost_equal(sd.hcond2, [12.0, 12.0, 12.0])
+    np.testing.assert_array_almost_equal(sd.thickm2, [2.0, 2.0, 2.0])
+    np.testing.assert_array_almost_equal(sd.width2, [10.0, 10.0, 10.0])
     # Write output files
     outdir = tmpdir_factory.mktemp('n3d')
     m.model_ws = str(outdir)
@@ -241,7 +275,6 @@ def test_process_flopy_n2d(n2d, tmpdir_factory):
     assert list(sd.icalc) == [1, 1, 1]
     assert list(sd.outseg) == [3, 3, 0]
     assert list(sd.iupseg) == [0, 0, 0]
-    assert list(sd.iprior) == [0, 0, 0]
     # TODO: more tests needed
     # Write output files
     outdir = tmpdir_factory.mktemp('n2d')
