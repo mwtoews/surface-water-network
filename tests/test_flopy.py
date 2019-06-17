@@ -120,7 +120,7 @@ def test_process_flopy_instance_errors(n3d):
                 pd.TimedeltaIndex(range(4), 'days')))
 
 
-def test_process_flopy_n3d(n3d, tmpdir_factory):
+def test_process_flopy_n3d_defaults(n3d, tmpdir_factory):
     r"""
         .___.___.
         :  1:  2:  row 0
@@ -165,6 +165,7 @@ def test_process_flopy_n3d(n3d, tmpdir_factory):
         [0.027735, 0.027735, 0.027735, 0.031622775, 0.031622775, 0.1, 0.1])
     np.testing.assert_array_equal(m.sfr.reach_data.strthick, [1.0] * 7)
     np.testing.assert_array_equal(m.sfr.reach_data.strhc1, [1.0] * 7)
+    # Data set 5
     assert len(m.sfr.segment_data) == 1
     sd = m.sfr.segment_data[0]
     np.testing.assert_array_equal(sd.nseg, [1, 2, 3])
@@ -183,12 +184,25 @@ def test_process_flopy_n3d(n3d, tmpdir_factory):
     np.testing.assert_array_almost_equal(sd.hcond2, [1.0, 1.0, 1.0])
     np.testing.assert_array_almost_equal(sd.thickm2, [1.0, 1.0, 1.0])
     np.testing.assert_array_almost_equal(sd.width2, [10.0, 10.0, 10.0])
+    # Write output files
+    outdir = tmpdir_factory.mktemp('n3d')
+    m.model_ws = str(outdir)
+    m.write_input()
+    # m.sfr.write_file(str(outdir.join('file.sfr')))
+    n.grid_cells.to_file(str(outdir.join('grid_cells.shp')))
+    n.reaches.to_file(str(outdir.join('reaches.shp')))
+
+
+def test_process_flopy_n3d_vars(n3d, tmpdir_factory):
     # Repeat, but with min_slope enforced, and other options
-    sfr_unit = m.sfr.unit_number[0]
-    m.remove_package('sfr')
-    if sfr_unit in m.package_units:
-        m.package_units.remove(sfr_unit)
+    n = n3d
+    m = flopy.modflow.Modflow()
+    flopy.modflow.ModflowDis(
+        m, nlay=1, nrow=3, ncol=2, delr=20.0, delc=20.0, top=15.0, botm=10.0,
+        xul=30.0, yul=130.0)
+    flopy.modflow.ModflowBas(m)
     n.process_flopy(m, min_slope=0.03, hyd_cond1=12, thickness1=2.0,
+                    inflow={0: 96.6, 1: 97.7, 2: 98.8}, flow={0: 5.4},
                     runoff={1: 5}, etsw={0: 3, 1: 9.1, 2: 6}, pptsw={2: 8.8})
     np.testing.assert_array_almost_equal(
         m.sfr.reach_data.rchlen,
@@ -201,6 +215,7 @@ def test_process_flopy_n3d(n3d, tmpdir_factory):
         [0.03, 0.03, 0.03, 0.031622775, 0.031622775, 0.1, 0.1])
     np.testing.assert_array_equal(m.sfr.reach_data.strthick, [2.0] * 7)
     np.testing.assert_array_equal(m.sfr.reach_data.strhc1, [12.0] * 7)
+    # Data set 5
     assert len(m.sfr.segment_data) == 1
     sd = m.sfr.segment_data[0]
     np.testing.assert_array_equal(sd.nseg, [1, 2, 3])
@@ -208,7 +223,8 @@ def test_process_flopy_n3d(n3d, tmpdir_factory):
     np.testing.assert_array_equal(sd.outseg, [3, 3, 0])
     np.testing.assert_array_equal(sd.iupseg, [0, 0, 0])
     np.testing.assert_array_equal(sd.iprior, [0, 0, 0])
-    np.testing.assert_array_almost_equal(sd.flow, [0.0, 0.0, 0.0])
+    # note that 'inflow' was effectivley ignored, as is expected
+    np.testing.assert_array_almost_equal(sd.flow, [0.0, 0.0, 5.4])
     np.testing.assert_array_almost_equal(sd.runoff, [5.0, 0.0, 0.0])
     np.testing.assert_array_almost_equal(sd.etsw, [9.1, 6.0, 3.0])
     np.testing.assert_array_almost_equal(sd.pptsw, [0.0, 8.8, 0.0])
@@ -223,12 +239,11 @@ def test_process_flopy_n3d(n3d, tmpdir_factory):
     outdir = tmpdir_factory.mktemp('n3d')
     m.model_ws = str(outdir)
     m.write_input()
-    # m.sfr.write_file(str(outdir.join('file.sfr')))
     n.grid_cells.to_file(str(outdir.join('grid_cells.shp')))
     n.reaches.to_file(str(outdir.join('reaches.shp')))
 
 
-def test_process_flopy_n2d(n2d, tmpdir_factory):
+def test_process_flopy_n2d_defaults(n2d, tmpdir_factory):
     # similar to 3D version, but getting information from model
     n = n2d
     m = flopy.modflow.Modflow()
@@ -255,11 +270,32 @@ def test_process_flopy_n2d(n2d, tmpdir_factory):
     np.testing.assert_array_almost_equal(
         m.sfr.reach_data.slope,
         [0.070710681, 0.05, 0.025, 0.05, 0.025, 0.025, 0.05])
-    # Repeat, but with min_slope enforced
-    sfr_unit = m.sfr.unit_number[0]
-    m.remove_package('sfr')
-    if sfr_unit in m.package_units:
-        m.package_units.remove(sfr_unit)
+    sd = m.sfr.segment_data[0]
+    assert list(sd.nseg) == [1, 2, 3]
+    assert list(sd.icalc) == [1, 1, 1]
+    assert list(sd.outseg) == [3, 3, 0]
+    assert list(sd.iupseg) == [0, 0, 0]
+    # See test_process_flopy_n3d_defaults for other checks
+    # Write output files
+    outdir = tmpdir_factory.mktemp('n2d')
+    m.model_ws = str(outdir)
+    m.write_input()
+    n.grid_cells.to_file(str(outdir.join('grid_cells.shp')))
+    n.reaches.to_file(str(outdir.join('reaches.shp')))
+
+
+def test_process_flopy_n2d_min_slope(n2d, tmpdir_factory):
+    n = n2d
+    m = flopy.modflow.Modflow()
+    top = np.array([
+        [16.0, 15.0],
+        [15.0, 15.0],
+        [14.0, 14.0],
+    ])
+    flopy.modflow.ModflowDis(
+        m, nlay=1, nrow=3, ncol=2, delr=20.0, delc=20.0, top=top, botm=10.0,
+        xul=30.0, yul=130.0)
+    flopy.modflow.ModflowBas(m)
     n.process_flopy(m, min_slope=0.03)
     np.testing.assert_array_almost_equal(
         m.sfr.reach_data.rchlen,
@@ -275,12 +311,11 @@ def test_process_flopy_n2d(n2d, tmpdir_factory):
     assert list(sd.icalc) == [1, 1, 1]
     assert list(sd.outseg) == [3, 3, 0]
     assert list(sd.iupseg) == [0, 0, 0]
-    # TODO: more tests needed
+    # See test_process_flopy_n3d_defaults for other checks
     # Write output files
     outdir = tmpdir_factory.mktemp('n2d')
     m.model_ws = str(outdir)
     m.write_input()
-    # m.sfr.write_file(str(outdir.join('file.sfr')))
     n.grid_cells.to_file(str(outdir.join('grid_cells.shp')))
     n.reaches.to_file(str(outdir.join('reaches.shp')))
 
@@ -290,26 +325,165 @@ def costal_flopy_m():
     return flopy.modflow.Modflow.load('h.nam', model_ws=datadir, check=False)
 
 
-def test_costal_process_flopy(costal_swn, costal_flopy_m):
+def check_number_sum_hex(a, n, h):
+    a = np.ceil(a).astype(np.int64)
+    assert a.sum() == n
+    ah = md5(a.tostring()).hexdigest()
+    assert ah.startswith(h), '{0} does not start with {1}'.format(ah, h)
+
+
+def test_costal_process_flopy(
+        costal_swn, costal_flopy_m, clostal_flow_m, tmpdir_factory):
     n = costal_swn
     m = costal_flopy_m
     # Make sure this is the model we are thinking of
     assert m.modelgrid.extent == (1802000.0, 1819000.0, 5861000.0, 5879000.0)
-    n.process_flopy(m)
-    assert len(n.reaches) == 370
-    assert m.bas6.ibound[0].array.sum() == 178
-    assert md5(m.bas6.ibound.array.astype('B').tostring()).hexdigest() == \
-        '3ca05914e75b930252257dd331111d95'
+    n.process_flopy(m, inflow=clostal_flow_m)
+    # Data set 1c
+    assert abs(m.sfr.nstrm) == 370
+    assert m.sfr.nss == 184
+    # Data set 2
+    check_number_sum_hex(
+        m.sfr.reach_data.node, 49998, '29eb6a019a744893ceb5a09294f62638')
+    check_number_sum_hex(
+        m.sfr.reach_data.k, 0, '213581ea1c4e2fa86e66227673da9542')
+    check_number_sum_hex(
+        m.sfr.reach_data.i, 2690, 'be41f95d2eb64b956cc855304f6e5e1d')
+    check_number_sum_hex(
+        m.sfr.reach_data.j, 4268, '4142617f1cbd589891e9c4033efb0243')
+    check_number_sum_hex(
+        m.sfr.reach_data.reachID, 68635, '2a512563b164c76dfc605a91b10adae1')
+    check_number_sum_hex(
+        m.sfr.reach_data.iseg, 34415, '48c4129d78c344d2e8086cd6971c16f7')
+    check_number_sum_hex(
+        m.sfr.reach_data.ireach, 687, '233b71e88260cddb374e28ed197dfab0')
+    check_number_sum_hex(
+        m.sfr.reach_data.rchlen, 159871, '776ed1ced406c7de9cfe502181dc8e97')
+    check_number_sum_hex(
+        m.sfr.reach_data.strtop, 4266, '572a5ef53cd2c69f5d467f1056ee7579')
+    check_number_sum_hex(
+        m.sfr.reach_data.slope * 999, 2945, '91c54e646fec7af346c0979167789316')
+    check_number_sum_hex(
+        m.sfr.reach_data.strthick, 370, '09fd95bcbfe7c6309694157904acac68')
+    check_number_sum_hex(
+        m.sfr.reach_data.strhc1, 370, '09fd95bcbfe7c6309694157904acac68')
+    # Data set 5
+    assert len(m.sfr.segment_data) == 1
+    sd = m.sfr.segment_data[0]
+    check_number_sum_hex(
+        sd.nseg, 17020, '55968016ecfb4e995fb5591bce55fea0')
+    check_number_sum_hex(
+        sd.icalc, 184, '1e57e4eaa6f22ada05f4d8cd719e7876')
+    check_number_sum_hex(
+        sd.outseg, 24372, '2bb7449425db6e0ed31dff07d0e9947c')
+    check_number_sum_hex(
+        sd.iupseg, 0, 'f7e23bb7abe5b9603e8212ad467155bd')
+    check_number_sum_hex(
+        sd.iprior, 0, 'f7e23bb7abe5b9603e8212ad467155bd')
+    check_number_sum_hex(
+        sd.flow, 4009, '49b48704587dc36d5d6f6295569eabd6')
+    check_number_sum_hex(
+        sd.runoff, 0, 'f7e23bb7abe5b9603e8212ad467155bd')
+    check_number_sum_hex(
+        sd.etsw, 0, 'f7e23bb7abe5b9603e8212ad467155bd')
+    check_number_sum_hex(
+        sd.pptsw, 0, 'f7e23bb7abe5b9603e8212ad467155bd')
+    check_number_sum_hex(
+        sd.roughch * 1000, 4416, 'a1a620fac8f5a6cbed3cc49aa2b90467')
+    check_number_sum_hex(
+        sd.hcond1, 184, '1e57e4eaa6f22ada05f4d8cd719e7876')
+    check_number_sum_hex(
+        sd.thickm1, 184, '1e57e4eaa6f22ada05f4d8cd719e7876')
+    check_number_sum_hex(
+        sd.width1, 1840, '5749f425818b3b18e395b2a432520a4e')
+    check_number_sum_hex(
+        sd.hcond2, 184, '1e57e4eaa6f22ada05f4d8cd719e7876')
+    check_number_sum_hex(
+        sd.thickm2, 184, '1e57e4eaa6f22ada05f4d8cd719e7876')
+    check_number_sum_hex(
+        sd.width2, 1840, '5749f425818b3b18e395b2a432520a4e')
+    # Check other packages
+    check_number_sum_hex(
+        m.bas6.ibound.array, 509, 'c4135a084b2593e0b69c148136a3ad6d')
+    # Write output files
+    outdir = tmpdir_factory.mktemp('costal')
+    m.model_ws = str(outdir)
+    m.write_input()
+    n.grid_cells.to_file(str(outdir.join('grid_cells.shp')))
+    n.reaches.to_file(str(outdir.join('reaches.shp')))
 
 
-def test_costal_process_flopy_ibound_modify(costal_swn):
+def test_costal_process_flopy_ibound_modify(
+        costal_swn, clostal_flow_m, tmpdir_factory):
     n = costal_swn
     m = flopy.modflow.Modflow.load('h.nam', model_ws=datadir, check=False)
-    n.process_flopy(m, ibound_action='modify')
-    assert len(n.reaches) == 626
-    assert m.bas6.ibound[0].array.sum() == 243
-    assert md5(m.bas6.ibound.array.astype('B').tostring()).hexdigest() == \
-        '9666d6aff9266196a26c3726e5c1da94'
+    n.process_flopy(m, ibound_action='modify', inflow=clostal_flow_m)
+    # Data set 1c
+    assert abs(m.sfr.nstrm) == 626
+    assert m.sfr.nss == 304
+    # Data set 2
+    check_number_sum_hex(
+        m.sfr.reach_data.node, 95964, '52c2df8cb982061c4c0a39bbf865926f')
+    check_number_sum_hex(
+        m.sfr.reach_data.k, 0, '975d4ebfcacc6428ed80b7e319ed023a')
+    check_number_sum_hex(
+        m.sfr.reach_data.i, 5307, '7ad41ac8568ac5e45bbb95a89a50da12')
+    check_number_sum_hex(
+        m.sfr.reach_data.j, 5745, 'fc24e43745e3e09f5e84f63b07d32473')
+    check_number_sum_hex(
+        m.sfr.reach_data.reachID, 196251, '46356d0cbb4563e5d882e5fd2639c3e8')
+    check_number_sum_hex(
+        m.sfr.reach_data.iseg, 94974, '7bd775afa62ce9818fa6b1f715ecbb27')
+    check_number_sum_hex(
+        m.sfr.reach_data.ireach, 1173, '8008ac0cb8bf371c37c3e51236e44fd4')
+    check_number_sum_hex(
+        m.sfr.reach_data.rchlen, 255458, '8b04207572fc23661d383574e6363af4')
+    check_number_sum_hex(
+        m.sfr.reach_data.strtop, 24142, 'bc96d80acc1b59c4d50759301ae2392a')
+    check_number_sum_hex(
+        m.sfr.reach_data.slope * 500, 6593, '0306817657dc6c85cb65c93f3fa15af0')
+    check_number_sum_hex(
+        m.sfr.reach_data.strthick, 626, 'a3aa65f110b20b57fc7f445aa743759f')
+    check_number_sum_hex(
+        m.sfr.reach_data.strhc1, 626, 'a3aa65f110b20b57fc7f445aa743759f')
+    # Data set 5
+    assert len(m.sfr.segment_data) == 1
+    sd = m.sfr.segment_data[0]
+    check_number_sum_hex(
+        sd.nseg, 46360, '22126069af5cfa16460d6b5ee2c9e25e')
+    check_number_sum_hex(
+        sd.icalc, 304, '3665cd80c97966d0a740f0845e8b50e6')
+    check_number_sum_hex(
+        sd.outseg, 69130, 'bfd96b95f0d9e7c4cfa67fac834dcf37')
+    check_number_sum_hex(
+        sd.iupseg, 0, 'd6c6d43a06a3923eac7f03dcfe16f437')
+    check_number_sum_hex(
+        sd.iprior, 0, 'd6c6d43a06a3923eac7f03dcfe16f437')
+    check_number_sum_hex(
+        sd.flow, 0, 'd6c6d43a06a3923eac7f03dcfe16f437')
+    check_number_sum_hex(
+        sd.runoff, 0, 'd6c6d43a06a3923eac7f03dcfe16f437')
+    check_number_sum_hex(
+        sd.etsw, 0, 'd6c6d43a06a3923eac7f03dcfe16f437')
+    check_number_sum_hex(
+        sd.pptsw, 0, 'd6c6d43a06a3923eac7f03dcfe16f437')
+    check_number_sum_hex(
+        sd.roughch * 1000, 7296, 'fde9b5ef3863e60a5173b5949d495c09')
+    check_number_sum_hex(
+        sd.hcond1, 304, '3665cd80c97966d0a740f0845e8b50e6')
+    check_number_sum_hex(
+        sd.thickm1, 304, '3665cd80c97966d0a740f0845e8b50e6')
+    check_number_sum_hex(
+        sd.width1, 3040, '65f2c05e33613b359676244036d86689')
+    check_number_sum_hex(
+        sd.hcond2, 304, '3665cd80c97966d0a740f0845e8b50e6')
+    check_number_sum_hex(
+        sd.thickm2, 304, '3665cd80c97966d0a740f0845e8b50e6')
+    check_number_sum_hex(
+        sd.width2, 3040, '65f2c05e33613b359676244036d86689')
+    # Check other packages
+    check_number_sum_hex(
+        m.bas6.ibound.array, 574, 'c1ae1c2676e735281aeed2c9301ec84c')
 
 
 def test_process_flopy_lines_on_boundaries():

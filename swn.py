@@ -609,7 +609,7 @@ class SurfaceWaterNetwork(object):
                       hyd_cond1=1., hyd_cond_out=None,
                       thickness1=1., thickness_out=None,
                       width1=10., width_out=None, roughch=0.024,
-                      flow={}, runoff={}, etsw={}, pptsw={}):
+                      inflow={}, flow={}, runoff={}, etsw={}, pptsw={}):
         """Process MODFLOW groundwater model information from flopy
 
         Parameters
@@ -650,14 +650,17 @@ class SurfaceWaterNetwork(object):
             Manning's roughness coefficient for the channel. If float, then
             this is a global value, otherwise it is per-segment with a Series.
             Default 0.024.
-        flow : dict or pandas.DataFrame, optional
+        inflow : dict or pandas.DataFrame, optional
             Streamflow at the bottom of each segment, which is used to to
             determine the streamflow entering the upstream end of a segment if
             it is not part of the SFR network. Internal flows are ignored.
             A dict can be used to provide constant values to segnum
             identifiers. If a DataFrame is passed, the index must be a
             DatetimeIndex aligned with the begining of each model stress
-            period. Default is {} (no flow added).
+            period. Default is {} (no outside inflow added to flow term).
+        flow : dict or pandas.DataFrame, optional
+            Flow to the top of each segment. This is added to any inflow,
+            which is handled separately. Default is {} (zero).
         runoff : dict or pandas.DataFrame, optional
             Runoff to each segment. Default is {} (zero).
         etsw : dict or pandas.DataFrame, optional
@@ -728,7 +731,8 @@ class SurfaceWaterNetwork(object):
             return data
 
         self.logger.debug('checking timeseries data against modflow model')
-        flow = check_ts(flow, 'flow', drop_segnums=False)
+        inflow = check_ts(inflow, 'inflow', drop_segnums=False)
+        flow = check_ts(flow, 'flow')
         runoff = check_ts(runoff, 'runoff')
         etsw = check_ts(etsw, 'etsw')
         pptsw = check_ts(pptsw, 'pptsw')
@@ -843,9 +847,13 @@ class SurfaceWaterNetwork(object):
         self.segments['min_slope'] = self.segment_series(min_slope)
         if (self.segments['min_slope'] < 0.0).any():
             raise ValueError('min_slope must be greater than zero')
+        # Column names common to segments and segment_data
+        segment_cols = [
+            'roughch',
+            'hcond1', 'thickm1', 'elevup', 'width1',
+            'hcond2', 'thickm2', 'elevdn', 'width2']
         # Tidy any previous attempts
-        cols = ['hcond1', 'hcond2', 'thickm1', 'thickm2', 'width1', 'width2']
-        for col in cols:
+        for col in segment_cols:
             if col in self.segments.columns:
                 del self.segments[col]
         # Combine pairs of series for each segment
@@ -967,58 +975,63 @@ class SurfaceWaterNetwork(object):
         self.segment_data['runoff'] = 0.0
         self.segment_data['etsw'] = 0.0
         self.segment_data['pptsw'] = 0.0
-        # copy several columns over
-        cols = ['roughch',
-                'hcond1', 'thickm1', 'elevup', 'width1',
-                'hcond2', 'thickm2', 'elevdn', 'width2']
-        cols.remove('elevup')  # not yet
-        cols.remove('elevdn')  # not yet
-        self.segment_data[cols] = self.segments[cols]
-        flow_segnums = set(flow.columns)
-        inflow = pd.DataFrame(index=flow.index)
+        # copy several columns over (except 'elevup' and 'elevdn', for now)
+        segment_cols.remove('elevup')
+        segment_cols.remove('elevdn')
+        self.segment_data[segment_cols] = self.segments[segment_cols]
+        inflow_segnums = set(inflow.columns)
+        # Create an 'inflows' DataFrame calculated from combining 'inflow'
+        inflows = pd.DataFrame(index=inflow.index)
         self.segments['inflow_segnums'] = None
-        if flow_segnums:
-            # Determine upstream flows needed for each SFR segment
-            sfr_segnums = set(self.segment_data.index)
-            for segnum in self.segment_data.index:
-                inflow_series = pd.Series(0.0, index=flow.index)
-                inflow_segnums = set()
-                for from_segnum in self.from_segnums.get(segnum, []):
-                    # gather segments outside SFR network
-                    if from_segnum not in sfr_segnums:
-                        if from_segnum in flow_segnums:
-                            inflow_series += flow[from_segnum]
+        # Determine upstream flows needed for each SFR segment
+        sfr_segnums = set(self.segment_data.index)
+        for segnum in self.segment_data.index:
+            from_segnums = self.from_segnums.get(segnum, [])
+            if from_segnums:
+                # gather segments outside SFR network
+                outside_segnums = from_segnums.difference(sfr_segnums)
+                if outside_segnums:
+                    inflow_series = pd.Series(0.0, index=inflow.index)
+                    inflow_segnums = set()
+                    for from_segnum in outside_segnums:
+                        try:
+                            inflow_series += inflow[from_segnum]
                             inflow_segnums.add(from_segnum)
-                        else:
+                        except KeyError:
                             self.logger.warning(
                                 'flow to %s not provided (needed for %s)',
                                 from_segnum, segnum)
-                if inflow_segnums:
-                    inflow[segnum] = inflow_series
-                    self.segments.loc[segnum, 'inflow_segnums'] = \
-                        inflow_segnums
+                    if inflow_segnums:
+                        inflows[segnum] = inflow_series
+                        self.segments.at[segnum, 'inflow_segnums'] = \
+                            inflow_segnums
 
         segment_data = {}
-        has_inflow = len(inflow.columns) > 0
+        has_inflows = len(inflows.columns) > 0
+        has_flow = len(flow.columns) > 0
         has_runoff = len(runoff.columns) > 0
         has_etsw = len(etsw.columns) > 0
         has_pptsw = len(pptsw.columns) > 0
         for iper in range(m.dis.nper):
-            if has_inflow:
-                item = inflow.iloc[iper]
-                self.segment_data['flow'] = 0.0
-                self.segment_data.loc[item.index, 'flow'] = item
+            # Store data for each stress period
+            self.segment_data['flow'] = 0.0
+            self.segment_data['runoff'] = 0.0
+            self.segment_data['etsw'] = 0.0
+            self.segment_data['pptsw'] = 0.0
+            if has_inflows:
+                item = inflows.iloc[iper]
+                self.segment_data.loc[item.index, 'flow'] += item
+            if has_flow:
+                item = flow.iloc[iper]
+                self.segment_data.loc[item.index, 'flow'] += item
             if has_runoff:
                 item = runoff.iloc[iper]
-                self.segment_data['runoff'] = 0.0
                 self.segment_data.loc[item.index, 'runoff'] = item
             if has_etsw:
                 item = etsw.iloc[iper]
-                self.segment_data['etsw'] = 0.0
                 self.segment_data.loc[item.index, 'etsw'] = item
             if has_pptsw:
                 item = pptsw.iloc[iper]
-                self.segment_data['pptsw'] = 0.0
                 self.segment_data.loc[item.index, 'pptsw'] = item
             segment_data[iper] = self.segment_data.to_records(index=False)
         # Create flopy Sfr2 package
