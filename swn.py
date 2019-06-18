@@ -627,7 +627,7 @@ class SurfaceWaterNetwork(object):
         return
 
     def process_flopy(self, m, ibound_action='freeze', min_slope=1./1000,
-                      reach_include_fraction=0.5,
+                      reach_include_fraction=0.2,
                       hyd_cond1=1., hyd_cond_out=None,
                       thickness1=1., thickness_out=None,
                       width1=10., width_out=None, roughch=0.024,
@@ -647,10 +647,10 @@ class SurfaceWaterNetwork(object):
             a global value, otherwise it is per-segment with a Series.
             Default 1./1000 (or 0.001).
         reach_include_fraction : float or pandas.Series, optional
-            Fraction of cell size used as a threshold to determine if reaches
-            outside the active grid should be included to a cell (or not).
-            Based on the Hausdorff distance of the line and cell geometries.
-            Default 0.5.
+            Fraction of cell size used as a threshold distance to determine if
+            reaches outside the active grid should be included to a cell.
+            Based on the furthest distance of the line and cell geometries.
+            Default 0.2 (e.g. for a 100 m grid cell, this is 20 m).
         hyd_cond1 : float or pandas.Series, optional
             Hydraulic conductivity of the streambed, as a global or per top of
             each segment. Used for either STRHC1 or HCOND1/HCOND2 outputs.
@@ -854,7 +854,7 @@ class SurfaceWaterNetwork(object):
 
         def reassign_reach(segnum, line, rem):
             if rem.geom_type == 'LineString':
-                threshold = cell_size * 1.5
+                threshold = cell_size * 2.0
                 if rem.length > threshold:
                     self.logger.debug(
                         'remaining line segment from %s too long to merge '
@@ -868,16 +868,17 @@ class SurfaceWaterNetwork(object):
                 assert len(sub) > 0, len(sub)
                 matches = []
                 for (row, col), grid_geom in sub.iteritems():
-                    if grid_geom.touches(remaining_line):
+                    if grid_geom.touches(rem):
                         matches.append((row, col, grid_geom))
                 if len(matches) == 1:  # merge it with adjacent cell
                     row, col, grid_geom = matches[0]
                     threshold = reach_include[segnum]
-                    hdist = grid_geom.intersection(rem).hausdorff_distance(rem)
-                    if hdist > threshold:
+                    mdist = max(
+                        [grid_geom.distance(Point(c)) for c in rem.coords[:]])
+                    if mdist > threshold:
                         self.logger.debug(
                             'remaining line segment from %s too far away to '
-                            'merge (%.1f > %.1f)', segnum, hdist, threshold)
+                            'merge (%.1f > %.1f)', segnum, mdist, threshold)
                         return
                     rem_mid_pt = rem.interpolate(0.5, normalized=True)
                     reach_df.loc[len(reach_df.index)] = {
@@ -889,9 +890,8 @@ class SurfaceWaterNetwork(object):
                     }
                 elif len(matches) > 1:  # complex: need to split it
                     self.logger.warning(
-                        'remaining line segments touching more than one cell '
-                        'not done (segnum %s, %d matches: %s)',
-                        segnum, len(matches), matches)
+                        'remaining line segments from %d touching %d grid '
+                        'cells (unfinished work)', segnum, len(matches))
                 else:
                     self.logger.debug('no touching cells to remaining reach?')
             elif rem.geom_type.startswith('Multi'):
@@ -923,9 +923,8 @@ class SurfaceWaterNetwork(object):
                 reassign_reach(segnum, line, remaining_line)
             # Potentially merge a few reaches for each segnum/row/col
             gb = reach_df.loc[reach_df['segnum'] == segnum]\
-                .groupby(['row', 'col'])
-            for (row, col), item in gb.aggregate(list).copy().iterrows():
-                geoms = item['geometry']
+                .groupby(['row', 'col'])['geometry'].apply(list).copy()
+            for (row, col), geoms in gb.iteritems():
                 if len(geoms) > 1:
                     geom = linemerge(geoms)
                     if geom.geom_type == 'MultiLineString':
@@ -957,7 +956,8 @@ class SurfaceWaterNetwork(object):
         if drop_reach_ids:
             reach_df.drop(drop_reach_ids, axis=0, inplace=True)
         # TODO: Some reaches match multiple cells if they share a border
-        self.reaches = geopandas.GeoDataFrame(reach_df, geometry='geometry')
+        self.reaches = geopandas.GeoDataFrame(
+            reach_df, geometry='geometry', crs=crs)
         if ibound_action == 'modify':
             if ibound_modified:
                 self.logger.debug(
