@@ -372,6 +372,12 @@ def test_costal_process_flopy(
     reach_geom = n.reaches.loc[
         n.reaches['segnum'] == 3047735, 'geometry'].iloc[0]
     np.testing.assert_almost_equal(reach_geom.length, 980.5448069140768)
+    # These should be split between two cells
+    reach_geoms = n.reaches.loc[
+        n.reaches['segnum'] == 3047750, 'geometry']
+    assert len(reach_geoms) == 2
+    np.testing.assert_almost_equal(reach_geoms.iloc[0].length, 204.90164560019)
+    np.testing.assert_almost_equal(reach_geoms.iloc[1].length, 789.59872070638)
     # This reach should not be extended, the remainder is too far away
     reach_geom = n.reaches.loc[
         n.reaches['segnum'] == 3047762, 'geometry'].iloc[0]

@@ -829,23 +829,27 @@ class SurfaceWaterNetwork(object):
         reach_df.insert(3, column='row', value=pd.Series(dtype=int))
         reach_df.insert(4, column='col', value=pd.Series(dtype=int))
 
+        # general helper function
+        def append_reach_df(segnum, line, row, col, reach_geom):
+            if line.has_z:
+                # intersection(line) does not preserve Z coords,
+                # but line.interpolate(d) works as expected
+                reach_geom = LineString(line.interpolate(
+                    line.project(Point(c))) for c in reach_geom.coords)
+            # Get a point from the middle of the reach_geom
+            reach_mid_pt = reach_geom.interpolate(0.5, normalized=True)
+            reach_df.loc[len(reach_df.index)] = {
+                'geometry': reach_geom,
+                'segnum': segnum,
+                'dist': line.project(reach_mid_pt, normalized=True),
+                'row': row,
+                'col': col,
+            }
+
         # recusive helper functions
         def append_reach(segnum, row, col, line, reach_geom):
             if reach_geom.geom_type == 'LineString':
-                if line.has_z:
-                    # intersection(line) does not preserve Z coords,
-                    # but line.interpolate(d) works as expected
-                    reach_geom = LineString(line.interpolate(
-                        line.project(Point(c))) for c in reach_geom.coords)
-                # Get a point from the middle of the reach_geom
-                reach_mid_pt = reach_geom.interpolate(0.5, normalized=True)
-                reach_df.loc[len(reach_df.index)] = {
-                    'geometry': reach_geom,
-                    'segnum': segnum,
-                    'dist': line.project(reach_mid_pt, normalized=True),
-                    'row': row,
-                    'col': col,
-                }
+                append_reach_df(segnum, line, row, col, reach_geom)
             elif reach_geom.geom_type.startswith('Multi'):
                 for sub_reach_geom in reach_geom.geoms:  # recurse
                     append_reach(segnum, row, col, line, sub_reach_geom)
@@ -870,30 +874,62 @@ class SurfaceWaterNetwork(object):
                 for (row, col), grid_geom in sub.iteritems():
                     if grid_geom.touches(rem):
                         matches.append((row, col, grid_geom))
+                if len(matches) == 0:
+                    return
+                threshold = reach_include[segnum]
+                # Build a tiny DataFrame for just the remaining coordinates
+                rem_c = pd.DataFrame({
+                    'pt': [Point(c) for c in rem.coords[:]]
+                })
                 if len(matches) == 1:  # merge it with adjacent cell
                     row, col, grid_geom = matches[0]
-                    threshold = reach_include[segnum]
-                    mdist = max(
-                        [grid_geom.distance(Point(c)) for c in rem.coords[:]])
+                    mdist = rem_c['pt'].apply(
+                                    lambda p: grid_geom.distance(p)).max()
                     if mdist > threshold:
                         self.logger.debug(
                             'remaining line segment from %s too far away to '
                             'merge (%.1f > %.1f)', segnum, mdist, threshold)
                         return
-                    rem_mid_pt = rem.interpolate(0.5, normalized=True)
-                    reach_df.loc[len(reach_df.index)] = {
-                        'geometry': rem,
-                        'segnum': segnum,
-                        'dist': line.project(rem_mid_pt, normalized=True),
-                        'row': row,
-                        'col': col,
-                    }
-                elif len(matches) > 1:  # complex: need to split it
-                    self.logger.warning(
-                        'remaining line segments from %d touching %d grid '
-                        'cells (unfinished work)', segnum, len(matches))
+                    append_reach_df(segnum, line, row, col, rem)
+                elif len(matches) == 2:  # complex: need to split it
+                    if len(rem_c) == 2:
+                        # If this is a simple line with two coords, split it
+                        rem_c.index = [0, 2]
+                        rem_c.loc[1] = {
+                            'pt': rem.interpolate(0.5, normalized=True)}
+                        rem_c.sort_index(inplace=True)
+                    # first match assumed to be touching the start of the line
+                    if rem_c.at[0, 'pt'].touches(matches[1][2]):
+                        matches.reverse()
+                    rem_c['d1'] = rem_c['pt'].apply(
+                                    lambda p: p.distance(matches[0][2]))
+                    rem_c['d2'] = rem_c['pt'].apply(
+                                    lambda p: p.distance(matches[1][2]))
+                    rem_c['dm'] = rem_c[['d1', 'd2']].min(1)
+                    mdist = rem_c['dm'].max()
+                    if mdist > threshold:
+                        self.logger.debug(
+                            'remaining line segment from %s too far away to '
+                            'merge (%.1f > %.1f)', segnum, mdist, threshold)
+                        return
+                    # try a simple split where distances switch
+                    ds = rem_c['d1'] < rem_c['d2']
+                    idx = ds[ds].index[-1]
+                    # ensure it's not the index of either end
+                    if idx == 0:
+                        idx = 1
+                    elif idx == len(rem_c) - 1:
+                        idx = len(rem_c) - 2
+                    row, col = matches[0][0:2]
+                    rem1 = LineString(rem.coords[:(idx + 1)])
+                    append_reach_df(segnum, line, row, col, rem1)
+                    row, col = matches[1][0:2]
+                    rem2 = LineString(rem.coords[idx:])
+                    append_reach_df(segnum, line, row, col, rem2)
                 else:
-                    self.logger.debug('no touching cells to remaining reach?')
+                    self.logger.error(
+                        'how does this happen? Segments from %d touching %d '
+                        'grid cells', segnum, len(matches))
             elif rem.geom_type.startswith('Multi'):
                 for sub_rem_geom in rem.geoms:  # recurse
                     reassign_reach(segnum, line, sub_rem_geom)
@@ -938,17 +974,7 @@ class SurfaceWaterNetwork(object):
                         self.logger.debug(
                             'merging %d reaches for segnum %s at (%s, %s)',
                             sel.sum(), segnum, row, col)
-                        if line.has_z:
-                            geom = LineString(line.interpolate(
-                                line.project(Point(c))) for c in geom.coords)
-                        geom_mid_pt = geom.interpolate(0.5, normalized=True)
-                        reach_df.loc[len(reach_df.index)] = {
-                            'geometry': geom,
-                            'segnum': segnum,
-                            'dist': line.project(geom_mid_pt, normalized=True),
-                            'row': row,
-                            'col': col,
-                        }
+                        append_reach_df(segnum, line, row, col, geom)
                     else:
                         self.logger.debug(
                             'attempted to merge segnum %s at (%s, %s), however'
