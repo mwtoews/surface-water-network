@@ -55,12 +55,29 @@ n.segments.sort_values('stream_order').plot('stream_order')
 n.segments.to_file('segments.shp')
 ```
 
+Read flow data from a TopNet netCDF file:
+```python
+nc_fname = 'streamq_20170115_20170128_topnet_03046727_strahler1.nc'
+flow = swn.topnet2ts(os.path.join(datadir, nc_fname), 'mod_flow')
+# convert from m3/s to m3/day
+flow *= 24 * 60 * 60
+# remove time and truncate to closest day
+flow.index = flow.index.floor('d')
+
+# 7-day mean
+flow7d = flow.resample('7D').mean()
+
+# full mean
+flow_m = pd.DataFrame(flow.mean(0)).T
+flow_m.index = pd.DatetimeIndex(['2000-01-01'])
+```
+
 Process a MODFLOW/flopy model:
 ```python
 import flopy
 
 m = flopy.modflow.Modflow.load('h.nam', model_ws='tests/data', check=False)
-n.process_flopy(m)
+n.process_flopy(m, inflow=flow_m)
 m.sfr.write_file('file.sfr')
 n.grid_cells.to_file('grid_cells.shp')
 n.reaches.to_file('reaches.shp')

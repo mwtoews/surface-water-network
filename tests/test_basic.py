@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
+import os
 import pandas as pd
 import pytest
 import numpy as np
 from shapely import wkt
 from shapely.geometry import LineString
 
-from .common import swn, wkt_to_dataframe, wkt_to_geoseries
+from .common import datadir, swn, wkt_to_dataframe, wkt_to_geoseries
 
 
 @pytest.fixture
@@ -29,21 +30,24 @@ def lines(wkt_list):
 
 
 @pytest.fixture
+def polygons(wkt_list):
+    return wkt_to_geoseries([
+        'POLYGON ((35 100, 75 100, 75  80, 35  80, 35 100))',
+        'POLYGON ((35 135, 60 135, 60 100, 35 100, 35 135))',
+        'POLYGON ((60 135, 75 135, 75 100, 60 100, 60 135))',
+    ])
+
+
+@pytest.fixture
 def n(lines):
     return swn.SurfaceWaterNetwork(lines)
 
 
-def test_init_object():
-    with pytest.raises(ValueError, match='lines must be a GeoDataFrame'):
+def test_init_errors(lines):
+    with pytest.raises(ValueError, match='lines must be a GeoSeries'):
         swn.SurfaceWaterNetwork(object())
-
-
-def test_init_dataframe(df):
-    with pytest.raises(ValueError, match='lines must be a GeoDataFrame'):
+    with pytest.raises(ValueError, match='lines must be a GeoSeries'):
         swn.SurfaceWaterNetwork(df)
-
-
-def test_init_zero_lines(lines):
     with pytest.raises(ValueError, match='one or more lines are required'):
         swn.SurfaceWaterNetwork(lines[0:0])
 
@@ -61,15 +65,15 @@ def test_init_defaults(n):
     assert len(n.warnings) == 0
     assert len(n.errors) == 0
     assert len(n) == 3
+    assert n.catchments is None
     assert n.has_z is True
     assert n.END_SEGNUM == -1
-    assert n.index is n.segments.index
-    assert list(n.index) == [0, 1, 2]
+    assert list(n.segments.index) == [0, 1, 2]
     assert list(n.segments['to_segnum']) == [-1, 0, 0]
     assert list(n.segments['cat_group']) == [0, 0, 0]
     assert list(n.segments['num_to_outlet']) == [1, 2, 2]
     np.testing.assert_allclose(
-        n.segments['length_to_outlet'], [20.0, 56.05551, 51.622776])
+        n.segments['dist_to_outlet'], [20.0, 56.05551, 51.622776])
     assert list(n.segments['sequence']) == [3, 1, 2]
     assert list(n.segments['stream_order']) == [2, 1, 1]
     assert list(n.headwater) == [1, 2]
@@ -89,12 +93,12 @@ def test_init_2D_geom(df):
     assert len(n.errors) == 0
     assert len(n) == 3
     assert n.has_z is False
-    assert list(n.index) == [0, 1, 2]
+    assert list(n.segments.index) == [0, 1, 2]
     assert list(n.segments['to_segnum']) == [-1, 0, 0]
     assert list(n.segments['cat_group']) == [0, 0, 0]
     assert list(n.segments['num_to_outlet']) == [1, 2, 2]
     np.testing.assert_allclose(
-        n.segments['length_to_outlet'], [20.0, 56.05551, 51.622776])
+        n.segments['dist_to_outlet'], [20.0, 56.05551, 51.622776])
     assert list(n.segments['sequence']) == [3, 1, 2]
     assert list(n.segments['stream_order']) == [2, 1, 1]
     assert list(n.headwater) == [1, 2]
@@ -116,7 +120,7 @@ def test_init_mismatch_3D():
     assert len(n.errors) == 0
     assert len(n) == 3
     assert n.has_z is True
-    assert list(n.index) == [0, 1, 2]
+    assert list(n.segments.index) == [0, 1, 2]
 
 
 def test_init_reversed_lines(lines):
@@ -132,13 +136,13 @@ def test_init_reversed_lines(lines):
         str(set([1]))
     assert len(n) == 3
     assert n.has_z is True
-    assert list(n.index) == [0, 1, 2]
+    assert list(n.segments.index) == [0, 1, 2]
     # This is all non-sense
     assert list(n.segments['to_segnum']) == [1, -1, -1]
     assert list(n.segments['cat_group']) == [1, 1, 2]
     assert list(n.segments['num_to_outlet']) == [2, 1, 1]
     np.testing.assert_allclose(
-        n.segments['length_to_outlet'], [56.05551, 36.05551, 31.622776])
+        n.segments['dist_to_outlet'], [56.05551, 36.05551, 31.622776])
     assert list(n.segments['sequence']) == [1, 3, 2]
     assert list(n.segments['stream_order']) == [1, 1, 1]
     assert list(n.headwater) == [0, 2]
@@ -165,12 +169,12 @@ def test_init_all_converge():
     assert len(n.errors) == 0
     assert len(n) == 3
     assert n.has_z is True
-    assert list(n.index) == [0, 1, 2]
+    assert list(n.segments.index) == [0, 1, 2]
     assert list(n.segments['to_segnum']) == [-1, -1, -1]
     assert list(n.segments['cat_group']) == [0, 1, 2]
     assert list(n.segments['num_to_outlet']) == [1, 1, 1]
     np.testing.assert_allclose(
-        n.segments['length_to_outlet'], [36.05551, 31.622776, 20.0])
+        n.segments['dist_to_outlet'], [36.05551, 31.622776, 20.0])
     assert list(n.segments['sequence']) == [1, 2, 3]
     assert list(n.segments['stream_order']) == [1, 1, 1]
     assert list(n.headwater) == [0, 1, 2]
@@ -197,12 +201,12 @@ def test_init_all_diverge():
         str(set([0, 1, 2]))
     assert len(n) == 3
     assert n.has_z is True
-    assert list(n.index) == [0, 1, 2]
+    assert list(n.segments.index) == [0, 1, 2]
     assert list(n.segments['to_segnum']) == [-1, -1, -1]
     assert list(n.segments['num_to_outlet']) == [1, 1, 1]
     assert list(n.segments['cat_group']) == [0, 1, 2]
     np.testing.assert_allclose(
-        n.segments['length_to_outlet'], [36.05551, 31.622776, 20.0])
+        n.segments['dist_to_outlet'], [36.05551, 31.622776, 20.0])
     assert list(n.segments['sequence']) == [1, 2, 3]
     assert list(n.segments['stream_order']) == [1, 1, 1]
     assert list(n.headwater) == [0, 1, 2]
@@ -222,12 +226,12 @@ def test_init_line_connects_to_middle():
     assert n.errors[0] == 'segment 1 connects to the middle of segment 0'
     assert len(n) == 2
     assert n.has_z is True
-    assert list(n.index) == [0, 1]
+    assert list(n.segments.index) == [0, 1]
     assert list(n.segments['to_segnum']) == [-1, -1]
     assert list(n.segments['cat_group']) == [0, 1]
     assert list(n.segments['num_to_outlet']) == [1, 1]
     np.testing.assert_allclose(
-        n.segments['length_to_outlet'], [56.05551, 31.622776])
+        n.segments['dist_to_outlet'], [56.05551, 31.622776])
     assert list(n.segments['sequence']) == [1, 2]
     assert list(n.segments['stream_order']) == [1, 1]
     assert list(n.headwater) == [0, 1]
@@ -242,7 +246,7 @@ def test_init_geoseries(wkt_list):
     assert len(n.warnings) == 0
     assert len(n.errors) == 0
     assert len(n) == 3
-    assert list(n.index) == [0, 1, 2]
+    assert list(n.segments.index) == [0, 1, 2]
     assert n.has_z is True
     v = pd.Series([3.0, 2.0, 4.0])
     a = n.accumulate_values(v)
@@ -271,6 +275,44 @@ def test_accumulate_values_expected(n):
     a = n.accumulate_values(v)
     assert dict(a) == {0: 9.0, 1: 3.0, 2: 4.0}
     assert a.name is None
+
+
+def test_init_polygons(lines, polygons):
+    # from GeoSeries
+    n = swn.SurfaceWaterNetwork(lines, polygons.geometry)
+    assert n.catchments is not None
+    np.testing.assert_array_equal(n.catchments.area, [800.0, 875.0, 525.0])
+    # from GeoDataFrame
+    n = swn.SurfaceWaterNetwork(lines, polygons)
+    assert n.catchments is not None
+    np.testing.assert_array_equal(n.catchments.area, [800.0, 875.0, 525.0])
+    # upstream area
+    np.testing.assert_array_equal(
+        n.accumulate_values(n.catchments.area), [2200.0, 875.0, 525.0])
+    # check error
+    with pytest.raises(
+            ValueError,
+            match='polygons must be a GeoSeries or None'):
+        swn.SurfaceWaterNetwork(lines, 1.0)
+
+
+def test_catchments_property(lines, polygons):
+    n = swn.SurfaceWaterNetwork(lines)
+    assert n.catchments is None
+    n.catchments = polygons.geometry
+    assert n.catchments is not None
+    np.testing.assert_array_equal(n.catchments.area, [800.0, 875.0, 525.0])
+    n.catchments = None
+    assert n.catchments is None
+    # check errors
+    with pytest.raises(
+            ValueError,
+            match='catchments must be a GeoSeries or None'):
+        n.catchments = 1.0
+    with pytest.raises(
+            ValueError,
+            match=r'catchments\.index is different than for segments'):
+        n.catchments = polygons.iloc[1:]
 
 
 def test_segment_series(n):
@@ -450,13 +492,13 @@ def test_adjust_elevation_profile_min_slope_float(n):
 
 
 def test_adjust_elevation_profile_min_slope_series(n):
-    min_slope = pd.Series(2./1000, index=n.index)
+    min_slope = pd.Series(2./1000, index=n.segments.index)
     min_slope[1] = 3./1000
     n.adjust_elevation_profile(min_slope)
 
 
 def test_adjust_elevation_profile_different_index(n):
-    min_slope = pd.Series(2./1000, index=n.index)
+    min_slope = pd.Series(2./1000, index=n.segments.index)
     min_slope[1] = 3./1000
     min_slope.index += 1
     with pytest.raises(ValueError, match='index is different'):
@@ -513,6 +555,22 @@ def test_adjust_elevation_profile_use_min_slope():
     assert (n.profiles == expected_profiles).all()
 
 
-# def test_process_flopy_required(n):
-#    with pytest.raises(ImportError, match='this method requires flopy'):
-#        n.process_flopy(object())
+def test_topnet2ts(clostal_flow_ts):
+    pytest.importorskip('netCDF4')
+    nc_fname = 'streamq_20170115_20170128_topnet_03046727_strahler1.nc'
+    flow = swn.topnet2ts(os.path.join(datadir, nc_fname), 'mod_flow')
+    assert flow.shape == (14, 304)
+    # convert from m3/s to m3/day
+    flow *= 24 * 60 * 60
+    # remove time and truncat to closest day
+    try:
+        flow.index = flow.index.floor('d')
+    except AttributeError:
+        # older pandas
+        flow.index = pd.to_datetime(
+            flow.index.map(lambda x: x.strftime('%Y-%m-%d')))
+    # Compare against CSV version of this data
+    assert flow.shape == (14, 304)
+    np.testing.assert_array_equal(flow.columns, clostal_flow_ts.columns)
+    np.testing.assert_array_equal(flow.index, clostal_flow_ts.index)
+    np.testing.assert_array_almost_equal(flow, clostal_flow_ts, 2)
