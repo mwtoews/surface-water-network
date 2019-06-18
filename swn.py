@@ -627,6 +627,7 @@ class SurfaceWaterNetwork(object):
         return
 
     def process_flopy(self, m, ibound_action='freeze', min_slope=1./1000,
+                      reach_include_fraction=0.5,
                       hyd_cond1=1., hyd_cond_out=None,
                       thickness1=1., thickness_out=None,
                       width1=10., width_out=None, roughch=0.024,
@@ -645,6 +646,11 @@ class SurfaceWaterNetwork(object):
             Minimum downwards slope imposed on segments. If float, then this is
             a global value, otherwise it is per-segment with a Series.
             Default 1./1000 (or 0.001).
+        reach_include_fraction : float or pandas.Series, optional
+            Fraction of cell size used as a threshold to determine if reaches
+            outside the active grid should be included to a cell (or not).
+            Based on the Hausdorff distance of the line and cell geometries.
+            Default 0.5.
         hyd_cond1 : float or pandas.Series, optional
             Hydraulic conductivity of the streambed, as a global or per top of
             each segment. Used for either STRHC1 or HCOND1/HCOND2 outputs.
@@ -814,6 +820,7 @@ class SurfaceWaterNetwork(object):
             grid_df, geometry=[Polygon(r) for r in cell_verts], crs=crs)
         self.logger.debug('evaluating reach data on model grid')
         grid_sindex = get_sindex(grid_cells)
+        reach_include = self.segment_series(reach_include_fraction) * cell_size
         # Make an empty DataFrame for reaches
         reach_df = pd.DataFrame(columns=['geometry'])
         reach_df.insert(1, column='segnum',
@@ -847,9 +854,11 @@ class SurfaceWaterNetwork(object):
 
         def reassign_reach(segnum, line, rem):
             if rem.geom_type == 'LineString':
-                if rem.length > cell_size * 0.8:
+                threshold = cell_size * 1.5
+                if rem.length > threshold:
                     self.logger.debug(
-                        'remaining line segment too long to merge')
+                        'remaining line segment from %s too long to merge '
+                        '(%.1f > %.1f)', segnum, rem.length, threshold)
                     return
                 if grid_sindex:
                     bbox_match = sorted(grid_sindex.intersection(rem.bounds))
@@ -858,11 +867,18 @@ class SurfaceWaterNetwork(object):
                     sub = grid_cells.geometry
                 assert len(sub) > 0, len(sub)
                 matches = []
-                for row_col, grid_geom in sub.iteritems():
+                for (row, col), grid_geom in sub.iteritems():
                     if grid_geom.touches(remaining_line):
-                        matches.append(row_col)
+                        matches.append((row, col, grid_geom))
                 if len(matches) == 1:  # merge it with adjacent cell
-                    row, col = matches[0]
+                    row, col, grid_geom = matches[0]
+                    threshold = reach_include[segnum]
+                    hdist = grid_geom.intersection(rem).hausdorff_distance(rem)
+                    if hdist > threshold:
+                        self.logger.debug(
+                            'remaining line segment from %s too far away to '
+                            'merge (%.1f > %.1f)', segnum, hdist, threshold)
+                        return
                     rem_mid_pt = rem.interpolate(0.5, normalized=True)
                     reach_df.loc[len(reach_df.index)] = {
                         'geometry': rem,

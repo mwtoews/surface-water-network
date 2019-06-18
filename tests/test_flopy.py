@@ -329,7 +329,7 @@ def test_reach_barely_outside_ibound():
     flopy.modflow.ModflowDis(
         m, nrow=2, ncol=3, delr=100.0, delc=100.0, xul=0.0, yul=200.0)
     flopy.modflow.ModflowBas(m, ibound=np.array([[1, 1, 1], [0, 0, 0]]))
-    n.process_flopy(m)
+    n.process_flopy(m, reach_include_fraction=0.8)
     # Data set 1c
     assert abs(m.sfr.nstrm) == 3
     assert m.sfr.nss == 1
@@ -372,9 +372,10 @@ def test_costal_process_flopy(
     reach_geom = n.reaches.loc[
         n.reaches['segnum'] == 3047735, 'geometry'].iloc[0]
     np.testing.assert_almost_equal(reach_geom.length, 980.5448069140768)
+    # This reach should not be extended, the remainder is too far away
     reach_geom = n.reaches.loc[
         n.reaches['segnum'] == 3047762, 'geometry'].iloc[0]
-    np.testing.assert_almost_equal(reach_geom.length, 846.5983426774203)
+    np.testing.assert_almost_equal(reach_geom.length, 261.4644731621629)
     # This reach should not be extended, the remainder is too long
     reach_geom = n.reaches.loc[
         n.reaches['segnum'] == 3047926, 'geometry'].iloc[0]
