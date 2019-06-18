@@ -165,7 +165,7 @@ def test_process_flopy_n3d_defaults(n3d, tmpdir_factory):
         [0.027735, 0.027735, 0.027735, 0.031622775, 0.031622775, 0.1, 0.1])
     np.testing.assert_array_equal(m.sfr.reach_data.strthick, [1.0] * 7)
     np.testing.assert_array_equal(m.sfr.reach_data.strhc1, [1.0] * 7)
-    # Data set 5
+    # Data set 6
     assert len(m.sfr.segment_data) == 1
     sd = m.sfr.segment_data[0]
     np.testing.assert_array_equal(sd.nseg, [1, 2, 3])
@@ -215,7 +215,7 @@ def test_process_flopy_n3d_vars(n3d, tmpdir_factory):
         [0.03, 0.03, 0.03, 0.031622775, 0.031622775, 0.1, 0.1])
     np.testing.assert_array_equal(m.sfr.reach_data.strthick, [2.0] * 7)
     np.testing.assert_array_equal(m.sfr.reach_data.strhc1, [12.0] * 7)
-    # Data set 5
+    # Data set 6
     assert len(m.sfr.segment_data) == 1
     sd = m.sfr.segment_data[0]
     np.testing.assert_array_equal(sd.nseg, [1, 2, 3])
@@ -367,7 +367,7 @@ def test_costal_process_flopy(
         m.sfr.reach_data.strthick, 370, '09fd95bcbfe7c6309694157904acac68')
     check_number_sum_hex(
         m.sfr.reach_data.strhc1, 370, '09fd95bcbfe7c6309694157904acac68')
-    # Data set 5
+    # Data set 6
     assert len(m.sfr.segment_data) == 1
     sd = m.sfr.segment_data[0]
     check_number_sum_hex(
@@ -375,7 +375,7 @@ def test_costal_process_flopy(
     check_number_sum_hex(
         sd.icalc, 184, '1e57e4eaa6f22ada05f4d8cd719e7876')
     check_number_sum_hex(
-        sd.outseg, 24372, '2bb7449425db6e0ed31dff07d0e9947c')
+        sd.outseg, 24372, '46730406d031de87aad40c2d13921f6a')
     check_number_sum_hex(
         sd.iupseg, 0, 'f7e23bb7abe5b9603e8212ad467155bd')
     check_number_sum_hex(
@@ -446,7 +446,7 @@ def test_costal_process_flopy_ibound_modify(
         m.sfr.reach_data.strthick, 626, 'a3aa65f110b20b57fc7f445aa743759f')
     check_number_sum_hex(
         m.sfr.reach_data.strhc1, 626, 'a3aa65f110b20b57fc7f445aa743759f')
-    # Data set 5
+    # Data set 6
     assert len(m.sfr.segment_data) == 1
     sd = m.sfr.segment_data[0]
     check_number_sum_hex(

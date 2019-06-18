@@ -600,10 +600,29 @@ class SurfaceWaterNetwork(object):
         while True:
             numiter += 1
 
-    def reduce(self):
-        """Remove segments, but retain information on all segments
+    def remove(self, condition):
+        """Remove segments (and catchments), but retain other info
+
+        Parameters
+        ----------
+        condition : pandas.Series
+            Series of bool for each segment index, where True is to discard.
+
+        Returns
+        -------
+        None
         """
-        raise NotImplementedError()
+        segments_index = self.segments.index
+        if not isinstance(condition, pd.Series):
+            raise ValueError('condition must be a pandas.Series')
+        elif (len(condition.index) != len(segments_index) or
+                not (condition.index == segments_index).all()):
+            raise ValueError('index is different than for segments')
+        sel = ~condition.astype(bool)
+        self.segments = self.segments.loc[sel]
+        if self.catchments is not None:
+            self.catchments = self.catchments.loc[sel]
+        return
 
     def process_flopy(self, m, ibound_action='freeze', min_slope=1./1000,
                       hyd_cond1=1., hyd_cond_out=None,
@@ -944,19 +963,19 @@ class SurfaceWaterNetwork(object):
             self.logger.warning('enforcing min_slope for %d reaches (%.2f%%)',
                                 sel.sum(), 100.0 * sel.sum() / len(sel))
             self.reaches.loc[sel, 'slope'] = self.reaches.loc[sel, 'min_slope']
-        if not hasattr(self.reaches.geometry, 'geom_type'):
-            # workaround needed for reaches.to_file()
-            self.reaches.geometry.geom_type = self.reaches.geom_type
         # Build reach_data for Data Set 2
         # See flopy.modflow.ModflowSfr2.get_default_reach_dtype()
         self.reach_data = pd.DataFrame(
             self.reaches[[
                 'row', 'col', 'iseg', 'ireach',
                 'strtop', 'slope', 'strthick', 'strhc1']])
+        if not hasattr(self.reaches.geometry, 'geom_type'):
+            # workaround needed for reaches.to_file()
+            self.reaches.geometry.geom_type = self.reaches.geom_type
         self.reach_data.rename(columns={'row': 'i', 'col': 'j'}, inplace=True)
         self.reach_data.insert(0, column='k', value=0)  # only top layer
         self.reach_data.insert(5, column='rchlen', value=self.reaches.length)
-        # Build segment_data for Data Set 5
+        # Build segment_data for Data Set 6
         self.segment_data = self.reaches[['iseg', 'segnum']].drop_duplicates()
         self.segment_data.rename(columns={'iseg': 'nseg'}, inplace=True)
         self.segment_data.set_index('segnum', inplace=True)
@@ -987,24 +1006,25 @@ class SurfaceWaterNetwork(object):
         sfr_segnums = set(self.segment_data.index)
         for segnum in self.segment_data.index:
             from_segnums = self.from_segnums.get(segnum, [])
-            if from_segnums:
-                # gather segments outside SFR network
-                outside_segnums = from_segnums.difference(sfr_segnums)
-                if outside_segnums:
-                    inflow_series = pd.Series(0.0, index=inflow.index)
-                    inflow_segnums = set()
-                    for from_segnum in outside_segnums:
-                        try:
-                            inflow_series += inflow[from_segnum]
-                            inflow_segnums.add(from_segnum)
-                        except KeyError:
-                            self.logger.warning(
-                                'flow to %s not provided (needed for %s)',
-                                from_segnum, segnum)
-                    if inflow_segnums:
-                        inflows[segnum] = inflow_series
-                        self.segments.at[segnum, 'inflow_segnums'] = \
-                            inflow_segnums
+            if not from_segnums:
+                continue
+            # gather segments outside SFR network
+            outside_segnums = from_segnums.difference(sfr_segnums)
+            if not outside_segnums:
+                continue
+            inflow_series = pd.Series(0.0, index=inflow.index)
+            inflow_segnums = set()
+            for from_segnum in outside_segnums:
+                try:
+                    inflow_series += inflow[from_segnum]
+                    inflow_segnums.add(from_segnum)
+                except KeyError:
+                    self.logger.warning(
+                        'flow from segment %s not provided (needed for %s)',
+                        from_segnum, segnum)
+            if inflow_segnums:
+                inflows[segnum] = inflow_series
+                self.segments.at[segnum, 'inflow_segnums'] = inflow_segnums
 
         segment_data = {}
         has_inflows = len(inflows.columns) > 0
