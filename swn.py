@@ -9,7 +9,9 @@ except ImportError:
     sjoin = False
 from fiona import crs as fiona_crs
 from math import sqrt
+from shapely import wkt
 from shapely.geometry import LineString, Point, Polygon, box
+from shapely.ops import linemerge
 try:
     from osgeo import gdal
 except ImportError:
@@ -787,6 +789,16 @@ class SurfaceWaterNetwork(object):
         if ibound_action == 'freeze' and (ibound == 0).any():
             # Remove any inactive grid cells from analysis
             grid_df = grid_df.loc[grid_df['ibound'] != 0]
+        # Determine grid cell size
+        col_size = np.median(m.dis.delr.array)
+        if m.dis.delr.array.min() != m.dis.delr.array.max():
+            self.logger.warning(
+                'assuming constant column spacing %s', col_size)
+        row_size = np.median(m.dis.delc.array)
+        if m.dis.delc.array.min() != m.dis.delc.array.max():
+            self.logger.warning(
+                'assuming constant row spacing %s', row_size)
+        cell_size = (row_size + col_size) / 2.0
         # Note: m.modelgrid.get_cell_vertices(row, col) is slow!
         xv = m.modelgrid.xvertices
         yv = m.modelgrid.yvertices
@@ -810,6 +822,7 @@ class SurfaceWaterNetwork(object):
         reach_df.insert(3, column='row', value=pd.Series(dtype=int))
         reach_df.insert(4, column='col', value=pd.Series(dtype=int))
 
+        # recusive helper functions
         def append_reach(segnum, row, col, line, reach_geom):
             if reach_geom.geom_type == 'LineString':
                 if line.has_z:
@@ -819,7 +832,7 @@ class SurfaceWaterNetwork(object):
                         line.project(Point(c))) for c in reach_geom.coords)
                 # Get a point from the middle of the reach_geom
                 reach_mid_pt = reach_geom.interpolate(0.5, normalized=True)
-                reach_df.loc[len(reach_df) + 1] = {
+                reach_df.loc[len(reach_df.index)] = {
                     'geometry': reach_geom,
                     'segnum': segnum,
                     'dist': line.project(reach_mid_pt, normalized=True),
@@ -832,7 +845,48 @@ class SurfaceWaterNetwork(object):
             else:
                 raise NotImplementedError(reach_geom.geom_type)
 
+        def reassign_reach(segnum, line, rem):
+            if rem.geom_type == 'LineString':
+                if rem.length > cell_size * 0.8:
+                    self.logger.debug(
+                        'remaining line segment too long to merge')
+                    return
+                if grid_sindex:
+                    bbox_match = sorted(grid_sindex.intersection(rem.bounds))
+                    sub = grid_cells.geometry.iloc[bbox_match]
+                else:  # slow scan of all cells
+                    sub = grid_cells.geometry
+                assert len(sub) > 0, len(sub)
+                matches = []
+                for row_col, grid_geom in sub.iteritems():
+                    if grid_geom.touches(remaining_line):
+                        matches.append(row_col)
+                if len(matches) == 1:  # merge it with adjacent cell
+                    row, col = matches[0]
+                    rem_mid_pt = rem.interpolate(0.5, normalized=True)
+                    reach_df.loc[len(reach_df.index)] = {
+                        'geometry': rem,
+                        'segnum': segnum,
+                        'dist': line.project(rem_mid_pt, normalized=True),
+                        'row': row,
+                        'col': col,
+                    }
+                elif len(matches) > 1:  # complex: need to split it
+                    self.logger.warning(
+                        'remaining line segments touching more than one cell '
+                        'not done (segnum %s, %d matches: %s)',
+                        segnum, len(matches), matches)
+                else:
+                    self.logger.debug('no touching cells to remaining reach?')
+            elif rem.geom_type.startswith('Multi'):
+                for sub_rem_geom in rem.geoms:  # recurse
+                    reassign_reach(segnum, line, sub_rem_geom)
+            else:
+                raise NotImplementedError(reach_geom.geom_type)
+
+        drop_reach_ids = []
         for segnum, line in self.segments.geometry.iteritems():
+            remaining_line = line
             if grid_sindex:
                 bbox_match = sorted(grid_sindex.intersection(line.bounds))
                 if not bbox_match:
@@ -843,10 +897,49 @@ class SurfaceWaterNetwork(object):
             for (row, col), grid_geom in sub.iteritems():
                 reach_geom = grid_geom.intersection(line)
                 if not reach_geom.is_empty and reach_geom.geom_type != 'Point':
+                    remaining_line = remaining_line.difference(grid_geom)
                     append_reach(segnum, row, col, line, reach_geom)
                     if ibound_action == 'modify' and ibound[row, col] == 0:
                         ibound_modified += 1
                         ibound[row, col] = 1
+            if line is not remaining_line and remaining_line.length > 0:
+                # Determine if any remaining portions of the line can be used
+                reassign_reach(segnum, line, remaining_line)
+            # Potentially merge a few reaches for each segnum/row/col
+            gb = reach_df.loc[reach_df['segnum'] == segnum]\
+                .groupby(['row', 'col'])
+            for (row, col), item in gb.aggregate(list).copy().iterrows():
+                geoms = item['geometry']
+                if len(geoms) > 1:
+                    geom = linemerge(geoms)
+                    if geom.geom_type == 'MultiLineString':
+                        # workaround for odd floating point issue
+                        geom = linemerge([wkt.loads(g.wkt) for g in geoms])
+                    if geom.geom_type == 'LineString':
+                        sel = ((reach_df['segnum'] == segnum) &
+                               (reach_df['row'] == row) &
+                               (reach_df['col'] == col))
+                        drop_reach_ids += list(sel.index[sel])
+                        self.logger.debug(
+                            'merging %d reaches for segnum %s at (%s, %s)',
+                            sel.sum(), segnum, row, col)
+                        if line.has_z:
+                            geom = LineString(line.interpolate(
+                                line.project(Point(c))) for c in geom.coords)
+                        geom_mid_pt = geom.interpolate(0.5, normalized=True)
+                        reach_df.loc[len(reach_df.index)] = {
+                            'geometry': geom,
+                            'segnum': segnum,
+                            'dist': line.project(geom_mid_pt, normalized=True),
+                            'row': row,
+                            'col': col,
+                        }
+                    else:
+                        self.logger.debug(
+                            'attempted to merge segnum %s at (%s, %s), however'
+                            ' geometry was %s', segnum, row, col, geom.wkt)
+        if drop_reach_ids:
+            reach_df.drop(drop_reach_ids, axis=0, inplace=True)
         # TODO: Some reaches match multiple cells if they share a border
         self.reaches = geopandas.GeoDataFrame(reach_df, geometry='geometry')
         if ibound_action == 'modify':
@@ -946,13 +1039,7 @@ class SurfaceWaterNetwork(object):
             r = self.reaches['row'].values
             c = self.reaches['col'].values
             # Estimate slope from top and grid spacing
-            dc = np.median(m.dis.delr.array)
-            if m.dis.delr.array.min() != m.dis.delr.array.max():
-                self.logger.warning('assuming constant column spacing %s', dc)
-            dr = np.median(m.dis.delc.array)
-            if m.dis.delc.array.min() != m.dis.delc.array.max():
-                self.logger.warning('assuming constant row spacing %s', dr)
-            px, py = np.gradient(m.dis.top.array, dc, dr)
+            px, py = np.gradient(m.dis.top.array, col_size, row_size)
             grid_slope = np.sqrt(px ** 2 + py ** 2)
             self.reaches['slope'] = grid_slope[r, c]
             # Get stream values from top of model
@@ -998,9 +1085,10 @@ class SurfaceWaterNetwork(object):
         segment_cols.remove('elevup')
         segment_cols.remove('elevdn')
         self.segment_data[segment_cols] = self.segments[segment_cols]
-        inflow_segnums = set(inflow.columns)
         # Create an 'inflows' DataFrame calculated from combining 'inflow'
         inflows = pd.DataFrame(index=inflow.index)
+        has_inflow = len(inflow.columns) > 0
+        missing_inflow = 0
         self.segments['inflow_segnums'] = None
         # Determine upstream flows needed for each SFR segment
         sfr_segnums = set(self.segment_data.index)
@@ -1012,20 +1100,27 @@ class SurfaceWaterNetwork(object):
             outside_segnums = from_segnums.difference(sfr_segnums)
             if not outside_segnums:
                 continue
-            inflow_series = pd.Series(0.0, index=inflow.index)
-            inflow_segnums = set()
-            for from_segnum in outside_segnums:
-                try:
-                    inflow_series += inflow[from_segnum]
-                    inflow_segnums.add(from_segnum)
-                except KeyError:
-                    self.logger.warning(
-                        'flow from segment %s not provided (needed for %s)',
-                        from_segnum, segnum)
-            if inflow_segnums:
-                inflows[segnum] = inflow_series
-                self.segments.at[segnum, 'inflow_segnums'] = inflow_segnums
-
+            if has_inflow:
+                inflow_series = pd.Series(0.0, index=inflow.index)
+                inflow_segnums = set()
+                for from_segnum in outside_segnums:
+                    try:
+                        inflow_series += inflow[from_segnum]
+                        inflow_segnums.add(from_segnum)
+                    except KeyError:
+                        self.logger.warning(
+                            'flow from segment %s not provided by inflow term '
+                            '(needed for %s)', from_segnum, segnum)
+                        missing_inflow += 1
+                if inflow_segnums:
+                    inflows[segnum] = inflow_series
+                    self.segments.at[segnum, 'inflow_segnums'] = inflow_segnums
+            else:
+                missing_inflow += len(outside_segnums)
+        if not has_inflow and missing_inflow > 0:
+            self.logger.warning(
+                'inflow from %d segnums are needed to determine flow from '
+                'outside SFR network', missing_inflow)
         segment_data = {}
         has_inflows = len(inflows.columns) > 0
         has_flow = len(flow.columns) > 0
