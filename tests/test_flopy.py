@@ -75,16 +75,16 @@ def test_process_flopy_instance_errors(n3d):
 
     with pytest.raises(
             ValueError,
-            match=r'flow\.index must be a pandas\.DatetimeIndex'):
-        n.process_flopy(m, flow=pd.DataFrame({'1': [1.1]}))
-
-    with pytest.raises(
-            ValueError,
-            match='flow DataFrame length is different than nper'):
+            match=r'length of flow \(1\) is different than nper \(4\)'):
         n.process_flopy(
             m, flow=pd.DataFrame(
                     {'1': [1.1]},
                     index=pd.DatetimeIndex(['1970-01-01'])))
+
+    with pytest.raises(
+            ValueError,
+            match=r'flow\.index must be a pandas\.DatetimeIndex'):
+        n.process_flopy(m, flow=pd.DataFrame({'1': [1.1] * 4}))
 
     with pytest.raises(
             ValueError,

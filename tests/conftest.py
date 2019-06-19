@@ -58,5 +58,5 @@ def clostal_flow_ts():
 @pytest.fixture(scope='session', autouse=True)
 def clostal_flow_m(clostal_flow_ts):
     flow_m = pd.DataFrame(clostal_flow_ts.mean(0)).T
-    flow_m.index = pd.DatetimeIndex(['2000-01-01'])
+    # flow_m.index = pd.DatetimeIndex(['2000-01-01'])
     return flow_m

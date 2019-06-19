@@ -682,12 +682,14 @@ class SurfaceWaterNetwork(object):
             determine the streamflow entering the upstream end of a segment if
             it is not part of the SFR network. Internal flows are ignored.
             A dict can be used to provide constant values to segnum
-            identifiers. If a DataFrame is passed, the index must be a
-            DatetimeIndex aligned with the begining of each model stress
-            period. Default is {} (no outside inflow added to flow term).
+            identifiers. If a DataFrame is passed for a model with more than
+            one stress period, the index must be a DatetimeIndex aligned with
+            the start of each model stress period.
+            Default is {} (no outside inflow added to flow term).
         flow : dict or pandas.DataFrame, optional
             Flow to the top of each segment. This is added to any inflow,
-            which is handled separately. Default is {} (zero).
+            which is handled separately. This can be negative for withdrawls.
+            Default is {} (zero).
         runoff : dict or pandas.DataFrame, optional
             Runoff to each segment. Default is {} (zero).
         etsw : dict or pandas.DataFrame, optional
@@ -720,22 +722,25 @@ class SurfaceWaterNetwork(object):
             elif not isinstance(data, pd.DataFrame):
                 raise ValueError(
                     '{0} must be a dict or DataFrame'.format(name))
-            elif not isinstance(data.index, pd.DatetimeIndex):
+            if len(data) != m.dis.nper:
                 raise ValueError(
-                    '{0}.index must be a pandas.DatetimeIndex'.format(name))
-            elif len(data) != m.dis.nper:
-                raise ValueError(
-                    '{0} DataFrame length is different than nper ({1})'
-                    .format(name, m.dis.nper))
-            elif not (data.index == stress_df['start']).all():
-                try:
-                    t = stress_df['start'].to_string(index=False, max_rows=5)\
-                                            .replace('\n', ', ')
-                except TypeError:
-                    t = ', '.join([str(x)
-                                   for x in list(stress_df['start'][:5])])
-                raise ValueError(
-                    '{0}.index does not match expected ({1})'.format(name, t))
+                    'length of {0} ({1}) is different than nper ({2})'
+                    .format(name, len(data), m.dis.nper))
+            if m.dis.nper > 1:  # check DatetimeIndex
+                if not isinstance(data.index, pd.DatetimeIndex):
+                    raise ValueError(
+                        '{0}.index must be a pandas.DatetimeIndex'
+                        .format(name))
+                elif not (data.index == stress_df['start']).all():
+                    try:
+                        t = stress_df['start'].to_string(
+                                index=False, max_rows=5).replace('\n', ', ')
+                    except TypeError:
+                        t = ', '.join([str(x)
+                                       for x in list(stress_df['start'][:5])])
+                    raise ValueError(
+                        '{0}.index does not match expected ({1})'
+                        .format(name, t))
             try:
                 data.columns = data.columns.astype(self.segments.index.dtype)
             except TypeError:
@@ -1196,6 +1201,30 @@ class SurfaceWaterNetwork(object):
                 model=m,
                 reach_data=self.reach_data.to_records(index=True),
                 segment_data=segment_data)
+        # For models with more than one stress period, evaluate summary stats
+        if m.dis.nper > 1:
+            # Remove time-varying data from last stress period
+            self.segment_data.drop(
+                ['flow', 'runoff', 'etsw', 'pptsw'], axis=1, inplace=True)
+
+            def add_summary_stats(name, df):
+                if len(df.columns) == 0:
+                    return
+                self.segment_data[name + '_min'] = 0.0
+                self.segment_data[name + '_mean'] = 0.0
+                self.segment_data[name + '_max'] = 0.0
+                min_v = df.min(0)
+                mean_v = df.mean(0)
+                max_v = df.max(0)
+                self.segment_data.loc[min_v.index, name + '_min'] = min_v
+                self.segment_data.loc[mean_v.index, name + '_mean'] = mean_v
+                self.segment_data.loc[max_v.index, name + '_max'] = max_v
+
+            add_summary_stats('inflow', inflows)
+            add_summary_stats('flow', flow)
+            add_summary_stats('runoff', runoff)
+            add_summary_stats('etsw', etsw)
+            add_summary_stats('pptsw', pptsw)
 
 
 def topnet2ts(nc_path, varname, log_level=logging.INFO):
