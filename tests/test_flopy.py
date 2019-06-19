@@ -320,6 +320,51 @@ def test_process_flopy_n2d_min_slope(n2d, tmpdir_factory):
     n.reaches.to_file(str(outdir.join('reaches.shp')))
 
 
+def test_set_elevations(n2d, tmpdir_factory):
+    # similar to 3D version, but getting information from model
+    n = n2d
+    m = flopy.modflow.Modflow()
+    top = np.array([
+        [16.0, 15.0],
+        [15.0, 15.0],
+        [14.0, 14.0],
+    ])
+    flopy.modflow.ModflowDis(
+        m, nlay=1, nrow=3, ncol=2, delr=20.0, delc=20.0, top=top, botm=10.0,
+        xul=30.0, yul=130.0)
+    flopy.modflow.ModflowBas(m)
+    n.process_flopy(m)
+    n.get_seg_ijk()
+    n.get_top_elevs_at_segs(m)
+    n.get_segment_incision()
+    n.set_seg_minincise()
+    # Data set 1c
+    assert abs(m.sfr.nstrm) == 7
+    assert m.sfr.nss == 3
+    # Data set 2
+    np.testing.assert_array_almost_equal(
+        m.sfr.reach_data.rchlen,
+        [18.027756, 6.009252, 12.018504, 21.081851, 10.540926, 10.0, 10.0])
+    np.testing.assert_array_equal(
+        m.sfr.reach_data.strtop,
+        [16.0, 15.0, 15.0, 15.0, 15.0, 15.0, 14.0])
+    np.testing.assert_array_almost_equal(
+        m.sfr.reach_data.slope,
+        [0.070710681, 0.05, 0.025, 0.05, 0.025, 0.025, 0.05])
+    sd = m.sfr.segment_data[0]
+    assert list(sd.nseg) == [1, 2, 3]
+    assert list(sd.icalc) == [1, 1, 1]
+    assert list(sd.outseg) == [3, 3, 0]
+    assert list(sd.iupseg) == [0, 0, 0]
+    # See test_process_flopy_n3d_defaults for other checks
+    # Write output files
+    outdir = tmpdir_factory.mktemp('n2d')
+    m.model_ws = str(outdir)
+    m.write_input()
+    n.grid_cells.to_file(str(outdir.join('grid_cells.shp')))
+    n.reaches.to_file(str(outdir.join('reaches.shp')))
+
+
 def test_reach_barely_outside_ibound():
     n = swn.SurfaceWaterNetwork(wkt_to_geoseries([
         'LINESTRING (15 125, 70 90, 120 120, 130 90, '

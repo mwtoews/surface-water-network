@@ -1105,8 +1105,8 @@ class SurfaceWaterNetwork(object):
         self.reach_data.insert(0, column='k', value=0)  # only top layer
         self.reach_data.insert(5, column='rchlen', value=self.reaches.length)
         # Build segment_data for Data Set 6
-        self.segment_data = self.reaches[['iseg', 'segnum']].drop_duplicates()
-        self.segment_data.rename(columns={'iseg': 'nseg'}, inplace=True)
+        self.segment_data = self.reaches[['iseg', 'segnum', 'strtop']].drop_duplicates()
+        self.segment_data.rename(columns={'iseg': 'nseg', 'strtop': 'elevup'}, inplace=True)
         self.segment_data.set_index('segnum', inplace=True)
         self.segment_data.index.name = self.segments.index.name
         self.segment_data['icalc'] = 1  # assumption
@@ -1197,6 +1197,57 @@ class SurfaceWaterNetwork(object):
                 reach_data=self.reach_data.to_records(index=True),
                 segment_data=segment_data)
 
+    def get_seg_ijk(self):
+        """This will just get the upstream and downstream segment k,i,j """
+        topidx = self.reach_data['ireach'] == 1
+        kij_df = self.reach_data[topidx][['iseg', 'k', 'i', 'j']].sort_values(
+            'iseg')
+        self.segment_data = self.segment_data.merge(
+            kij_df, left_on='nseg', right_on='iseg', how='left').drop(
+            'iseg', axis=1)
+        self.segment_data.rename(
+            columns={"k": "k_up", "i": "i_up", "j": "j_up"}, inplace=True)
+        # seg bottoms
+        btmidx = self.reach_data.groupby('iseg')['ireach'].transform(max) == \
+                 self.reach_data['ireach']
+        kij_df = self.reach_data[btmidx][['iseg', 'k', 'i', 'j']].sort_values(
+            'iseg')
+
+        self.segment_data = self.segment_data.merge(
+            kij_df, left_on='nseg', right_on='iseg', how='left').drop(
+            'iseg', axis=1)
+        self.segment_data.rename(
+            columns={"k": "k_dn", "i": "i_dn", "j": "j_dn"}, inplace=True)
+        # return segdata_df
+
+    def get_top_elevs_at_segs(self, m):
+        '''Get topsurface elevations associated with segment up and dn elevations'''
+        assert m.sfr is not None, "need sfr package"
+        self.segment_data['top_up'] = m.dis.top.array[
+            (self.segment_data[['i_up','j_up']].values.T).tolist()]
+        self.segment_data['top_dn'] = m.dis.top.array[
+            (self.segment_data[['i_dn','j_dn']].values.T).tolist()]
+        # return segdata_df
+
+    def get_segment_incision(self):
+        self.segment_data['diff_up'] = \
+            self.segment_data['top_up'] - self.segment_data['elevup']
+        self.segment_data['diff_dn'] = \
+            self.segment_data['top_dn'] - self.segment_data['elevdn']
+        # return segdata_df
+
+    def set_seg_minincise(self, minincise=0.2):
+        minincise = minincise
+        '''Set segment elevation so that they have the minumum incision from the top surface'''
+        sel = self.segment_data['diff_up'] < minincise
+        self.segment_data.loc[sel, 'elevup'] = \
+            self.segment_data.loc[sel, 'top_up'] - minincise
+        sel = self.segment_data['diff_dn'] < minincise
+        self.segment_data.loc[sel, 'elevdn'] = \
+            self.segment_data.loc[sel, 'top_dn'] - minincise
+        self.get_segment_incision()
+        # return segdata_df
+
 
 def sfr_rec_to_df(sfr):
     """
@@ -1240,18 +1291,6 @@ def sfr_dfs_to_rec(model, segdatadf, reachdatadf, set_outreaches=False,
     # add
     model.sfr.stress_period_data.data[0] = model.sfr.reach_data
 
-
-def get_seg_elevs_from_dis(m):
-    '''Get topsurface elevations associated with segment up and dn elevations'''
-    assert m.sfr is not None, "need sfr package"
-    for kper in range(m.nper):
-        segdata_df[kper,'top_up'] = m.dis.top.array[tuple(
-            segdata_df.loc[:,idx[kper,['i_up','j_up']]].values.T.tolist())]
-        segdata_df[kper,'top_dn'] = m.dis.top.array[tuple(
-            segdata_df.loc[:,idx[kper,['i_dn','j_dn']]].values.T.tolist())]
-    #segdata_df['top_up'] = m.dis.top.array[(segdata_df[['i_up','j_up']].values.T).tolist()]
-    #segdata_df['top_dn'] = m.dis.top.array[(segdata_df[['i_dn','j_dn']].values.T).tolist()]
-    return segdata_df
 
 
 def topnet2ts(nc_path, varname, log_level=logging.INFO):
