@@ -338,6 +338,9 @@ def test_set_elevations(n2d, tmpdir_factory):
     n.get_top_elevs_at_segs(m)
     n.get_segment_incision()
     n.set_seg_minincise()
+    n.get_outseg_elev()
+    n.get_segment_legth()
+    n.set_forward_segs(min_slope=1.e-4)
     # Data set 1c
     assert abs(m.sfr.nstrm) == 7
     assert m.sfr.nss == 3

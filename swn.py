@@ -1105,18 +1105,22 @@ class SurfaceWaterNetwork(object):
         self.reach_data.insert(0, column='k', value=0)  # only top layer
         self.reach_data.insert(5, column='rchlen', value=self.reaches.length)
         # Build segment_data for Data Set 6
-        self.segment_data = self.reaches[['iseg', 'segnum', 'strtop']].drop_duplicates()
-        self.segment_data.rename(columns={'iseg': 'nseg', 'strtop': 'elevup'}, inplace=True)
+        self.segment_data = self.reaches[['iseg', 'segnum']].drop_duplicates()
+        self.segment_data['elevup'] = self.reaches.loc[
+            self.segment_data.index].strtop
+        self.segment_data['elevdn'] = self.reaches.loc[
+            self.reaches.groupby(['iseg']).ireach.idxmax().values
+        ].strtop.values
+        self.segment_data.rename(columns={'iseg': 'nseg'}, inplace=True)
         self.segment_data.set_index('segnum', inplace=True)
         self.segment_data.index.name = self.segments.index.name
         self.segment_data['icalc'] = 1  # assumption
         # Translate 'to_segnum' to 'outseg' via 'nseg'
-        self.segment_data['outseg'] = 0
-        for insegnum, inseg in self.segment_data.nseg.iteritems():
-            outsegnum = self.segments.loc[insegnum, 'to_segnum']
-            if outsegnum in self.segment_data.index:
-                self.segment_data.loc[insegnum, 'outseg'] = \
-                    self.segment_data.loc[outsegnum, 'nseg']
+        self.segment_data['outseg'] = self.segment_data.index.map(
+            lambda x: self.segment_data.loc[
+                self.segments.loc[x, 'to_segnum'], 'nseg'] if
+            self.segments.loc[
+                x, 'to_segnum'] in self.segment_data.index else 0.).values
         self.segment_data['iupseg'] = 0  # no diversions (yet)
         self.segment_data['iprior'] = 0
         self.segment_data['flow'] = 0.0
@@ -1224,9 +1228,9 @@ class SurfaceWaterNetwork(object):
         '''Get topsurface elevations associated with segment up and dn elevations'''
         assert m.sfr is not None, "need sfr package"
         self.segment_data['top_up'] = m.dis.top.array[
-            (self.segment_data[['i_up','j_up']].values.T).tolist()]
+            tuple(self.segment_data[['i_up', 'j_up']].values.T)]
         self.segment_data['top_dn'] = m.dis.top.array[
-            (self.segment_data[['i_dn','j_dn']].values.T).tolist()]
+            tuple(self.segment_data[['i_dn', 'j_dn']].values.T)]
         # return segdata_df
 
     def get_segment_incision(self):
@@ -1247,6 +1251,107 @@ class SurfaceWaterNetwork(object):
             self.segment_data.loc[sel, 'top_dn'] - minincise
         self.get_segment_incision()
         # return segdata_df
+
+    def get_segment_length(self):
+        # extract segment length for calculating minimun drop later
+        seglen = pd.DataFrame(self.reach_data.groupby('iseg').rchlen.sum())
+        self.segment_data['seglen'] = self.segment_data.merge(
+            seglen,left_on='nseg',right_index=True, how='left')
+        # return segdata_df
+
+    def get_outseg_elev(self):
+        """Get all the maximum elevup associated with downstream segments"""
+        self.segment_data['outseg_elevup'] = self.segment_data.outseg.apply(
+            lambda x: self.segment_data.loc[
+                self.segment_data.nseg == x].elevup).max(axis=1)
+
+    def set_outseg_elev_for_seg(self, seg, *args):
+        """
+        gets all the defined outseg_elevup associated with the current segments
+        (multiple upstream segements route to one segment)
+        Returns a df with all the calculated elevups for each segment
+        .min(axis=1) is a good way to collapse to a series
+        """
+        # downstreambuffer = 0.001 # 1mm
+        outsegsel = self.segment_data['outseg'] == seg.nseg
+        outseg_elevup = self.segment_data.loc[outsegsel, 'outseg_elevup']
+        # outseg_elevup=segdata[outsegsel]['elevup']
+        return outseg_elevup
+
+    def minslope_seg(self, seg, *args):
+        """
+        Force segment to have minumim slope (check for backward)
+        """
+        # segdata_df = args[0]
+        minslope = args[0]
+        downstreambuffer = 0.001  # 1mm
+        up = seg.elevup
+        dn = np.nan
+        outseg_up = np.nan
+        if seg.outseg > 0.0:
+            outsegsel = self.segment_data['nseg'] == seg.outseg
+            outseg_elevup = self.segment_data.loc[outsegsel, 'elevup']
+            down = outseg_elevup.values[0]
+            if down >= seg.elevup - (seg.seglen * minslope):
+                dn = up - (seg.seglen * minslope)
+                outseg_up = up - (seg.seglen * minslope) - downstreambuffer
+                print(
+                    'Segment {}, outseg = {}, old outseg_elevup = {}, new outseg_elevup = {}'
+                    .format(seg.nseg, seg.outseg, seg.outseg_elevup,
+                            outseg_up))
+            else:
+                dn = down
+                outseg_up = down - downstreambuffer
+        else:
+            down = seg.elevdn
+            if down >= up - (seg.seglen * minslope):
+                dn = up - (seg.seglen * minslope)
+                print(
+                    'Segment {}, outseg = {}, old elevdn = {}, new elevdn = {}'
+                    .format(seg.nseg, seg.outseg, seg.elevdn, dn))
+            else:
+                dn = down
+        return pd.Series({'elevdn': dn,
+                          'outseg_elevup': outseg_up})  # this returns a DF once the apply is done!
+
+    def set_forward_segs(self, min_slope):
+        ### upper most segments (not referenced as outsegs)
+        # segdata_df = self.segment_data.sort_index(axis=1)
+        segsel = ~self.segment_data['nseg'].isin(self.segment_data['outseg'])
+        while segsel.sum() > 0:
+            print(
+                f'Checking elevdn and outseg_elevup '
+                f'for {segsel.sum()} segments')
+            # get elevdn and outseg_elevups
+            tmp = self.segment_data.loc[segsel].apply(
+                self.minslope_seg, args=(self.segment_data, min_slope), axis=1)
+            # update segment data (mainly `outseg_elevup`)
+            # tmp = pd.concat([tmp], keys=[kper], axis=1).reindex(
+            #     index=segdata_df.index)
+            ednsel = tmp.loc[:, 'elevdn'].notna()
+            oeupsel = tmp.loc[:, 'outseg_elevup'].notna()
+            self.segment_data.loc[ednsel, 'elevdn'] = tmp.loc[ednsel, 'elevdn']
+            self.segment_data.loc[oeupsel, 'outseg_elevup'] = \
+                tmp.loc[oeupsel, 'outseg_elevup']
+            # segdata_df.loc[:,idx[kper,['elevdn','outseg_elevup']]]=tmp
+            # segdata_df.update(pd.concat([tmp],keys=[kper],axis=1))
+            # get `elevups` from `outseg_elevups`
+            tmp2 = self.segment_data.apply(lambda x:
+                self.set_outseg_elev_for_seg(x), axis=1).min(axis=1)
+            tmp2 = pd.DataFrame(tmp2, columns=['elevup'])
+            # tmp2 = pd.concat([tmp2], keys=[kper], axis=1).reindex(
+            #     index=segdata_df.index)
+            # update `elevups`
+            # segdata_df.loc[:,idx[kper,['elevup']]]=tmp2
+            eupsel = tmp2.loc[:, 'elevup'].notna()
+            segdata_df.loc[eupsel, 'elevup'] = tmp2.loc[eupsel, 'elevup']
+            # segdata_df.update(pd.concat([tmp2]*m.nper,axis=1,keys=range(m.nper)))
+            # segdata_df.update()
+            # segdata_df['elevup'].update(tmp2)
+            # get list of next outsegs
+            segsel = segdata_df['nseg'].isin(
+                segdata_df.loc[segsel, 'outseg'])
+        return segdata_df
 
 
 def sfr_rec_to_df(sfr):
