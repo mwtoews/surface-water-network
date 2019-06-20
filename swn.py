@@ -195,7 +195,7 @@ class SurfaceWaterNetwork(object):
                 self.errors.append(m[0] % m[1:])
             if len(to_segnums) > 0:
                 # do not diverge flow; only flow to one downstream segment
-                self.segments.loc[segnum1, 'to_segnum'] = to_segnums[0]
+                self.segments.at[segnum1, 'to_segnum'] = to_segnums[0]
         # Store from_segnums list to segments GeoDataFrame
         self.segments['from_segnums'] = None
         from_segnums = self.from_segnums
@@ -214,11 +214,11 @@ class SurfaceWaterNetwork(object):
 
         # Recursive function that accumulates information upstream
         def resurse_upstream(segnum, cat_group, num, dist):
-            self.segments.loc[segnum, 'cat_group'] = cat_group
+            self.segments.at[segnum, 'cat_group'] = cat_group
             num += 1
-            self.segments.loc[segnum, 'num_to_outlet'] = num
+            self.segments.at[segnum, 'num_to_outlet'] = num
             dist += self.segments.geometry[segnum].length
-            self.segments.loc[segnum, 'dist_to_outlet'] = dist
+            self.segments.at[segnum, 'dist_to_outlet'] = dist
             # Branch to zero or more upstream segments
             for from_segnum in from_segnums.get(segnum, []):
                 resurse_upstream(from_segnum, cat_group, num, dist)
@@ -325,16 +325,16 @@ class SurfaceWaterNetwork(object):
             for segnum in downstream_sorted:
                 if from_segnums[segnum].issubset(completed):
                     sequence += 1
-                    self.segments.loc[segnum, 'sequence'] = sequence
-                    # self.segments.loc[segnum, 'numiter'] = numiter
+                    self.segments.at[segnum, 'sequence'] = sequence
+                    # self.segments.at[segnum, 'numiter'] = numiter
                     up_ord = list(
                         self.segments.loc[
                             list(from_segnums[segnum]), 'stream_order'])
                     max_ord = max(up_ord)
                     if up_ord.count(max_ord) > 1:
-                        self.segments.loc[segnum, 'stream_order'] = max_ord + 1
+                        self.segments.at[segnum, 'stream_order'] = max_ord + 1
                     else:
-                        self.segments.loc[segnum, 'stream_order'] = max_ord
+                        self.segments.at[segnum, 'stream_order'] = max_ord
                     completed.add(segnum)
             if self.segments['sequence'].min() > 0:
                 break
@@ -668,7 +668,7 @@ class SurfaceWaterNetwork(object):
                 self.logger.debug(*m)
                 self.messages.append(m[0] % m[1:])
             if modified:
-                self.segments.loc[segnum, geom_name] = LineString(coords)
+                self.segments.at[segnum, geom_name] = LineString(coords)
             profiles.append(LineString(profile_coords))
         self.profiles = geopandas.GeoSeries(profiles)
         return
@@ -801,7 +801,7 @@ class SurfaceWaterNetwork(object):
         stress_df['duration'] = pd.TimedeltaIndex(
                 stress_df['perlen'].cumsum(), m.modeltime.time_units)
         stress_df['start'] = pd.to_datetime(m.modeltime.start_datetime)
-        stress_df['end'] = stress_df['duration'] + stress_df.loc[0, 'start']
+        stress_df['end'] = stress_df['duration'] + stress_df.at[0, 'start']
         stress_df.loc[1:, 'start'] = stress_df['end'].iloc[:-1].values
         segments_segnums = set(self.segments.index)
 
@@ -1150,8 +1150,8 @@ class SurfaceWaterNetwork(object):
                 iseg += 1
                 ireach = 0
             ireach += 1
-            self.reaches.loc[idx, 'iseg'] = iseg
-            self.reaches.loc[idx, 'ireach'] = ireach
+            self.reaches.at[idx, 'iseg'] = iseg
+            self.reaches.at[idx, 'ireach'] = ireach
             prev_segnum = segnum
         self.reaches.reset_index(inplace=True, drop=True)
         self.reaches.index += 1
@@ -1167,10 +1167,10 @@ class SurfaceWaterNetwork(object):
                 dz = z0 - z1
                 dx = geom.length
                 slope = dz / dx
-                self.reaches.loc[reachID, 'slope'] = slope
+                self.reaches.at[reachID, 'slope'] = slope
                 # Get strtop from LineString mid-point Z
                 zm = geom.interpolate(0.5, normalized=True).z
-                self.reaches.loc[reachID, 'strtop'] = zm
+                self.reaches.at[reachID, 'strtop'] = zm
         else:
             r = self.reaches['row'].values
             c = self.reaches['col'].values
@@ -1207,10 +1207,10 @@ class SurfaceWaterNetwork(object):
         # Translate 'to_segnum' to 'outseg' via 'nseg'
         self.segment_data['outseg'] = 0
         for insegnum, inseg in self.segment_data.nseg.iteritems():
-            outsegnum = self.segments.loc[insegnum, 'to_segnum']
+            outsegnum = self.segments.at[insegnum, 'to_segnum']
             if outsegnum in self.segment_data.index:
-                self.segment_data.loc[insegnum, 'outseg'] = \
-                    self.segment_data.loc[outsegnum, 'nseg']
+                self.segment_data.at[insegnum, 'outseg'] = \
+                    self.segment_data.at[outsegnum, 'nseg']
         self.segment_data['iupseg'] = 0  # no diversions (yet)
         self.segment_data['iprior'] = 0
         self.segment_data['flow'] = 0.0
