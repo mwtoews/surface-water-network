@@ -35,6 +35,8 @@ except ImportError:
 __version__ = '0.1'
 __author__ = 'Mike Toews'
 
+PY2 = (sys.version_info[0] == 2)
+
 module_logger = logging.getLogger(__name__)
 if __name__ not in [_.name for _ in module_logger.handlers]:
     if logging.root.handlers:
@@ -88,10 +90,6 @@ class SurfaceWaterNetwork(object):
     END_SEGNUM : int
         Special segment number that indicates a line end, default is usually 0.
         This number is not part of the index.
-    from_segnums : dict
-        Key is downstream segment number, and values are a set of zero or more
-        upstream segment numbers. END_SEGNUM and headwater segment numbers are
-        not included. This object is not modified after calling 'remove'.
     has_z : bool
         Property that indicates all segment lines have Z dimension coordinates.
     headwater : pandas.core.index.Int64Index
@@ -110,7 +108,6 @@ class SurfaceWaterNetwork(object):
     index = None
     END_SEGNUM = None
     segments = None
-    from_segnums = None
     logger = None
     warnings = None
     errors = None
@@ -199,12 +196,15 @@ class SurfaceWaterNetwork(object):
             if len(to_segnums) > 0:
                 # do not diverge flow; only flow to one downstream segment
                 self.segments.loc[segnum1, 'to_segnum'] = to_segnums[0]
-        # Build a dict that describes downstream segs to one or more upstream
-        self.from_segnums = {}
-        for segnum in set(self.segments['to_segnum'])\
-                .difference([self.END_SEGNUM]):
-            self.from_segnums[segnum] = \
-                set(self.segments.index[self.segments['to_segnum'] == segnum])
+        # Store from_segnums list to segments GeoDataFrame
+        self.segments['from_segnums'] = None
+        from_segnums = self.from_segnums
+        if PY2:
+            for k, v in from_segnums.iteritems():
+                self.segments.at[k, 'from_segnums'] = v
+        else:
+            for k, v in from_segnums.items():
+                self.segments.at[k, 'from_segnums'] = v
         outlets = self.outlets
         self.logger.debug('evaluating segments upstream from %d outlet%s',
                           len(outlets), 's' if len(outlets) != 1 else '')
@@ -220,7 +220,7 @@ class SurfaceWaterNetwork(object):
             dist += self.segments.geometry[segnum].length
             self.segments.loc[segnum, 'dist_to_outlet'] = dist
             # Branch to zero or more upstream segments
-            for from_segnum in self.from_segnums.get(segnum, []):
+            for from_segnum in from_segnums.get(segnum, []):
                 resurse_upstream(from_segnum, cat_group, num, dist)
 
         for segnum in self.segments.loc[outlets].index:
@@ -323,14 +323,13 @@ class SurfaceWaterNetwork(object):
             downstream_sorted = self.segments.loc[downstream]\
                 .sort_values(search_order, ascending=False).index
             for segnum in downstream_sorted:
-                if self.from_segnums[segnum].issubset(completed):
+                if from_segnums[segnum].issubset(completed):
                     sequence += 1
                     self.segments.loc[segnum, 'sequence'] = sequence
                     # self.segments.loc[segnum, 'numiter'] = numiter
                     up_ord = list(
                         self.segments.loc[
-                            list(self.from_segnums[segnum]),
-                            'stream_order'])
+                            list(from_segnums[segnum]), 'stream_order'])
                     max_ord = max(up_ord)
                     if up_ord.count(max_ord) > 1:
                         self.segments.loc[segnum, 'stream_order'] = max_ord + 1
@@ -429,6 +428,19 @@ class SurfaceWaterNetwork(object):
         return self.segments.loc[
             self.segments['to_segnum'] != self.END_SEGNUM, 'to_segnum']
 
+    @property
+    def from_segnums(self):
+        """Returns dict of a set of segnums to connect upstream"""
+        to_segnums = self.to_segnums
+        from_segnums = {}
+        if PY2:
+            for k, v in to_segnums.iteritems():
+                from_segnums.setdefault(v, set()).add(k)
+        else:
+            for k, v in to_segnums.items():
+                from_segnums.setdefault(v, set()).add(k)
+        return from_segnums
+
     def get_upstream(self, segnum, barriers=[]):
         """Returns segnums upstream (and including) from one identifier
 
@@ -446,15 +458,8 @@ class SurfaceWaterNetwork(object):
         if segnum not in self.segments.index:
             raise IndexError(
                 'segnum {0} not found in segments.index'.format(segnum))
-        # Rebuild a local from_segnums dict, don't use self.from_segnums
         to_segnums = dict(self.to_segnums)
-        from_segnums = {}
-        if sys.version_info[0] == 2:
-            for k, v in to_segnums.iteritems():
-                from_segnums.setdefault(v, []).append(k)
-        else:
-            for k, v in to_segnums.items():
-                from_segnums.setdefault(v, []).append(k)
+        from_segnums = self.from_segnums
         for barrier in barriers:
             if barrier not in self.segments.index:
                 raise IndexError(
@@ -530,10 +535,9 @@ class SurfaceWaterNetwork(object):
         except TypeError:
             pass
         for segnum in self.segments.sort_values('sequence').index:
-            if segnum in self.from_segnums:
-                from_segnums = list(self.from_segnums[segnum])
-                if from_segnums:
-                    accum[segnum] += accum[from_segnums].sum()
+            from_segnums = self.segments.at[segnum, 'from_segnums']
+            if from_segnums:
+                accum[segnum] += accum[list(from_segnums)].sum()
         return accum
 
     def segment_series(self, value, name=None):
@@ -678,7 +682,7 @@ class SurfaceWaterNetwork(object):
             numiter += 1
 
     def remove(self, condition=None, upstream=[], downstream=[]):
-        """Remove segments (and catchments), but retain other info
+        """Remove segments (and catchments)
 
         Parameters
         ----------
@@ -1225,7 +1229,7 @@ class SurfaceWaterNetwork(object):
         # Determine upstream flows needed for each SFR segment
         sfr_segnums = set(self.segment_data.index)
         for segnum in self.segment_data.index:
-            from_segnums = self.from_segnums.get(segnum, [])
+            from_segnums = self.segments.at[segnum, 'from_segnums']
             if not from_segnums:
                 continue
             # gather segments outside SFR network
