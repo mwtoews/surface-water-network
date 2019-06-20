@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
+import geopandas
 import logging
 import numpy as np
 import pandas as pd
-import geopandas
+import sys
 try:
     from geopandas.tools import sjoin
 except ImportError:
@@ -90,7 +91,7 @@ class SurfaceWaterNetwork(object):
     from_segnums : dict
         Key is downstream segment number, and values are a set of zero or more
         upstream segment numbers. END_SEGNUM and headwater segment numbers are
-        not included.
+        not included. This object is not modified after calling 'remove'.
     has_z : bool
         Property that indicates all segment lines have Z dimension coordinates.
     headwater : pandas.core.index.Int64Index
@@ -428,13 +429,15 @@ class SurfaceWaterNetwork(object):
         return self.segments.loc[
             self.segments['to_segnum'] != self.END_SEGNUM, 'to_segnum']
 
-    def get_upstream(self, segnum):
+    def get_upstream(self, segnum, barriers=[]):
         """Returns segnums upstream (and including) from one identifier
 
         Parameters
         ----------
         segnum : int
             Segmnet number from segments.index to search from.
+        barriers : list, optional
+            Segment numbers that cannot be traversed past. Default, [].
 
         Returns
         -------
@@ -443,10 +446,27 @@ class SurfaceWaterNetwork(object):
         if segnum not in self.segments.index:
             raise IndexError(
                 'segnum {0} not found in segments.index'.format(segnum))
+        # Rebuild a local from_segnums dict, don't use self.from_segnums
+        to_segnums = dict(self.to_segnums)
+        from_segnums = {}
+        if sys.version_info[0] == 2:
+            for k, v in to_segnums.iteritems():
+                from_segnums.setdefault(v, []).append(k)
+        else:
+            for k, v in to_segnums.items():
+                from_segnums.setdefault(v, []).append(k)
+        for barrier in barriers:
+            if barrier not in self.segments.index:
+                raise IndexError(
+                    'barrier {0} not found in segments.index'.format(barrier))
+            try:
+                del from_segnums[barrier]
+            except KeyError:  # this is a tributary, remove value
+                from_segnums[to_segnums[barrier]].remove(barrier)
 
         def go_upstream(segnum):
             yield segnum
-            for from_segnum in self.from_segnums.get(segnum, []):
+            for from_segnum in from_segnums.get(segnum, []):
                 # Python 3 would just do:
                 # yield from go_upstream(from_segnum)
                 # however, this works with Python 2.7
@@ -456,7 +476,7 @@ class SurfaceWaterNetwork(object):
         return list(go_upstream(segnum))
 
     def get_downstream(self, segnum):
-        """Returns ordered segnums downstream (and including) an identifier
+        """Returns ordered segnums downstream from an identifier (excluded)
 
         Parameters
         ----------
@@ -481,7 +501,7 @@ class SurfaceWaterNetwork(object):
                 for next_segnum in go_downstream(to_segnums[segnum]):
                     yield next_segnum
 
-        return list(go_downstream(segnum))
+        return list(go_downstream(segnum))[1:]
 
     def accumulate_values(self, values):
         """Accumulate values down the stream network
@@ -657,25 +677,35 @@ class SurfaceWaterNetwork(object):
         while True:
             numiter += 1
 
-    def remove(self, condition):
+    def remove(self, condition=None, upstream=[], downstream=[]):
         """Remove segments (and catchments), but retain other info
 
         Parameters
         ----------
-        condition : pandas.Series
+        condition : pandas.Series, optional
             Series of bool for each segment index, where True is to discard.
+        upstream : list
+            List of segnums to remove upstream from an identifier
+        downstream : list
+            List of segnums to remove downstream from an identifier, with
+            further removals upstream from each branch downstream.
 
         Returns
         -------
         None
         """
         segments_index = self.segments.index
-        if not isinstance(condition, pd.Series):
-            raise ValueError('condition must be a pandas.Series')
-        elif (len(condition.index) != len(segments_index) or
-                not (condition.index == segments_index).all()):
-            raise ValueError('index is different than for segments')
-        sel = ~condition.astype(bool)
+        if condition is not None:
+            if not isinstance(condition, pd.Series):
+                raise ValueError('condition must be a pandas.Series')
+            elif (len(condition.index) != len(segments_index) or
+                    not (condition.index == segments_index).all()):
+                raise ValueError('index is different than for segments')
+            sel = ~condition.astype(bool)
+        else:
+            sel = pd.Series(True, index=segments_index)
+        for segnum in downstream:
+            downstream_segnums = self.get_dowstream(segnum)
         self.segments = self.segments.loc[sel]
         if self.catchments is not None:
             self.catchments = self.catchments.loc[sel]

@@ -446,19 +446,28 @@ def test_fluss_n_get_upstream(fluss_n):
     assert set(n.get_upstream(9)) == set([9, 10, 11, 12, 13, 14, 15])
     assert set(n.get_upstream(17)) == set([17])
     assert len(set(n.get_upstream(18))) == 19
+    # with barriers
+    assert len(set(n.get_upstream(18, [17]))) == 18
+    assert len(set(n.get_upstream(18, [9]))) == 13
+    assert set(n.get_upstream(9, [8])) == set([9, 10, 11, 12, 13, 14, 15])
+    assert set(n.get_upstream(16, [9, 5])) == set([0, 1, 2, 5, 6, 7, 8, 9, 16])
+    # break it
     with pytest.raises(IndexError,
                        match=r'segnum \-1 not found in segments\.index'):
         n.get_upstream(-1)
+    with pytest.raises(IndexError,
+                       match=r'barrier \-1 not found in segments\.index'):
+        n.get_upstream(18, [-1])
 
 
 def test_fluss_n_get_downstream(fluss_n):
     n = fluss_n
-    assert n.get_downstream(0) == [0, 2, 6, 8, 16, 18]
-    assert n.get_downstream(2) == [2, 6, 8, 16, 18]
-    assert n.get_downstream(8) == [8, 16, 18]
-    assert n.get_downstream(9) == [9, 16, 18]
-    assert n.get_downstream(17) == [17, 18]
-    assert n.get_downstream(18) == [18]
+    assert n.get_downstream(0) == [2, 6, 8, 16, 18]
+    assert n.get_downstream(2) == [6, 8, 16, 18]
+    assert n.get_downstream(8) == [16, 18]
+    assert n.get_downstream(9) == [16, 18]
+    assert n.get_downstream(17) == [18]
+    assert n.get_downstream(18) == []
     with pytest.raises(IndexError,
                        match=r'segnum \-1 not found in segments\.index'):
         n.get_upstream(-1)
