@@ -451,6 +451,19 @@ def test_fluss_n_get_upstream(fluss_n):
         n.get_upstream(-1)
 
 
+def test_fluss_n_get_downstream(fluss_n):
+    n = fluss_n
+    assert n.get_downstream(0) == [0, 2, 6, 8, 16, 18]
+    assert n.get_downstream(2) == [2, 6, 8, 16, 18]
+    assert n.get_downstream(8) == [8, 16, 18]
+    assert n.get_downstream(9) == [9, 16, 18]
+    assert n.get_downstream(17) == [17, 18]
+    assert n.get_downstream(18) == [18]
+    with pytest.raises(IndexError,
+                       match=r'segnum \-1 not found in segments\.index'):
+        n.get_upstream(-1)
+
+
 def test_pair_segment_values(n):
     # from scalar
     p = n.pair_segment_values(8.0)
