@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import geopandas
 import os
 import pandas as pd
 import pytest
@@ -395,6 +396,59 @@ def test_outlet_series():
     with pytest.raises(ValueError,
                        match='index is different than for outlets'):
         n.outlet_series(s)
+
+
+@pytest.fixture
+def fluss_n(lines):
+    # https://commons.wikimedia.org/wiki/File:Flussordnung_(Strahler).svg
+    return swn.SurfaceWaterNetwork(
+        geopandas.GeoSeries(wkt.loads('''MULTILINESTRING(
+            (380 490, 370 420), (300 460, 370 420), (370 420, 420 330),
+            (190 250, 280 270), (225 180, 280 270), (280 270, 420 330),
+            (420 330, 584 250), (520 220, 584 250), (584 250, 710 160),
+            (740 270, 710 160), (735 350, 740 270), (880 320, 740 270),
+            (925 370, 880 320), (974 300, 880 320), (760 460, 735 350),
+            (650 430, 735 350), (710 160, 770 100), (700  90, 770 100),
+            (770 100, 820  40))''').geoms))
+
+
+def test_fluss_n(fluss_n):
+    n = fluss_n
+    assert len(n.warnings) == 0
+    assert len(n.errors) == 0
+    assert len(n) == 19
+    assert list(n.segments.index) == list(range(19))
+    assert list(n.segments['to_segnum']) == \
+        [2, 2, 6, 5, 5, 6, 8, 8, 16, 16, 9, 9, 11, 11, 10, 10, 18, 18, -1]
+    assert list(n.segments['cat_group']) == [18] * 19
+    assert list(n.segments['num_to_outlet']) == \
+        [6, 6, 5, 6, 6, 5, 4, 4, 3, 3, 4, 4, 5, 5, 5, 5, 2, 2, 1]
+    assert list(n.segments['sequence']) == \
+        [4, 3, 12, 2, 1, 11, 15, 9, 16, 17, 14, 13, 6, 5, 8, 7, 18, 10, 19]
+    assert list(n.segments['stream_order']) == \
+        [1, 1, 2, 1, 1, 2, 3, 1, 3, 3, 2, 2, 1, 1, 1, 1, 4, 1, 4]
+    assert list(n.headwater) == [0, 1, 3, 4, 7, 12, 13, 14, 15, 17]
+    assert list(n.outlets) == [18]
+    assert dict(n.to_segnums) == \
+        {0: 2, 1: 2, 2: 6, 3: 5, 4: 5, 5: 6, 6: 8, 7: 8, 8: 16, 9: 16, 10: 9,
+         11: 9, 12: 11, 13: 11, 14: 10, 15: 10, 16: 18, 17: 18}
+    assert n.from_segnums == \
+        {16: set([8, 9]), 2: set([0, 1]), 5: set([3, 4]), 6: set([2, 5]),
+         8: set([6, 7]),  9: set([10, 11]), 10: set([14, 15]),
+         11: set([12, 13]), 18: set([16, 17])}
+
+
+def test_fluss_n_get_upstream(fluss_n):
+    n = fluss_n
+    assert set(n.get_upstream(0)) == set([0])
+    assert set(n.get_upstream(2)) == set([0, 1, 2])
+    assert set(n.get_upstream(8)) == set([0, 1, 2, 3, 4, 5, 6, 7, 8])
+    assert set(n.get_upstream(9)) == set([9, 10, 11, 12, 13, 14, 15])
+    assert set(n.get_upstream(17)) == set([17])
+    assert len(set(n.get_upstream(18))) == 19
+    with pytest.raises(IndexError,
+                       match=r'segnum \-1 not found in segments\.index'):
+        n.get_upstream(-1)
 
 
 def test_pair_segment_values(n):

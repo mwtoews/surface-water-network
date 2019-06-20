@@ -428,6 +428,33 @@ class SurfaceWaterNetwork(object):
         return self.segments.loc[
             self.segments['to_segnum'] != self.END_SEGNUM, 'to_segnum']
 
+    def get_upstream(self, segnum):
+        """Returns segnums upstream (and including) from one identifier
+
+        Parameters
+        ----------
+        segnum : int
+            Segmnet number from segments.index to search from.
+
+        Returns
+        -------
+        list
+        """
+        if segnum not in self.segments.index:
+            raise IndexError(
+                'segnum {0} not found in segments.index'.format(segnum))
+
+        def go_upstream(segnum):
+            yield segnum
+            for from_segnum in self.from_segnums.get(segnum, []):
+                # Python 3 would just do:
+                # yield from go_upstream(from_segnum)
+                # however, this works with Python 2.7
+                for next_segnum in go_upstream(from_segnum):
+                    yield next_segnum
+
+        return list(go_upstream(segnum))
+
     def accumulate_values(self, values):
         """Accumulate values down the stream network
 
