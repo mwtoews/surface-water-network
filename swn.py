@@ -508,6 +508,103 @@ class SurfaceWaterNetwork(object):
 
         return list(go_downstream(segnum))[1:]
 
+    def query(self, upstream=[], downstream=[], barrier=[],
+              trim_upstream=False):
+        """Returns segnums upstream (inclusive) and downstream (exclusive)
+
+        Parameters
+        ----------
+        upstream, upstream : int or list, optional
+            Segmnet number(s) from segments.index to search from. Default [].
+        barriers : int or list, optional
+            Segment number(s) that cannot be traversed past. Default [].
+        trim_upstream : bool
+            Trim upstream from all other downstream segments. Default False.
+
+        Returns
+        -------
+        list
+        """
+        segments_index = self.segments.index
+        segments_set = set(segments_index)
+        if isinstance(upstream, list):
+            if not segments_set.issuperset(upstream):
+                diff = set(upstream).difference(segments_set)
+                raise IndexError(
+                    '{0} upstream segment(s) not found in segments.index: {1}'
+                    .format(len(diff), list(diff)[:5]))
+            upstreams = upstream
+        else:
+            if upstream not in segments_index:
+                raise IndexError(
+                    'upstream segnum {0} not found in segments.index'
+                    .format(upstream))
+            upstreams = [upstream]
+        if isinstance(downstream, list):
+            if not segments_set.issuperset(downstream):
+                diff = set(downstream).difference(segments_set)
+                raise IndexError(
+                    '{0} downstream segment(s) not found in segments.index: '
+                    '{1}'.format(len(diff), list(diff)[:5]))
+            downstreams = downstream
+        else:
+            if downstream not in segments_index:
+                raise IndexError(
+                    'downstream segnum {0} not found in segments.index'
+                    .format(downstream))
+            downstreams = [downstream]
+        if isinstance(barrier, list):
+            if not segments_set.issuperset(barrier):
+                diff = set(barrier).difference(segments_set)
+                raise IndexError(
+                    '{0} barrier segment(s) not found in segments.index: {1}'
+                    .format(len(diff), list(diff)[:5]))
+            barriers = barrier
+        else:
+            if barrier not in segments_index:
+                raise IndexError(
+                    'barrier segnum {0} not found in segments.index'
+                    .format(barrier))
+            barriers = [barrier]
+
+        to_segnums = dict(self.to_segnums)
+        from_segnums = self.from_segnums
+        for barrier in barriers:
+            try:
+                del from_segnums[barrier]
+            except KeyError:  # this is a tributary, remove value
+                from_segnums[to_segnums[barrier]].remove(barrier)
+            del to_segnums[barrier]
+
+        def go_upstream(segnum):
+            yield segnum
+            for from_segnum in from_segnums.get(segnum, []):
+                # Python 3 would just do: yield from go_upstream(from_segnum)
+                for next_segnum in go_upstream(from_segnum):
+                    yield next_segnum
+
+        def go_downstream(segnum):
+            yield segnum
+            if segnum in to_segnums:
+                # Python 3 would just do: yield from go_downstream(to_segnu...)
+                for next_segnum in go_downstream(to_segnums[segnum]):
+                    yield next_segnum
+
+        segnums = []
+        for segnum in downstreams:
+            downsegnums = list(go_downstream(segnum))[1:]
+            segnums += downsegnums
+            if trim_upstream and segnum in from_segnums:
+                # gather upstream segments from this point
+                del from_segnums[segnum]
+                for segnum in downsegnums:
+                    upsegnums = list(go_upstream(segnum))
+                    segnums += upsegnums
+        for segnum in upstreams:
+            upsegnums = list(go_upstream(segnum))
+            segnums += upsegnums
+        return segnums
+
     def accumulate_values(self, values):
         """Accumulate values down the stream network
 
