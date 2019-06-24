@@ -35,7 +35,7 @@ def costal_polygons_gdf(costal_lines_gdf):
             'Area': 0.0,
             'X84': 0.0,
             'Y84': 0.0,
-            'geometry': line['geometry'].buffer(1.0),
+            'geometry': line['geometry'].centroid.buffer(20.0, 1),
             # wkt.loads('POLYGON EMPTY')
         }
     return polygons.reindex(index=costal_lines_gdf.index)

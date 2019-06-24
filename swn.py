@@ -688,38 +688,51 @@ class SurfaceWaterNetwork(object):
         while True:
             numiter += 1
 
-    def remove(self, condition=None, upstream=[], downstream=[]):
+    def remove(self, condition=False, segnums=[]):
         """Remove segments (and catchments)
 
         Parameters
         ----------
-        condition : pandas.Series, optional
-            Series of bool for each segment index, where True is to discard.
-        upstream : list
-            List of segnums to remove upstream from an identifier
-        downstream : list
-            List of segnums to remove downstream from an identifier, with
-            further removals upstream from each branch downstream.
+        condition : bool or pandas.Series
+            Series of bool for each segment index, where True is to remove.
+            Combined with 'segnums'. Defaut False (keep all).
+        segnums : list
+            List of segnums to remove. Combined with 'condition'. Default [].
 
         Returns
         -------
         None
         """
+        condition = self.segment_series(condition, 'condition').astype(bool)
+        if condition.any():
+            self.logger.debug(
+                'selecting %d segnum(s) based on a condition',
+                condition.sum())
+        sel = condition.copy()
         segments_index = self.segments.index
-        if condition is not None:
-            if not isinstance(condition, pd.Series):
-                raise ValueError('condition must be a pandas.Series')
-            elif (len(condition.index) != len(segments_index) or
-                    not (condition.index == segments_index).all()):
-                raise ValueError('index is different than for segments')
-            sel = ~condition.astype(bool)
+        if len(segnums) > 0:
+            segnums_set = set(segnums)
+            if not segnums_set.issubset(segments_index):
+                diff = segnums_set.difference(segments_index)
+                raise IndexError(
+                    '{0} segnums not found in segments.index: {1}'
+                    .format(len(diff), list(diff)[:5]))
+            self.logger.debug(
+                'selecting %d segnum(s) based on a list', len(segnums_set))
+            sel |= segments_index.isin(segnums_set)
+        if sel.all():
+            raise ValueError(
+                'all segments were selected to remove; must keep at least one')
+        elif (~sel).all():
+            self.logger.info('no segments selected to remove; no changes made')
         else:
-            sel = pd.Series(True, index=segments_index)
-        for segnum in downstream:
-            downstream_segnums = self.get_dowstream(segnum)
-        self.segments = self.segments.loc[sel]
-        if self.catchments is not None:
-            self.catchments = self.catchments.loc[sel]
+            assert sel.any()
+            self.logger.info(
+                'removing %d of %d segments (%.2f%%)', sel.sum(),
+                len(segments_index), sel.sum() * 100.0 / len(segments_index))
+            self.segments = self.segments.loc[~sel]
+            if self.catchments is not None:
+                self.catchments = self.catchments.loc[~sel]
         return
 
     def process_flopy(self, m, ibound_action='freeze', min_slope=1./1000,

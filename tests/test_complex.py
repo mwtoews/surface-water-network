@@ -82,8 +82,11 @@ def test_catchment_polygons(costal_lines_gdf, costal_polygons_gdf):
     polygons = costal_polygons_gdf.geometry
     n = swn.SurfaceWaterNetwork(lines, polygons)
     cat_areas = n.catchments.area
-    # pretty big absolute difference ~ 88 m2
+    # only consider areas where polygons existed (some were filled in)
+    nonzero = costal_polygons_gdf['Area'] != 0.0
     np.testing.assert_allclose(
-        cat_areas, costal_polygons_gdf['Area'], atol=89.0)
+        cat_areas[nonzero], costal_polygons_gdf.loc[nonzero, 'Area'])
+    # this has a wider margin of error, but still relatively small
     up_cat_areas = n.accumulate_values(cat_areas)
-    # TODO: finish check
+    np.testing.assert_allclose(
+        up_cat_areas, costal_lines_gdf['CUM_AREA'], atol=7800.0)
