@@ -1012,6 +1012,7 @@ class SurfaceWaterNetwork(object):
                         rem_c.loc[1] = {
                             'pt': rem.interpolate(0.5, normalized=True)}
                         rem_c.sort_index(inplace=True)
+                        rem = LineString(list(rem_c['pt']))  # rebuild
                     # first match assumed to be touching the start of the line
                     if rem_c.at[0, 'pt'].touches(matches[1][2]):
                         matches.reverse()
