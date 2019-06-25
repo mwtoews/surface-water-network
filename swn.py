@@ -1387,7 +1387,31 @@ class SurfaceWaterNetwork(object):
                 self.segment_data.loc[segsel, 'outseg'])
         # return self.segment_data
 
-    def set_reach_topbot(self, m):
+    def reconcile_reach_strtop(self):
+        def reach_elevs(seg):
+            kper = 0
+            segsel = self.segment_data['nseg'] == seg.name
+
+            seg_elevup = self.segment_data.loc[segsel, 'elevup'].values[0]
+            seg_slope = self.segment_data.loc[segsel, 'Zslope'].values[0]
+
+            # interpolate reach lengths to cell centres
+            cmids = seg.seglen.shift().fillna(0.0) + seg.rchlen.multiply(0.5)
+            cmids.iat[0] = 0.0
+            cmids.iat[-1] = seg.seglen.iloc[-1]
+            seg['cmids'] = cmids  # cummod+(seg.rchlen *0.5)
+            # calculate reach strtops
+            seg['strtop'] = seg['cmids'].multiply(seg_slope) + seg_elevup
+            # seg['slope']= #!!!!! use m.sfr.get_slopes() method
+            return seg
+        self.segment_data['Zslope'] = (self.segment_data['elevdn'] -
+                                       self.segment_data['elevup']) / \
+                                       self.segment_data['seglen']
+        segs = self.reach_data.groupby('iseg')
+        self.reach_data['seglen'] = segs.rchlen.cumsum()
+        self.reach_data = segs.apply(reach_elevs)
+
+    def set_topbot_elevs_at_reaches(self, m):
         self.reach_data['top'] = m.dis.top.array[
             tuple(self.reach_data[['i', 'j']].values.T)]
         self.reach_data['bot'] = m.dis.botm[0].array[
@@ -1405,34 +1429,7 @@ class SurfaceWaterNetwork(object):
         p = ModelPlot(model, domain_extent)
         p._add_plotlayer(dem, label="Elevation (m)")
         p._add_sfr(sfrar, cat_cmap=False, colorbar=True,
-                          cbar_label=label)
-        #
-        # vmin = sfrar.min()
-        # vmax = sfrar.max()
-        # skfig, ax0 = plt.subplots()
-        # skfig.set_size_inches(8, 8)
-        # ax0.set_aspect('equal')
-        # cmap = cm.get_cmap('bwr_r')
-        # norm = MidpointNormalize(vmin=vmin, vmax=vmax, midpoint=0)
-        # imdem = ax0.imshow(dem, extent=extent)
-        # imsfr = ax0.imshow(sfrar, extent=extent, cmap=cmap, norm=norm)
-        # divider = make_axes_locatable(ax0)
-        # caxdem = divider.append_axes("right", size="5%", pad=0.05)
-        # caxsfr = divider.append_axes("right", size="5%", pad=0.5)
-        # # if points is not None:
-        # #     ax0.scatter(m.sr.xcentergrid[points.i, points.j],
-        # #                 m.sr.ycentergrid[points.i, points.j],
-        # #                 marker='o', zorder=15, facecolors='none',
-        # #                 edgecolors='r')
-        # # if points2 is not None:
-        # #     ax0.scatter(m.sr.xcentergrid[points2.i, points2.j],
-        # #                 m.sr.ycentergrid[points2.i, points2.j],
-        # #                 marker='o', zorder=15, facecolors='none',
-        # #                 edgecolors='b')
-        # ax0.set_xlim(extent[:2])
-        # ax0.set_ylim(extent[2:])
-        # cbardem = plt.colorbar(imdem, cax=caxdem)
-        # cbarsfr = plt.colorbar(imsfr, cax=caxsfr)
+                   cbar_label=label)
 
     def plot_reaches_above(self, model, seg, dem=None,
                            plot_bottom=False, points2=None):
@@ -1673,6 +1670,8 @@ class ModelPlot(object):
                 # imsfr.set_clim(1, n + 1)
                 cbar1.set_ticks(bounds[:-1] + np.diff(bounds) / 2)
                 cbar1.set_ticklabels(np.sort(vals).astype(int))
+
+
 
 
 def sfr_rec_to_df(sfr):

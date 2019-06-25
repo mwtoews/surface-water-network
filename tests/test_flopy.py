@@ -341,9 +341,12 @@ def test_set_elevations(n2d, tmpdir_factory):
     n.get_outseg_elev()
     n.get_segment_legth()
     n.set_forward_segs(min_slope=1.e-4)
-    n.set_reach_topbot(m)
-
+    n.reconcile_reach_strtop()
+    n.set_topbot_elevs_at_reaches(m)
+    n.get_segment_incision()
     n.plot_reaches_above(m, 'all', plot_bottom=True, points2=None)
+    segdatadf, reachdatadf = swn.sfr_rec_to_df(m.sfr)
+
     # Data set 1c
     assert abs(m.sfr.nstrm) == 7
     assert m.sfr.nss == 3
