@@ -12,7 +12,7 @@ from fiona import crs as fiona_crs
 from math import sqrt
 from shapely import wkt
 from shapely.geometry import LineString, Point, Polygon, box
-from shapely.ops import linemerge
+from shapely.ops import cascaded_union, linemerge
 try:
     from osgeo import gdal
 except ImportError:
@@ -514,6 +514,68 @@ class SurfaceWaterNetwork(object):
                             upsegnums = list(go_upstream(from_segnum))
                             segnums += upsegnums
         return segnums
+
+    def aggregate(self, segnums):
+        """Aggregate segments (and catchments) to a coarser network of segnums
+
+        Parameters
+        ----------
+        segnums : list
+            List of segmnet numbers to aggregate. Must be unique.
+
+        Returns
+        -------
+        SurfaceWaterNetwork
+        """
+        segnums_set = set(segnums)
+        if len(segnums) != len(segnums_set):
+            raise ValueError('list of segnums is not unique')
+        segments_index_set = set(self.segments.index)
+        if not segnums_set.issubset(segments_index_set):
+            diff = segnums_set.difference(segments_index_set)
+            raise IndexError(
+                '{0} segnums not found in segments.index: {1}'
+                .format(len(diff), list(diff)[:5]))
+        from_segnums = self.from_segnums
+        if 'length' in self.segments.columns:
+            del self.segments['length']
+        self.segments['length'] = self.segments.geometry.length
+        order_keys = ['stream_order', 'length']
+
+        def up_line(segnum):
+            yield self.segments.geometry.at[segnum]
+            if segnum in from_segnums:
+                sel = list(from_segnums[segnum].difference(segnums_set))
+                if len(sel) > 0:
+                    if len(sel) == 1:
+                        next_segnum = sel[0]
+                    elif len(sel) > 1:
+                        # pick the longest line with highest stream order
+                        next_segnum = self.segments.loc[
+                            from_segnums[segnum], order_keys]\
+                            .sort_values(order_keys, ascending=False).index[0]
+                    # Python 3 would just do: yield from up_line(next_segnum)
+                    for next_line in up_line(next_segnum):
+                        yield next_line
+
+        def up_poly(segnum):
+            yield self.catchments.geometry.at[segnum]
+            for from_segnum in from_segnums.get(segnum, []):
+                if from_segnum not in segnums_set:
+                    # Python 3 would just do: yield from up_poly(from_segnum)
+                    for next_segnum in up_poly(from_segnum):
+                        yield self.catchments.geometry.at[next_segnum]
+
+        lines = geopandas.GeoSeries()
+        if self.catchments is not None:
+            polygons = geopandas.GeoSeries()
+        else:
+            polygons = None
+        for segnum in segnums:
+            lines.loc[segnum] = linemerge(list(up_line(segnum)))
+            if polygons is not None:
+                polygons.loc[segnum] = cascaded_union(list(up_poly(segnum)))
+        return SurfaceWaterNetwork(lines, polygons)
 
     def accumulate_values(self, values):
         """Accumulate values down the stream network
