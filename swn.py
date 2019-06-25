@@ -1217,7 +1217,7 @@ class SurfaceWaterNetwork(object):
                 model=m,
                 reach_data=self.reach_data.to_records(index=True),
                 segment_data=segment_data)
-        self.m = m
+        self.model = m
 
     def get_seg_ijk(self):
         """This will just get the upstream and downstream segment k,i,j """
@@ -1417,6 +1417,189 @@ class SurfaceWaterNetwork(object):
         self.reach_data['bot'] = m.dis.botm[0].array[
             tuple(self.reach_data[['i', 'j']].values.T)]
         # return reachdata_df
+
+    def fix_reach_elevs(self, minslope=0.0001):
+        """
+        need to ensure reach elevation is:
+            below the top
+            below the upstream reach
+            above the minimum slope to the bottom reach elevation
+            above the base of layer 1
+        segment by segment, reach by reach! Fun!
+
+        :return:
+        """
+        buffer = 1.0  # 1 m (buffer to leave at the base of layer 1 -
+        # also helps with precision issues)
+        # top read from dis as float32 so comparison need to be with like
+        reachsel = self.reach_data['top'] <= self.reach_data['strtop']
+        print('{} segments with reaches above model top'.format(
+            self.reach_data[reachsel]['iseg'].unique().shape[0]))
+        # get segments with reaches above the top surface
+        segsabove = self.reach_data[reachsel].groupby(
+            'iseg').size().sort_values(ascending=False)
+        # get incision gradient from segment elevups and elevdns
+        # ('diff_up' and 'diff_dn' are the incisions of the top and
+        # bottom reaches from the segment data)
+        self.segment_data['incgrad'] = (self.segment_data['diff_up'] -
+                                        self.segment_data['diff_dn']) / \
+                                        self.segment_data['seglen']
+        # copy of layer 1 bottom (for updating to fit in stream reaches)
+        layerbots = self.model.dis.botm.array.copy()
+        # loop over each segment
+        for seg in self.segment_data['nseg'].values:  # (all segs)
+            print('')  # printout spacer
+            # selection for segment in reachdata and seg data
+            rsel = self.reach_data['iseg'] == seg
+            segsel = self.segment_data['nseg'] == seg
+
+            if seg in segsabove:
+                # check top and bottom reaches are above layer 1 bottom
+                # (not adjusting elevations of reaches)
+                for reach in self.reach_data[rsel].iloc[[0, -1]].itertuples():
+                    if reach.strtop - reach.strthick < reach.bot + buffer:
+                        # drop bottom of layer one to accomodate stream
+                        print(f'seg {seg} reach {reach.ireach} '
+                              f'is below layer 1 bottom')
+                        print(
+                            f'dropping layer 1 bottom to '
+                            f'{reach.strtop - reach.strthick - buffer} '
+                            f'to accomodate stream @ i = '
+                            f'{reach.i}, j = {reach.j}')
+                        layerbots[0, reach.i, reach.j] = \
+                            reach.strtop - reach.strthick - buffer
+                # apparent optimised incision based
+                # on the incision gradient for the segment
+                self.reach_data.loc[rsel, 'strtop_incopt'] = \
+                    self.reach_data.loc[rsel, 'top'].subtract(
+                        self.segment_data.loc[segsel, 'diff_up'].values[0]) + \
+                    (self.reach_data.loc[rsel, 'cmids'].subtract(
+                        self.reach_data.loc[rsel, 'cmids'].values[0]) *
+                     self.segment_data.loc[segsel, 'incgrad'].values[0])
+                # falls apart when the top elevation is not monotonically
+                # decreasing down the segment (/always!)
+
+                # bottom reach elevation:
+                botreach_strtop = self.reach_data[rsel]['strtop'].values[-1]
+                # total segment length
+                seglen = self.reach_data[rsel]['seglen'].values[-1]
+                botreach_slope = minslope  # minimum slope of segment
+                # top reach elevation and "length?":
+                upreach_strtop = self.reach_data[rsel]['strtop'].values[0]
+                upreach_cmid = self.reach_data[rsel]['cmids'].values[0]
+                # use top reach as starting point
+
+                # loop over reaches in segement from second to penultimate
+                # (dont want to move elevup or elevdn)
+                for reach in self.reach_data[rsel][1:-1].itertuples():
+                    # strtop that would result from minimum slope
+                    # from upstream reach
+                    strtop_withminslope = upreach_strtop - (
+                            (reach.cmids - upreach_cmid) * minslope)
+                    # strtop that would result from minimum slope
+                    # from bottom reach
+                    strtop_min2bot = botreach_strtop + (
+                            (seglen - reach.cmids) * minslope)
+                    # check 'optimum incision' is below upstream elevation
+                    # and above the minimum slope to the bottom reach
+                    if reach.strtop_incopt < strtop_min2bot:
+                        # strtop would give too shallow a slope to
+                        # the bottom reach (not moving bottom reach)
+                        print(f'seg {seg} reach {reach.ireach}, '
+                              f'incopt is \\/ below minimum slope '
+                              f'from bottom reach elevation')
+                        print('setting elevation to minslope from bottom')
+                        # set to minimum slope from outreach
+                        self.reach_data.at[
+                            reach.Index, 'strtop'] = strtop_min2bot
+                        # update upreach for next iteration
+                        upreach_strtop = strtop_min2bot
+                    elif reach.strtop_incopt > strtop_withminslope:
+                        # strtop would be above upstream or give
+                        # too shallow a slope from upstream
+                        print(f'seg {seg} reach {reach.ireach}, '
+                              f'incopt /\\ above upstream')
+                        print('setting elevation to minslope from upstream')
+                        # set to minimum slope from upstream reach
+                        self.reach_data.at[
+                            reach.Index, 'strtop'] = strtop_withminslope
+                        # update upreach for next iteration
+                        upreach_strtop = strtop_withminslope
+                    else:
+                        # strtop might be ok to set to 'optimum incision'
+                        print(f'seg {seg} reach {reach.ireach}, '
+                              f'incopt is -- below upstream reach and above '
+                              f'the bottom reach')
+                        # CHECK FIRST:
+                        # if optimium incision would place it
+                        # below the bottom of layer 1
+                        if reach.strtop_incopt - reach.strthick < \
+                                reach.bot + buffer:
+                            # opt - stream thickness lower than layer 1 bottom
+                            # (with a buffer)
+                            print(f'seg {seg} reach {reach.ireach}, '
+                                  f'incopt - bot is x\\/ below layer 1 bottom')
+                            if reach.bot + reach.strthick + buffer > \
+                                    strtop_withminslope:
+                                # if layer bottom would put reach above
+                                # upstream reach we can only set to
+                                # minimum slope from upstream
+                                print('setting elevation to minslope '
+                                      'from upstream')
+                                self.reach_data.at[reach.Index, 'strtop'] = \
+                                    strtop_withminslope
+                                upreach_strtop = strtop_withminslope
+                            else:
+                                # otherwise we can move reach so that it
+                                # fits into layer 1
+                                print(f'setting elevation to '
+                                      f'{reach.bot + reach.strthick + buffer}'
+                                      f', above layer 1 bottom')
+                                # set reach top so that it is above layer 1
+                                # bottom with a buffer
+                                # (allowing for bed thickness)
+                                self.reach_data.at[reach.Index, 'strtop'] = \
+                                    reach.bot + buffer + reach.strthick
+                                upreach_strtop = reach.bot + buffer + \
+                                                 reach.strthick
+                        else:
+                            # strtop ok to set to 'optimum incision'
+                            # set to "optimum incision"
+                            print('setting elevation to incopt')
+                            self.reach_data.at[
+                                reach.Index, 'strtop'] = reach.strtop_incopt
+                            upreach_strtop = reach.strtop_incopt
+                    # check if new stream top is above layer 1 with a buffer
+                    # (allowing for bed thickness)
+                    if upreach_strtop < reach.bot + buffer + reach.strthick:
+                        # if new strtop is below layer one
+                        # drop bottom of layer one to accomodate stream
+                        # (top, bed thickness and buffer)
+                        print(f'dropping layer 1 bottom to '
+                              f'{upreach_strtop - reach.strthick - buffer} '
+                              f'to accomodate stream @ i = '
+                              f'{reach.i}, j = {reach.j}')
+                        layerbots[0, reach.i, reach.j] = \
+                            upreach_strtop - reach.strthick - buffer
+                    upreach_cmid = reach.cmids
+                    # upreach_slope=reach.slope
+            else:
+                # For segments that do not have reaches above top
+                # check if reaches are below layer 1
+                print(f'seg {seg} is always downstream and below the top')
+                for reach in self.reach_data[rsel].itertuples():
+                    if reach.strtop < reach.bot + buffer + reach.strthick:
+                        # strtop is below layer one
+                        # drop bottom of layer one to accomodate stream
+                        # (top, bed thickness and buffer)
+                        print(f'seg {seg} reach {reach.ireach} '
+                              f'is below layer 1 bottom')
+                        print(f'dropping layer 1 bottom to '
+                              f'{reach.strtop - reach.strthick - buffer} '
+                              f'to accomodate stream @ i = '
+                              f'{reach.i}, j = {reach.j}')
+                        layerbots[0, reach.i, reach.j] = \
+                            reach.strtop - reach.strthick - buffer
 
     def sfr_plot(self, model, sfrar, dem, points=None, points2=None,
                  label=None):
