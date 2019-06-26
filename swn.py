@@ -14,7 +14,6 @@ from shapely import wkt
 from shapely.geometry import LineString, Point, Polygon, box
 from matplotlib import pyplot as plt
 from matplotlib import colors, cm
-import cartopy.crs as ccrs
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from shapely.ops import cascaded_union, linemerge
 
@@ -1435,7 +1434,7 @@ class SurfaceWaterNetwork(object):
             columns={"k": "k_up", "i": "i_up", "j": "j_up"}, inplace=True)
         # seg bottoms
         btmidx = self.reach_data.groupby('iseg')['ireach'].transform(max) == \
-                 self.reach_data['ireach']
+            self.reach_data['ireach']
         kij_df = self.reach_data[btmidx][['iseg', 'k', 'i', 'j']].sort_values(
             'iseg')
 
@@ -1555,9 +1554,10 @@ class SurfaceWaterNetwork(object):
                 # downstream elevation too high
                 dn = up - (seg.seglen * minslope)  # set to minslope
                 outseg_up = up - (seg.seglen * minslope) - downstreambuffer
-                print(f'Segment {int(seg.nseg)}, outseg = {int(seg.outseg)}, '
-                      f'old outseg_elevup = {seg.outseg_elevup}, '
-                      f'new outseg_elevup = {outseg_up}')
+                print('Segment {}, outseg = {}, old outseg_elevup = {}, '
+                      'new outseg_elevup = {}'
+                      .format(seg.nseg, seg.outseg, seg.outseg_elevup,
+                              outseg_up))
             else:
                 dn = down
                 outseg_up = down - downstreambuffer
@@ -1566,14 +1566,14 @@ class SurfaceWaterNetwork(object):
             down = seg.elevdn
             if down > up - (seg.seglen * minslope):
                 dn = up - (seg.seglen * minslope)
-                print(f'Outflow Segment {int(seg.nseg)}, '
-                      f'outseg = {int(seg.outseg)}, '
-                      f'old elevdn = {seg.elevdn}, '
-                      f'new elevdn = {dn}')
+                print('Outflow Segment {}, outseg = {}, old elevdn = {}, '
+                      'new elevdn = {}'
+                      .format(seg.nseg, seg.outseg, seg.elevdn, dn))
             else:
                 dn = down
+        # this returns a DF once the apply is done!
         return pd.Series({'nseg': seg.nseg, 'elevdn': dn,
-                          'outseg_elevup': outseg_up})  # this returns a DF once the apply is done!
+                          'outseg_elevup': outseg_up})
 
     def set_forward_segs(self, min_slope=1.e-4):
         """
@@ -1583,13 +1583,12 @@ class SurfaceWaterNetwork(object):
         :param min_slope: Desired minimum slope
         :return: and updated segment data df
         """
-        ### upper most segments (not referenced as outsegs)
+        # upper most segments (not referenced as outsegs)
         # segdata_df = self.segment_data.sort_index(axis=1)
         segsel = ~self.segment_data['nseg'].isin(self.segment_data['outseg'])
         while segsel.sum() > 0:
-            print(
-                f'Checking elevdn and outseg_elevup '
-                f'for {int(segsel.sum())} segments')
+            print('Checking elevdn and outseg_elevup for {} segments'
+                  .format(segsel.sum()))
             # get elevdn and outseg_elevups with a minimum slope constraint
             # index should align with self.segment_data index
             # not applying directly allows us to filter out nans
@@ -1608,7 +1607,8 @@ class SurfaceWaterNetwork(object):
             tmp2 = pd.DataFrame(tmp2, columns=['elevup'])
             # update `elevups`
             eupsel = tmp2[tmp2.loc[:, 'elevup'].notna()].index
-            self.segment_data.loc[eupsel, 'elevup'] = tmp2.loc[eupsel, 'elevup']
+            self.segment_data.loc[eupsel, 'elevup'] = \
+                tmp2.loc[eupsel, 'elevup']
             # get list of next outsegs
             segsel = self.segment_data['nseg'].isin(
                 self.segment_data.loc[segsel, 'outseg'])
@@ -1671,9 +1671,9 @@ class SurfaceWaterNetwork(object):
             seg['strtop'] = seg['cmids'].multiply(seg_slope) + seg_elevup
             # seg['slope']= #!!!!! use m.sfr.get_slopes() method
             return seg
-        self.segment_data['Zslope'] = (self.segment_data['elevdn'] -
-                                       self.segment_data['elevup']) / \
-                                       self.segment_data['seglen']
+        self.segment_data['Zslope'] = \
+            ((self.segment_data['elevdn'] - self.segment_data['elevup']) /
+             self.segment_data['seglen'])
         segs = self.reach_data.groupby('iseg')
         self.reach_data['seglen'] = segs.rchlen.cumsum()
         self.reach_data = segs.apply(reach_elevs)
@@ -1716,9 +1716,9 @@ class SurfaceWaterNetwork(object):
         # get incision gradient from segment elevups and elevdns
         # ('diff_up' and 'diff_dn' are the incisions of the top and
         # bottom reaches from the segment data)
-        self.segment_data['incgrad'] = (self.segment_data['diff_up'] -
-                                        self.segment_data['diff_dn']) / \
-                                       self.segment_data['seglen']
+        self.segment_data['incgrad'] = \
+            ((self.segment_data['diff_up'] - self.segment_data['diff_dn']) /
+             self.segment_data['seglen'])
         # copy of layer 1 bottom (for updating to fit in stream reaches)
         layerbots = self.model.dis.botm.array.copy()
         # loop over each segment
@@ -1733,13 +1733,13 @@ class SurfaceWaterNetwork(object):
                 for reach in self.reach_data[rsel].iloc[[0, -1]].itertuples():
                     if reach.strtop - reach.strthick < reach.bot + buffer:
                         # drop bottom of layer one to accomodate stream
-                        print(f'seg {seg} reach {reach.ireach} '
-                              f'is below layer 1 bottom')
+                        print('seg {} reach {} is below layer 1 bottom'
+                              .format(seg, reach.ireach))
                         print(
-                            f'dropping layer 1 bottom to '
-                            f'{reach.strtop - reach.strthick - buffer} '
-                            f'to accomodate stream @ i = '
-                            f'{reach.i}, j = {reach.j}')
+                            'dropping layer 1 bottom to {} to accomodate '
+                            'stream @ i = {}, j = {}'
+                            .format(reach.strtop - reach.strthick - buffer,
+                                    reach.i, reach.j))
                         layerbots[0, reach.i, reach.j] = \
                             reach.strtop - reach.strthick - buffer
                 # apparent optimised incision based
@@ -1779,9 +1779,9 @@ class SurfaceWaterNetwork(object):
                     if reach.strtop_incopt < strtop_min2bot:
                         # strtop would give too shallow a slope to
                         # the bottom reach (not moving bottom reach)
-                        print(f'seg {seg} reach {reach.ireach}, '
-                              f'incopt is \\/ below minimum slope '
-                              f'from bottom reach elevation')
+                        print('seg {} reach {}, incopt is \\/ below minimum '
+                              'slope from bottom reach elevation'
+                              .format(seg, reach.ireach))
                         print('setting elevation to minslope from bottom')
                         # set to minimum slope from outreach
                         self.reach_data.at[
@@ -1791,8 +1791,8 @@ class SurfaceWaterNetwork(object):
                     elif reach.strtop_incopt > strtop_withminslope:
                         # strtop would be above upstream or give
                         # too shallow a slope from upstream
-                        print(f'seg {seg} reach {reach.ireach}, '
-                              f'incopt /\\ above upstream')
+                        print('seg {} reach {}, incopt /\\ above upstream'
+                              .format(seg, reach.ireach))
                         print('setting elevation to minslope from upstream')
                         # set to minimum slope from upstream reach
                         self.reach_data.at[
@@ -1801,9 +1801,9 @@ class SurfaceWaterNetwork(object):
                         upreach_strtop = strtop_withminslope
                     else:
                         # strtop might be ok to set to 'optimum incision'
-                        print(f'seg {seg} reach {reach.ireach}, '
-                              f'incopt is -- below upstream reach and above '
-                              f'the bottom reach')
+                        print('seg {} reach {}, incopt is -- below upstream '
+                              'reach and above the bottom reach'
+                              .format(seg, reach.ireach))
                         # CHECK FIRST:
                         # if optimium incision would place it
                         # below the bottom of layer 1
@@ -1811,8 +1811,9 @@ class SurfaceWaterNetwork(object):
                                 reach.bot + buffer:
                             # opt - stream thickness lower than layer 1 bottom
                             # (with a buffer)
-                            print(f'seg {seg} reach {reach.ireach}, '
-                                  f'incopt - bot is x\\/ below layer 1 bottom')
+                            print('seg {} reach {}, incopt - bot is x\\/ '
+                                  'below layer 1 bottom'
+                                  .format(seg, reach.ireach))
                             if reach.bot + reach.strthick + buffer > \
                                     strtop_withminslope:
                                 # if layer bottom would put reach above
@@ -1826,16 +1827,15 @@ class SurfaceWaterNetwork(object):
                             else:
                                 # otherwise we can move reach so that it
                                 # fits into layer 1
-                                print(f'setting elevation to '
-                                      f'{reach.bot + reach.strthick + buffer}'
-                                      f', above layer 1 bottom')
+                                new_elev = reach.bot + reach.strthick + buffer
+                                print('setting elevation to {}, above layer '
+                                      '1 bottom'.format(new_elev))
                                 # set reach top so that it is above layer 1
                                 # bottom with a buffer
                                 # (allowing for bed thickness)
                                 self.reach_data.at[reach.Index, 'strtop'] = \
                                     reach.bot + buffer + reach.strthick
-                                upreach_strtop = reach.bot + buffer + \
-                                                 reach.strthick
+                                upreach_strtop = new_elev
                         else:
                             # strtop ok to set to 'optimum incision'
                             # set to "optimum incision"
@@ -1849,31 +1849,30 @@ class SurfaceWaterNetwork(object):
                         # if new strtop is below layer one
                         # drop bottom of layer one to accomodate stream
                         # (top, bed thickness and buffer)
-                        print(f'dropping layer 1 bottom to '
-                              f'{upreach_strtop - reach.strthick - buffer} '
-                              f'to accomodate stream @ i = '
-                              f'{reach.i}, j = {reach.j}')
-                        layerbots[0, reach.i, reach.j] = \
-                            upreach_strtop - reach.strthick - buffer
+                        new_elev = upreach_strtop - reach.strthick - buffer
+                        print('dropping layer 1 bottom to {} to accomodate '
+                              'stream @ i = {}, j = {}'
+                              .format(new_elev, reach.i, reach.j))
+                        layerbots[0, reach.i, reach.j] = new_elev
                     upreach_cmid = reach.cmids
                     # upreach_slope=reach.slope
             else:
                 # For segments that do not have reaches above top
                 # check if reaches are below layer 1
-                print(f'seg {seg} is always downstream and below the top')
+                print('seg {} is always downstream and below the top'
+                      .format(seg))
                 for reach in self.reach_data[rsel].itertuples():
                     if reach.strtop < reach.bot + buffer + reach.strthick:
                         # strtop is below layer one
                         # drop bottom of layer one to accomodate stream
                         # (top, bed thickness and buffer)
-                        print(f'seg {seg} reach {reach.ireach} '
-                              f'is below layer 1 bottom')
-                        print(f'dropping layer 1 bottom to '
-                              f'{reach.strtop - reach.strthick - buffer} '
-                              f'to accomodate stream @ i = '
-                              f'{reach.i}, j = {reach.j}')
-                        layerbots[0, reach.i, reach.j] = \
-                            reach.strtop - reach.strthick - buffer
+                        new_elev = reach.strtop - reach.strthick - buffer
+                        print('seg {} reach {} is below layer 1 bottom'
+                              .format(seg, reach.ireach))
+                        print('dropping layer 1 bottom to {} to accomodate '
+                              'stream @ i = {}, j = {}'
+                              .format(new_elev, reach.i, reach.j))
+                        layerbots[0, reach.i, reach.j] = new_elev
             print('')  # printout spacer
         if fix_dis:
             # fix dis for incised reaches
@@ -1882,16 +1881,19 @@ class SurfaceWaterNetwork(object):
                     lay + 1]  # first one is layer 1 bottom - layer 2 bottom
                 print('checking layer {} thicknesses'.format(lay + 2))
                 thincells = laythick < minthick
-                print('{} cells less than {}'.format(thincells.sum(), minthick))
+                print('{} cells less than {}'
+                      .format(thincells.sum(), minthick))
                 laythick[thincells] = minthick
                 layerbots[lay + 1] = layerbots[lay] - laythick
             self.model.dis.botm = layerbots
 
     def sfr_plot(self, model, sfrar, dem, points=None, points2=None,
                  label=None):
+        import cartopy.crs as ccrs
         mprj = ccrs.epsg(2193)
         crs_longlat = ccrs.PlateCarree()
-        extent = model.modelgrid.extent  # # get model spacial reference extent - local utm
+        # get model spacial reference extent - local utm
+        extent = model.modelgrid.extent
         domain_extent = crs_longlat.transform_points(
             mprj, np.array(extent[0:2]),
             np.array(extent[2:])).T.flatten()[0:4]
@@ -1905,10 +1907,12 @@ class SurfaceWaterNetwork(object):
         dis = model.dis
         sfr = model.sfr
         if dem is None:
-            dem = np.ma.array(dis.top.array, mask=model.bas6.ibound.array[0] == 0)
+            dem = np.ma.array(
+                dis.top.array, mask=model.bas6.ibound.array[0] == 0)
         sfrar = np.ma.zeros(dis.top.array.shape, 'f')
         sfrar.mask = np.ones(sfrar.shape)
-        lay1reaches = self.reach_data.loc[self.reach_data.k.apply(lambda x: x == 1)]
+        lay1reaches = self.reach_data.loc[
+            self.reach_data.k.apply(lambda x: x == 1)]
         points = None
         if lay1reaches.shape[0] > 0:
             points = lay1reaches[['i', 'j']]
@@ -1917,9 +1921,11 @@ class SurfaceWaterNetwork(object):
             segsel = np.ones((self.reach_data.shape[0]), dtype=bool)
         else:
             segsel = self.reach_data['iseg'] == seg
-        sfrar[tuple((self.reach_data[segsel][['i', 'j']].values.T).tolist())] = \
-            (self.reach_data[segsel]['top'] - self.reach_data[segsel][
-                'strtop']).tolist()  # .mask = np.ones(sfrar.shape)
+        sfrar[tuple((self.reach_data[segsel][['i', 'j']]
+                     .values.T).tolist())] = \
+            (self.reach_data[segsel]['top'] -
+             self.reach_data[segsel]['strtop']).tolist()
+        # .mask = np.ones(sfrar.shape)
         self.sfr_plot(model, sfrar, dem, points=points, points2=points2,
                       label="str below top (m)")
         if seg != 'all':
@@ -1929,10 +1935,11 @@ class SurfaceWaterNetwork(object):
                                  mask=model.bas6.ibound.array[0] == 0)
             sfrarbot = np.ma.zeros(dis.botm.array[0].shape, 'f')
             sfrarbot.mask = np.ones(sfrarbot.shape)
-            sfrarbot[
-                tuple((self.reach_data[segsel][['i', 'j']].values.T).tolist())] = \
-                (self.reach_data[segsel]['strtop'] - self.reach_data[segsel][
-                    'bot']).tolist()  # .mask = np.ones(sfrar.shape)
+            sfrarbot[tuple((self.reach_data[segsel][['i', 'j']]
+                            .values.T).tolist())] = \
+                (self.reach_data[segsel]['strtop'] -
+                 self.reach_data[segsel]['bot']).tolist()
+            # .mask = np.ones(sfrar.shape)
             self.sfr_plot(model, sfrarbot, dembot, points=points,
                           points2=points2, label="str above bottom (m)")
 
@@ -1948,7 +1955,8 @@ class ModelPlot(object):
         :param model: flopy modflow model object
         :param fig: matplotlib figure handle
         :param ax: Cartopy GeoAxes with .projection attribute
-        :param domain_extent: np.array of array([long-left , long-right, lat-up, lat-dn])
+        :param domain_extent: np.array of array(
+                                    [long-left , long-right, lat-up, lat-dn])
         """
 
         self.model = model
@@ -1962,15 +1970,16 @@ class ModelPlot(object):
         # if no figure or axes based initialise figure
         if fig is None or ax is None:
             plt.rc('font', size=10)
+            import cartopy.crs as ccrs
             try:
-                self.mprj = ccrs.epsg(2193) #TODO - flexi
+                self.mprj = ccrs.epsg(2193)  # TODO - flexi
             except:
                 print("error getting model projection")
                 exit()
-            crs_longlat = ccrs.PlateCarree()
+            # empty figure container cartopy geoaxes
             self.fig, self.ax = plt.subplots(figsize=figsize,
                                              subplot_kw=dict(
-                                                 projection=self.mprj))  # empty figure container cartopy geoaxes
+                                                 projection=self.mprj))
         else:
             self.fig = fig
             self.ax = ax
@@ -2034,8 +2043,11 @@ class ModelPlot(object):
 
     def _get_cbar_props(self):
         """
-        Get properties for next colorbar and its label based on the number of axis already in plot
-        :return: divider padding, label locations for use when appending divider axes and setting colorbar label.
+        Get properties for next colorbar and its label based on the number of
+        axis already in plot
+
+        :return: divider padding, label locations for use when appending
+            divider axes and setting colorbar label.
         """
         numax = len(self.ax.figure.axes)
         if np.mod(numax, 2) == 1:
@@ -2045,10 +2057,12 @@ class ModelPlot(object):
                 divider_props = dict(pad=0.2)
             else:
                 divider_props = dict(pad=0.5)
-            props = dict(labelpad=-40, y=1.01, rotation=0, ha='center', va='bottom')
+            props = dict(labelpad=-40, y=1.01, rotation=0,
+                         ha='center', va='bottom')
         else:
             divider_props = dict(pad=0.5)
-            props = dict(labelpad=-40, y=-0.01, rotation=0, ha='center', va='top')
+            props = dict(labelpad=-40, y=-0.01, rotation=0,
+                         ha='center', va='top')
         return divider_props, props
 
     def _set_divider(self):
@@ -2065,11 +2079,14 @@ class ModelPlot(object):
         :param alpha: mpl transparency
         """
         array = np.ones((self.model.nrow, self.model.ncol))
-        array = np.ma.masked_where(self.model.bas6.ibound.array[lay] != 0, array)
-        self.ax.imshow(array, extent=self.extent, transform=self.mprj, cmap="Greys_r",
-                       origin="upper", zorder=zorder, alpha=alpha)
+        array = np.ma.masked_where(
+            self.model.bas6.ibound.array[lay] != 0, array)
+        self.ax.imshow(
+            array, extent=self.extent, transform=self.mprj, cmap="Greys_r",
+            origin="upper", zorder=zorder, alpha=alpha)
 
-    def _add_plotlayer(self, k, zorder=10, alpha=0.8, label=None, get_range=False):
+    def _add_plotlayer(self, k, zorder=10, alpha=0.8, label=None,
+                       get_range=False):
         """
         Add image for head
         :param k: 2D numpy array
@@ -2083,10 +2100,12 @@ class ModelPlot(object):
         if label is None:
             print("No label passed for colour bar")
             label = ""
-        hax = self.ax.imshow(k, zorder=zorder, extent=self.extent, origin="upper", transform=self.mprj, alpha=alpha,
-                             vmin=vmin, vmax=vmax)
+        hax = self.ax.imshow(
+            k, zorder=zorder, extent=self.extent, origin="upper",
+            transform=self.mprj, alpha=alpha, vmin=vmin, vmax=vmax)
         divider_props, props = self._get_cbar_props()
-        cax = self.divider.append_axes("right", size="5%", axes_class=plt.Axes, **divider_props)
+        cax = self.divider.append_axes(
+            "right", size="5%", axes_class=plt.Axes, **divider_props)
         cbar1 = self.fig.colorbar(hax, cax=cax)
         cbar1.set_label(label, **props)
 
@@ -2141,8 +2160,6 @@ class ModelPlot(object):
                 cbar1.set_ticklabels(np.sort(vals).astype(int))
 
 
-
-
 def sfr_rec_to_df(sfr):
     """
     Convert flopy rec arrays for ds2 and ds6 to pandas dataframes
@@ -2177,12 +2194,13 @@ def sfr_dfs_to_rec(model, segdatadf, reachdatadf, set_outreaches=False,
     # # reaches ds2
     model.sfr.reach_data = reachdatadf.to_records(index=False)
     if set_outreaches:
-        # flopy method to set/fix outreaches from segment routing and reach number information
+        # flopy method to set/fix outreaches from segment routing
+        # and reach number information
         model.sfr.set_outreaches()
     if get_slopes:
         model.sfr.get_slopes(minimum_slope=minslope)
-    # as of 08/03/2018 flopy plotting of sfr plots whatever is in stress_period_data
-    # add
+    # as of 08/03/2018 flopy plotting of sfr plots whatever is in
+    # stress_period_data; add
     model.sfr.stress_period_data.data[0] = model.sfr.reach_data
 
 
@@ -2222,4 +2240,3 @@ def topnet2ts(nc_path, varname, log_level=logging.INFO):
         df.index = pd.DatetimeIndex(num2date(time_v[:], time_v.units))
     logger.info('data successfully read')
     return df
-
