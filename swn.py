@@ -1220,7 +1220,9 @@ class SurfaceWaterNetwork(object):
         self.model = m
 
     def get_seg_ijk(self):
-        """This will just get the upstream and downstream segment k,i,j """
+        """
+        This will just get the upstream and downstream segment k,i,j
+        """
         topidx = self.reach_data['ireach'] == 1
         kij_df = self.reach_data[topidx][['iseg', 'k', 'i', 'j']].sort_values(
             'iseg')
@@ -1240,71 +1242,101 @@ class SurfaceWaterNetwork(object):
             'iseg', axis=1)
         self.segment_data.rename(
             columns={"k": "k_dn", "i": "i_dn", "j": "j_dn"}, inplace=True)
-        # return segdata_df
+        return self.segment_data[[
+            "k_up", "i_up", "j_up", "k_dn", "i_dn", "j_dn"]]
 
-    def get_top_elevs_at_segs(self, m):
-        '''Get topsurface elevations associated with segment up and dn elevations'''
+    def get_top_elevs_at_segs(self, m=None):
+        """
+        Get topsurface elevations associated with segment up and dn elevations.
+        Adds elevation of model top at
+        upstream and downstream ends of each segment
+        :param m: modeflow model with active dis package
+        :return: Adds 'top_up' and 'top_dn' columns to segment data dataframe
+        """
+        if m is None:
+            m = self.model
         assert m.sfr is not None, "need sfr package"
         self.segment_data['top_up'] = m.dis.top.array[
             tuple(self.segment_data[['i_up', 'j_up']].values.T)]
         self.segment_data['top_dn'] = m.dis.top.array[
             tuple(self.segment_data[['i_dn', 'j_dn']].values.T)]
-        # return segdata_df
+        return self.segment_data[['top_up', 'top_dn']]
 
     def get_segment_incision(self):
+        """
+        Calculates the upstream and downstream incision of the segment
+        :return:
+        """
         self.segment_data['diff_up'] = \
             self.segment_data['top_up'] - self.segment_data['elevup']
         self.segment_data['diff_dn'] = \
             self.segment_data['top_dn'] - self.segment_data['elevdn']
-        # return segdata_df
+        return self.segment_data[['diff_up', 'diff_dn']]
 
     def set_seg_minincise(self, minincise=0.2):
-        minincise = minincise
-        '''Set segment elevation so that they have the minumum incision from the top surface'''
+        """
+        Set segment elevation so that they have the minumum incision
+        from the top surface
+        :param minincise: Desired minimum incision
+        :return: incisions at the upstream and downstream end of each segment
+        """
         sel = self.segment_data['diff_up'] < minincise
         self.segment_data.loc[sel, 'elevup'] = \
             self.segment_data.loc[sel, 'top_up'] - minincise
         sel = self.segment_data['diff_dn'] < minincise
         self.segment_data.loc[sel, 'elevdn'] = \
             self.segment_data.loc[sel, 'top_dn'] - minincise
-        self.get_segment_incision()
-        # return segdata_df
+        # recalculate incisions
+        updown_incision = self.get_segment_incision()
+        return updown_incision
 
     def get_segment_length(self):
+        """
+        Get segment length from accumulated reach lengths
+        :return:
+        """
         # extract segment length for calculating minimun drop later
-        seglen = pd.DataFrame(self.reach_data.groupby('iseg').rchlen.sum())
-        self.segment_data['seglen'] = self.segment_data.merge(
-            seglen,left_on='nseg',right_index=True, how='left')
-        # return segdata_df
+        seglen = self.reach_data.groupby('iseg').rchlen.sum()
+        self.segment_data = self.segment_data.merge(seglen, left_on='nseg',
+                                                    right_index=True,
+                                                    how='left')
+        self.segment_data.rename(columns={'rchlen': "seglen"}, inplace=True)
+        return self.segment_data['seglen']
 
     def get_outseg_elev(self):
-        """Get all the maximum elevup associated with downstream segments"""
+        """Get the maximum elevup associated with all downstream segments
+        for each segment"""
         self.segment_data['outseg_elevup'] = self.segment_data.outseg.apply(
             lambda x: self.segment_data.loc[
                 self.segment_data.nseg == x].elevup).max(axis=1)
+        return self.segment_data['outseg_elevup']
 
     def set_outseg_elev_for_seg(self, seg):
         """
-        gets all the defined outseg_elevup associated with the current segments
+        gets all the defined outseg_elevup associated with a specific segment
         (multiple upstream segements route to one segment)
-        Returns a df with all the calculated elevups for each segment
+        Returns a df with all the calculated outseg elevups for each segment
         .min(axis=1) is a good way to collapse to a series
+        :param seg: Pandas Series containing one row of seg_data dataframe
+        :return: Returns a df of the outseg_elev up values
+        where current segment is listed as an outseg
         """
         # downstreambuffer = 0.001 # 1mm
-        # find where seg might be listed as outseg
+        # find where seg is listed as outseg
         outsegsel = self.segment_data['outseg'] == seg.nseg
         # set outseg elevup
         outseg_elevup = self.segment_data.loc[outsegsel, 'outseg_elevup']
-        # outseg_elevup=segdata[outsegsel]['elevup']
         return outseg_elevup
 
     def minslope_seg(self, seg, *args):
         """
-        Force segment to have minumim slope (check for backward)
+        Force segment to have minumim slope (check for backward flowing segs).
+        Moves downstream end down (vertically, more incision)
+        to acheive minimum slope.
         :param seg: Pandas Series containing one row of seg_data dataframe
         :param args: desired minumum slope
-        :return: Pandas Series
-
+        :return: Pandas Series with new downstream elevation and
+        associated outseg_elevup
         """
         # segdata_df = args[0]
         minslope = args[0]
@@ -1341,20 +1373,13 @@ class SurfaceWaterNetwork(object):
         return pd.Series({'nseg': seg.nseg, 'elevdn': dn,
                           'outseg_elevup': outseg_up})  # this returns a DF once the apply is done!
 
-    def get_segment_legth(self):
-        seglen = self.reach_data.groupby('iseg').rchlen.sum()
-        self.segment_data = self.segment_data.merge(seglen, left_on='nseg',
-                                                    right_index=True,
-                                                    how='left')
-        self.segment_data.rename(columns={'rchlen': "seglen"}, inplace=True)
-
-    def set_forward_segs(self, min_slope):
+    def set_forward_segs(self, min_slope=1.e-4):
         """
-        ensure slope of all segment is at least min_slope
+        Ensure slope of all segment is at least min_slope
         in the downstream direction.
         Moves down the network correcting downstream elevations if necessary
-        :param min_slope:
-        :return:
+        :param min_slope: Desired minimum slope
+        :return: and updated segment data df
         """
         ### upper most segments (not referenced as outsegs)
         # segdata_df = self.segment_data.sort_index(axis=1)
@@ -1385,11 +1410,51 @@ class SurfaceWaterNetwork(object):
             # get list of next outsegs
             segsel = self.segment_data['nseg'].isin(
                 self.segment_data.loc[segsel, 'outseg'])
-        # return self.segment_data
+        return self.segment_data
+
+    def fix_segment_elevs(self, min_incise=0.2, min_slope=1.e-4):
+        """
+        Wrapper function for calculating SFR segment elevations.
+        Calls series of functions to process and move sfr segment elevations,
+        to try to ensure:
+            0. Segments are below the model top
+            1. Segments flow downstream
+            2. Downstream segments are below upstream segments
+        :param min_slope: desired minimum slope for segment
+        :param min_incise: desired minimum incision (in model units)
+        :return: segment data dataframe
+        """
+        # get model locations for segments ends
+        _ = self.get_seg_ijk()
+        # get model cell elevations at seg ends
+        _ = self.get_top_elevs_at_segs()
+        # get current segment incision at seg ends
+        _ = self.get_segment_incision()
+        # move segments end elevation down to achieve minimum incision
+        _ = self.set_seg_minincise(minincise=min_incise)
+        # get the elevations of downstream segments
+        _ = self.get_outseg_elev()
+        # get segment length from reach lengths
+        _ = self.get_segment_length()
+        # ensure downstream ends are below upstream ends
+        # and reconcile upstream elevation of downstream segments
+        self.set_forward_segs(min_slope=min_slope)
+        # reassess segment incision after processing.
+        self.get_segment_incision()
+        return self.segment_data
 
     def reconcile_reach_strtop(self):
+        """
+        recalculate reach strtop elevations after moving segment elevations
+        :return: Reach data df
+        """
         def reach_elevs(seg):
-            kper = 0
+            """
+            Calculate reach elevation from segment slope and
+            reach length along segment.
+            :param seg: one row of reach data dataframe grouped by segment
+            :return: reaches by segment with strtop adjusted
+            """
             segsel = self.segment_data['nseg'] == seg.name
 
             seg_elevup = self.segment_data.loc[segsel, 'elevup'].values[0]
@@ -1410,21 +1475,29 @@ class SurfaceWaterNetwork(object):
         segs = self.reach_data.groupby('iseg')
         self.reach_data['seglen'] = segs.rchlen.cumsum()
         self.reach_data = segs.apply(reach_elevs)
+        return self.reach_data
 
-    def set_topbot_elevs_at_reaches(self, m):
+    def set_topbot_elevs_at_reaches(self, m=None):
+        """
+        get top and bottom elevation of the cell containing a reach
+        :param m: Modflow model
+        :return: dataframe with reach cell top and bottom elevations
+        """
+        if m is None:
+            m = self.model
         self.reach_data['top'] = m.dis.top.array[
             tuple(self.reach_data[['i', 'j']].values.T)]
         self.reach_data['bot'] = m.dis.botm[0].array[
             tuple(self.reach_data[['i', 'j']].values.T)]
-        # return reachdata_df
+        return self.reach_data[['top', 'bot']]
 
-    def fix_reach_elevs(self, minslope=0.0001):
+    def fix_reach_elevs(self, minslope=0.0001, fix_dis=True, minthick=0.5):
         """
         need to ensure reach elevation is:
-            below the top
-            below the upstream reach
-            above the minimum slope to the bottom reach elevation
-            above the base of layer 1
+            0. below the top
+            1. below the upstream reach
+            2. above the minimum slope to the bottom reach elevation
+            3. above the base of layer 1
         segment by segment, reach by reach! Fun!
 
         :return:
@@ -1443,12 +1516,11 @@ class SurfaceWaterNetwork(object):
         # bottom reaches from the segment data)
         self.segment_data['incgrad'] = (self.segment_data['diff_up'] -
                                         self.segment_data['diff_dn']) / \
-                                        self.segment_data['seglen']
+                                       self.segment_data['seglen']
         # copy of layer 1 bottom (for updating to fit in stream reaches)
         layerbots = self.model.dis.botm.array.copy()
         # loop over each segment
         for seg in self.segment_data['nseg'].values:  # (all segs)
-            print('')  # printout spacer
             # selection for segment in reachdata and seg data
             rsel = self.reach_data['iseg'] == seg
             segsel = self.segment_data['nseg'] == seg
@@ -1600,6 +1672,18 @@ class SurfaceWaterNetwork(object):
                               f'{reach.i}, j = {reach.j}')
                         layerbots[0, reach.i, reach.j] = \
                             reach.strtop - reach.strthick - buffer
+            print('')  # printout spacer
+        if fix_dis:
+            # fix dis for incised reaches
+            for lay in range(self.model.dis.nlay - 1):
+                laythick = layerbots[lay] - layerbots[
+                    lay + 1]  # first one is layer 1 bottom - layer 2 bottom
+                print('checking layer {} thicknesses'.format(lay + 2))
+                thincells = laythick < minthick
+                print('{} cells less than {}'.format(thincells.sum(), minthick))
+                laythick[thincells] = minthick
+                layerbots[lay + 1] = layerbots[lay] - laythick
+            self.model.dis.botm = layerbots
 
     def sfr_plot(self, model, sfrar, dem, points=None, points2=None,
                  label=None):
