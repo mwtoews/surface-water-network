@@ -509,6 +509,24 @@ def test_costal_process_flopy(
     n.reaches.to_file(str(outdir.join('reaches.shp')))
 
 
+def test_costal_elevations(
+        costal_swn, costal_flopy_m, clostal_flow_m, tmpdir_factory):
+    n = costal_swn
+    assert len(n) == 304
+    m = costal_flopy_m
+    # Make sure this is the model we are thinking of
+    assert m.modelgrid.extent == (1802000.0, 1819000.0, 5861000.0, 5879000.0)
+    n.process_flopy(m, inflow=clostal_flow_m)
+    _ = n.set_topbot_elevs_at_reaches()
+    n.plot_reaches_above(m, 'all', plot_bottom=True, points2=None)
+    _ = n.fix_segment_elevs(min_incise=0.2, min_slope=1.e-4)
+    _ = n.reconcile_reach_strtop()
+    _ = n.set_topbot_elevs_at_reaches()
+    n.plot_reaches_above(m, 'all', plot_bottom=True, points2=None)
+    n.fix_reach_elevs()
+    n.plot_reaches_above(m, 'all', plot_bottom=True, points2=None)
+
+
 def test_costal_reduced_process_flopy(
         costal_lines_gdf, costal_flopy_m, clostal_flow_m, tmpdir_factory):
     n = swn.SurfaceWaterNetwork(costal_lines_gdf.geometry)

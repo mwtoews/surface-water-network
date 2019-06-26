@@ -1738,15 +1738,14 @@ class SurfaceWaterNetwork(object):
                 for reach in self.reach_data[rsel].iloc[[0, -1]].itertuples():
                     if reach.strtop - reach.strthick < reach.bot + buffer:
                         # drop bottom of layer one to accomodate stream
+                        new_elev = reach.strtop - reach.strthick - buffer
                         print('seg {} reach {} is below layer 1 bottom'
                               .format(seg, reach.ireach))
                         print(
                             'dropping layer 1 bottom to {} to accomodate '
                             'stream @ i = {}, j = {}'
-                            .format(reach.strtop - reach.strthick - buffer,
-                                    reach.i, reach.j))
-                        layerbots[0, reach.i, reach.j] = \
-                            reach.strtop - reach.strthick - buffer
+                            .format(new_elev, reach.i, reach.j))
+                        layerbots[0, reach.i, reach.j] = new_elev
                 # apparent optimised incision based
                 # on the incision gradient for the segment
                 self.reach_data.loc[rsel, 'strtop_incopt'] = \
@@ -1787,7 +1786,7 @@ class SurfaceWaterNetwork(object):
                         print('seg {} reach {}, incopt is \\/ below minimum '
                               'slope from bottom reach elevation'
                               .format(seg, reach.ireach))
-                        print('setting elevation to minslope from bottom')
+                        print('    setting elevation to minslope from bottom')
                         # set to minimum slope from outreach
                         self.reach_data.at[
                             reach.Index, 'strtop'] = strtop_min2bot
@@ -1798,7 +1797,8 @@ class SurfaceWaterNetwork(object):
                         # too shallow a slope from upstream
                         print('seg {} reach {}, incopt /\\ above upstream'
                               .format(seg, reach.ireach))
-                        print('setting elevation to minslope from upstream')
+                        print('    setting elevation to minslope from '
+                              'upstream')
                         # set to minimum slope from upstream reach
                         self.reach_data.at[
                             reach.Index, 'strtop'] = strtop_withminslope
@@ -1824,7 +1824,7 @@ class SurfaceWaterNetwork(object):
                                 # if layer bottom would put reach above
                                 # upstream reach we can only set to
                                 # minimum slope from upstream
-                                print('setting elevation to minslope '
+                                print('    setting elevation to minslope '
                                       'from upstream')
                                 self.reach_data.at[reach.Index, 'strtop'] = \
                                     strtop_withminslope
@@ -1833,8 +1833,8 @@ class SurfaceWaterNetwork(object):
                                 # otherwise we can move reach so that it
                                 # fits into layer 1
                                 new_elev = reach.bot + reach.strthick + buffer
-                                print('setting elevation to {}, above layer '
-                                      '1 bottom'.format(new_elev))
+                                print('    setting elevation to {}, above '
+                                      'layer 1 bottom'.format(new_elev))
                                 # set reach top so that it is above layer 1
                                 # bottom with a buffer
                                 # (allowing for bed thickness)
@@ -1844,7 +1844,7 @@ class SurfaceWaterNetwork(object):
                         else:
                             # strtop ok to set to 'optimum incision'
                             # set to "optimum incision"
-                            print('setting elevation to incopt')
+                            print('    setting elevation to incopt')
                             self.reach_data.at[
                                 reach.Index, 'strtop'] = reach.strtop_incopt
                             upreach_strtop = reach.strtop_incopt
@@ -1855,8 +1855,8 @@ class SurfaceWaterNetwork(object):
                         # drop bottom of layer one to accomodate stream
                         # (top, bed thickness and buffer)
                         new_elev = upreach_strtop - reach.strthick - buffer
-                        print('dropping layer 1 bottom to {} to accomodate '
-                              'stream @ i = {}, j = {}'
+                        print('    dropping layer 1 bottom to {} to accomodate'
+                              ' stream @ i = {}, j = {}'
                               .format(new_elev, reach.i, reach.j))
                         layerbots[0, reach.i, reach.j] = new_elev
                     upreach_cmid = reach.cmids
@@ -1874,11 +1874,10 @@ class SurfaceWaterNetwork(object):
                         new_elev = reach.strtop - reach.strthick - buffer
                         print('seg {} reach {} is below layer 1 bottom'
                               .format(seg, reach.ireach))
-                        print('dropping layer 1 bottom to {} to accomodate '
-                              'stream @ i = {}, j = {}'
+                        print('    dropping layer 1 bottom to {} to accomodate'
+                              ' stream @ i = {}, j = {}'
                               .format(new_elev, reach.i, reach.j))
                         layerbots[0, reach.i, reach.j] = new_elev
-            print('')  # printout spacer
         if fix_dis:
             # fix dis for incised reaches
             for lay in range(self.model.dis.nlay - 1):
@@ -1978,7 +1977,7 @@ class ModelPlot(object):
             import cartopy.crs as ccrs
             try:
                 self.mprj = ccrs.epsg(2193)  # TODO - flexi
-            except:
+            except Exception:
                 print("error getting model projection")
                 exit()
             # empty figure container cartopy geoaxes
