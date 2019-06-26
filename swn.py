@@ -1736,7 +1736,7 @@ class SurfaceWaterNetwork(object):
                         print(f'seg {seg} reach {reach.ireach} '
                               f'is below layer 1 bottom')
                         print(
-                            f'dropping layer 1 bottom to '
+                            f'    dropping layer 1 bottom to '
                             f'{reach.strtop - reach.strthick - buffer} '
                             f'to accomodate stream @ i = '
                             f'{reach.i}, j = {reach.j}')
@@ -1782,7 +1782,7 @@ class SurfaceWaterNetwork(object):
                         print(f'seg {seg} reach {reach.ireach}, '
                               f'incopt is \\/ below minimum slope '
                               f'from bottom reach elevation')
-                        print('setting elevation to minslope from bottom')
+                        print('    setting elevation to minslope from bottom')
                         # set to minimum slope from outreach
                         self.reach_data.at[
                             reach.Index, 'strtop'] = strtop_min2bot
@@ -1793,7 +1793,7 @@ class SurfaceWaterNetwork(object):
                         # too shallow a slope from upstream
                         print(f'seg {seg} reach {reach.ireach}, '
                               f'incopt /\\ above upstream')
-                        print('setting elevation to minslope from upstream')
+                        print('    setting elevation to minslope from upstream')
                         # set to minimum slope from upstream reach
                         self.reach_data.at[
                             reach.Index, 'strtop'] = strtop_withminslope
@@ -1818,7 +1818,7 @@ class SurfaceWaterNetwork(object):
                                 # if layer bottom would put reach above
                                 # upstream reach we can only set to
                                 # minimum slope from upstream
-                                print('setting elevation to minslope '
+                                print('    setting elevation to minslope '
                                       'from upstream')
                                 self.reach_data.at[reach.Index, 'strtop'] = \
                                     strtop_withminslope
@@ -1826,7 +1826,7 @@ class SurfaceWaterNetwork(object):
                             else:
                                 # otherwise we can move reach so that it
                                 # fits into layer 1
-                                print(f'setting elevation to '
+                                print(f'    setting elevation to '
                                       f'{reach.bot + reach.strthick + buffer}'
                                       f', above layer 1 bottom')
                                 # set reach top so that it is above layer 1
@@ -1839,7 +1839,7 @@ class SurfaceWaterNetwork(object):
                         else:
                             # strtop ok to set to 'optimum incision'
                             # set to "optimum incision"
-                            print('setting elevation to incopt')
+                            print('    setting elevation to incopt')
                             self.reach_data.at[
                                 reach.Index, 'strtop'] = reach.strtop_incopt
                             upreach_strtop = reach.strtop_incopt
@@ -1849,7 +1849,7 @@ class SurfaceWaterNetwork(object):
                         # if new strtop is below layer one
                         # drop bottom of layer one to accomodate stream
                         # (top, bed thickness and buffer)
-                        print(f'dropping layer 1 bottom to '
+                        print(f'    dropping layer 1 bottom to '
                               f'{upreach_strtop - reach.strthick - buffer} '
                               f'to accomodate stream @ i = '
                               f'{reach.i}, j = {reach.j}')
@@ -1868,13 +1868,13 @@ class SurfaceWaterNetwork(object):
                         # (top, bed thickness and buffer)
                         print(f'seg {seg} reach {reach.ireach} '
                               f'is below layer 1 bottom')
-                        print(f'dropping layer 1 bottom to '
+                        print(f'    dropping layer 1 bottom to '
                               f'{reach.strtop - reach.strthick - buffer} '
                               f'to accomodate stream @ i = '
                               f'{reach.i}, j = {reach.j}')
                         layerbots[0, reach.i, reach.j] = \
                             reach.strtop - reach.strthick - buffer
-            print('')  # printout spacer
+            # print('')  # printout spacer
         if fix_dis:
             # fix dis for incised reaches
             for lay in range(self.model.dis.nlay - 1):
