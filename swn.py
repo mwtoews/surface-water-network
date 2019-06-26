@@ -3,7 +3,6 @@ import geopandas
 import logging
 import numpy as np
 import pandas as pd
-import sys
 try:
     from geopandas.tools import sjoin
 except ImportError:
@@ -30,16 +29,9 @@ try:
     import flopy
 except ImportError:
     flopy = False
-try:
-    import netCDF4
-    from netCDF4 import Dataset, num2date
-except ImportError:
-    netCDF4 = False
 
 __version__ = '0.1'
 __author__ = 'Mike Toews'
-
-PY2 = (sys.version_info[0] == 2)
 
 module_logger = logging.getLogger(__name__)
 if __name__ not in [_.name for _ in module_logger.handlers]:
@@ -216,12 +208,8 @@ class SurfaceWaterNetwork(object):
         # Store from_segnums list to segments GeoDataFrame
         self.segments['from_segnums'] = None
         from_segnums = self.from_segnums
-        if PY2:
-            for k, v in from_segnums.iteritems():
-                self.segments.at[k, 'from_segnums'] = v
-        else:
-            for k, v in from_segnums.items():
-                self.segments.at[k, 'from_segnums'] = v
+        for k, v in from_segnums.items():
+            self.segments.at[k, 'from_segnums'] = v
         outlets = self.outlets
         self.logger.debug('evaluating segments upstream from %d outlet%s',
                           len(outlets), 's' if len(outlets) != 1 else '')
@@ -450,12 +438,8 @@ class SurfaceWaterNetwork(object):
         """Returns dict of a set of segnums to connect upstream"""
         to_segnums = self.to_segnums
         from_segnums = {}
-        if PY2:
-            for k, v in to_segnums.iteritems():
-                from_segnums.setdefault(v, set()).add(k)
-        else:
-            for k, v in to_segnums.items():
-                from_segnums.setdefault(v, set()).add(k)
+        for k, v in to_segnums.items():
+            from_segnums.setdefault(v, set()).add(k)
         return from_segnums
 
     def query(self, upstream=[], downstream=[], barrier=[],
@@ -497,16 +481,12 @@ class SurfaceWaterNetwork(object):
         def go_upstream(segnum):
             yield segnum
             for from_segnum in from_segnums.get(segnum, []):
-                # Python 3 would just do: yield from go_upstream(from_segnum)
-                for next_segnum in go_upstream(from_segnum):
-                    yield next_segnum
+                yield from go_upstream(from_segnum)
 
         def go_downstream(segnum):
             yield segnum
             if segnum in to_segnums:
-                # Python 3 would just do: yield from go_downstream(to_segnu...)
-                for next_segnum in go_downstream(to_segnums[segnum]):
-                    yield next_segnum
+                yield from go_downstream(to_segnums[segnum])
 
         to_segnums = dict(self.to_segnums)
         from_segnums = self.from_segnums
@@ -571,17 +551,13 @@ class SurfaceWaterNetwork(object):
                         next_segnum = self.segments.loc[
                             from_segnums[segnum], order_keys]\
                             .sort_values(order_keys, ascending=False).index[0]
-                    # Python 3 would just do: yield from up_line(next_segnum)
-                    for next_line in up_line(next_segnum):
-                        yield next_line
+                    yield from up_line(next_segnum)
 
         def up_poly(segnum):
             yield self.catchments.geometry.at[segnum]
             for from_segnum in from_segnums.get(segnum, []):
                 if from_segnum not in segnums_set:
-                    # Python 3 would just do: yield from up_poly(from_segnum)
-                    for next_segnum in up_poly(from_segnum):
-                        yield self.catchments.geometry.at[next_segnum]
+                    yield from up_poly(from_segnum)
 
         lines = geopandas.GeoSeries()
         if self.catchments is not None:
@@ -2223,7 +2199,9 @@ def topnet2ts(nc_path, varname, log_level=logging.INFO):
     pandas.DataFrame
         Where columns is rchid and index is DatetimeIndex.
     """
-    if not netCDF4:
+    try:
+        from netCDF4 import Dataset, num2date
+    except ImportError:
         raise ImportError('this function requires netCDF4')
     logger = logging.getLogger('topnet2ts')
     logger.handlers = module_logger.handlers

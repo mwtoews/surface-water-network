@@ -5,15 +5,17 @@ Creates surface water network to be used for MODFLOW's SFR.
 
 ## Python packages
 
+Python 3.5+ is required.
+
 ### Required
 
- - `geopandas`
+ - `geopandas` - process spatial data similar to pandas
 
 ### Optional
 
  - `flopy` - read/write MODFLOW models
  - `gdal` - import from different geospatial formats
- - `rtree` - fast spatial indexing
+ - `netCDF4` - used to read TopNet files
 
 ## Testing
 
