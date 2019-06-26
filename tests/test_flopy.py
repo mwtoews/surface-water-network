@@ -75,16 +75,16 @@ def test_process_flopy_instance_errors(n3d):
 
     with pytest.raises(
             ValueError,
-            match=r'flow\.index must be a pandas\.DatetimeIndex'):
-        n.process_flopy(m, flow=pd.DataFrame({'1': [1.1]}))
-
-    with pytest.raises(
-            ValueError,
-            match='flow DataFrame length is different than nper'):
+            match=r'length of flow \(1\) is different than nper \(4\)'):
         n.process_flopy(
             m, flow=pd.DataFrame(
                     {'1': [1.1]},
                     index=pd.DatetimeIndex(['1970-01-01'])))
+
+    with pytest.raises(
+            ValueError,
+            match=r'flow\.index must be a pandas\.DatetimeIndex'):
+        n.process_flopy(m, flow=pd.DataFrame({'1': [1.1] * 4}))
 
     with pytest.raises(
             ValueError,
@@ -410,6 +410,7 @@ def check_number_sum_hex(a, n, h):
 def test_costal_process_flopy(
         costal_swn, costal_flopy_m, clostal_flow_m, tmpdir_factory):
     n = costal_swn
+    assert len(n) == 304
     m = costal_flopy_m
     # Make sure this is the model we are thinking of
     assert m.modelgrid.extent == (1802000.0, 1819000.0, 5861000.0, 5879000.0)
@@ -508,9 +509,109 @@ def test_costal_process_flopy(
     n.reaches.to_file(str(outdir.join('reaches.shp')))
 
 
+def test_costal_reduced_process_flopy(
+        costal_lines_gdf, costal_flopy_m, clostal_flow_m, tmpdir_factory):
+    n = swn.SurfaceWaterNetwork(costal_lines_gdf.geometry)
+    assert len(n) == 304
+    m = costal_flopy_m
+    # Modify swn object
+    n.remove(
+        condition=n.segments['stream_order'] == 1,
+        segnums=n.query(upstream=3047927))
+    assert len(n) == 130
+    n.process_flopy(m, inflow=clostal_flow_m)
+    # These should be split between two cells
+    reach_geoms = n.reaches.loc[
+        n.reaches['segnum'] == 3047750, 'geometry']
+    assert len(reach_geoms) == 2
+    np.testing.assert_almost_equal(reach_geoms.iloc[0].length, 204.90164560019)
+    np.testing.assert_almost_equal(reach_geoms.iloc[1].length, 789.59872070638)
+    # This reach should not be extended, the remainder is too far away
+    reach_geom = n.reaches.loc[
+        n.reaches['segnum'] == 3047762, 'geometry'].iloc[0]
+    np.testing.assert_almost_equal(reach_geom.length, 261.4644731621629)
+    # This reach should not be extended, the remainder is too long
+    reach_geom = n.reaches.loc[
+        n.reaches['segnum'] == 3047926, 'geometry'].iloc[0]
+    np.testing.assert_almost_equal(reach_geom.length, 237.72893664132727)
+    # Data set 1c
+    assert abs(m.sfr.nstrm) == 195
+    assert m.sfr.nss == 94
+    # Data set 2
+    # check_number_sum_hex(
+    #    m.sfr.reach_data.node, 49998, '29eb6a019a744893ceb5a09294f62638')
+    # check_number_sum_hex(
+    #    m.sfr.reach_data.k, 0, '213581ea1c4e2fa86e66227673da9542')
+    # check_number_sum_hex(
+    #    m.sfr.reach_data.i, 2690, 'be41f95d2eb64b956cc855304f6e5e1d')
+    # check_number_sum_hex(
+    #    m.sfr.reach_data.j, 4268, '4142617f1cbd589891e9c4033efb0243')
+    # check_number_sum_hex(
+    #    m.sfr.reach_data.reachID, 68635, '2a512563b164c76dfc605a91b10adae1')
+    # check_number_sum_hex(
+    #    m.sfr.reach_data.iseg, 34415, '48c4129d78c344d2e8086cd6971c16f7')
+    # check_number_sum_hex(
+    #    m.sfr.reach_data.ireach, 687, '233b71e88260cddb374e28ed197dfab0')
+    # check_number_sum_hex(
+    #    m.sfr.reach_data.rchlen, 159871, '776ed1ced406c7de9cfe502181dc8e97')
+    # check_number_sum_hex(
+    #    m.sfr.reach_data.strtop, 4266, '572a5ef53cd2c69f5d467f1056ee7579')
+    # check_number_sum_hex(
+    #   m.sfr.reach_data.slope * 999, 2945, '91c54e646fec7af346c0979167789316')
+    # check_number_sum_hex(
+    #    m.sfr.reach_data.strthick, 370, '09fd95bcbfe7c6309694157904acac68')
+    # check_number_sum_hex(
+    #    m.sfr.reach_data.strhc1, 370, '09fd95bcbfe7c6309694157904acac68')
+    # Data set 6
+    assert len(m.sfr.segment_data) == 1
+    sd = m.sfr.segment_data[0]
+    assert sd.flow.sum() > 0.0
+    assert sd.pptsw.sum() == 0.0
+    # check_number_sum_hex(
+    #    sd.nseg, 17020, '55968016ecfb4e995fb5591bce55fea0')
+    # check_number_sum_hex(
+    #    sd.icalc, 184, '1e57e4eaa6f22ada05f4d8cd719e7876')
+    # check_number_sum_hex(
+    #    sd.outseg, 24372, '46730406d031de87aad40c2d13921f6a')
+    # check_number_sum_hex(
+    #    sd.iupseg, 0, 'f7e23bb7abe5b9603e8212ad467155bd')
+    # check_number_sum_hex(
+    #    sd.iprior, 0, 'f7e23bb7abe5b9603e8212ad467155bd')
+    # check_number_sum_hex(
+    #    sd.flow, 4009, '49b48704587dc36d5d6f6295569eabd6')
+    # check_number_sum_hex(
+    #    sd.runoff, 0, 'f7e23bb7abe5b9603e8212ad467155bd')
+    # check_number_sum_hex(
+    #    sd.etsw, 0, 'f7e23bb7abe5b9603e8212ad467155bd')
+    # check_number_sum_hex(
+    #    sd.pptsw, 0, 'f7e23bb7abe5b9603e8212ad467155bd')
+    # check_number_sum_hex(
+    #    sd.roughch * 1000, 4416, 'a1a620fac8f5a6cbed3cc49aa2b90467')
+    # check_number_sum_hex(
+    #    sd.hcond1, 184, '1e57e4eaa6f22ada05f4d8cd719e7876')
+    # check_number_sum_hex(
+    #    sd.thickm1, 184, '1e57e4eaa6f22ada05f4d8cd719e7876')
+    # check_number_sum_hex(
+    #    sd.width1, 1840, '5749f425818b3b18e395b2a432520a4e')
+    # check_number_sum_hex(
+    #    sd.hcond2, 184, '1e57e4eaa6f22ada05f4d8cd719e7876')
+    # check_number_sum_hex(
+    #    sd.thickm2, 184, '1e57e4eaa6f22ada05f4d8cd719e7876')
+    # check_number_sum_hex(
+    #    sd.width2, 1840, '5749f425818b3b18e395b2a432520a4e')
+    # Check other packages
+    # Write output files
+    outdir = tmpdir_factory.mktemp('costal')
+    m.model_ws = str(outdir)
+    m.write_input()
+    n.grid_cells.to_file(str(outdir.join('grid_cells.shp')))
+    n.reaches.to_file(str(outdir.join('reaches.shp')))
+
+
 def test_costal_process_flopy_ibound_modify(
         costal_swn, clostal_flow_m, tmpdir_factory):
     n = costal_swn
+    assert len(n) == 304
     m = flopy.modflow.Modflow.load('h.nam', model_ws=datadir, check=False)
     n.process_flopy(m, ibound_action='modify', inflow=clostal_flow_m)
     # Check a remaining reach added that is outside model domain

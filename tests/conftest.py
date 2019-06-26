@@ -35,7 +35,7 @@ def costal_polygons_gdf(costal_lines_gdf):
             'Area': 0.0,
             'X84': 0.0,
             'Y84': 0.0,
-            'geometry': line['geometry'].buffer(1.0),
+            'geometry': line['geometry'].centroid.buffer(20.0, 1),
             # wkt.loads('POLYGON EMPTY')
         }
     return polygons.reindex(index=costal_lines_gdf.index)
@@ -58,5 +58,5 @@ def clostal_flow_ts():
 @pytest.fixture(scope='session', autouse=True)
 def clostal_flow_m(clostal_flow_ts):
     flow_m = pd.DataFrame(clostal_flow_ts.mean(0)).T
-    flow_m.index = pd.DatetimeIndex(['2000-01-01'])
+    # flow_m.index = pd.DatetimeIndex(['2000-01-01'])
     return flow_m

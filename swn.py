@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
+import geopandas
 import logging
 import numpy as np
 import pandas as pd
-import geopandas
+import sys
 try:
     from geopandas.tools import sjoin
 except ImportError:
@@ -11,11 +12,12 @@ from fiona import crs as fiona_crs
 from math import sqrt
 from shapely import wkt
 from shapely.geometry import LineString, Point, Polygon, box
-from shapely.ops import linemerge
 from matplotlib import pyplot as plt
 from matplotlib import colors, cm
 import cartopy.crs as ccrs
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+from shapely.ops import cascaded_union, linemerge
+
 try:
     from osgeo import gdal
 except ImportError:
@@ -37,6 +39,8 @@ except ImportError:
 
 __version__ = '0.1'
 __author__ = 'Mike Toews'
+
+PY2 = (sys.version_info[0] == 2)
 
 module_logger = logging.getLogger(__name__)
 if __name__ not in [_.name for _ in module_logger.handlers]:
@@ -104,10 +108,6 @@ class SurfaceWaterNetwork(object):
     END_SEGNUM : int
         Special segment number that indicates a line end, default is usually 0.
         This number is not part of the index.
-    from_segnums : dict
-        Key is downstream segment number, and values are a set of zero or more
-        upstream segment numbers. END_SEGNUM and headwater segment numbers are
-        not included.
     has_z : bool
         Property that indicates all segment lines have Z dimension coordinates.
     headwater : pandas.core.index.Int64Index
@@ -126,7 +126,6 @@ class SurfaceWaterNetwork(object):
     index = None
     END_SEGNUM = None
     segments = None
-    from_segnums = None
     logger = None
     warnings = None
     errors = None
@@ -214,13 +213,16 @@ class SurfaceWaterNetwork(object):
                 self.errors.append(m[0] % m[1:])
             if len(to_segnums) > 0:
                 # do not diverge flow; only flow to one downstream segment
-                self.segments.loc[segnum1, 'to_segnum'] = to_segnums[0]
-        # Build a dict that describes downstream segs to one or more upstream
-        self.from_segnums = {}
-        for segnum in set(self.segments['to_segnum'])\
-                .difference([self.END_SEGNUM]):
-            self.from_segnums[segnum] = \
-                set(self.segments.index[self.segments['to_segnum'] == segnum])
+                self.segments.at[segnum1, 'to_segnum'] = to_segnums[0]
+        # Store from_segnums list to segments GeoDataFrame
+        self.segments['from_segnums'] = None
+        from_segnums = self.from_segnums
+        if PY2:
+            for k, v in from_segnums.iteritems():
+                self.segments.at[k, 'from_segnums'] = v
+        else:
+            for k, v in from_segnums.items():
+                self.segments.at[k, 'from_segnums'] = v
         outlets = self.outlets
         self.logger.debug('evaluating segments upstream from %d outlet%s',
                           len(outlets), 's' if len(outlets) != 1 else '')
@@ -230,13 +232,13 @@ class SurfaceWaterNetwork(object):
 
         # Recursive function that accumulates information upstream
         def resurse_upstream(segnum, cat_group, num, dist):
-            self.segments.loc[segnum, 'cat_group'] = cat_group
+            self.segments.at[segnum, 'cat_group'] = cat_group
             num += 1
-            self.segments.loc[segnum, 'num_to_outlet'] = num
+            self.segments.at[segnum, 'num_to_outlet'] = num
             dist += self.segments.geometry[segnum].length
-            self.segments.loc[segnum, 'dist_to_outlet'] = dist
+            self.segments.at[segnum, 'dist_to_outlet'] = dist
             # Branch to zero or more upstream segments
-            for from_segnum in self.from_segnums.get(segnum, []):
+            for from_segnum in from_segnums.get(segnum, []):
                 resurse_upstream(from_segnum, cat_group, num, dist)
 
         for segnum in self.segments.loc[outlets].index:
@@ -339,19 +341,18 @@ class SurfaceWaterNetwork(object):
             downstream_sorted = self.segments.loc[downstream]\
                 .sort_values(search_order, ascending=False).index
             for segnum in downstream_sorted:
-                if self.from_segnums[segnum].issubset(completed):
+                if from_segnums[segnum].issubset(completed):
                     sequence += 1
-                    self.segments.loc[segnum, 'sequence'] = sequence
-                    # self.segments.loc[segnum, 'numiter'] = numiter
+                    self.segments.at[segnum, 'sequence'] = sequence
+                    # self.segments.at[segnum, 'numiter'] = numiter
                     up_ord = list(
                         self.segments.loc[
-                            list(self.from_segnums[segnum]),
-                            'stream_order'])
+                            list(from_segnums[segnum]), 'stream_order'])
                     max_ord = max(up_ord)
                     if up_ord.count(max_ord) > 1:
-                        self.segments.loc[segnum, 'stream_order'] = max_ord + 1
+                        self.segments.at[segnum, 'stream_order'] = max_ord + 1
                     else:
-                        self.segments.loc[segnum, 'stream_order'] = max_ord
+                        self.segments.at[segnum, 'stream_order'] = max_ord
                     completed.add(segnum)
             if self.segments['sequence'].min() > 0:
                 break
@@ -445,6 +446,155 @@ class SurfaceWaterNetwork(object):
         return self.segments.loc[
             self.segments['to_segnum'] != self.END_SEGNUM, 'to_segnum']
 
+    @property
+    def from_segnums(self):
+        """Returns dict of a set of segnums to connect upstream"""
+        to_segnums = self.to_segnums
+        from_segnums = {}
+        if PY2:
+            for k, v in to_segnums.iteritems():
+                from_segnums.setdefault(v, set()).add(k)
+        else:
+            for k, v in to_segnums.items():
+                from_segnums.setdefault(v, set()).add(k)
+        return from_segnums
+
+    def query(self, upstream=[], downstream=[], barrier=[],
+              gather_upstream=False):
+        """Returns segnums upstream (inclusive) and downstream (exclusive)
+
+        Parameters
+        ----------
+        upstream, downstream : int or list, optional
+            Segmnet number(s) from segments.index to search from. Default [].
+        barriers : int or list, optional
+            Segment number(s) that cannot be traversed past. Default [].
+        gather_upstream : bool
+            Gather upstream from all other downstream segments. Default False.
+
+        Returns
+        -------
+        list
+        """
+        segments_index = self.segments.index
+        segments_set = set(segments_index)
+
+        def check_and_return_list(var, name):
+            if isinstance(var, list):
+                if not segments_set.issuperset(var):
+                    diff = set(var).difference(segments_set)
+                    raise IndexError(
+                        '{0} {1} segment{2} not found in segments.index: {3}'
+                        .format(len(diff), name, '' if len(diff) == 1 else 's',
+                                list(diff)[:5]))
+                return var
+            else:
+                if var not in segments_index:
+                    raise IndexError(
+                        '{0} segnum {1} not found in segments.index'
+                        .format(name, var))
+                return [var]
+
+        def go_upstream(segnum):
+            yield segnum
+            for from_segnum in from_segnums.get(segnum, []):
+                # Python 3 would just do: yield from go_upstream(from_segnum)
+                for next_segnum in go_upstream(from_segnum):
+                    yield next_segnum
+
+        def go_downstream(segnum):
+            yield segnum
+            if segnum in to_segnums:
+                # Python 3 would just do: yield from go_downstream(to_segnu...)
+                for next_segnum in go_downstream(to_segnums[segnum]):
+                    yield next_segnum
+
+        to_segnums = dict(self.to_segnums)
+        from_segnums = self.from_segnums
+        for barrier in check_and_return_list(barrier, 'barrier'):
+            try:
+                del from_segnums[barrier]
+            except KeyError:  # this is a tributary, remove value
+                from_segnums[to_segnums[barrier]].remove(barrier)
+            del to_segnums[barrier]
+
+        segnums = []
+        for segnum in check_and_return_list(upstream, 'upstream'):
+            upsegnums = list(go_upstream(segnum))
+            segnums += upsegnums  # segnum inclusive
+        for segnum in check_and_return_list(downstream, 'downstream'):
+            downsegnums = list(go_downstream(segnum))
+            segnums += downsegnums[1:]  # segnum exclusive
+            if gather_upstream:
+                for segnum in downsegnums[1:]:
+                    for from_segnum in from_segnums.get(segnum, []):
+                        if from_segnum not in downsegnums:
+                            upsegnums = list(go_upstream(from_segnum))
+                            segnums += upsegnums
+        return segnums
+
+    def aggregate(self, segnums):
+        """Aggregate segments (and catchments) to a coarser network of segnums
+
+        Parameters
+        ----------
+        segnums : list
+            List of segmnet numbers to aggregate. Must be unique.
+
+        Returns
+        -------
+        SurfaceWaterNetwork
+        """
+        segnums_set = set(segnums)
+        if len(segnums) != len(segnums_set):
+            raise ValueError('list of segnums is not unique')
+        segments_index_set = set(self.segments.index)
+        if not segnums_set.issubset(segments_index_set):
+            diff = segnums_set.difference(segments_index_set)
+            raise IndexError(
+                '{0} segnums not found in segments.index: {1}'
+                .format(len(diff), list(diff)[:5]))
+        from_segnums = self.from_segnums
+        if 'length' in self.segments.columns:
+            del self.segments['length']
+        self.segments['length'] = self.segments.geometry.length
+        order_keys = ['stream_order', 'length']
+
+        def up_line(segnum):
+            yield self.segments.geometry.at[segnum]
+            if segnum in from_segnums:
+                sel = list(from_segnums[segnum].difference(segnums_set))
+                if len(sel) > 0:
+                    if len(sel) == 1:
+                        next_segnum = sel[0]
+                    elif len(sel) > 1:
+                        # pick the longest line with highest stream order
+                        next_segnum = self.segments.loc[
+                            from_segnums[segnum], order_keys]\
+                            .sort_values(order_keys, ascending=False).index[0]
+                    # Python 3 would just do: yield from up_line(next_segnum)
+                    for next_line in up_line(next_segnum):
+                        yield next_line
+
+        def up_poly(segnum):
+            yield self.catchments.geometry.at[segnum]
+            for from_segnum in from_segnums.get(segnum, []):
+                if from_segnum not in segnums_set:
+                    # Python 3 would just do: yield from up_poly(from_segnum)
+                    for next_segnum in up_poly(from_segnum):
+                        yield self.catchments.geometry.at[next_segnum]
+
+        lines = geopandas.GeoSeries()
+        if self.catchments is not None:
+            polygons = geopandas.GeoSeries()
+        else:
+            polygons = None
+        for segnum in segnums:
+            lines.loc[segnum] = linemerge(list(up_line(segnum)))
+            if polygons is not None:
+                polygons.loc[segnum] = cascaded_union(list(up_poly(segnum)))
+        return SurfaceWaterNetwork(lines, polygons)
+
     def accumulate_values(self, values):
         """Accumulate values down the stream network
 
@@ -472,10 +622,9 @@ class SurfaceWaterNetwork(object):
         except TypeError:
             pass
         for segnum in self.segments.sort_values('sequence').index:
-            if segnum in self.from_segnums:
-                from_segnums = list(self.from_segnums[segnum])
-                if from_segnums:
-                    accum[segnum] += accum[from_segnums].sum()
+            from_segnums = self.segments.at[segnum, 'from_segnums']
+            if from_segnums:
+                accum[segnum] += accum[list(from_segnums)].sum()
         return accum
 
     def segment_series(self, value, name=None):
@@ -606,7 +755,7 @@ class SurfaceWaterNetwork(object):
                 self.logger.debug(*m)
                 self.messages.append(m[0] % m[1:])
             if modified:
-                self.segments.loc[segnum, geom_name] = LineString(coords)
+                self.segments.at[segnum, geom_name] = LineString(coords)
             profiles.append(LineString(profile_coords))
         self.profiles = geopandas.GeoSeries(profiles)
         return
@@ -619,28 +768,51 @@ class SurfaceWaterNetwork(object):
         while True:
             numiter += 1
 
-    def remove(self, condition):
-        """Remove segments (and catchments), but retain other info
+    def remove(self, condition=False, segnums=[]):
+        """Remove segments (and catchments)
 
         Parameters
         ----------
-        condition : pandas.Series
-            Series of bool for each segment index, where True is to discard.
+        condition : bool or pandas.Series
+            Series of bool for each segment index, where True is to remove.
+            Combined with 'segnums'. Defaut False (keep all).
+        segnums : list
+            List of segnums to remove. Combined with 'condition'. Default [].
 
         Returns
         -------
         None
         """
+        condition = self.segment_series(condition, 'condition').astype(bool)
+        if condition.any():
+            self.logger.debug(
+                'selecting %d segnum(s) based on a condition',
+                condition.sum())
+        sel = condition.copy()
         segments_index = self.segments.index
-        if not isinstance(condition, pd.Series):
-            raise ValueError('condition must be a pandas.Series')
-        elif (len(condition.index) != len(segments_index) or
-                not (condition.index == segments_index).all()):
-            raise ValueError('index is different than for segments')
-        sel = ~condition.astype(bool)
-        self.segments = self.segments.loc[sel]
-        if self.catchments is not None:
-            self.catchments = self.catchments.loc[sel]
+        if len(segnums) > 0:
+            segnums_set = set(segnums)
+            if not segnums_set.issubset(segments_index):
+                diff = segnums_set.difference(segments_index)
+                raise IndexError(
+                    '{0} segnums not found in segments.index: {1}'
+                    .format(len(diff), list(diff)[:5]))
+            self.logger.debug(
+                'selecting %d segnum(s) based on a list', len(segnums_set))
+            sel |= segments_index.isin(segnums_set)
+        if sel.all():
+            raise ValueError(
+                'all segments were selected to remove; must keep at least one')
+        elif (~sel).all():
+            self.logger.info('no segments selected to remove; no changes made')
+        else:
+            assert sel.any()
+            self.logger.info(
+                'removing %d of %d segments (%.2f%%)', sel.sum(),
+                len(segments_index), sel.sum() * 100.0 / len(segments_index))
+            self.segments = self.segments.loc[~sel]
+            if self.catchments is not None:
+                self.catchments = self.catchments.loc[~sel]
         return
 
     def process_flopy(self, m, ibound_action='freeze', min_slope=1./1000,
@@ -699,12 +871,14 @@ class SurfaceWaterNetwork(object):
             determine the streamflow entering the upstream end of a segment if
             it is not part of the SFR network. Internal flows are ignored.
             A dict can be used to provide constant values to segnum
-            identifiers. If a DataFrame is passed, the index must be a
-            DatetimeIndex aligned with the begining of each model stress
-            period. Default is {} (no outside inflow added to flow term).
+            identifiers. If a DataFrame is passed for a model with more than
+            one stress period, the index must be a DatetimeIndex aligned with
+            the start of each model stress period.
+            Default is {} (no outside inflow added to flow term).
         flow : dict or pandas.DataFrame, optional
             Flow to the top of each segment. This is added to any inflow,
-            which is handled separately. Default is {} (zero).
+            which is handled separately. This can be negative for withdrawls.
+            Default is {} (zero).
         runoff : dict or pandas.DataFrame, optional
             Runoff to each segment. Default is {} (zero).
         etsw : dict or pandas.DataFrame, optional
@@ -727,7 +901,7 @@ class SurfaceWaterNetwork(object):
         stress_df['duration'] = pd.TimedeltaIndex(
                 stress_df['perlen'].cumsum(), m.modeltime.time_units)
         stress_df['start'] = pd.to_datetime(m.modeltime.start_datetime)
-        stress_df['end'] = stress_df['duration'] + stress_df.loc[0, 'start']
+        stress_df['end'] = stress_df['duration'] + stress_df.at[0, 'start']
         stress_df.loc[1:, 'start'] = stress_df['end'].iloc[:-1].values
         segments_segnums = set(self.segments.index)
 
@@ -737,22 +911,25 @@ class SurfaceWaterNetwork(object):
             elif not isinstance(data, pd.DataFrame):
                 raise ValueError(
                     '{0} must be a dict or DataFrame'.format(name))
-            elif not isinstance(data.index, pd.DatetimeIndex):
+            if len(data) != m.dis.nper:
                 raise ValueError(
-                    '{0}.index must be a pandas.DatetimeIndex'.format(name))
-            elif len(data) != m.dis.nper:
-                raise ValueError(
-                    '{0} DataFrame length is different than nper ({1})'
-                    .format(name, m.dis.nper))
-            elif not (data.index == stress_df['start']).all():
-                try:
-                    t = stress_df['start'].to_string(index=False, max_rows=5)\
-                                            .replace('\n', ', ')
-                except TypeError:
-                    t = ', '.join([str(x)
-                                   for x in list(stress_df['start'][:5])])
-                raise ValueError(
-                    '{0}.index does not match expected ({1})'.format(name, t))
+                    'length of {0} ({1}) is different than nper ({2})'
+                    .format(name, len(data), m.dis.nper))
+            if m.dis.nper > 1:  # check DatetimeIndex
+                if not isinstance(data.index, pd.DatetimeIndex):
+                    raise ValueError(
+                        '{0}.index must be a pandas.DatetimeIndex'
+                        .format(name))
+                elif not (data.index == stress_df['start']).all():
+                    try:
+                        t = stress_df['start'].to_string(
+                                index=False, max_rows=5).replace('\n', ', ')
+                    except TypeError:
+                        t = ', '.join([str(x)
+                                       for x in list(stress_df['start'][:5])])
+                    raise ValueError(
+                        '{0}.index does not match expected ({1})'
+                        .format(name, t))
             try:
                 data.columns = data.columns.astype(self.segments.index.dtype)
             except TypeError:
@@ -915,6 +1092,7 @@ class SurfaceWaterNetwork(object):
                         rem_c.loc[1] = {
                             'pt': rem.interpolate(0.5, normalized=True)}
                         rem_c.sort_index(inplace=True)
+                        rem = LineString(list(rem_c['pt']))  # rebuild
                     # first match assumed to be touching the start of the line
                     if rem_c.at[0, 'pt'].touches(matches[1][2]):
                         matches.reverse()
@@ -1073,8 +1251,8 @@ class SurfaceWaterNetwork(object):
                 iseg += 1
                 ireach = 0
             ireach += 1
-            self.reaches.loc[idx, 'iseg'] = iseg
-            self.reaches.loc[idx, 'ireach'] = ireach
+            self.reaches.at[idx, 'iseg'] = iseg
+            self.reaches.at[idx, 'ireach'] = ireach
             prev_segnum = segnum
         self.reaches.reset_index(inplace=True, drop=True)
         self.reaches.index += 1
@@ -1090,10 +1268,10 @@ class SurfaceWaterNetwork(object):
                 dz = z0 - z1
                 dx = geom.length
                 slope = dz / dx
-                self.reaches.loc[reachID, 'slope'] = slope
+                self.reaches.at[reachID, 'slope'] = slope
                 # Get strtop from LineString mid-point Z
                 zm = geom.interpolate(0.5, normalized=True).z
-                self.reaches.loc[reachID, 'strtop'] = zm
+                self.reaches.at[reachID, 'strtop'] = zm
         else:
             r = self.reaches['row'].values
             c = self.reaches['col'].values
@@ -1156,7 +1334,7 @@ class SurfaceWaterNetwork(object):
         # Determine upstream flows needed for each SFR segment
         sfr_segnums = set(self.segment_data.index)
         for segnum in self.segment_data.index:
-            from_segnums = self.from_segnums.get(segnum, [])
+            from_segnums = self.segments.at[segnum, 'from_segnums']
             if not from_segnums:
                 continue
             # gather segments outside SFR network
@@ -1218,6 +1396,30 @@ class SurfaceWaterNetwork(object):
                 reach_data=self.reach_data.to_records(index=True),
                 segment_data=segment_data)
         self.model = m
+        # For models with more than one stress period, evaluate summary stats
+        if m.dis.nper > 1:
+            # Remove time-varying data from last stress period
+            self.segment_data.drop(
+                ['flow', 'runoff', 'etsw', 'pptsw'], axis=1, inplace=True)
+
+            def add_summary_stats(name, df):
+                if len(df.columns) == 0:
+                    return
+                self.segment_data[name + '_min'] = 0.0
+                self.segment_data[name + '_mean'] = 0.0
+                self.segment_data[name + '_max'] = 0.0
+                min_v = df.min(0)
+                mean_v = df.mean(0)
+                max_v = df.max(0)
+                self.segment_data.loc[min_v.index, name + '_min'] = min_v
+                self.segment_data.loc[mean_v.index, name + '_mean'] = mean_v
+                self.segment_data.loc[max_v.index, name + '_max'] = max_v
+
+            add_summary_stats('inflow', inflows)
+            add_summary_stats('flow', flow)
+            add_summary_stats('runoff', runoff)
+            add_summary_stats('etsw', etsw)
+            add_summary_stats('pptsw', pptsw)
 
     def get_seg_ijk(self):
         """
@@ -1982,7 +2184,6 @@ def sfr_dfs_to_rec(model, segdatadf, reachdatadf, set_outreaches=False,
     # as of 08/03/2018 flopy plotting of sfr plots whatever is in stress_period_data
     # add
     model.sfr.stress_period_data.data[0] = model.sfr.reach_data
-
 
 
 def topnet2ts(nc_path, varname, log_level=logging.INFO):

@@ -55,6 +55,12 @@ n.segments.sort_values('stream_order').plot('stream_order')
 n.segments.to_file('segments.shp')
 ```
 
+Remove segments that meet a condition (stream order), or that are
+upstream/downstream from certain locations:
+```python
+n.remove(n.segments.stream_order == 1, segnums=n.query(upstream=3047927))
+```
+
 Read flow data from a TopNet netCDF file:
 ```python
 nc_fname = 'streamq_20170115_20170128_topnet_03046727_strahler1.nc'
@@ -69,7 +75,6 @@ flow7d = flow.resample('7D').mean()
 
 # full mean
 flow_m = pd.DataFrame(flow.mean(0)).T
-flow_m.index = pd.DatetimeIndex(['2000-01-01'])
 ```
 
 Process a MODFLOW/flopy model:
