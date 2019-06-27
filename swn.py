@@ -3,6 +3,7 @@ import geopandas
 import logging
 import numpy as np
 import pandas as pd
+import sys
 try:
     from geopandas.tools import sjoin
 except ImportError:
@@ -41,7 +42,7 @@ if __name__ not in [_.name for _ in module_logger.handlers]:
         formatter = logging.Formatter(
             '%(asctime)s.%(msecs)03d:%(levelname)s:%(name)s:%(message)s',
             '%H:%M:%S')
-        handler = logging.StreamHandler()
+        handler = logging.StreamHandler(stream=sys.stdout)
         handler.name = __name__
         handler.setFormatter(formatter)
         module_logger.addHandler(handler)
@@ -1932,6 +1933,19 @@ class MfSfrNetwork(object):
         else:
             self.model.sfr.segment_data = segment_data
 
+    def set_reach_data(self, return_df=False):
+        # Take only a subset of columns to sfr
+        colnames = []
+        n = flopy.modflow.mfsfr2.ModflowSfr2.get_default_reach_dtype().names
+        for name in n:
+            if name in self.reach_data.columns:
+                colnames.append(name)
+        if return_df:
+            return self.reach_data[colnames]
+        else:
+            self.model.sfr.rech_data = self.reach_data[
+                colnames].to_records(index=True)
+
     def get_seg_ijk(self):
         """
         This will just get the upstream and downstream segment k,i,j
@@ -1939,9 +1953,9 @@ class MfSfrNetwork(object):
         topidx = self.reach_data['ireach'] == 1
         kij_df = self.reach_data[topidx][['iseg', 'k', 'i', 'j']].sort_values(
             'iseg')
-        self.segment_data = self.segment_data.merge(
+        self.segment_data = self.segment_data.reset_index().merge(
             kij_df, left_on='nseg', right_on='iseg', how='left').drop(
-            'iseg', axis=1)
+            'iseg', axis=1).set_index('index')
         self.segment_data.rename(
             columns={"k": "k_up", "i": "i_up", "j": "j_up"}, inplace=True)
         # seg bottoms
@@ -1950,9 +1964,9 @@ class MfSfrNetwork(object):
         kij_df = self.reach_data[btmidx][['iseg', 'k', 'i', 'j']].sort_values(
             'iseg')
 
-        self.segment_data = self.segment_data.merge(
+        self.segment_data = self.segment_data.reset_index().merge(
             kij_df, left_on='nseg', right_on='iseg', how='left').drop(
-            'iseg', axis=1)
+            'iseg', axis=1).set_index('index')
         self.segment_data.rename(
             columns={"k": "k_dn", "i": "i_dn", "j": "j_dn"}, inplace=True)
         return self.segment_data[[
@@ -2010,9 +2024,9 @@ class MfSfrNetwork(object):
         """
         # extract segment length for calculating minimun drop later
         seglen = self.reach_data.groupby('iseg').rchlen.sum()
-        self.segment_data = self.segment_data.merge(seglen, left_on='nseg',
-                                                    right_index=True,
-                                                    how='left')
+        self.segment_data = self.segment_data.reset_index().merge(
+            seglen, left_on='nseg', right_index=True, how='left'
+        ).set_index('index')
         self.segment_data.rename(columns={'rchlen': "seglen"}, inplace=True)
         return self.segment_data['seglen']
 
