@@ -36,19 +36,25 @@ def n2d():
 def test_process_flopy_instance_errors(n3d):
     n = n3d
     n.segments = n.segments.copy()
+    m = flopy.modflow.Modflow()
+
     with pytest.raises(
             ValueError,
-            match=r'must be a flopy\.modflow\.mf\.Modflow object'):
-        n.process_flopy(object())
+            match='swn must be a SurfaceWaterNetwork object'):
+        swn.MfSfrNetwork(object(), m)
 
-    m = flopy.modflow.Modflow()
+    with pytest.raises(
+            ValueError,
+            match=r'model must be a flopy\.modflow\.mf\.Modflow object'):
+        swn.MfSfrNetwork(n, object())
+
     with pytest.raises(ValueError, match='DIS package required'):
-        n.process_flopy(m)
+        swn.MfSfrNetwork(n, m)
 
     flopy.modflow.ModflowDis(
         m, nlay=1, nrow=3, ncol=2, nper=4, delr=20.0, delc=20.0)
     with pytest.raises(ValueError, match='BAS6 package required'):
-        n.process_flopy(m)
+        swn.MfSfrNetwork(n, m)
 
     flopy.modflow.ModflowBas(m)
 
@@ -57,40 +63,40 @@ def test_process_flopy_instance_errors(n3d):
     # with pytest.raises(
     #        ValueError,
     #        match='CRS for segments and modelgrid are different'):
-    #    n.process_flopy(m)
+    #    nm = swn.MfSfrNetwork(n, m)
 
     n.segments.crs = None
     with pytest.raises(
             ValueError,
             match='modelgrid extent does not cover segments extent'):
-        n.process_flopy(m)
+        swn.MfSfrNetwork(n, m)
 
     m.modelgrid.set_coord_info(xoff=30.0, yoff=70.0)
 
     with pytest.raises(ValueError, match='ibound_action must be one of'):
-        n.process_flopy(m, ibound_action='foo')
+        swn.MfSfrNetwork(n, m, ibound_action='foo')
 
     with pytest.raises(ValueError, match='flow must be a dict or DataFrame'):
-        n.process_flopy(m, flow=1.1)
+        swn.MfSfrNetwork(n, m, flow=1.1)
 
     with pytest.raises(
             ValueError,
             match=r'length of flow \(1\) is different than nper \(4\)'):
-        n.process_flopy(
-            m, flow=pd.DataFrame(
+        swn.MfSfrNetwork(
+            n, m, flow=pd.DataFrame(
                     {'1': [1.1]},
                     index=pd.DatetimeIndex(['1970-01-01'])))
 
     with pytest.raises(
             ValueError,
             match=r'flow\.index must be a pandas\.DatetimeIndex'):
-        n.process_flopy(m, flow=pd.DataFrame({'1': [1.1] * 4}))
+        swn.MfSfrNetwork(n, m, flow=pd.DataFrame({'1': [1.1] * 4}))
 
     with pytest.raises(
             ValueError,
             match=r'flow\.index does not match expected \(1970\-01\-01, 1970'):
-        n.process_flopy(
-            m, flow=pd.DataFrame(
+        swn.MfSfrNetwork(
+            n, m, flow=pd.DataFrame(
                     {'1': 1.1},  # starts on the wrong day
                     index=pd.DatetimeIndex(['1970-01-02'] * 4) +
                     pd.TimedeltaIndex(range(4), 'days')))
@@ -98,8 +104,8 @@ def test_process_flopy_instance_errors(n3d):
     with pytest.raises(
             ValueError,
             match=r'flow\.columns\.dtype must be same as segments\.index\.dt'):
-        n.process_flopy(
-            m, flow=pd.DataFrame(
+        swn.MfSfrNetwork(
+            n, m, flow=pd.DataFrame(
                     {'s1': 1.1},  # can't convert key to int
                     index=pd.DatetimeIndex(['1970-01-01'] * 4) +
                     pd.TimedeltaIndex(range(4), 'days')))
@@ -107,15 +113,15 @@ def test_process_flopy_instance_errors(n3d):
     with pytest.raises(
             ValueError,
             match=r'flow\.columns not found in segments\.index'):
-        n.process_flopy(
-            m, flow=pd.DataFrame(
+        swn.MfSfrNetwork(
+            n, m, flow=pd.DataFrame(
                     {'3': 1.1},  # segnum 3 does not exist
                     index=pd.DatetimeIndex(['1970-01-01'] * 4) +
                     pd.TimedeltaIndex(range(4), 'days')))
 
     # finally success!
-    n.process_flopy(
-        m, flow=pd.DataFrame(
+    swn.MfSfrNetwork(
+        n, m, flow=pd.DataFrame(
                 {'1': 1.1, '3': 1.1},  # segnum 3 ignored
                 index=pd.DatetimeIndex(['1970-01-01'] * 4) +
                 pd.TimedeltaIndex(range(4), 'days')))
@@ -140,7 +146,7 @@ def test_process_flopy_n3d_defaults(n3d, tmpdir_factory):
         m, nlay=1, nrow=3, ncol=2, delr=20.0, delc=20.0, top=15.0, botm=10.0,
         xul=30.0, yul=130.0)
     flopy.modflow.ModflowBas(m)
-    n.process_flopy(m)
+    nm = swn.MfSfrNetwork(n, m)
     # Data set 1c
     assert abs(m.sfr.nstrm) == 7
     assert m.sfr.nss == 3
@@ -189,8 +195,8 @@ def test_process_flopy_n3d_defaults(n3d, tmpdir_factory):
     outdir = tmpdir_factory.mktemp('n3d')
     m.model_ws = str(outdir)
     m.write_input()
-    n.grid_cells.to_file(str(outdir.join('grid_cells.shp')))
-    n.reaches.to_file(str(outdir.join('reaches.shp')))
+    nm.grid_cells.to_file(str(outdir.join('grid_cells.shp')))
+    nm.reaches.to_file(str(outdir.join('reaches.shp')))
 
 
 def test_process_flopy_n3d_vars(n3d, tmpdir_factory):
@@ -201,9 +207,10 @@ def test_process_flopy_n3d_vars(n3d, tmpdir_factory):
         m, nlay=1, nrow=3, ncol=2, delr=20.0, delc=20.0, top=15.0, botm=10.0,
         xul=30.0, yul=130.0)
     flopy.modflow.ModflowBas(m)
-    n.process_flopy(m, min_slope=0.03, hyd_cond1=12, thickness1=2.0,
-                    inflow={0: 96.6, 1: 97.7, 2: 98.8}, flow={0: 5.4},
-                    runoff={1: 5}, etsw={0: 3, 1: 9.1, 2: 6}, pptsw={2: 8.8})
+    nm = swn.MfSfrNetwork(
+        n, m, min_slope=0.03, hyd_cond1=12, thickness1=2.0,
+        inflow={0: 96.6, 1: 97.7, 2: 98.8}, flow={0: 5.4},
+        runoff={1: 5}, etsw={0: 3, 1: 9.1, 2: 6}, pptsw={2: 8.8})
     np.testing.assert_array_almost_equal(
         m.sfr.reach_data.rchlen,
         [18.027756, 6.009252, 12.018504, 21.081851, 10.540926, 10.0, 10.0])
@@ -239,8 +246,8 @@ def test_process_flopy_n3d_vars(n3d, tmpdir_factory):
     outdir = tmpdir_factory.mktemp('n3d')
     m.model_ws = str(outdir)
     m.write_input()
-    n.grid_cells.to_file(str(outdir.join('grid_cells.shp')))
-    n.reaches.to_file(str(outdir.join('reaches.shp')))
+    nm.grid_cells.to_file(str(outdir.join('grid_cells.shp')))
+    nm.reaches.to_file(str(outdir.join('reaches.shp')))
 
 
 def test_process_flopy_n2d_defaults(n2d, tmpdir_factory):
@@ -256,7 +263,7 @@ def test_process_flopy_n2d_defaults(n2d, tmpdir_factory):
         m, nlay=1, nrow=3, ncol=2, delr=20.0, delc=20.0, top=top, botm=10.0,
         xul=30.0, yul=130.0)
     flopy.modflow.ModflowBas(m)
-    n.process_flopy(m)
+    nm = swn.MfSfrNetwork(n, m)
     # Data set 1c
     assert abs(m.sfr.nstrm) == 7
     assert m.sfr.nss == 3
@@ -280,8 +287,8 @@ def test_process_flopy_n2d_defaults(n2d, tmpdir_factory):
     outdir = tmpdir_factory.mktemp('n2d')
     m.model_ws = str(outdir)
     m.write_input()
-    n.grid_cells.to_file(str(outdir.join('grid_cells.shp')))
-    n.reaches.to_file(str(outdir.join('reaches.shp')))
+    nm.grid_cells.to_file(str(outdir.join('grid_cells.shp')))
+    nm.reaches.to_file(str(outdir.join('reaches.shp')))
 
 
 def test_process_flopy_n2d_min_slope(n2d, tmpdir_factory):
@@ -296,7 +303,7 @@ def test_process_flopy_n2d_min_slope(n2d, tmpdir_factory):
         m, nlay=1, nrow=3, ncol=2, delr=20.0, delc=20.0, top=top, botm=10.0,
         xul=30.0, yul=130.0)
     flopy.modflow.ModflowBas(m)
-    n.process_flopy(m, min_slope=0.03)
+    nm = swn.MfSfrNetwork(n, m, min_slope=0.03)
     np.testing.assert_array_almost_equal(
         m.sfr.reach_data.rchlen,
         [18.027756, 6.009252, 12.018504, 21.081851, 10.540926, 10.0, 10.0])
@@ -316,8 +323,8 @@ def test_process_flopy_n2d_min_slope(n2d, tmpdir_factory):
     outdir = tmpdir_factory.mktemp('n2d')
     m.model_ws = str(outdir)
     m.write_input()
-    n.grid_cells.to_file(str(outdir.join('grid_cells.shp')))
-    n.reaches.to_file(str(outdir.join('reaches.shp')))
+    nm.grid_cells.to_file(str(outdir.join('grid_cells.shp')))
+    nm.reaches.to_file(str(outdir.join('reaches.shp')))
 
 
 def test_set_elevations(n2d, tmpdir_factory):
@@ -333,12 +340,12 @@ def test_set_elevations(n2d, tmpdir_factory):
         m, nlay=1, nrow=3, ncol=2, delr=20.0, delc=20.0, top=top, botm=10.0,
         xul=30.0, yul=130.0)
     flopy.modflow.ModflowBas(m)
-    n.process_flopy(m)
-    _ = n.fix_segment_elevs(min_incise=0.2, min_slope=1.e-4)
-    _ = n.reconcile_reach_strtop()
-    _ = n.set_topbot_elevs_at_reaches()
+    nm = swn.MfSfrNetwork(n, m)
+    _ = nm.fix_segment_elevs(min_incise=0.2, min_slope=1.e-4)
+    _ = nm.reconcile_reach_strtop()
+    _ = nm.set_topbot_elevs_at_reaches()
     # n.plot_reaches_above(m, 'all', plot_bottom=True, points2=None)
-    n.fix_reach_elevs()
+    nm.fix_reach_elevs()
     # Data set 1c
     assert abs(m.sfr.nstrm) == 7
     assert m.sfr.nss == 3
@@ -362,8 +369,8 @@ def test_set_elevations(n2d, tmpdir_factory):
     outdir = tmpdir_factory.mktemp('n2d')
     m.model_ws = str(outdir)
     m.write_input()
-    n.grid_cells.to_file(str(outdir.join('grid_cells.shp')))
-    n.reaches.to_file(str(outdir.join('reaches.shp')))
+    nm.grid_cells.to_file(str(outdir.join('grid_cells.shp')))
+    nm.reaches.to_file(str(outdir.join('reaches.shp')))
 
 
 def test_reach_barely_outside_ibound():
@@ -375,7 +382,7 @@ def test_reach_barely_outside_ibound():
     flopy.modflow.ModflowDis(
         m, nrow=2, ncol=3, delr=100.0, delc=100.0, xul=0.0, yul=200.0)
     flopy.modflow.ModflowBas(m, ibound=np.array([[1, 1, 1], [0, 0, 0]]))
-    n.process_flopy(m, reach_include_fraction=0.8)
+    nm = swn.MfSfrNetwork(n, m, reach_include_fraction=0.8)
     # Data set 1c
     assert abs(m.sfr.nstrm) == 3
     assert m.sfr.nss == 1
@@ -392,7 +399,7 @@ def test_reach_barely_outside_ibound():
         '165 100, 180 90, 185 100, 190 110, 200 107)',
         'LINESTRING (200 107, 223.3 100, 290 80)'])
     expected_reaches_geom.index += 1
-    assert n.reaches.geom_almost_equals(expected_reaches_geom, 0).all()
+    assert nm.reaches.geom_almost_equals(expected_reaches_geom, 0).all()
 
 
 @pytest.fixture
@@ -414,24 +421,24 @@ def test_costal_process_flopy(
     m = costal_flopy_m
     # Make sure this is the model we are thinking of
     assert m.modelgrid.extent == (1802000.0, 1819000.0, 5861000.0, 5879000.0)
-    n.process_flopy(m, inflow=clostal_flow_m)
+    nm = swn.MfSfrNetwork(n, m, inflow=clostal_flow_m)
     # Check remaining reaches added that are inside model domain
-    reach_geom = n.reaches.loc[
-        n.reaches['segnum'] == 3047735, 'geometry'].iloc[0]
+    reach_geom = nm.reaches.loc[
+        nm.reaches['segnum'] == 3047735, 'geometry'].iloc[0]
     np.testing.assert_almost_equal(reach_geom.length, 980.5448069140768)
     # These should be split between two cells
-    reach_geoms = n.reaches.loc[
-        n.reaches['segnum'] == 3047750, 'geometry']
+    reach_geoms = nm.reaches.loc[
+        nm.reaches['segnum'] == 3047750, 'geometry']
     assert len(reach_geoms) == 2
     np.testing.assert_almost_equal(reach_geoms.iloc[0].length, 204.90164560019)
     np.testing.assert_almost_equal(reach_geoms.iloc[1].length, 789.59872070638)
     # This reach should not be extended, the remainder is too far away
-    reach_geom = n.reaches.loc[
-        n.reaches['segnum'] == 3047762, 'geometry'].iloc[0]
+    reach_geom = nm.reaches.loc[
+        nm.reaches['segnum'] == 3047762, 'geometry'].iloc[0]
     np.testing.assert_almost_equal(reach_geom.length, 261.4644731621629)
     # This reach should not be extended, the remainder is too long
-    reach_geom = n.reaches.loc[
-        n.reaches['segnum'] == 3047926, 'geometry'].iloc[0]
+    reach_geom = nm.reaches.loc[
+        nm.reaches['segnum'] == 3047926, 'geometry'].iloc[0]
     np.testing.assert_almost_equal(reach_geom.length, 237.72893664132727)
     # Data set 1c
     assert abs(m.sfr.nstrm) == 369
@@ -505,8 +512,8 @@ def test_costal_process_flopy(
     outdir = tmpdir_factory.mktemp('costal')
     m.model_ws = str(outdir)
     m.write_input()
-    n.grid_cells.to_file(str(outdir.join('grid_cells.shp')))
-    n.reaches.to_file(str(outdir.join('reaches.shp')))
+    nm.grid_cells.to_file(str(outdir.join('grid_cells.shp')))
+    nm.reaches.to_file(str(outdir.join('reaches.shp')))
 
 
 def test_costal_elevations(
@@ -516,15 +523,15 @@ def test_costal_elevations(
     m = costal_flopy_m
     # Make sure this is the model we are thinking of
     assert m.modelgrid.extent == (1802000.0, 1819000.0, 5861000.0, 5879000.0)
-    n.process_flopy(m, inflow=clostal_flow_m)
-    _ = n.set_topbot_elevs_at_reaches()
-    n.plot_reaches_above(m, 'all', plot_bottom=True, points2=None)
-    _ = n.fix_segment_elevs(min_incise=0.2, min_slope=1.e-4)
-    _ = n.reconcile_reach_strtop()
-    _ = n.set_topbot_elevs_at_reaches()
-    n.plot_reaches_above(m, 'all', plot_bottom=True, points2=None)
-    n.fix_reach_elevs()
-    n.plot_reaches_above(m, 'all', plot_bottom=True, points2=None)
+    nm = swn.MfSfrNetwork(n, m, inflow=clostal_flow_m)
+    _ = nm.set_topbot_elevs_at_reaches()
+    nm.plot_reaches_above(m, 'all', plot_bottom=True, points2=None)
+    _ = nm.fix_segment_elevs(min_incise=0.2, min_slope=1.e-4)
+    _ = nm.reconcile_reach_strtop()
+    _ = nm.set_topbot_elevs_at_reaches()
+    nm.plot_reaches_above(m, 'all', plot_bottom=True, points2=None)
+    nm.fix_reach_elevs()
+    nm.plot_reaches_above(m, 'all', plot_bottom=True, points2=None)
 
 
 def test_costal_reduced_process_flopy(
@@ -537,20 +544,20 @@ def test_costal_reduced_process_flopy(
         condition=n.segments['stream_order'] == 1,
         segnums=n.query(upstream=3047927))
     assert len(n) == 130
-    n.process_flopy(m, inflow=clostal_flow_m)
+    nm = swn.MfSfrNetwork(n, m, inflow=clostal_flow_m)
     # These should be split between two cells
-    reach_geoms = n.reaches.loc[
-        n.reaches['segnum'] == 3047750, 'geometry']
+    reach_geoms = nm.reaches.loc[
+        nm.reaches['segnum'] == 3047750, 'geometry']
     assert len(reach_geoms) == 2
     np.testing.assert_almost_equal(reach_geoms.iloc[0].length, 204.90164560019)
     np.testing.assert_almost_equal(reach_geoms.iloc[1].length, 789.59872070638)
     # This reach should not be extended, the remainder is too far away
-    reach_geom = n.reaches.loc[
-        n.reaches['segnum'] == 3047762, 'geometry'].iloc[0]
+    reach_geom = nm.reaches.loc[
+        nm.reaches['segnum'] == 3047762, 'geometry'].iloc[0]
     np.testing.assert_almost_equal(reach_geom.length, 261.4644731621629)
     # This reach should not be extended, the remainder is too long
-    reach_geom = n.reaches.loc[
-        n.reaches['segnum'] == 3047926, 'geometry'].iloc[0]
+    reach_geom = nm.reaches.loc[
+        nm.reaches['segnum'] == 3047926, 'geometry'].iloc[0]
     np.testing.assert_almost_equal(reach_geom.length, 237.72893664132727)
     # Data set 1c
     assert abs(m.sfr.nstrm) == 195
@@ -622,8 +629,8 @@ def test_costal_reduced_process_flopy(
     outdir = tmpdir_factory.mktemp('costal')
     m.model_ws = str(outdir)
     m.write_input()
-    n.grid_cells.to_file(str(outdir.join('grid_cells.shp')))
-    n.reaches.to_file(str(outdir.join('reaches.shp')))
+    nm.grid_cells.to_file(str(outdir.join('grid_cells.shp')))
+    nm.reaches.to_file(str(outdir.join('reaches.shp')))
 
 
 def test_costal_process_flopy_ibound_modify(
@@ -631,10 +638,10 @@ def test_costal_process_flopy_ibound_modify(
     n = costal_swn
     assert len(n) == 304
     m = flopy.modflow.Modflow.load('h.nam', model_ws=datadir, check=False)
-    n.process_flopy(m, ibound_action='modify', inflow=clostal_flow_m)
+    nm = swn.MfSfrNetwork(n, m, ibound_action='modify', inflow=clostal_flow_m)
     # Check a remaining reach added that is outside model domain
-    reach_geom = n.reaches.loc[
-        n.reaches['segnum'] == 3048565, 'geometry'].iloc[0]
+    reach_geom = nm.reaches.loc[
+        nm.reaches['segnum'] == 3048565, 'geometry'].iloc[0]
     np.testing.assert_almost_equal(reach_geom.length, 647.316024023105)
     expected_geom = wkt.loads(
         'LINESTRING Z (1819072.5 5869685.1 4, 1819000 5869684.9 5.7, '
@@ -725,7 +732,7 @@ def test_process_flopy_lines_on_boundaries():
         'LINESTRING (150 100, 200   0, 300   0)',
     ])
     n = swn.SurfaceWaterNetwork(lines)
-    n.process_flopy(m)
+    nm = swn.MfSfrNetwork(n, m)
     assert m.sfr.nss == 5
     # TODO: code needs to be improved for this type of case
     # assert abs(m.sfr.nstrm) == 8

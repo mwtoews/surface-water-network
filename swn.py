@@ -114,7 +114,6 @@ class SurfaceWaterNetwork(object):
     errors : list
         List of error messages.
     """
-    index = None
     END_SEGNUM = None
     segments = None
     logger = None
@@ -853,6 +852,7 @@ class SurfaceWaterNetwork(object):
         pptsw : dict or pandas.DataFrame, optional
             See generate_segment_data. Default is {} (zero).
         """
+        raise NotImplementedError('moved to MfSfrNetwork')
         if not flopy:
             raise ImportError('this method requires flopy')
         elif not isinstance(m, flopy.modflow.mf.Modflow):
@@ -1241,6 +1241,499 @@ class SurfaceWaterNetwork(object):
                 reach_data=self.reach_data.to_records(index=True),
                 segment_data=segment_data)
 
+
+class MfSfrNetwork(object):
+    """MODFLOW SFR network
+
+    Attributes
+    ----------
+    swn : swn.SurfaceWaterNetwork
+        Instance of a SurfaceWaterNetwork
+    model : flopy.modflow.mf.Modflow
+        Instance of a flopy MODFLOW model
+    segments : geopandas.GeoDataFrame
+    segment_data : pandas.DataFrame
+    reach_data : pandas.DataFrame
+    logger : logging.Logger
+        Logger to show messages.
+    warnings : list
+        List of warning messages.
+    errors : list
+        List of error messages.
+    """
+    index = None
+    END_SEGNUM = None
+    segments = None
+    logger = None
+    warnings = None
+    errors = None
+
+    def __init__(self, swn, model, ibound_action='freeze',
+                 reach_include_fraction=0.2, min_slope=1./1000,
+                 hyd_cond1=1., hyd_cond_out=None,
+                 thickness1=1., thickness_out=None,
+                 width1=10., width_out=None, roughch=0.024,
+                 inflow={}, flow={}, runoff={}, etsw={}, pptsw={},
+                 logger=None):
+        """Create a MODFLOW SFR structure from a surface water network
+
+        Parameters
+        ----------
+        swn : swn.SurfaceWaterNetwork
+            Instance of a SurfaceWaterNetwork.
+        model : flopy.modflow.mf.Modflow
+            Instance of a flopy MODFLOW model with DIS and BAS6 packages.
+        ibound_action : str, optional
+            Action to handle IBOUND:
+                - ``freeze`` : Freeze IBOUND, but clip streams to fit bounds.
+                - ``modify`` : Modify IBOUND to fit streams, where possible.
+        reach_include_fraction : float or pandas.Series, optional
+            Fraction of cell size used as a threshold distance to determine if
+            reaches outside the active grid should be included to a cell.
+            Based on the furthest distance of the line and cell geometries.
+            Default 0.2 (e.g. for a 100 m grid cell, this is 20 m).
+        min_slope : float or pandas.Series, optional
+            Minimum downwards slope imposed on segments. If float, then this is
+            a global value, otherwise it is per-segment with a Series.
+            Default 1./1000 (or 0.001).
+        hyd_cond1 : float or pandas.Series, optional
+            Hydraulic conductivity of the streambed, as a global or per top of
+            each segment. Used for either STRHC1 or HCOND1/HCOND2 outputs.
+            Default 1.
+        hyd_cond_out : None, float or pandas.Series, optional
+            Similar to thickness1, but for the hydraulic conductivity of each
+            segment outlet. If None (default), the same hyd_cond1 value for the
+            top of the outlet segment is used for the bottom.
+        thickness1 : float or pandas.Series, optional
+            Thickness of the streambed, as a global or per top of each segment.
+            Used for either STRTHICK or THICKM1/THICKM2 outputs. Default 1.
+        thickness_out : None, float or pandas.Series, optional
+            Similar to thickness1, but for the bottom of each segment outlet.
+            If None (default), the same thickness1 value for the top of the
+            outlet segment is used for the bottom.
+        width1 : float or pandas.Series, optional
+            Channel width, as a global or per top of each segment. Used for
+            WIDTH1/WIDTH2 outputs. Default 10.
+        width_out : None, float or pandas.Series, optional
+            Similar to width1, but for the bottom of each segment outlet.
+            If None (default), the same width1 value for the top of the
+            outlet segment is used for the bottom.
+        roughch : float or pandas.Series, optional
+            Manning's roughness coefficient for the channel. If float, then
+            this is a global value, otherwise it is per-segment with a Series.
+            Default 0.024.
+        inflow : dict or pandas.DataFrame, optional
+            See generate_segment_data for details.
+            Default is {} (no outside inflow added to flow term).
+        flow : dict or pandas.DataFrame, optional
+            See generate_segment_data. Default is {} (zero).
+        runoff : dict or pandas.DataFrame, optional
+            See generate_segment_data. Default is {} (zero).
+        etsw : dict or pandas.DataFrame, optional
+            See generate_segment_data. Default is {} (zero).
+        pptsw : dict or pandas.DataFrame, optional
+            See generate_segment_data. Default is {} (zero).
+        logger : logging.Logger, optional
+            Logger to show messages.
+        """
+        if logger is None:
+            self.logger = logging.getLogger(self.__class__.__name__)
+            self.logger.handlers = module_logger.handlers
+            self.logger.setLevel(module_logger.level)
+        if not flopy:
+            raise ImportError('this class requires flopy')
+        elif not isinstance(swn, SurfaceWaterNetwork):
+            raise ValueError('swn must be a SurfaceWaterNetwork object')
+        elif not isinstance(model, flopy.modflow.mf.Modflow):
+            raise ValueError('model must be a flopy.modflow.mf.Modflow object')
+        elif ibound_action not in ('freeze', 'modify'):
+            raise ValueError('ibound_action must be one of freeze or modify')
+        elif not model.has_package('DIS'):
+            raise ValueError('DIS package required')
+        elif not model.has_package('BAS6'):
+            raise ValueError('BAS6 package required')
+        self.logger.debug('building model grid cell geometries')
+        self.swn = swn
+        self.model = model
+        self.segments = swn.segments.copy()
+        # Make sure model CRS and segments CRS are the same (if defined)
+        crs = None
+        segments_crs = getattr(self.segments.geometry, 'crs', None)
+        modelgrid_crs = None
+        modelgrid = model.modelgrid
+        if modelgrid.proj4 is not None:
+            modelgrid_crs = fiona_crs.from_string(modelgrid.proj4)
+        if (segments_crs is not None and modelgrid_crs is not None and
+                segments_crs != modelgrid_crs):
+            self.logger.warning(
+                'CRS for segments and modelgrid are different: {0} vs. {1}'
+                .format(segments_crs, modelgrid_crs))
+        crs = segments_crs or modelgrid_crs
+        # Make sure their extents overlap
+        minx, maxx, miny, maxy = modelgrid.extent
+        model_bbox = box(minx, miny, maxx, maxy)
+        rstats = self.segments.bounds.describe()
+        segments_bbox = box(
+                rstats.loc['min', 'minx'], rstats.loc['min', 'miny'],
+                rstats.loc['max', 'maxx'], rstats.loc['max', 'maxy'])
+        if model_bbox.disjoint(segments_bbox):
+            raise ValueError('modelgrid extent does not cover segments extent')
+        # More careful check of overlap of lines with grid polygons
+        dis = model.dis
+        cols, rows = np.meshgrid(np.arange(dis.ncol), np.arange(dis.nrow))
+        ibound = model.bas6.ibound[0].array.copy()
+        ibound_modified = 0
+        grid_df = pd.DataFrame({'row': rows.flatten(), 'col': cols.flatten()})
+        grid_df.set_index(['row', 'col'], inplace=True)
+        grid_df['ibound'] = ibound.flatten()
+        if ibound_action == 'freeze' and (ibound == 0).any():
+            # Remove any inactive grid cells from analysis
+            grid_df = grid_df.loc[grid_df['ibound'] != 0]
+        # Determine grid cell size
+        col_size = np.median(dis.delr.array)
+        if dis.delr.array.min() != dis.delr.array.max():
+            self.logger.warning(
+                'assuming constant column spacing %s', col_size)
+        row_size = np.median(dis.delc.array)
+        if dis.delc.array.min() != dis.delc.array.max():
+            self.logger.warning(
+                'assuming constant row spacing %s', row_size)
+        cell_size = (row_size + col_size) / 2.0
+        # Note: modelgrid.get_cell_vertices(row, col) is slow!
+        xv = modelgrid.xvertices
+        yv = modelgrid.yvertices
+        r, c = [np.array(s[1])
+                for s in grid_df.reset_index()[['row', 'col']].iteritems()]
+        cell_verts = zip(
+            zip(xv[r, c], yv[r, c]),
+            zip(xv[r, c + 1], yv[r, c + 1]),
+            zip(xv[r + 1, c + 1], yv[r + 1, c + 1]),
+            zip(xv[r + 1, c], yv[r + 1, c])
+        )
+        self.grid_cells = grid_cells = geopandas.GeoDataFrame(
+            grid_df, geometry=[Polygon(r) for r in cell_verts], crs=crs)
+        self.logger.debug('evaluating reach data on model grid')
+        grid_sindex = get_sindex(grid_cells)
+        reach_include = swn.segment_series(reach_include_fraction) * cell_size
+        # Make an empty DataFrame for reaches
+        reach_df = pd.DataFrame(columns=['geometry'])
+        reach_df.insert(1, column='segnum',
+                        value=pd.Series(dtype=self.segments.index.dtype))
+        reach_df.insert(2, column='dist', value=pd.Series(dtype=float))
+        reach_df.insert(3, column='row', value=pd.Series(dtype=int))
+        reach_df.insert(4, column='col', value=pd.Series(dtype=int))
+
+        # general helper function
+        def append_reach_df(segnum, line, row, col, reach_geom):
+            if line.has_z:
+                # intersection(line) does not preserve Z coords,
+                # but line.interpolate(d) works as expected
+                reach_geom = LineString(line.interpolate(
+                    line.project(Point(c))) for c in reach_geom.coords)
+            # Get a point from the middle of the reach_geom
+            reach_mid_pt = reach_geom.interpolate(0.5, normalized=True)
+            reach_df.loc[len(reach_df.index)] = {
+                'geometry': reach_geom,
+                'segnum': segnum,
+                'dist': line.project(reach_mid_pt, normalized=True),
+                'row': row,
+                'col': col,
+            }
+
+        # recusive helper functions
+        def append_reach(segnum, row, col, line, reach_geom):
+            if reach_geom.geom_type == 'LineString':
+                append_reach_df(segnum, line, row, col, reach_geom)
+            elif reach_geom.geom_type.startswith('Multi'):
+                for sub_reach_geom in reach_geom.geoms:  # recurse
+                    append_reach(segnum, row, col, line, sub_reach_geom)
+            else:
+                raise NotImplementedError(reach_geom.geom_type)
+
+        def reassign_reach(segnum, line, rem):
+            if rem.geom_type == 'LineString':
+                threshold = cell_size * 2.0
+                if rem.length > threshold:
+                    self.logger.debug(
+                        'remaining line segment from %s too long to merge '
+                        '(%.1f > %.1f)', segnum, rem.length, threshold)
+                    return
+                if grid_sindex:
+                    bbox_match = sorted(grid_sindex.intersection(rem.bounds))
+                    sub = grid_cells.geometry.iloc[bbox_match]
+                else:  # slow scan of all cells
+                    sub = grid_cells.geometry
+                assert len(sub) > 0, len(sub)
+                matches = []
+                for (row, col), grid_geom in sub.iteritems():
+                    if grid_geom.touches(rem):
+                        matches.append((row, col, grid_geom))
+                if len(matches) == 0:
+                    return
+                threshold = reach_include[segnum]
+                # Build a tiny DataFrame for just the remaining coordinates
+                rem_c = pd.DataFrame({
+                    'pt': [Point(c) for c in rem.coords[:]]
+                })
+                if len(matches) == 1:  # merge it with adjacent cell
+                    row, col, grid_geom = matches[0]
+                    mdist = rem_c['pt'].apply(
+                                    lambda p: grid_geom.distance(p)).max()
+                    if mdist > threshold:
+                        self.logger.debug(
+                            'remaining line segment from %s too far away to '
+                            'merge (%.1f > %.1f)', segnum, mdist, threshold)
+                        return
+                    append_reach_df(segnum, line, row, col, rem)
+                elif len(matches) == 2:  # complex: need to split it
+                    if len(rem_c) == 2:
+                        # If this is a simple line with two coords, split it
+                        rem_c.index = [0, 2]
+                        rem_c.loc[1] = {
+                            'pt': rem.interpolate(0.5, normalized=True)}
+                        rem_c.sort_index(inplace=True)
+                        rem = LineString(list(rem_c['pt']))  # rebuild
+                    # first match assumed to be touching the start of the line
+                    if rem_c.at[0, 'pt'].touches(matches[1][2]):
+                        matches.reverse()
+                    rem_c['d1'] = rem_c['pt'].apply(
+                                    lambda p: p.distance(matches[0][2]))
+                    rem_c['d2'] = rem_c['pt'].apply(
+                                    lambda p: p.distance(matches[1][2]))
+                    rem_c['dm'] = rem_c[['d1', 'd2']].min(1)
+                    mdist = rem_c['dm'].max()
+                    if mdist > threshold:
+                        self.logger.debug(
+                            'remaining line segment from %s too far away to '
+                            'merge (%.1f > %.1f)', segnum, mdist, threshold)
+                        return
+                    # try a simple split where distances switch
+                    ds = rem_c['d1'] < rem_c['d2']
+                    idx = ds[ds].index[-1]
+                    # ensure it's not the index of either end
+                    if idx == 0:
+                        idx = 1
+                    elif idx == len(rem_c) - 1:
+                        idx = len(rem_c) - 2
+                    row, col = matches[0][0:2]
+                    rem1 = LineString(rem.coords[:(idx + 1)])
+                    append_reach_df(segnum, line, row, col, rem1)
+                    row, col = matches[1][0:2]
+                    rem2 = LineString(rem.coords[idx:])
+                    append_reach_df(segnum, line, row, col, rem2)
+                else:
+                    self.logger.error(
+                        'how does this happen? Segments from %d touching %d '
+                        'grid cells', segnum, len(matches))
+            elif rem.geom_type.startswith('Multi'):
+                for sub_rem_geom in rem.geoms:  # recurse
+                    reassign_reach(segnum, line, sub_rem_geom)
+            else:
+                raise NotImplementedError(reach_geom.geom_type)
+
+        drop_reach_ids = []
+        for segnum, line in self.segments.geometry.iteritems():
+            remaining_line = line
+            if grid_sindex:
+                bbox_match = sorted(grid_sindex.intersection(line.bounds))
+                if not bbox_match:
+                    continue
+                sub = grid_cells.geometry.iloc[bbox_match]
+            else:  # slow scan of all cells
+                sub = grid_cells.geometry
+            for (row, col), grid_geom in sub.iteritems():
+                reach_geom = grid_geom.intersection(line)
+                if not reach_geom.is_empty and reach_geom.geom_type != 'Point':
+                    remaining_line = remaining_line.difference(grid_geom)
+                    append_reach(segnum, row, col, line, reach_geom)
+                    if ibound_action == 'modify' and ibound[row, col] == 0:
+                        ibound_modified += 1
+                        ibound[row, col] = 1
+            if line is not remaining_line and remaining_line.length > 0:
+                # Determine if any remaining portions of the line can be used
+                reassign_reach(segnum, line, remaining_line)
+            # Potentially merge a few reaches for each segnum/row/col
+            gb = reach_df.loc[reach_df['segnum'] == segnum]\
+                .groupby(['row', 'col'])['geometry'].apply(list).copy()
+            for (row, col), geoms in gb.iteritems():
+                if len(geoms) > 1:
+                    geom = linemerge(geoms)
+                    if geom.geom_type == 'MultiLineString':
+                        # workaround for odd floating point issue
+                        geom = linemerge([wkt.loads(g.wkt) for g in geoms])
+                    if geom.geom_type == 'LineString':
+                        sel = ((reach_df['segnum'] == segnum) &
+                               (reach_df['row'] == row) &
+                               (reach_df['col'] == col))
+                        drop_reach_ids += list(sel.index[sel])
+                        self.logger.debug(
+                            'merging %d reaches for segnum %s at (%s, %s)',
+                            sel.sum(), segnum, row, col)
+                        append_reach_df(segnum, line, row, col, geom)
+                    else:
+                        self.logger.debug(
+                            'attempted to merge segnum %s at (%s, %s), however'
+                            ' geometry was %s', segnum, row, col, geom.wkt)
+        if drop_reach_ids:
+            reach_df.drop(drop_reach_ids, axis=0, inplace=True)
+        # TODO: Some reaches match multiple cells if they share a border
+        self.reaches = geopandas.GeoDataFrame(
+            reach_df, geometry='geometry', crs=crs)
+        if ibound_action == 'modify':
+            if ibound_modified:
+                self.logger.debug(
+                    'updating %d cells from IBOUND array for top layer',
+                    ibound_modified)
+                model.bas6.ibound[0] = ibound
+                self.reaches = self.reaches.merge(
+                    grid_df[['ibound']],
+                    left_on=['row', 'col'], right_index=True)
+                self.reaches.rename(
+                        columns={'ibound': 'prev_ibound'}, inplace=True)
+            else:
+                self.reaches['prev_ibound'] = 1
+        # Assign segment data
+        self.segments['min_slope'] = swn.segment_series(min_slope)
+        if (self.segments['min_slope'] < 0.0).any():
+            raise ValueError('min_slope must be greater than zero')
+        # Column names common to segments and segment_data
+        segment_cols = [
+            'roughch',
+            'hcond1', 'thickm1', 'elevup', 'width1',
+            'hcond2', 'thickm2', 'elevdn', 'width2']
+        # Tidy any previous attempts
+        for col in segment_cols:
+            if col in self.segments.columns:
+                del self.segments[col]
+        # Combine pairs of series for each segment
+        self.segments = pd.concat([
+            self.segments,
+            swn.pair_segment_values(hyd_cond1, hyd_cond_out, 'hcond'),
+            swn.pair_segment_values(thickness1, thickness_out, 'thickm'),
+            swn.pair_segment_values(width1, width_out, name='width')
+        ], axis=1, copy=False)
+        self.segments['roughch'] = swn.segment_series(roughch)
+        # Add information from segments
+        self.reaches = self.reaches.merge(
+            self.segments[['sequence', 'min_slope']], 'left',
+            left_on='segnum', right_index=True)
+        self.reaches.sort_values(['sequence', 'dist'], inplace=True)
+        # Interpolate segment properties to each reach
+        self.reaches['strthick'] = 0.0
+        self.reaches['strhc1'] = 0.0
+        for segnum, seg in self.segments.iterrows():
+            sel = self.reaches['segnum'] == segnum
+            if seg['thickm1'] == seg['thickm2']:
+                val = seg['thickm1']
+            else:  # linear interpolate to mid points
+                tk1 = seg['thickm1']
+                tk2 = seg['thickm2']
+                dtk = tk2 - tk1
+                val = dtk * self.reaches.loc[sel, 'dist'] + tk1
+            self.reaches.loc[sel, 'strthick'] = val
+            if seg['hcond1'] == seg['hcond2']:
+                val = seg['hcond1']
+            else:  # linear interpolate to mid points in log-10 space
+                lhc1 = np.log10(seg['hcond1'])
+                lhc2 = np.log10(seg['hcond2'])
+                dlhc = lhc2 - lhc1
+                val = 10 ** (dlhc * self.reaches.loc[sel, 'dist'] + lhc1)
+            self.reaches.loc[sel, 'strhc1'] = val
+        del self.reaches['sequence']
+        # del self.reaches['dist']
+        # Use MODFLOW SFR dataset 2 terms ISEG and IREACH, counting from 1
+        self.reaches['iseg'] = 0
+        self.reaches['ireach'] = 0
+        iseg = ireach = 0
+        prev_segnum = None
+        for idx, segnum in self.reaches['segnum'].iteritems():
+            if segnum != prev_segnum:
+                iseg += 1
+                ireach = 0
+            ireach += 1
+            self.reaches.at[idx, 'iseg'] = iseg
+            self.reaches.at[idx, 'ireach'] = ireach
+            prev_segnum = segnum
+        self.reaches.reset_index(inplace=True, drop=True)
+        self.reaches.index += 1
+        self.reaches.index.name = 'reachID'  # starts at one
+        self.reaches['strtop'] = 0.0
+        self.reaches['slope'] = 0.0
+        if swn.has_z:
+            for reachID, item in self.reaches.iterrows():
+                geom = item.geometry
+                # Get Z from each end
+                z0 = geom.coords[0][2]
+                z1 = geom.coords[-1][2]
+                dz = z0 - z1
+                dx = geom.length
+                slope = dz / dx
+                self.reaches.at[reachID, 'slope'] = slope
+                # Get strtop from LineString mid-point Z
+                zm = geom.interpolate(0.5, normalized=True).z
+                self.reaches.at[reachID, 'strtop'] = zm
+        else:
+            r = self.reaches['row'].values
+            c = self.reaches['col'].values
+            # Estimate slope from top and grid spacing
+            px, py = np.gradient(dis.top.array, col_size, row_size)
+            grid_slope = np.sqrt(px ** 2 + py ** 2)
+            self.reaches['slope'] = grid_slope[r, c]
+            # Get stream values from top of model
+            self.reaches['strtop'] = dis.top.array[r, c]
+        # Enforce min_slope
+        sel = self.reaches['slope'] < self.reaches['min_slope']
+        if sel.any():
+            self.logger.warning('enforcing min_slope for %d reaches (%.2f%%)',
+                                sel.sum(), 100.0 * sel.sum() / len(sel))
+            self.reaches.loc[sel, 'slope'] = self.reaches.loc[sel, 'min_slope']
+        # Build reach_data for Data Set 2
+        # See flopy.modflow.ModflowSfr2.get_default_reach_dtype()
+        self.reach_data = pd.DataFrame(
+            self.reaches[[
+                'row', 'col', 'iseg', 'ireach',
+                'strtop', 'slope', 'strthick', 'strhc1']])
+        if not hasattr(self.reaches.geometry, 'geom_type'):
+            # workaround needed for reaches.to_file()
+            self.reaches.geometry.geom_type = self.reaches.geom_type
+        self.reach_data.rename(columns={'row': 'i', 'col': 'j'}, inplace=True)
+        self.reach_data.insert(0, column='k', value=0)  # only top layer
+        self.reach_data.insert(5, column='rchlen', value=self.reaches.length)
+        # Build segment_data for Data Set 6
+        self.segment_data = self.reaches[['iseg', 'segnum']].drop_duplicates()
+        self.segment_data['elevup'] = self.reaches.loc[
+            self.segment_data.index].strtop
+        self.segment_data['elevdn'] = self.reaches.loc[
+            self.reaches.groupby(['iseg']).ireach.idxmax().values
+        ].strtop.values
+        self.segment_data.rename(columns={'iseg': 'nseg'}, inplace=True)
+        self.segment_data.set_index('segnum', inplace=True)
+        self.segment_data.index.name = self.segments.index.name
+        self.segment_data['icalc'] = 1  # assumption
+        # Translate 'to_segnum' to 'outseg' via 'nseg'
+        self.segment_data['outseg'] = self.segment_data.index.map(
+            lambda x: self.segment_data.loc[
+                self.segments.loc[x, 'to_segnum'], 'nseg'] if
+            self.segments.loc[
+                x, 'to_segnum'] in self.segment_data.index else 0.).values
+        self.segment_data['iupseg'] = 0  # no diversions (yet)
+        self.segment_data['iprior'] = 0
+        self.segment_data['flow'] = 0.0
+        self.segment_data['runoff'] = 0.0
+        self.segment_data['etsw'] = 0.0
+        self.segment_data['pptsw'] = 0.0
+        # copy several columns over (except 'elevup' and 'elevdn', for now)
+        segment_cols.remove('elevup')
+        segment_cols.remove('elevdn')
+        self.segment_data[segment_cols] = self.segments[segment_cols]
+        segment_data = self.generate_segment_data(
+            inflow=inflow, flow=flow, runoff=runoff, etsw=etsw, pptsw=pptsw)
+        # Create flopy Sfr2 package
+        flopy.modflow.mfsfr2.ModflowSfr2(
+                model=model,
+                reach_data=self.reach_data.to_records(index=True),
+                segment_data=segment_data)
+
     def generate_segment_data(self, inflow={}, flow={}, runoff={},
                               etsw={}, pptsw={}):
         """Generate segment_data required for flopy.modflow.mfsfr2.ModflowSfr2
@@ -1271,12 +1764,13 @@ class SurfaceWaterNetwork(object):
         -------
         dict
         """
-        m = self.model
         # Build stress period DataFrame from modflow model
-        stress_df = pd.DataFrame({'perlen': m.dis.perlen.array})
+        dis = self.model.dis
+        stress_df = pd.DataFrame({'perlen': dis.perlen.array})
+        modeltime = self.model.modeltime
         stress_df['duration'] = pd.TimedeltaIndex(
-                stress_df['perlen'].cumsum(), m.modeltime.time_units)
-        stress_df['start'] = pd.to_datetime(m.modeltime.start_datetime)
+                stress_df['perlen'].cumsum(), modeltime.time_units)
+        stress_df['start'] = pd.to_datetime(modeltime.start_datetime)
         stress_df['end'] = stress_df['duration'] + stress_df.at[0, 'start']
         stress_df.loc[1:, 'start'] = stress_df['end'].iloc[:-1].values
         segments_segnums = set(self.segments.index)
@@ -1287,11 +1781,11 @@ class SurfaceWaterNetwork(object):
             elif not isinstance(data, pd.DataFrame):
                 raise ValueError(
                     '{0} must be a dict or DataFrame'.format(name))
-            if len(data) != m.dis.nper:
+            if len(data) != dis.nper:
                 raise ValueError(
                     'length of {0} ({1}) is different than nper ({2})'
-                    .format(name, len(data), m.dis.nper))
-            if m.dis.nper > 1:  # check DatetimeIndex
+                    .format(name, len(data), dis.nper))
+            if dis.nper > 1:  # check DatetimeIndex
                 if not isinstance(data.index, pd.DatetimeIndex):
                     raise ValueError(
                         '{0}.index must be a pandas.DatetimeIndex'
@@ -1375,7 +1869,7 @@ class SurfaceWaterNetwork(object):
         has_runoff = len(runoff.columns) > 0
         has_etsw = len(etsw.columns) > 0
         has_pptsw = len(pptsw.columns) > 0
-        for iper in range(m.dis.nper):
+        for iper in range(dis.nper):
             # Store data for each stress period
             self.segment_data['flow'] = 0.0
             self.segment_data['runoff'] = 0.0
@@ -1399,7 +1893,7 @@ class SurfaceWaterNetwork(object):
             segment_data[iper] = self.segment_data.to_records(index=False)
 
         # For models with more than one stress period, evaluate summary stats
-        if m.dis.nper > 1:
+        if dis.nper > 1:
             # Remove time-varying data from last stress period
             self.segment_data.drop(
                 ['flow', 'runoff', 'etsw', 'pptsw'], axis=1, inplace=True)
