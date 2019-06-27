@@ -1252,21 +1252,15 @@ class MfSfrNetwork(object):
     model : flopy.modflow.mf.Modflow
         Instance of a flopy MODFLOW model
     segments : geopandas.GeoDataFrame
-    segment_data : pandas.DataFrame
+        Copied from swn.segments, but with additional columns added
     reach_data : pandas.DataFrame
+        Similar to structure in model.sfr.reach_data
+    segment_data : pandas.DataFrame
+        Simialr to structure in model.sfr.segment_data, but for one stress
+        period. Transient data (where applicable) will show summary statistics.
     logger : logging.Logger
         Logger to show messages.
-    warnings : list
-        List of warning messages.
-    errors : list
-        List of error messages.
     """
-    index = None
-    END_SEGNUM = None
-    segments = None
-    logger = None
-    warnings = None
-    errors = None
 
     def __init__(self, swn, model, ibound_action='freeze',
                  reach_include_fraction=0.2, min_slope=1./1000,
@@ -1726,17 +1720,23 @@ class MfSfrNetwork(object):
         segment_cols.remove('elevup')
         segment_cols.remove('elevdn')
         self.segment_data[segment_cols] = self.segments[segment_cols]
-        segment_data = self.generate_segment_data(
-            inflow=inflow, flow=flow, runoff=runoff, etsw=etsw, pptsw=pptsw)
+        segment_data = self.set_segment_data(
+            inflow=inflow, flow=flow, runoff=runoff, etsw=etsw, pptsw=pptsw,
+            return_dict=True)
         # Create flopy Sfr2 package
         flopy.modflow.mfsfr2.ModflowSfr2(
                 model=model,
                 reach_data=self.reach_data.to_records(index=True),
                 segment_data=segment_data)
 
-    def generate_segment_data(self, inflow={}, flow={}, runoff={},
-                              etsw={}, pptsw={}):
-        """Generate segment_data required for flopy.modflow.mfsfr2.ModflowSfr2
+    def set_segment_data(self, inflow={}, flow={}, runoff={},
+                         etsw={}, pptsw={}, return_dict=False):
+        """Set segment_data required for flopy.modflow.mfsfr2.ModflowSfr2
+
+        This method does two things:
+            1. Updates sfr.segment_data, which is a dict of rec.array
+                for each stress period.
+            2. Updates summary statistics in segment_data
 
         Parameters
         ----------
@@ -1759,10 +1759,13 @@ class MfSfrNetwork(object):
             Evapotranspiration removed from each segment. Default is {} (zero).
         pptsw : dict or pandas.DataFrame, optional
             Precipitation added to each segment. Default is {} (zero).
+        return_dict : bool, optional
+            If True, return segment_data instead of setting the sfr object.
+            Default False, which implies that an sfr object exists.
 
         Returns
         -------
-        dict
+        None or dict (if return_dict)
         """
         # Build stress period DataFrame from modflow model
         dis = self.model.dis
@@ -1869,6 +1872,12 @@ class MfSfrNetwork(object):
         has_runoff = len(runoff.columns) > 0
         has_etsw = len(etsw.columns) > 0
         has_pptsw = len(pptsw.columns) > 0
+        # Take only a subset of columns to sfr
+        colnames = []
+        n = flopy.modflow.mfsfr2.ModflowSfr2.get_default_segment_dtype().names
+        for name in n:
+            if name in self.segment_data.columns:
+                colnames.append(name)
         for iper in range(dis.nper):
             # Store data for each stress period
             self.segment_data['flow'] = 0.0
@@ -1890,7 +1899,8 @@ class MfSfrNetwork(object):
             if has_pptsw:
                 item = pptsw.iloc[iper]
                 self.segment_data.loc[item.index, 'pptsw'] = item
-            segment_data[iper] = self.segment_data.to_records(index=False)
+            segment_data[iper] = self.segment_data[colnames]\
+                .to_records(index=False)
 
         # For models with more than one stress period, evaluate summary stats
         if dis.nper > 1:
@@ -1917,7 +1927,10 @@ class MfSfrNetwork(object):
             add_summary_stats('etsw', etsw)
             add_summary_stats('pptsw', pptsw)
 
-        return segment_data
+        if return_dict:
+            return segment_data
+        else:
+            self.model.sfr.segment_data = segment_data
 
     def get_seg_ijk(self):
         """
