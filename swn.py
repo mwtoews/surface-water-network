@@ -842,24 +842,16 @@ class SurfaceWaterNetwork(object):
             this is a global value, otherwise it is per-segment with a Series.
             Default 0.024.
         inflow : dict or pandas.DataFrame, optional
-            Streamflow at the bottom of each segment, which is used to to
-            determine the streamflow entering the upstream end of a segment if
-            it is not part of the SFR network. Internal flows are ignored.
-            A dict can be used to provide constant values to segnum
-            identifiers. If a DataFrame is passed for a model with more than
-            one stress period, the index must be a DatetimeIndex aligned with
-            the start of each model stress period.
+            See generate_segment_data for details.
             Default is {} (no outside inflow added to flow term).
         flow : dict or pandas.DataFrame, optional
-            Flow to the top of each segment. This is added to any inflow,
-            which is handled separately. This can be negative for withdrawls.
-            Default is {} (zero).
+            See generate_segment_data. Default is {} (zero).
         runoff : dict or pandas.DataFrame, optional
-            Runoff to each segment. Default is {} (zero).
+            See generate_segment_data. Default is {} (zero).
         etsw : dict or pandas.DataFrame, optional
-            Evapotranspiration removed from each segment. Default is {} (zero).
+            See generate_segment_data. Default is {} (zero).
         pptsw : dict or pandas.DataFrame, optional
-            Precipitation added to each segment. Default is {} (zero).
+            See generate_segment_data. Default is {} (zero).
         """
         if not flopy:
             raise ImportError('this method requires flopy')
@@ -871,67 +863,6 @@ class SurfaceWaterNetwork(object):
             raise ValueError('DIS package required')
         elif not m.has_package('BAS6'):
             raise ValueError('BAS6 package required')
-        # Build stress period DataFrame from modflow model
-        stress_df = pd.DataFrame({'perlen': m.dis.perlen.array})
-        stress_df['duration'] = pd.TimedeltaIndex(
-                stress_df['perlen'].cumsum(), m.modeltime.time_units)
-        stress_df['start'] = pd.to_datetime(m.modeltime.start_datetime)
-        stress_df['end'] = stress_df['duration'] + stress_df.at[0, 'start']
-        stress_df.loc[1:, 'start'] = stress_df['end'].iloc[:-1].values
-        segments_segnums = set(self.segments.index)
-
-        def check_ts(data, name, drop_segnums=True):
-            if isinstance(data, dict):
-                data = pd.DataFrame(data, index=stress_df['start'])
-            elif not isinstance(data, pd.DataFrame):
-                raise ValueError(
-                    '{0} must be a dict or DataFrame'.format(name))
-            if len(data) != m.dis.nper:
-                raise ValueError(
-                    'length of {0} ({1}) is different than nper ({2})'
-                    .format(name, len(data), m.dis.nper))
-            if m.dis.nper > 1:  # check DatetimeIndex
-                if not isinstance(data.index, pd.DatetimeIndex):
-                    raise ValueError(
-                        '{0}.index must be a pandas.DatetimeIndex'
-                        .format(name))
-                elif not (data.index == stress_df['start']).all():
-                    try:
-                        t = stress_df['start'].to_string(
-                                index=False, max_rows=5).replace('\n', ', ')
-                    except TypeError:
-                        t = ', '.join([str(x)
-                                       for x in list(stress_df['start'][:5])])
-                    raise ValueError(
-                        '{0}.index does not match expected ({1})'
-                        .format(name, t))
-            try:
-                data.columns = data.columns.astype(self.segments.index.dtype)
-            except TypeError:
-                raise ValueError(
-                    '{0}.columns.dtype must be same as segments.index.dtype'
-                    .format(name))
-            data_segnums = set(data.columns)
-            if len(data_segnums) > 0:
-                if data_segnums.isdisjoint(segments_segnums):
-                    raise ValueError(
-                        '{0}.columns not found in segments.index'.format(name))
-                if drop_segnums:
-                    not_found = data_segnums.difference(segments_segnums)
-                    if not data_segnums.issubset(segments_segnums):
-                        self.logger.warning(
-                            'dropping %s of %s %s.columns, which are '
-                            'not found in segments.index',
-                            len(not_found), len(data_segnums), name)
-                        data.drop(not_found, axis=1, inplace=True)
-            return data
-
-        self.logger.debug('checking timeseries data against modflow model')
-        inflow = check_ts(inflow, 'inflow', drop_segnums=False)
-        flow = check_ts(flow, 'flow')
-        runoff = check_ts(runoff, 'runoff')
-        etsw = check_ts(etsw, 'etsw')
-        pptsw = check_ts(pptsw, 'pptsw')
         self.logger.debug('building model grid cell geometries')
         # Make sure model CRS and segments CRS are the same (if defined)
         crs = None
@@ -1301,6 +1232,107 @@ class SurfaceWaterNetwork(object):
         segment_cols.remove('elevup')
         segment_cols.remove('elevdn')
         self.segment_data[segment_cols] = self.segments[segment_cols]
+        segment_data = self.generate_segment_data(
+            inflow=inflow, flow=flow, runoff=runoff, etsw=etsw, pptsw=pptsw)
+        # Create flopy Sfr2 package
+        flopy.modflow.mfsfr2.ModflowSfr2(
+                model=m,
+                reach_data=self.reach_data.to_records(index=True),
+                segment_data=segment_data)
+        self.model = m
+
+    def generate_segment_data(self, inflow={}, flow={}, runoff={},
+                              etsw={}, pptsw={}):
+        """Generate segment_data required for flopy.modflow.mfsfr2.ModflowSfr2
+
+        Parameters
+        ----------
+        inflow : dict or pandas.DataFrame, optional
+            Streamflow at the bottom of each segment, which is used to to
+            determine the streamflow entering the upstream end of a segment if
+            it is not part of the SFR network. Internal flows are ignored.
+            A dict can be used to provide constant values to segnum
+            identifiers. If a DataFrame is passed for a model with more than
+            one stress period, the index must be a DatetimeIndex aligned with
+            the start of each model stress period.
+            Default is {} (no outside inflow added to flow term).
+        flow : dict or pandas.DataFrame, optional
+            Flow to the top of each segment. This is added to any inflow,
+            which is handled separately. This can be negative for withdrawls.
+            Default is {} (zero).
+        runoff : dict or pandas.DataFrame, optional
+            Runoff to each segment. Default is {} (zero).
+        etsw : dict or pandas.DataFrame, optional
+            Evapotranspiration removed from each segment. Default is {} (zero).
+        pptsw : dict or pandas.DataFrame, optional
+            Precipitation added to each segment. Default is {} (zero).
+
+        Returns
+        -------
+        dict
+        """
+        m = self.model
+        # Build stress period DataFrame from modflow model
+        stress_df = pd.DataFrame({'perlen': m.dis.perlen.array})
+        stress_df['duration'] = pd.TimedeltaIndex(
+                stress_df['perlen'].cumsum(), m.modeltime.time_units)
+        stress_df['start'] = pd.to_datetime(m.modeltime.start_datetime)
+        stress_df['end'] = stress_df['duration'] + stress_df.at[0, 'start']
+        stress_df.loc[1:, 'start'] = stress_df['end'].iloc[:-1].values
+        segments_segnums = set(self.segments.index)
+
+        def check_ts(data, name, drop_segnums=True):
+            if isinstance(data, dict):
+                data = pd.DataFrame(data, index=stress_df['start'])
+            elif not isinstance(data, pd.DataFrame):
+                raise ValueError(
+                    '{0} must be a dict or DataFrame'.format(name))
+            if len(data) != m.dis.nper:
+                raise ValueError(
+                    'length of {0} ({1}) is different than nper ({2})'
+                    .format(name, len(data), m.dis.nper))
+            if m.dis.nper > 1:  # check DatetimeIndex
+                if not isinstance(data.index, pd.DatetimeIndex):
+                    raise ValueError(
+                        '{0}.index must be a pandas.DatetimeIndex'
+                        .format(name))
+                elif not (data.index == stress_df['start']).all():
+                    try:
+                        t = stress_df['start'].to_string(
+                                index=False, max_rows=5).replace('\n', ', ')
+                    except TypeError:
+                        t = ', '.join([str(x)
+                                       for x in list(stress_df['start'][:5])])
+                    raise ValueError(
+                        '{0}.index does not match expected ({1})'
+                        .format(name, t))
+            try:
+                data.columns = data.columns.astype(self.segments.index.dtype)
+            except TypeError:
+                raise ValueError(
+                    '{0}.columns.dtype must be same as segments.index.dtype'
+                    .format(name))
+            data_segnums = set(data.columns)
+            if len(data_segnums) > 0:
+                if data_segnums.isdisjoint(segments_segnums):
+                    raise ValueError(
+                        '{0}.columns not found in segments.index'.format(name))
+                if drop_segnums:
+                    not_found = data_segnums.difference(segments_segnums)
+                    if not data_segnums.issubset(segments_segnums):
+                        self.logger.warning(
+                            'dropping %s of %s %s.columns, which are '
+                            'not found in segments.index',
+                            len(not_found), len(data_segnums), name)
+                        data.drop(not_found, axis=1, inplace=True)
+            return data
+
+        self.logger.debug('checking timeseries data against modflow model')
+        inflow = check_ts(inflow, 'inflow', drop_segnums=False)
+        flow = check_ts(flow, 'flow')
+        runoff = check_ts(runoff, 'runoff')
+        etsw = check_ts(etsw, 'etsw')
+        pptsw = check_ts(pptsw, 'pptsw')
         # Create an 'inflows' DataFrame calculated from combining 'inflow'
         inflows = pd.DataFrame(index=inflow.index)
         has_inflow = len(inflow.columns) > 0
@@ -1365,12 +1397,7 @@ class SurfaceWaterNetwork(object):
                 item = pptsw.iloc[iper]
                 self.segment_data.loc[item.index, 'pptsw'] = item
             segment_data[iper] = self.segment_data.to_records(index=False)
-        # Create flopy Sfr2 package
-        flopy.modflow.mfsfr2.ModflowSfr2(
-                model=m,
-                reach_data=self.reach_data.to_records(index=True),
-                segment_data=segment_data)
-        self.model = m
+
         # For models with more than one stress period, evaluate summary stats
         if m.dis.nper > 1:
             # Remove time-varying data from last stress period
@@ -1395,6 +1422,8 @@ class SurfaceWaterNetwork(object):
             add_summary_stats('runoff', runoff)
             add_summary_stats('etsw', etsw)
             add_summary_stats('pptsw', pptsw)
+
+        return segment_data
 
     def get_seg_ijk(self):
         """
