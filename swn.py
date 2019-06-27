@@ -1232,6 +1232,7 @@ class SurfaceWaterNetwork(object):
         segment_cols.remove('elevup')
         segment_cols.remove('elevdn')
         self.segment_data[segment_cols] = self.segments[segment_cols]
+        self.model = m
         segment_data = self.generate_segment_data(
             inflow=inflow, flow=flow, runoff=runoff, etsw=etsw, pptsw=pptsw)
         # Create flopy Sfr2 package
@@ -1239,7 +1240,6 @@ class SurfaceWaterNetwork(object):
                 model=m,
                 reach_data=self.reach_data.to_records(index=True),
                 segment_data=segment_data)
-        self.model = m
 
     def generate_segment_data(self, inflow={}, flow={}, runoff={},
                               etsw={}, pptsw={}):
