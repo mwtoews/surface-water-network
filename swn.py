@@ -1953,7 +1953,7 @@ class MfSfrNetwork(object):
         topidx = self.reach_data['ireach'] == 1
         kij_df = self.reach_data[topidx][['iseg', 'k', 'i', 'j']].sort_values(
             'iseg')
-        idx_name = self.segment_data.index.name
+        idx_name = self.segment_data.index.name or 'index'
         self.segment_data = self.segment_data.reset_index().merge(
             kij_df, left_on='nseg', right_on='iseg', how='left').drop(
             'iseg', axis=1).set_index(idx_name)
@@ -2025,7 +2025,7 @@ class MfSfrNetwork(object):
         """
         # extract segment length for calculating minimun drop later
         seglen = self.reach_data.groupby('iseg').rchlen.sum()
-        idx_name = self.segment_data.index.name
+        idx_name = self.segment_data.index.name or 'index'
         self.segment_data = self.segment_data.reset_index().merge(
             seglen, left_on='nseg', right_index=True, how='left'
         ).set_index(idx_name)
