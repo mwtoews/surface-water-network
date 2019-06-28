@@ -341,18 +341,33 @@ def test_set_elevations(n2d, tmpdir_factory):
         xul=30.0, yul=130.0)
     flopy.modflow.ModflowBas(m)
     nm = swn.MfSfrNetwork(n, m)
-    _ = nm.fix_segment_elevs(min_incise=0.2, min_slope=1.e-4)
-    _ = nm.reconcile_reach_strtop()
     _ = nm.set_topbot_elevs_at_reaches()
-    # n.plot_reaches_above(m, 'all', plot_bottom=True, points2=None)
-    nm.fix_reach_elevs()
     seg_data = nm.set_segment_data(return_dict=True)
     reach_data = nm.set_reach_data(return_df=True)
-    # m.sfr.reach_data = nm.reach_data.to_records(index=True)
     flopy.modflow.mfsfr2.ModflowSfr2(
         model=m,
         reach_data=reach_data.to_records(index=True),
         segment_data=seg_data)
+    nm.plot_reaches_above(m, 'all', plot_bottom=True)
+    _ = nm.fix_segment_elevs(min_incise=0.2, min_slope=1.e-4)
+    _ = nm.reconcile_reach_strtop()
+    seg_data = nm.set_segment_data(return_dict=True)
+    reach_data = nm.set_reach_data(return_df=True)
+    flopy.modflow.mfsfr2.ModflowSfr2(
+        model=m,
+        reach_data=reach_data.to_records(index=True),
+        segment_data=seg_data)
+    nm.plot_reaches_above(m, 'all', plot_bottom=True)
+    nm.plot_reaches_above(m, 1)
+    _ = nm.set_topbot_elevs_at_reaches()
+    nm.fix_reach_elevs()
+    seg_data = nm.set_segment_data(return_dict=True)
+    reach_data = nm.set_reach_data(return_df=True)
+    flopy.modflow.mfsfr2.ModflowSfr2(
+        model=m,
+        reach_data=reach_data.to_records(index=True),
+        segment_data=seg_data)
+    nm.plot_reaches_above(m, 'all', plot_bottom=True)
     # Data set 1c
     assert abs(m.sfr.nstrm) == 7
     assert m.sfr.nss == 3
@@ -533,13 +548,43 @@ def test_costal_elevations(
     assert m.modelgrid.extent == (1802000.0, 1819000.0, 5861000.0, 5879000.0)
     nm = swn.MfSfrNetwork(n, m, inflow=clostal_flow_m)
     _ = nm.set_topbot_elevs_at_reaches()
-    nm.plot_reaches_above(m, 'all', plot_bottom=True, points2=None)
-    _ = nm.fix_segment_elevs(min_incise=0.2, min_slope=1.e-4)
+    seg_data = nm.set_segment_data(return_dict=True)
+    reach_data = nm.set_reach_data(return_df=True)
+    flopy.modflow.mfsfr2.ModflowSfr2(
+        model=m,
+        reach_data=reach_data.to_records(index=True),
+        segment_data=seg_data)
+    nm.plot_reaches_above(m, 'all', plot_bottom=False)
+    # handy to set a max elevation that a stream can be
+    _ = nm.get_seg_ijk()
+    tops = nm.get_top_elevs_at_segs().top_up
+    max_str_z = tops.describe()['75%']
+    for seg in nm.segment_data.nseg[nm.segment_data.nseg.isin([1, 18])]:
+        nm.plot_reaches_above(m, seg)
+    _ = nm.fix_segment_elevs(min_incise=0.2, min_slope=1.e-4,
+                             max_str_z=max_str_z)
     _ = nm.reconcile_reach_strtop()
+    seg_data = nm.set_segment_data(return_dict=True)
+    reach_data = nm.set_reach_data(return_df=True)
+    flopy.modflow.mfsfr2.ModflowSfr2(
+        model=m,
+        reach_data=reach_data.to_records(index=True),
+        segment_data=seg_data)
+    nm.plot_reaches_above(m, 'all', plot_bottom=False)
+    for seg in nm.segment_data.nseg[nm.segment_data.nseg.isin([1, 18])]:
+        nm.plot_reaches_above(m, seg)
     _ = nm.set_topbot_elevs_at_reaches()
-    nm.plot_reaches_above(m, 'all', plot_bottom=True, points2=None)
     nm.fix_reach_elevs()
-    nm.plot_reaches_above(m, 'all', plot_bottom=True, points2=None)
+    seg_data = nm.set_segment_data(return_dict=True)
+    reach_data = nm.set_reach_data(return_df=True)
+    flopy.modflow.mfsfr2.ModflowSfr2(
+        model=m,
+        reach_data=reach_data.to_records(index=True),
+        segment_data=seg_data)
+    nm.plot_reaches_above(m, 'all', plot_bottom=False)
+    for seg in nm.segment_data.nseg[nm.segment_data.nseg.isin([1, 18])]:
+        nm.plot_reaches_above(m, seg)
+    temp = None
 
 
 def test_costal_reduced_process_flopy(

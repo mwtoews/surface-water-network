@@ -2001,11 +2001,13 @@ class MfSfrNetwork(object):
             self.segment_data['top_dn'] - self.segment_data['elevdn']
         return self.segment_data[['diff_up', 'diff_dn']]
 
-    def set_seg_minincise(self, minincise=0.2):
+    def set_seg_minincise(self, minincise=0.2, max_str_z=None):
         """
         Set segment elevation so that they have the minumum incision
         from the top surface
         :param minincise: Desired minimum incision
+        :param max_str_z: Optional parameter to prevent streams at
+        high elevations (forces incision to max_str_z)
         :return: incisions at the upstream and downstream end of each segment
         """
         sel = self.segment_data['diff_up'] < minincise
@@ -2014,6 +2016,11 @@ class MfSfrNetwork(object):
         sel = self.segment_data['diff_dn'] < minincise
         self.segment_data.loc[sel, 'elevdn'] = \
             self.segment_data.loc[sel, 'top_dn'] - minincise
+        if max_str_z is not None:
+            sel = self.segment_data['elevup'] > max_str_z
+            self.segment_data.loc[sel, 'elevup'] = max_str_z
+            sel = self.segment_data['elevdn'] > max_str_z
+            self.segment_data.loc[sel, 'elevdn'] = max_str_z
         # recalculate incisions
         updown_incision = self.get_segment_incision()
         return updown_incision
@@ -2044,7 +2051,7 @@ class MfSfrNetwork(object):
         """
         gets all the defined outseg_elevup associated with a specific segment
         (multiple upstream segements route to one segment)
-        Returns a df with all the calculated outseg elevups for each segment
+        Returns a df with all the calculated outseg elevups for each segment.
         .min(axis=1) is a good way to collapse to a series
         :param seg: Pandas Series containing one row of seg_data dataframe
         :return: Returns a df of the outseg_elev up values
@@ -2073,30 +2080,33 @@ class MfSfrNetwork(object):
         up = seg.elevup
         dn = np.nan
         outseg_up = np.nan
+        # prefer slope derived from surface
+        surfslope = (seg.top_up-seg.top_dn)/(10.*seg.seglen)
+        prefslope = np.max([surfslope, minslope])
         if seg.outseg > 0.0:
             # select outflow segment for current seg and pull out elevup
             outsegsel = self.segment_data['nseg'] == seg.outseg
             outseg_elevup = self.segment_data.loc[outsegsel, 'elevup']
             down = outseg_elevup.values[0]
-            if down >= seg.elevup - (seg.seglen * minslope):
+            if down >= up - (seg.seglen * prefslope):
                 # downstream elevation too high
-                dn = up - (seg.seglen * minslope)  # set to minslope
-                outseg_up = up - (seg.seglen * minslope) - downstreambuffer
+                dn = up - (seg.seglen * prefslope)  # set to minslope
+                outseg_up = up - (seg.seglen * prefslope) - downstreambuffer
                 print('Segment {}, outseg = {}, old outseg_elevup = {}, '
                       'new outseg_elevup = {}'
-                      .format(seg.nseg, seg.outseg, seg.outseg_elevup,
-                              outseg_up))
+                      .format(int(seg.nseg), int(seg.outseg),
+                              seg.outseg_elevup, outseg_up))
             else:
                 dn = down
                 outseg_up = down - downstreambuffer
         else:
             # must be an outflow segment
             down = seg.elevdn
-            if down > up - (seg.seglen * minslope):
-                dn = up - (seg.seglen * minslope)
+            if down > up - (seg.seglen * prefslope):
+                dn = up - (seg.seglen * prefslope)
                 print('Outflow Segment {}, outseg = {}, old elevdn = {}, '
                       'new elevdn = {}'
-                      .format(seg.nseg, seg.outseg, seg.elevdn, dn))
+                      .format(int(seg.nseg), int(seg.outseg), seg.elevdn, dn))
             else:
                 dn = down
         # this returns a DF once the apply is done!
@@ -2142,7 +2152,8 @@ class MfSfrNetwork(object):
                 self.segment_data.loc[segsel, 'outseg'])
         return self.segment_data
 
-    def fix_segment_elevs(self, min_incise=0.2, min_slope=1.e-4):
+    def fix_segment_elevs(self, min_incise=0.2, min_slope=1.e-4,
+                          max_str_z=None):
         """
         Wrapper function for calculating SFR segment elevations.
         Calls series of functions to process and move sfr segment elevations,
@@ -2154,14 +2165,21 @@ class MfSfrNetwork(object):
         :param min_incise: desired minimum incision (in model units)
         :return: segment data dataframe
         """
-        # get model locations for segments ends
-        _ = self.get_seg_ijk()
+        kijcols = {"k_up", "i_up", "j_up", "k_dn", "i_dn", "j_dn"}
+        dif = kijcols - set(self.segment_data.columns)
+        if len(dif) > 1:
+            # some missing
+            # drop others
+            others = kijcols - dif
+            self.segment_data.drop(columns=others, inplace=True)
+            # get model locations for segments ends
+            _ = self.get_seg_ijk()
         # get model cell elevations at seg ends
         _ = self.get_top_elevs_at_segs()
         # get current segment incision at seg ends
         _ = self.get_segment_incision()
         # move segments end elevation down to achieve minimum incision
-        _ = self.set_seg_minincise(minincise=min_incise)
+        _ = self.set_seg_minincise(minincise=min_incise, max_str_z=max_str_z)
         # get the elevations of downstream segments
         _ = self.get_outseg_elev()
         # get segment length from reach lengths
