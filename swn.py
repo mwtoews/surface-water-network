@@ -1953,9 +1953,10 @@ class MfSfrNetwork(object):
         topidx = self.reach_data['ireach'] == 1
         kij_df = self.reach_data[topidx][['iseg', 'k', 'i', 'j']].sort_values(
             'iseg')
+        idx_name = self.segment_data.index.name
         self.segment_data = self.segment_data.reset_index().merge(
             kij_df, left_on='nseg', right_on='iseg', how='left').drop(
-            'iseg', axis=1).set_index('index')
+            'iseg', axis=1).set_index(idx_name)
         self.segment_data.rename(
             columns={"k": "k_up", "i": "i_up", "j": "j_up"}, inplace=True)
         # seg bottoms
@@ -1966,7 +1967,7 @@ class MfSfrNetwork(object):
 
         self.segment_data = self.segment_data.reset_index().merge(
             kij_df, left_on='nseg', right_on='iseg', how='left').drop(
-            'iseg', axis=1).set_index('index')
+            'iseg', axis=1).set_index(idx_name)
         self.segment_data.rename(
             columns={"k": "k_dn", "i": "i_dn", "j": "j_dn"}, inplace=True)
         return self.segment_data[[
@@ -2024,9 +2025,10 @@ class MfSfrNetwork(object):
         """
         # extract segment length for calculating minimun drop later
         seglen = self.reach_data.groupby('iseg').rchlen.sum()
+        idx_name = self.segment_data.index.name
         self.segment_data = self.segment_data.reset_index().merge(
             seglen, left_on='nseg', right_index=True, how='left'
-        ).set_index('index')
+        ).set_index(idx_name)
         self.segment_data.rename(columns={'rchlen': "seglen"}, inplace=True)
         return self.segment_data['seglen']
 
