@@ -99,7 +99,7 @@ class SurfaceWaterNetwork(object):
         the catchment polygon. Index must match segments.
     END_SEGNUM : int
         Special segment number that indicates a line end, default is usually 0.
-        This number is not part of the index.
+        This number is not part of segment.index.
     has_z : bool
         Property that indicates all segment lines have Z dimension coordinates.
     headwater : pandas.core.index.Int64Index
@@ -156,8 +156,7 @@ class SurfaceWaterNetwork(object):
         if isinstance(polygons, geopandas.GeoSeries):
             self.catchments = polygons.copy()
         elif polygons is not None:
-            raise ValueError(
-                'polygons must be a GeoSeries or None')
+            raise ValueError('polygons must be a GeoSeries or None')
         segments_sindex = get_sindex(self.segments)
         if self.segments.index.min() > 0:
             self.END_SEGNUM = 0
@@ -332,6 +331,7 @@ class SurfaceWaterNetwork(object):
                     sequence += 1
                     self.segments.at[segnum, 'sequence'] = sequence
                     # self.segments.at[segnum, 'numiter'] = numiter
+                    # See Strahler stream order definition
                     up_ord = list(
                         self.segments.loc[
                             list(from_segnums[segnum]), 'stream_order'])
@@ -534,10 +534,45 @@ class SurfaceWaterNetwork(object):
                 '{0} segnums not found in segments.index: {1}'
                 .format(len(diff), list(diff)[:5]))
         from_segnums = self.from_segnums
+        to_segnums = dict(self.to_segnums)
+
+        # TODD: allow more flexible rational for majority stream logic
         if 'length' in self.segments.columns:
             del self.segments['length']
         self.segments['length'] = self.segments.geometry.length
         order_keys = ['stream_order', 'length']
+
+        # step 1: trace down from each junction to the outlet
+        down_segnums = set(segnums)
+        extra_segnums = []
+
+        def down_junctions(segnum):
+            down_segnums.add(segnum)
+            next_segnum = to_segnums.get(segnum, None)
+            if next_segnum is None:
+                pass  # at an outlet
+            elif next_segnum in down_segnums:
+                # this segnum has already been traversed, stop here
+                extra_segnums.append(next_segnum)
+            else:
+                down_junctions(next_segnum)
+
+        def up_segnums(segnum):
+            yield segnum
+            for from_segnum in from_segnums.get(segnum, []):
+                if from_segnum not in segnums_set:
+                    yield from up_segnums(from_segnum)
+
+        for segnum in segnums:
+            if segnum != self.END_SEGNUM:
+                down_junctions(to_segnums[segnum])
+        if len(extra_segnums) == 0:
+            self.logger.debug('no extra junctions added to segnums')
+        else:
+            segnums += extra_segnums
+            segnums_set = set(segnums)
+            self.logger.debug('added %d junctions to segnums: %s',
+                              len(extra_segnums), extra_segnums[:5])
 
         def up_line(segnum):
             yield self.segments.geometry.at[segnum]
@@ -552,12 +587,6 @@ class SurfaceWaterNetwork(object):
                             from_segnums[segnum], order_keys]\
                             .sort_values(order_keys, ascending=False).index[0]
                     yield from up_line(next_segnum)
-
-        def up_poly(segnum):
-            yield self.catchments.geometry.at[segnum]
-            for from_segnum in from_segnums.get(segnum, []):
-                if from_segnum not in segnums_set:
-                    yield from up_poly(from_segnum)
 
         lines = geopandas.GeoSeries()
         if self.catchments is not None:

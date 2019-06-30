@@ -19,7 +19,9 @@ Python 3.5+ is required.
 
 ## Testing
 
-Run `py.test -v`
+Run `pytest -v`
+
+Or faster multi-core `pytest -v -n 2` (with `pytest-xdist`)
 
 ## Examples
 
