@@ -536,26 +536,40 @@ class SurfaceWaterNetwork(object):
         from_segnums = self.from_segnums
         to_segnums = dict(self.to_segnums)
 
-        # TODD: allow more flexible rational for majority stream logic
-        if 'length' in self.segments.columns:
-            del self.segments['length']
-        self.segments['length'] = self.segments.geometry.length
-        order_keys = ['stream_order', 'length']
-
-        # step 1: trace down from each junction to the outlet
-        down_segnums = set(segnums)
+        # Step 1: trace down from each segnum to the outlet to find each
+        # junction, adding extra_segnums where needed. Also mark headwater.
+        traced_segnums = set()  # segnums_set.copy()
         extra_segnums = []
+        headwater_segnums = segnums_set.copy()  # some will be removed
 
         def down_junctions(segnum):
-            down_segnums.add(segnum)
+            traced_segnums.add(segnum)
             next_segnum = to_segnums.get(segnum, None)
+            self.logger.debug('%s next: %s, traced %s, in seg %s', segnum, next_segnum, next_segnum in traced_segnums, next_segnum in segnums_set)
             if next_segnum is None:
                 pass  # at an outlet
-            elif next_segnum in down_segnums:
-                # this segnum has already been traversed, stop here
-                extra_segnums.append(next_segnum)
-            else:
+            elif next_segnum in traced_segnums:
+                # the next segnum has already been traced, update info and stop
+                if next_segnum in segnums_set:
+                    if next_segnum in headwater_segnums:
+                        headwater_segnums.remove(next_segnum)
+                for upseg in from_segnums[next_segnum]:
+                    if upseg not in extra_segnums:
+                        extra_segnums.append(upseg)
+            else:  # fresh trace, recurse downstream
                 down_junctions(next_segnum)
+
+        for segnum in segnums:
+            down_junctions(segnum)
+        if len(extra_segnums) == 0:
+            self.logger.debug('no extra junctions added to segnums')
+        else:
+            segnums += extra_segnums
+            segnums_set = set(segnums)
+            self.logger.debug('added %d junction(s) to segnums: %s',
+                              len(extra_segnums), extra_segnums[:5])
+        self.logger.debug('identified %d of %d segnums as headwater',
+                          len(headwater_segnums), len(segnums_set))
 
         def up_segnums(segnum):
             yield segnum
@@ -563,41 +577,51 @@ class SurfaceWaterNetwork(object):
                 if from_segnum not in segnums_set:
                     yield from up_segnums(from_segnum)
 
-        for segnum in segnums:
-            if segnum != self.END_SEGNUM:
-                down_junctions(to_segnums[segnum])
-        if len(extra_segnums) == 0:
-            self.logger.debug('no extra junctions added to segnums')
-        else:
-            segnums += extra_segnums
-            segnums_set = set(segnums)
-            self.logger.debug('added %d junctions to segnums: %s',
-                              len(extra_segnums), extra_segnums[:5])
-
-        def up_line(segnum):
-            yield self.segments.geometry.at[segnum]
+        def up_traced_segnums(segnum):
+            yield segnum
             if segnum in from_segnums:
-                sel = list(from_segnums[segnum].difference(segnums_set))
+                sel = from_segnums[segnum].intersection(traced_segnums)
                 if len(sel) > 0:
-                    if len(sel) == 1:
-                        next_segnum = sel[0]
-                    elif len(sel) > 1:
-                        # pick the longest line with highest stream order
-                        next_segnum = self.segments.loc[
-                            from_segnums[segnum], order_keys]\
-                            .sort_values(order_keys, ascending=False).index[0]
-                    yield from up_line(next_segnum)
+                    assert len(sel) == 1, sel
+                    yield from up_traced_segnums(sel.pop())
+
+        # TODO: allow more flexible rational for majority stream logic
+        if 'length' in self.segments.columns:
+            del self.segments['length']
+        self.segments['length'] = self.segments.geometry.length
+        order_keys = ['stream_order', 'length']
+
+        def up_headwater_segnum(segnum):
+            yield segnum
+            if segnum in from_segnums:
+                sel = from_segnums[segnum].intersection(traced_segnums)
+                if len(sel) == 1:
+                    yield from up_headwater_segnum(sel.pop())
+                elif len(sel) > 1:
+                    yield from up_headwater_segnum(sel.pop())
 
         lines = geopandas.GeoSeries()
+        aggd_segnums = pd.Series(dtype=object)
         if self.catchments is not None:
             polygons = geopandas.GeoSeries()
         else:
             polygons = None
         for segnum in segnums:
-            lines.loc[segnum] = linemerge(list(up_line(segnum)))
+            aggd_segnums.at[segnum] = up_segnums_l = list(up_segnums(segnum))
+            if segnum in headwater_segnums:
+                self.logger.debug('tracing from HW %s', segnum)
+                upline_segnums = list(up_headwater_segnum(segnum))
+            else:
+                self.logger.debug('tracing from other %s', segnum)
+                upline_segnums = list(up_traced_segnums(segnum))
+            lines.at[segnum] = linemerge(list(
+                    self.segments.loc[reversed(upline_segnums), 'geometry']))
             if polygons is not None:
-                polygons.loc[segnum] = cascaded_union(list(up_poly(segnum)))
-        return SurfaceWaterNetwork(lines, polygons)
+                polygons.at[segnum] = \
+                    cascaded_union(list(self.polygons.loc[up_segnums_l]))
+        n = SurfaceWaterNetwork(lines, polygons)
+        n.segments['aggregated'] = aggd_segnums
+        return n
 
     def accumulate_values(self, values):
         """Accumulate values down the stream network
