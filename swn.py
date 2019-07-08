@@ -72,7 +72,7 @@ def get_sindex(gdf):
     return sindex
 
 
-def _abbr_str(lst, limit=5):
+def _abbr_str(lst, limit=15):
     if isinstance(lst, list):
         is_set = False
     elif isinstance(lst, set):
@@ -560,39 +560,54 @@ class SurfaceWaterNetwork(object):
             raise IndexError(
                 '{0} segnums not found in segments.index: {1}'
                 .format(len(diff), _abbr_str(diff)))
+        self.logger.debug(
+            'aggregating at least %d segnums (junctions)', len(junctions))
         from_segnums = self.from_segnums
         to_segnums = dict(self.to_segnums)
 
-        # trace down from each segnum to the outlet
+        # trace down from each segnum to the outlet - keep this step simple
         traced_segnums = list()
 
         def trace_down(segnum):
-            traced_segnums.append(segnum)
-            next_segnum = to_segnums.get(segnum, None)
-            if not (next_segnum is None or next_segnum in traced_segnums or
-                    next_segnum in junctions_set):
-                trace_down(next_segnum)
+            if segnum is not None and segnum not in traced_segnums:
+                traced_segnums.append(segnum)
+                trace_down(to_segnums.get(segnum, None))
 
         for segnum in junctions:
-            # add segnums above this junction first
-            for up_segnum in from_segnums.get(segnum, []):
-                if up_segnum not in traced_segnums:
-                    traced_segnums.append(up_segnum)
             trace_down(segnum)
-        self.logger.debug('traced down %d junctions: %s',
-                          len(junctions), _abbr_str(traced_segnums))
 
-        # trace up from each segment, add junctions where trace splits
+        self.logger.debug(
+            'traced down initial junctions to assemble %d traced segnums: %s',
+            len(traced_segnums), _abbr_str(traced_segnums))
+
+        # trace up from each junction, add extra junctions as needed
         traset = set(traced_segnums)
         extra_junctions = []
 
         def trace_up(segnum):
-            up_segnums = from_segnums.get(segnum, set([])).intersection(traset)
-            for up_segnum in sorted(up_segnums):
-                if (up_segnum not in junctions_set and
-                        up_segnum not in extra_junctions):
+            if segnum not in from_segnums:
+                return
+            up_segnums = from_segnums[segnum]
+            segsij = up_segnums.intersection(junctions_set)
+            segsit = up_segnums.intersection(traset)
+            if len(segsij) > 0:
+                segsdj = up_segnums.difference(junctions_set)
+                segsdjdt = segsdj.difference(segsit)
+                for up_segnum in sorted(segsdjdt):
+                    self.logger.debug(
+                        'adding extra junction %s above segnum %s',
+                        up_segnum, segnum)
                     extra_junctions.append(up_segnum)
-                trace_up(up_segnum)
+                    # but don't follow up these, as it's untraced
+            elif len(segsit) > 1:
+                for up_segnum in sorted(segsit):
+                    self.logger.debug(
+                        'adding extra junction %s above fork at segnum %s',
+                        up_segnum, segnum)
+                    extra_junctions.append(up_segnum)
+                    trace_up(up_segnum)
+            elif len(segsit) == 1:
+                trace_up(segsit.pop())
 
         for segnum in junctions:
             trace_up(segnum)
@@ -604,10 +619,10 @@ class SurfaceWaterNetwork(object):
             junctions_set = set(junctions)
             if len(extra_junctions) == 1:
                 self.logger.debug(
-                    'traced up; added 1 junction: %s', extra_junctions)
+                    'traced up; added 1 extra junction: %s', extra_junctions)
             else:
                 self.logger.debug(
-                    'traced up; added %d junctions: %s',
+                    'traced up; added %d extra junctions: %s',
                     len(extra_junctions), _abbr_str(extra_junctions))
 
         # aggregate segnums above each junction, build larger polygons
@@ -641,10 +656,6 @@ class SurfaceWaterNetwork(object):
                                   segnum, up_segnums, up_segnum)
                 yield from up_path_headwater_segnums(up_segnum)
 
-        # if 'length' in self.segments.columns:
-        #    del self.segments['length']
-        # self.segments['length'] = self.segments.geometry.length
-
         junctions_goto = {s: to_segnums.get(s, None) for s in junctions}
         agg_patch = pd.Series(dtype=object)
         agg_path = pd.Series(dtype=object)
@@ -667,12 +678,9 @@ class SurfaceWaterNetwork(object):
                     is_headwater = False
                     break
             if is_headwater:
-                self.logger.debug('tracing from headwater %s', segnum)
                 agg_path_l = list(up_path_headwater_segnums(segnum))
             else:  # internal
-                self.logger.debug('tracing from internal %s', segnum)
                 agg_path_l = list(up_path_internal_segnums(segnum))
-            self.logger.debug('agg_path: %s', agg_path_l)
             agg_path.at[segnum] = agg_path_l
             agg_path_l.reverse()
             lines.at[segnum] = linemerge(list(

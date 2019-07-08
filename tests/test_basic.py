@@ -635,6 +635,84 @@ def test_fluss_n_query_downstream(fluss_n):
         n.query(downstream=-1)
 
 
+def test_aggregate_fluss_headwater(fluss_n):
+    n = fluss_n
+    assert len(n) == 19
+    na = n.aggregate([17, 4])
+    assert len(na.warnings) == 0
+    assert len(na.errors) == 0
+    assert len(na) == 2
+    assert list(na.segments.index) == [17, 4]
+    assert list(na.headwater) == [17, 4]
+    assert list(na.outlets) == [17, 4]
+    assert list(na.segments['agg_patch']) == [[17], [4]]
+    assert list(na.segments['agg_path']) == [[17], [4]]
+
+
+def test_aggregate_fluss_headwater_and_middle(fluss_n):
+    n = fluss_n
+    assert len(n) == 19
+    na = n.aggregate([17, 18])
+    assert len(na.warnings) == 0
+    assert len(na.errors) == 0
+    assert len(na) == 3
+    assert list(na.segments.index) == [17, 18, 16]
+    assert list(na.headwater) == [17, 16]
+    assert list(na.outlets) == [18]
+    assert [set(x) for x in na.segments['agg_patch']] == \
+        [set([17]), set([18]),
+         set([16, 8, 6, 2, 0, 1, 5, 3, 4, 7, 9, 10, 14, 15, 11, 12, 13])]
+    assert list(na.segments['agg_path']) == [[17], [18], [4, 5, 6, 8, 16]]
+
+
+def test_aggregate_fluss_two_middle(fluss_n):
+    n = fluss_n
+    assert len(n) == 19
+    na = n.aggregate([8, 9])
+    assert len(na.warnings) == 1
+    assert len(na.errors) == 0
+    assert len(na) == 2
+    assert list(na.segments.index) == [8, 9]
+    assert list(na.headwater) == [8, 9]
+    assert list(na.outlets) == [8, 9]
+    assert [set(x) for x in na.segments['agg_patch']] == \
+        [set([8, 6, 2, 0, 1, 5, 3, 4, 7]), set([9, 10, 14, 15, 11, 12, 13])]
+    assert list(na.segments['agg_path']) == [[4, 5, 6, 8], [13, 11, 9]]
+
+
+def test_aggregate_fluss_disconnected(fluss_n):
+    n = fluss_n
+    assert len(n) == 19
+    na = n.aggregate([5, 10, 17])
+    assert len(na.warnings) == 0
+    assert len(na.errors) == 0
+    assert len(na) == 3
+    assert list(na.segments.index) == [5, 10, 17]
+    assert list(na.headwater) == [5, 10, 17]
+    assert list(na.outlets) == [5, 10, 17]
+    assert [set(x) for x in na.segments['agg_patch']] == \
+        [set([5, 3, 4]), set([10, 14, 15]), set([17])]
+    assert list(na.segments['agg_path']) == [[4, 5], [15, 10], [17]]
+
+
+def test_aggregate_fluss_coarse(fluss_n):
+    n = fluss_n
+    assert len(n) == 19
+    na = n.aggregate([5, 10, 18])
+    assert len(na.warnings) == 0
+    assert len(na.errors) == 0
+    # extra junctions need to be added
+    assert len(na) == 7
+    assert list(na.segments.index) == [5, 10, 18, 8, 2, 9, 11]
+    assert list(na.headwater) == [5, 10, 2,  11]
+    assert list(na.outlets) == [18]
+    assert [set(x) for x in na.segments['agg_patch']] == \
+        [set([5, 3, 4]), set([10, 14, 15]), set([18, 16, 17]), set([8, 6, 7]),
+         set([2, 0, 1]), set([9]), set([11, 12, 13])]
+    assert list(na.segments['agg_path']) == \
+        [[4, 5], [15, 10], [16, 18], [6, 8], [1, 2], [9], [13, 11]]
+
+
 def test_adjust_elevation_profile_min_slope_float(n):
     n.adjust_elevation_profile(2./1000)
 
