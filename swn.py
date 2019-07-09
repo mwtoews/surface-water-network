@@ -3,6 +3,7 @@ import geopandas
 import logging
 import numpy as np
 import pandas as pd
+import pyproj
 import sys
 try:
     from geopandas.tools import sjoin
@@ -1379,7 +1380,7 @@ class MfSfrNetwork(object):
             lambda x: self.segment_data.loc[
                 self.segments.loc[x, 'to_segnum'], 'nseg'] if
             self.segments.loc[
-                x, 'to_segnum'] in self.segment_data.index else 0.).values
+                x, 'to_segnum'] in self.segment_data.index else 0.)
         self.segment_data['iupseg'] = 0  # no diversions (yet)
         self.segment_data['iprior'] = 0
         self.segment_data['flow'] = 0.0
@@ -1839,7 +1840,7 @@ class MfSfrNetwork(object):
             # some missing
             # drop others
             others = kijcols - dif
-            self.segment_data.drop(columns=others, inplace=True)
+            self.segment_data.drop(others, axis=0, inplace=True)
             # get model locations for segments ends
             _ = self.get_seg_ijk()
         # get model cell elevations at seg ends
@@ -2102,15 +2103,7 @@ class MfSfrNetwork(object):
 
     def sfr_plot(self, model, sfrar, dem, points=None, points2=None,
                  label=None):
-        import cartopy.crs as ccrs
-        mprj = ccrs.epsg(2193)
-        crs_longlat = ccrs.PlateCarree()
-        # get model spacial reference extent - local utm
-        extent = model.modelgrid.extent
-        domain_extent = crs_longlat.transform_points(
-            mprj, np.array(extent[0:2]),
-            np.array(extent[2:])).T.flatten()[0:4]
-        p = ModelPlot(model, domain_extent)
+        p = ModelPlot(model)
         p._add_plotlayer(dem, label="Elevation (m)")
         p._add_sfr(sfrar, cat_cmap=False, colorbar=True,
                    cbar_label=label)
@@ -2162,7 +2155,8 @@ class ModelPlot(object):
     Object for plotting array style results
     """
 
-    def __init__(self, model, domain_extent, fig=None, ax=None, figsize=None):
+    def __init__(self, model, domain_extent=None, fig=None, ax=None,
+                 figsize=None):
         """
         Container to help with results plotting functions
         :param model: flopy modflow model object
@@ -2173,7 +2167,25 @@ class ModelPlot(object):
         """
 
         self.model = model
-        self.domain_extent = domain_extent
+        # Use model projection, if defined by either proj4 or epsg attrs
+        proj_str = model.modelgrid.proj4
+        epsg = model.modelgrid.epsg
+        self.pprj = None
+        try:
+            if proj_str:
+                self.pprj = pyproj.Proj(proj_str)
+            elif epsg:
+                self.pprj = pyproj.Proj('+init=epsg:' + str(epsg))
+        except RuntimeError:
+            pass
+        if domain_extent is None and self.pprj is not None:
+            xmin, xmax, ymin, ymax = self.model.modelgrid.extent
+            assert not self.pprj.is_latlong()
+            lonmin, latmin = self.pprj(xmin, ymin, inverse=True)
+            lonmax, latmax = self.pprj(xmax, ymax, inverse=True)
+            self.domain_extent = [lonmin, lonmax, latmin, latmax]
+        else:
+            self.domain_extent = domain_extent
         self.xg = self.model.modelgrid.xvertices
         self.yg = self.model.modelgrid.yvertices
         self.extent = self.model.modelgrid.extent
@@ -2183,12 +2195,14 @@ class ModelPlot(object):
         # if no figure or axes based initialise figure
         if fig is None or ax is None:
             plt.rc('font', size=10)
-            import cartopy.crs as ccrs
-            try:
-                self.mprj = ccrs.epsg(2193)  # TODO - flexi
-            except Exception:
-                print("error getting model projection")
-                exit()
+            # see https://github.com/SciTools/cartopy/issues/813
+            self.mprj = None
+            if epsg:
+                try:
+                    import cartopy.crs as ccrs
+                    self.mprj = ccrs.epsg(epsg)
+                except ImportError:
+                    pass
             # empty figure container cartopy geoaxes
             self.fig, self.ax = plt.subplots(figsize=figsize,
                                              subplot_kw=dict(
