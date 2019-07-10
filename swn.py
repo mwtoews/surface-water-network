@@ -653,8 +653,8 @@ class SurfaceWaterNetwork(object):
                 up_segnum = self.segments.loc[up_segnums].sort_values(
                     ['stream_order', 'sequence'], ascending=[False, True])\
                     .index[0]
-                self.logger.debug('untraced path %s: %s -> %s',
-                                  segnum, up_segnums, up_segnum)
+                # self.logger.debug('untraced path %s: %s -> %s',
+                #                   segnum, up_segnums, up_segnum)
                 yield from up_path_headwater_segnums(up_segnum)
 
         junctions_goto = {s: to_segnums.get(s, None) for s in junctions}
@@ -686,6 +686,13 @@ class SurfaceWaterNetwork(object):
             agg_path_l.reverse()
             lines.at[segnum] = linemerge(list(
                     self.segments.loc[agg_path_l, 'geometry']))
+
+        # copy a few other properties
+        lines.index.name = self.segments.index.name
+        lines.crs = self.segments.crs
+        if polygons is not None:
+            polygons.index.name = self.catchments.index.name
+            polygons.crs = self.catchments.crs
 
         n = SurfaceWaterNetwork(lines, polygons)
         n.segments['agg_patch'] = agg_patch
@@ -1278,6 +1285,11 @@ class MfSfrNetwork(object):
             swn.pair_segment_values(width1, width_out, name='width')
         ], axis=1, copy=False)
         self.segments['roughch'] = swn.segment_series(roughch)
+        # Mark segments that are not used
+        self.segments['in_model'] = True
+        outside_model = \
+            set(swn.segments.index).difference(self.reaches['segnum'])
+        self.segments.loc[list(outside_model), 'in_model'] = False
         # Add information from segments
         self.reaches = self.reaches.merge(
             self.segments[['sequence', 'min_slope']], 'left',
@@ -2469,3 +2481,34 @@ def topnet2ts(nc_path, varname, log_level=logging.INFO):
         df.index = pd.DatetimeIndex(num2date(time_v[:], time_v.units))
     logger.info('data successfully read')
     return df
+
+
+def gdf_to_shapefile(gdf, shp_fname):
+    """Write any GeoDataFrame to a shapefile
+
+    This is a workaround to the to_file method, which cannot save
+    GeoDataFrame objects with other data types, such as set.
+
+    Parameters
+    ----------
+    gdf : geopandas.GeoDataFrame
+        GeoDataFrame to export
+    shp_fname : str
+        File path for output shapefile
+
+    Returns
+    -------
+    None
+    """
+    gdf = gdf.copy()
+    geom_name = gdf.geometry.name
+    for col, dtype in gdf.dtypes.iteritems():
+        if col == geom_name:
+            continue
+        is_none = gdf[col].map(lambda x: x is None)
+        if dtype == object:
+            gdf[col] = gdf[col].astype(str)
+            gdf.loc[is_none, col] = ''
+        elif dtype == bool:
+            gdf[col] = gdf[col].astype(int)
+    gdf.to_file(str(shp_fname))

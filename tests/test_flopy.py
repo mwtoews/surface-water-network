@@ -197,6 +197,7 @@ def test_process_flopy_n3d_defaults(n3d, tmpdir_factory):
     m.write_input()
     nm.grid_cells.to_file(str(outdir.join('grid_cells.shp')))
     nm.reaches.to_file(str(outdir.join('reaches.shp')))
+    swn.gdf_to_shapefile(nm.segments, outdir.join('segments.shp'))
 
 
 def test_process_flopy_n3d_vars(n3d, tmpdir_factory):
@@ -248,6 +249,7 @@ def test_process_flopy_n3d_vars(n3d, tmpdir_factory):
     m.write_input()
     nm.grid_cells.to_file(str(outdir.join('grid_cells.shp')))
     nm.reaches.to_file(str(outdir.join('reaches.shp')))
+    swn.gdf_to_shapefile(nm.segments, outdir.join('segments.shp'))
 
 
 def test_process_flopy_n2d_defaults(n2d, tmpdir_factory):
@@ -289,6 +291,7 @@ def test_process_flopy_n2d_defaults(n2d, tmpdir_factory):
     m.write_input()
     nm.grid_cells.to_file(str(outdir.join('grid_cells.shp')))
     nm.reaches.to_file(str(outdir.join('reaches.shp')))
+    swn.gdf_to_shapefile(nm.segments, outdir.join('segments.shp'))
 
 
 def test_process_flopy_n2d_min_slope(n2d, tmpdir_factory):
@@ -325,6 +328,7 @@ def test_process_flopy_n2d_min_slope(n2d, tmpdir_factory):
     m.write_input()
     nm.grid_cells.to_file(str(outdir.join('grid_cells.shp')))
     nm.reaches.to_file(str(outdir.join('reaches.shp')))
+    swn.gdf_to_shapefile(nm.segments, outdir.join('segments.shp'))
 
 
 def test_set_elevations(n2d, tmpdir_factory):
@@ -394,6 +398,7 @@ def test_set_elevations(n2d, tmpdir_factory):
     m.write_input()
     nm.grid_cells.to_file(str(outdir.join('grid_cells.shp')))
     nm.reaches.to_file(str(outdir.join('reaches.shp')))
+    swn.gdf_to_shapefile(nm.segments, outdir.join('segments.shp'))
 
 
 def test_reach_barely_outside_ibound():
@@ -445,6 +450,8 @@ def test_costal_process_flopy(
     # Make sure this is the model we are thinking of
     assert m.modelgrid.extent == (1802000.0, 1819000.0, 5861000.0, 5879000.0)
     nm = swn.MfSfrNetwork(n, m, inflow=clostal_flow_m)
+    assert len(nm.segments) == 304
+    assert nm.segments['in_model'].sum() == 184
     # Check remaining reaches added that are inside model domain
     reach_geom = nm.reaches.loc[
         nm.reaches['segnum'] == 3047735, 'geometry'].iloc[0]
@@ -537,6 +544,7 @@ def test_costal_process_flopy(
     m.write_input()
     nm.grid_cells.to_file(str(outdir.join('grid_cells.shp')))
     nm.reaches.to_file(str(outdir.join('reaches.shp')))
+    swn.gdf_to_shapefile(nm.segments, outdir.join('segments.shp'))
 
 
 def test_costal_elevations(
@@ -684,6 +692,7 @@ def test_costal_reduced_process_flopy(
     m.write_input()
     nm.grid_cells.to_file(str(outdir.join('grid_cells.shp')))
     nm.reaches.to_file(str(outdir.join('reaches.shp')))
+    swn.gdf_to_shapefile(nm.segments, outdir.join('segments.shp'))
 
 
 def test_costal_process_flopy_ibound_modify(
@@ -692,6 +701,8 @@ def test_costal_process_flopy_ibound_modify(
     assert len(n) == 304
     m = flopy.modflow.Modflow.load('h.nam', model_ws=datadir, check=False)
     nm = swn.MfSfrNetwork(n, m, ibound_action='modify', inflow=clostal_flow_m)
+    assert len(nm.segments) == 304
+    assert nm.segments['in_model'].sum() == 304
     # Check a remaining reach added that is outside model domain
     reach_geom = nm.reaches.loc[
         nm.reaches['segnum'] == 3048565, 'geometry'].iloc[0]
