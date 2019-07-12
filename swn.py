@@ -543,13 +543,18 @@ class SurfaceWaterNetwork(object):
                             segnums += upsegnums
         return segnums
 
-    def aggregate(self, segnums):
+    def aggregate(self, segnums, follow_up='upstream_length'):
         """Aggregate segments (and catchments) to a coarser network of segnums
 
         Parameters
         ----------
         segnums : list
             List of segment numbers to aggregate. Must be unique.
+        follow_up : str
+            Column name in segments used to determine the descending sort
+            order used to determine which segment to follow up headwater
+            catchments. Default 'upstream_length'. Anothr good candidate
+            is 'upstream_area', if catchment polygons are available.
 
         Returns
         -------
@@ -558,6 +563,11 @@ class SurfaceWaterNetwork(object):
             provide a segnum list from the original surface water network
             to the aggregated object.
         """
+        if (isinstance(follow_up, str) and follow_up in self.segments.columns):
+            pass
+        else:
+            raise ValueError(
+                '{!r} not found in segments.columns'.format(follow_up))
         junctions = list(segnums)
         junctions_set = set(junctions)
         if len(junctions) != len(junctions_set):
@@ -656,10 +666,8 @@ class SurfaceWaterNetwork(object):
             if len(up_segnums) == 1:
                 yield from up_path_headwater_segnums(up_segnums.pop())
             elif len(up_segnums) > 1:
-                # TODO: imporve lazy random path
                 up_segnum = self.segments.loc[up_segnums].sort_values(
-                    ['stream_order', 'sequence'], ascending=[False, True])\
-                    .index[0]
+                    follow_up, ascending=False).index[0]
                 # self.logger.debug('untraced path %s: %s -> %s',
                 #                   segnum, up_segnums, up_segnum)
                 yield from up_path_headwater_segnums(up_segnum)
