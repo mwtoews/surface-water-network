@@ -793,12 +793,12 @@ class SurfaceWaterNetwork(object):
         else:
             raise ValueError('unknown use for upstream_area')
         if not isinstance(a, (float, int)):
-            a = self.segment_series(a, 'a')
+            a = self._segment_series(a, 'a')
         if not isinstance(b, (float, int)):
-            b = self.segment_series(a, 'b')
+            b = self._segment_series(a, 'b')
         self.segments['width'] = a + upstream_area_km2 ** b
 
-    def segment_series(self, value, name=None):
+    def _segment_series(self, value, name=None):
         """Returns a pandas.Series along the segment index
 
         Parameters
@@ -823,7 +823,7 @@ class SurfaceWaterNetwork(object):
             value.name = name
         return value
 
-    def outlet_series(self, value):
+    def _outlet_series(self, value):
         """Returns a pandas.Series along the outlet index
 
         Parameters
@@ -844,7 +844,7 @@ class SurfaceWaterNetwork(object):
             raise ValueError('index is different than for outlets')
         return value
 
-    def pair_segment_values(self, value1, outlet_value=None, name=None):
+    def _pair_segment_values(self, value1, outlet_value=None, name=None):
         """Returns a pair of values that connect the segments
 
         The first value applies to the top of each segment, and the bottom
@@ -868,7 +868,7 @@ class SurfaceWaterNetwork(object):
             Resulting DataFrame has two columns for top (1) and bottom (2) of
             each segment.
         """
-        value1 = self.segment_series(value1, name=name)
+        value1 = self._segment_series(value1, name=name)
         df = pd.concat([value1, value1], axis=1)
         if value1.name is not None:
             df.columns = df.columns.str.cat(['1', '2'])
@@ -878,7 +878,7 @@ class SurfaceWaterNetwork(object):
         c1, c2 = df.columns
         df.loc[to_segnums.index, c2] = df.loc[to_segnums, c1].values
         if outlet_value is not None:
-            outlet_value = self.outlet_series(outlet_value)
+            outlet_value = self._outlet_series(outlet_value)
             df.loc[outlet_value.index, c2] = outlet_value
         return df
 
@@ -892,7 +892,7 @@ class SurfaceWaterNetwork(object):
             a global value, otherwise it is per-segment with a Series.
             Default 1./1000 (or 0.001).
         """
-        min_slope = self.segment_series(min_slope)
+        min_slope = self._segment_series(min_slope)
         if (min_slope < 0.0).any():
             raise ValueError('min_slope must be greater than zero')
         elif not self.has_z:
@@ -954,7 +954,7 @@ class SurfaceWaterNetwork(object):
         -------
         None
         """
-        condition = self.segment_series(condition, 'condition').astype(bool)
+        condition = self._segment_series(condition, 'condition').astype(bool)
         if condition.any():
             self.logger.debug(
                 'selecting %d segnum(s) based on a condition',
@@ -1153,7 +1153,7 @@ class MfSfrNetwork(object):
             grid_df, geometry=[Polygon(r) for r in cell_verts], crs=crs)
         self.logger.debug('evaluating reach data on model grid')
         grid_sindex = get_sindex(grid_cells)
-        reach_include = swn.segment_series(reach_include_fraction) * cell_size
+        reach_include = swn._segment_series(reach_include_fraction) * cell_size
         # Make an empty DataFrame for reaches
         reach_df = pd.DataFrame(columns=['geometry'])
         reach_df.insert(1, column='segnum',
@@ -1332,7 +1332,7 @@ class MfSfrNetwork(object):
             else:
                 self.reaches['prev_ibound'] = 1
         # Assign segment data
-        self.segments['min_slope'] = swn.segment_series(min_slope)
+        self.segments['min_slope'] = swn._segment_series(min_slope)
         if (self.segments['min_slope'] < 0.0).any():
             raise ValueError('min_slope must be greater than zero')
         # Column names common to segments and segment_data
@@ -1347,11 +1347,11 @@ class MfSfrNetwork(object):
         # Combine pairs of series for each segment
         self.segments = pd.concat([
             self.segments,
-            swn.pair_segment_values(hyd_cond1, hyd_cond_out, 'hcond'),
-            swn.pair_segment_values(thickness1, thickness_out, 'thickm'),
-            swn.pair_segment_values(width1, width_out, name='width')
+            swn._pair_segment_values(hyd_cond1, hyd_cond_out, 'hcond'),
+            swn._pair_segment_values(thickness1, thickness_out, 'thickm'),
+            swn._pair_segment_values(width1, width_out, name='width')
         ], axis=1, copy=False)
-        self.segments['roughch'] = swn.segment_series(roughch)
+        self.segments['roughch'] = swn._segment_series(roughch)
         # Mark segments that are not used
         self.segments['in_model'] = True
         outside_model = \

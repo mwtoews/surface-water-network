@@ -392,45 +392,45 @@ def test_estimate_width(lines, polygons):
 
 def test_segment_series(n):
     # from scalar
-    v = n.segment_series(8.0)
+    v = n._segment_series(8.0)
     assert list(v.index) == [0, 1, 2]
     assert list(v) == [8.0, 8.0, 8.0]
     assert v.name is None
-    v = n.segment_series(8.0, name='eight')
+    v = n._segment_series(8.0, name='eight')
     assert list(v.index) == [0, 1, 2]
     assert list(v) == [8.0, 8.0, 8.0]
     assert v.name == 'eight'
-    v = n.segment_series('$VAL$')
+    v = n._segment_series('$VAL$')
     assert list(v) == ['$VAL$', '$VAL$', '$VAL$']
     # from list
-    v = n.segment_series([3, 4, 5])
+    v = n._segment_series([3, 4, 5])
     assert list(v.index) == [0, 1, 2]
     assert list(v) == [3, 4, 5]
     assert v.name is None
-    v = n.segment_series([3, 4, 5], name='list')
+    v = n._segment_series([3, 4, 5], name='list')
     assert list(v.index) == [0, 1, 2]
     assert list(v) == [3, 4, 5]
     assert v.name == 'list'
-    v = n.segment_series(['$VAL1$', '$VAL2$', '$VAL3$'])
+    v = n._segment_series(['$VAL1$', '$VAL2$', '$VAL3$'])
     assert list(v.index) == [0, 1, 2]
     assert list(v) == ['$VAL1$', '$VAL2$', '$VAL3$']
     assert v.name is None
     # from Series
     s = pd.Series([2.0, 3.0, 4.0])
-    v = n.segment_series(s)
+    v = n._segment_series(s)
     assert list(v.index) == [0, 1, 2]
     assert list(v) == [2.0, 3.0, 4.0]
     assert v.name is None
     s.name = 'foo'
-    v = n.segment_series(s)
+    v = n._segment_series(s)
     assert v.name == 'foo'
-    v = n.segment_series(s, name='bar')
+    v = n._segment_series(s, name='bar')
     assert v.name == 'bar'
     # now break it
     s.index += 1
     with pytest.raises(ValueError,
                        match='index is different than for segments'):
-        n.segment_series(s)
+        n._segment_series(s)
 
 
 def test_outlet_series():
@@ -441,58 +441,58 @@ def test_outlet_series():
         'LINESTRING Z (60 100 14, 60  80 12)',
     ]))
     # from scalar
-    v = n.outlet_series(8.0)
+    v = n._outlet_series(8.0)
     assert list(v.index) == [2]
     assert list(v) == [8.0]
     assert v.name is None
-    v = n.outlet_series('$VAL$')
+    v = n._outlet_series('$VAL$')
     assert list(v) == ['$VAL$']
     # from list
-    v = n.outlet_series([8])
+    v = n._outlet_series([8])
     assert list(v.index) == [2]
     assert list(v) == [8]
     assert v.name is None
-    v = n.outlet_series(['$VAL_out$'])
+    v = n._outlet_series(['$VAL_out$'])
     assert list(v.index) == [2]
     assert list(v) == ['$VAL_out$']
     assert v.name is None
     # from Series
     s = pd.Series([5.0], index=[2])
-    v = n.outlet_series(s)
+    v = n._outlet_series(s)
     assert list(v.index) == [2]
     assert list(v) == [5.0]
     assert v.name is None
     s.name = 'foo'
-    v = n.outlet_series(s)
+    v = n._outlet_series(s)
     assert v.name == 'foo'
     # now break it
     s.index -= 1
     with pytest.raises(ValueError,
                        match='index is different than for outlets'):
-        n.outlet_series(s)
+        n._outlet_series(s)
 
 
 def test_pair_segment_values(n):
     # from scalar
-    p = n.pair_segment_values(8.0)
+    p = n._pair_segment_values(8.0)
     assert list(p.columns) == [1, 2]
     assert list(p.index) == [0, 1, 2]
     expected = np.ones((3, 2)) * 8.0
     np.testing.assert_equal(p, expected)
-    p = n.pair_segment_values(8.0, name='foo')
+    p = n._pair_segment_values(8.0, name='foo')
     assert list(p.columns) == ['foo1', 'foo2']
     assert list(p.index) == [0, 1, 2]
-    p = n.pair_segment_values(8.0, 9.0)
+    p = n._pair_segment_values(8.0, 9.0)
     assert list(p.columns) == [1, 2]
     assert list(p.index) == [0, 1, 2]
     expected[0, 1] = 9.0
     np.testing.assert_equal(p, expected)
-    p = n.pair_segment_values(8.0, 9.0, name='foo')
+    p = n._pair_segment_values(8.0, 9.0, name='foo')
     assert list(p.columns) == ['foo1', 'foo2']
     assert list(p.index) == [0, 1, 2]
     np.testing.assert_equal(p, expected)
     # from list
-    p = n.pair_segment_values([3, 4, 5])
+    p = n._pair_segment_values([3, 4, 5])
     assert list(p.columns) == [1, 2]
     assert list(p.index) == [0, 1, 2]
     expected = np.array([
@@ -500,23 +500,23 @@ def test_pair_segment_values(n):
             [4, 3],
             [5, 3]])
     np.testing.assert_equal(p, expected)
-    p = n.pair_segment_values([3, 4, 5], name='foo')
+    p = n._pair_segment_values([3, 4, 5], name='foo')
     assert list(p.columns) == ['foo1', 'foo2']
     assert list(p.index) == [0, 1, 2]
     np.testing.assert_equal(p, expected)
-    p = n.pair_segment_values([3, 4, 5], [6])
+    p = n._pair_segment_values([3, 4, 5], [6])
     assert list(p.columns) == [1, 2]
     assert list(p.index) == [0, 1, 2]
     expected[0, 1] = 6
-    p = n.pair_segment_values([3, 4, 5], [6], name='foo')
+    p = n._pair_segment_values([3, 4, 5], [6], name='foo')
     assert list(p.columns) == ['foo1', 'foo2']
     assert list(p.index) == [0, 1, 2]
     np.testing.assert_equal(p, expected)
-    p = n.pair_segment_values([3, 4, 5], 6)
+    p = n._pair_segment_values([3, 4, 5], 6)
     assert list(p.columns) == [1, 2]
     assert list(p.index) == [0, 1, 2]
     np.testing.assert_equal(p, expected)
-    p = n.pair_segment_values(['$VAL1$', '$VAL2$', '$VAL3$'])
+    p = n._pair_segment_values(['$VAL1$', '$VAL2$', '$VAL3$'])
     assert list(p.columns) == [1, 2]
     assert list(p.index) == [0, 1, 2]
     expected = np.array([
@@ -524,7 +524,7 @@ def test_pair_segment_values(n):
             ['$VAL2$', '$VAL1$'],
             ['$VAL3$', '$VAL1$']])
     np.testing.assert_equal(p, expected)
-    p = n.pair_segment_values(['$VAL1$', '$VAL2$', '$VAL3$'], ['$OUT1$'])
+    p = n._pair_segment_values(['$VAL1$', '$VAL2$', '$VAL3$'], ['$OUT1$'])
     assert list(p.columns) == [1, 2]
     assert list(p.index) == [0, 1, 2]
     expected[0, 1] = '$OUT1$'
@@ -533,7 +533,7 @@ def test_pair_segment_values(n):
     # from Series
     s1 = pd.Series([3, 4, 5])
     s1.name = 'foo'
-    p = n.pair_segment_values(s1)
+    p = n._pair_segment_values(s1)
     assert list(p.columns) == ['foo1', 'foo2']
     assert list(p.index) == [0, 1, 2]
     expected = np.array([
@@ -541,22 +541,22 @@ def test_pair_segment_values(n):
             [4, 3],
             [5, 3]])
     np.testing.assert_equal(p, expected)
-    p = n.pair_segment_values(s1, name='bar')
+    p = n._pair_segment_values(s1, name='bar')
     assert list(p.columns) == ['bar1', 'bar2']
     assert list(p.index) == [0, 1, 2]
     np.testing.assert_equal(p, expected)
     so = pd.Series([6], index=[2])
     expected[0, 1] = 6
-    p = n.pair_segment_values(s1, so)
+    p = n._pair_segment_values(s1, so)
     assert list(p.columns) == ['foo1', 'foo2']
     assert list(p.index) == [0, 1, 2]
     np.testing.assert_equal(p, expected)
     so.name = 'bar'  # should be ignored
-    p = n.pair_segment_values(s1, so)
+    p = n._pair_segment_values(s1, so)
     assert list(p.columns) == ['foo1', 'foo2']
     assert list(p.index) == [0, 1, 2]
     np.testing.assert_equal(p, expected)
-    p = n.pair_segment_values(s1, so, name='zap')
+    p = n._pair_segment_values(s1, so, name='zap')
     assert list(p.columns) == ['zap1', 'zap2']
     assert list(p.index) == [0, 1, 2]
     np.testing.assert_equal(p, expected)
