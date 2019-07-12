@@ -52,8 +52,9 @@ def test_init(costal_swn, costal_lines_gdf):
     assert len(cat_group) == 3
     assert dict(cat_group) == {3046700: 1, 3046737: 173, 3046736: 130}
     ln = n.segments['dist_to_outlet']
-    np.testing.assert_almost_equal(ln.min(), 42.43659279)
-    np.testing.assert_almost_equal(ln.max(), 21077.7486858)
+    np.testing.assert_almost_equal(ln.min(), 42.437, 3)
+    np.testing.assert_almost_equal(ln.mean(), 11105.741, 3)
+    np.testing.assert_almost_equal(ln.max(), 21077.749, 3)
     # supplied LENGTHDOWN is similar
     res = costal_lines_gdf['LENGTHDOWN'] + \
         costal_lines_gdf.geometry.length - ln
@@ -66,6 +67,12 @@ def test_init(costal_swn, costal_lines_gdf):
     assert dict(stream_order) == {1: 154, 2: 72, 3: 46, 4: 28, 5: 4}
     np.testing.assert_array_equal(
         n.segments['stream_order'], costal_lines_gdf['StreamOrde'])
+    ul = n.segments['upstream_length']
+    np.testing.assert_almost_equal(ul.min(), 45.010, 3)
+    np.testing.assert_almost_equal(ul.mean(), 11381.843, 3)
+    np.testing.assert_almost_equal(ul.max(), 144764.575, 3)
+    assert 'upstream_area' not in n.segments.columns
+    assert 'width' not in n.segments.columns
 
 
 def test_accumulate_values(costal_swn, costal_lines_gdf):
@@ -90,3 +97,11 @@ def test_catchment_polygons(costal_lines_gdf, costal_polygons_gdf):
     up_cat_areas = n.accumulate_values(cat_areas)
     np.testing.assert_allclose(
         up_cat_areas, costal_lines_gdf['CUM_AREA'], atol=7800.0)
+    ua = n.segments['upstream_area']
+    np.testing.assert_almost_equal(ua.min(), 180994.763, 3)
+    np.testing.assert_almost_equal(ua.mean(), 7437127.120, 3)
+    np.testing.assert_almost_equal(ua.max(), 100625129.836, 3)
+    w = n.segments['width']
+    np.testing.assert_almost_equal(w.min(), 1.831, 3)
+    np.testing.assert_almost_equal(w.mean(), 3.435, 3)
+    np.testing.assert_almost_equal(w.max(), 12.420, 3)

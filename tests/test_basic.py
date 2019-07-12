@@ -77,6 +77,10 @@ def test_init_defaults(n):
         n.segments['dist_to_outlet'], [20.0, 56.05551, 51.622776])
     assert list(n.segments['sequence']) == [3, 1, 2]
     assert list(n.segments['stream_order']) == [2, 1, 1]
+    np.testing.assert_allclose(
+        n.segments['upstream_length'], [87.67828936, 36.05551275, 31.6227766])
+    assert 'upstream_area' not in n.segments.columns
+    assert 'width' not in n.segments.columns
     assert list(n.headwater) == [1, 2]
     assert list(n.outlets) == [0]
     assert dict(n.to_segnums) == {1: 0, 2: 0}
@@ -102,6 +106,8 @@ def test_init_2D_geom(df):
         n.segments['dist_to_outlet'], [20.0, 56.05551, 51.622776])
     assert list(n.segments['sequence']) == [3, 1, 2]
     assert list(n.segments['stream_order']) == [2, 1, 1]
+    np.testing.assert_allclose(
+        n.segments['upstream_length'], [87.67828936, 36.05551275, 31.6227766])
     assert list(n.headwater) == [1, 2]
     assert list(n.outlets) == [0]
 
@@ -146,6 +152,8 @@ def test_init_reversed_lines(lines):
         n.segments['dist_to_outlet'], [56.05551, 36.05551, 31.622776])
     assert list(n.segments['sequence']) == [1, 3, 2]
     assert list(n.segments['stream_order']) == [1, 1, 1]
+    np.testing.assert_allclose(
+        n.segments['upstream_length'], [20.0, 56.05551275, 31.6227766])
     assert list(n.headwater) == [0, 2]
     assert list(n.outlets) == [1, 2]
     assert dict(n.to_segnums) == {0: 1}
@@ -178,6 +186,8 @@ def test_init_all_converge():
         n.segments['dist_to_outlet'], [36.05551, 31.622776, 20.0])
     assert list(n.segments['sequence']) == [1, 2, 3]
     assert list(n.segments['stream_order']) == [1, 1, 1]
+    np.testing.assert_allclose(
+        n.segments['upstream_length'], [36.05551, 31.622776, 20.0])
     assert list(n.headwater) == [0, 1, 2]
     assert list(n.outlets) == [0, 1, 2]
     assert dict(n.to_segnums) == {}
@@ -210,6 +220,8 @@ def test_init_all_diverge():
         n.segments['dist_to_outlet'], [36.05551, 31.622776, 20.0])
     assert list(n.segments['sequence']) == [1, 2, 3]
     assert list(n.segments['stream_order']) == [1, 1, 1]
+    np.testing.assert_allclose(
+        n.segments['upstream_length'], [36.05551, 31.622776, 20.0])
     assert list(n.headwater) == [0, 1, 2]
     assert list(n.outlets) == [0, 1, 2]
     assert dict(n.to_segnums) == {}
@@ -235,6 +247,8 @@ def test_init_line_connects_to_middle():
         n.segments['dist_to_outlet'], [56.05551, 31.622776])
     assert list(n.segments['sequence']) == [1, 2]
     assert list(n.segments['stream_order']) == [1, 1]
+    np.testing.assert_allclose(
+        n.segments['upstream_length'], [56.05551, 31.622776])
     assert list(n.headwater) == [0, 1]
     assert list(n.outlets) == [0, 1]
     assert dict(n.to_segnums) == {}
@@ -279,17 +293,28 @@ def test_accumulate_values_expected(n):
 
 
 def test_init_polygons(lines, polygons):
+    expected_area = [800.0, 875.0, 525.0]
+    expected_upstream_area = [2200.0, 875.0, 525.0]
+    expected_upstream_width = [1.4615, 1.4457, 1.4397]
     # from GeoSeries
     n = swn.SurfaceWaterNetwork(lines, polygons.geometry)
     assert n.catchments is not None
-    np.testing.assert_array_equal(n.catchments.area, [800.0, 875.0, 525.0])
+    np.testing.assert_array_almost_equal(n.catchments.area, expected_area)
+    np.testing.assert_array_almost_equal(
+            n.segments['upstream_area'], expected_upstream_area)
+    np.testing.assert_array_almost_equal(
+            n.segments['width'], expected_upstream_width, 4)
     # from GeoDataFrame
     n = swn.SurfaceWaterNetwork(lines, polygons)
     assert n.catchments is not None
-    np.testing.assert_array_equal(n.catchments.area, [800.0, 875.0, 525.0])
-    # upstream area
-    np.testing.assert_array_equal(
-        n.accumulate_values(n.catchments.area), [2200.0, 875.0, 525.0])
+    np.testing.assert_array_almost_equal(n.catchments.area, expected_area)
+    np.testing.assert_array_almost_equal(
+            n.segments['upstream_area'], expected_upstream_area)
+    np.testing.assert_array_almost_equal(
+            n.segments['width'], expected_upstream_width, 4)
+    # manual upstream area calculation
+    np.testing.assert_array_almost_equal(
+        n.accumulate_values(n.catchments.area), expected_upstream_area)
     # check error
     with pytest.raises(
             ValueError,
@@ -302,7 +327,12 @@ def test_catchments_property(lines, polygons):
     assert n.catchments is None
     n.catchments = polygons.geometry
     assert n.catchments is not None
-    np.testing.assert_array_equal(n.catchments.area, [800.0, 875.0, 525.0])
+    np.testing.assert_array_almost_equal(
+            n.catchments.area, [800.0, 875.0, 525.0])
+    np.testing.assert_array_almost_equal(
+            n.segments['upstream_area'], [2200.0, 875.0, 525.0])
+    np.testing.assert_array_almost_equal(
+            n.segments['width'], [1.4615, 1.4457, 1.4397], 4)
     n.catchments = None
     assert n.catchments is None
     # check errors
@@ -314,6 +344,50 @@ def test_catchments_property(lines, polygons):
             ValueError,
             match=r'catchments\.index is different than for segments'):
         n.catchments = polygons.iloc[1:]
+
+
+def test_estimate_width(lines, polygons):
+    n = swn.SurfaceWaterNetwork(lines, polygons.geometry)
+    # defaults
+    np.testing.assert_array_almost_equal(
+            n.segments['width'], [1.4615, 1.4457, 1.4397], 4)
+    # float a and b
+    n.estimate_width(1.4, 0.6)
+    np.testing.assert_array_almost_equal(
+            n.segments['width'], [1.4254, 1.4146, 1.4108], 4)
+    # integer a and b
+    n.estimate_width(1, 1)
+    np.testing.assert_array_almost_equal(
+            n.segments['width'], [1.0022, 1.0009, 1.0005], 4)
+    # a and b are Series per segment
+    n.estimate_width([1.2, 1.8, 1.4], [0.4, 0.7, 0.6])
+    np.testing.assert_array_almost_equal(
+            n.segments['width'], [1.2006, 1.8, 1.4], 4)
+    # based on Series
+    n.estimate_width(upstream_area=n.segments['upstream_area'] / 2)
+    np.testing.assert_array_almost_equal(
+            n.segments['width'], [1.4489, 1.4379, 1.4337], 4)
+    # defaults (again)
+    n.estimate_width()
+    np.testing.assert_array_almost_equal(
+            n.segments['width'], [1.4615, 1.4457, 1.4397], 4)
+    # based on a column, where upstream_area is not available
+    n2 = swn.SurfaceWaterNetwork(lines)
+    assert 'width' not in n2.segments.columns
+    assert 'upstream_area' not in n2.segments.columns
+    n2.segments['foo_upstream'] = n2.segments['upstream_length'] * 25
+    n2.estimate_width(upstream_area='foo_upstream')
+    np.testing.assert_array_almost_equal(
+            n2.segments['width'], [1.4614, 1.4461, 1.4444], 4)
+    # check errors
+    with pytest.raises(
+            ValueError,
+            match='unknown use for upstream_area'):
+        n.estimate_width(upstream_area=3)
+    with pytest.raises(
+            ValueError,
+            match=r"'upstream_area' not found in segments\.columns"):
+        n2.estimate_width()
 
 
 def test_segment_series(n):
@@ -490,15 +564,39 @@ def test_pair_segment_values(n):
 
 def test_remove_condition(lines, polygons):
     n = swn.SurfaceWaterNetwork(lines, polygons.geometry)
-    n.segments['upstream_area'] = n.accumulate_values(n.catchments.area)
     assert len(n) == 3
+    # manually copy these, to compare later
+    n.segments['orig_upstream_length'] = n.segments['upstream_length']
+    n.segments['orig_upstream_area'] = n.segments['upstream_area']
+    n.segments['orig_width'] = n.segments['width']
     n.remove(n.segments['upstream_area'] <= 1000.0)
     assert len(n) == 1
     assert len(n.segments) == 1
     assert len(n.catchments) == 1
     assert list(n.segments.index) == [0]
     assert n.segments.at[0, 'from_segnums'] == set([1, 2])
-    np.testing.assert_almost_equal(n.segments.at[0, 'upstream_area'], 2200.0)
+    np.testing.assert_almost_equal(
+        n.segments.at[0, 'upstream_length'], 87.67828936)
+    np.testing.assert_almost_equal(
+        n.segments.at[0, 'upstream_area'], 2200.0)
+    np.testing.assert_almost_equal(
+        n.segments.at[0, 'width'], 1.4615, 4)
+    # Manually re-tritter these
+    n.evaluate_upstream_length()
+    n.evaluate_upstream_area()
+    n.estimate_width()
+    np.testing.assert_almost_equal(
+        n.segments.at[0, 'upstream_length'], 20.0)
+    np.testing.assert_almost_equal(
+        n.segments.at[0, 'upstream_area'], 800.0)
+    np.testing.assert_almost_equal(
+        n.segments.at[0, 'width'], 1.4445, 4)
+    np.testing.assert_almost_equal(
+        n.segments.at[0, 'orig_upstream_length'], 87.67828936)
+    np.testing.assert_almost_equal(
+        n.segments.at[0, 'orig_upstream_area'], 2200.0)
+    np.testing.assert_almost_equal(
+        n.segments.at[0, 'orig_width'], 1.4615, 4)
 
 
 def test_remove_segnums(lines):

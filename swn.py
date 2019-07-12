@@ -177,9 +177,7 @@ class SurfaceWaterNetwork(object):
         # Create a new GeoDataFrame with a copy of line's geometry
         self.segments = geopandas.GeoDataFrame(geometry=lines)
         self.logger.info('creating network with %d segments', len(self))
-        if isinstance(polygons, geopandas.GeoSeries):
-            self.catchments = polygons.copy()
-        elif polygons is not None:
+        if not (polygons is None or isinstance(polygons, geopandas.GeoSeries)):
             raise ValueError('polygons must be a GeoSeries or None')
         segments_sindex = get_sindex(self.segments)
         if self.segments.index.min() > 0:
@@ -369,6 +367,11 @@ class SurfaceWaterNetwork(object):
                 break
         self.logger.debug('sequence evaluated with %d iterations', numiter)
         # Don't do this: self.segments.sort_values('sequence', inplace=True)
+        self.evaluate_upstream_length()
+        if polygons is not None:
+            self.catchments = polygons.copy()
+            self.evaluate_upstream_area()
+            self.estimate_width()
 
     @classmethod
     def init_from_gdal(cls, lines_srs, elevation_srs=None):
@@ -432,7 +435,11 @@ class SurfaceWaterNetwork(object):
             raise ValueError(
                 'catchments.index is different than for segments')
         # TODO: check extent overlaps
+        setting_new = self.catchments is None
         self._catchments = value
+        if setting_new:
+            self.evaluate_upstream_area()
+            self.estimate_width()
 
     @property
     def has_z(self):
@@ -670,8 +677,8 @@ class SurfaceWaterNetwork(object):
             catchment_segnums = list(up_patch_segnums(segnum))
             agg_patch.at[segnum] = catchment_segnums
             if polygons is not None:
-                polygons.at[segnum] = \
-                    cascaded_union(list(self.polygons.loc[catchment_segnums]))
+                polygons.at[segnum] = cascaded_union(
+                        list(self.catchments.loc[catchment_segnums]))
             # determine if headwater or not, if any other junctions go to it
             is_headwater = True
             for key, value in junctions_goto.items():
@@ -693,6 +700,10 @@ class SurfaceWaterNetwork(object):
         if polygons is not None:
             polygons.index.name = self.catchments.index.name
             polygons.crs = self.catchments.crs
+            txt = ' and polygons'
+        else:
+            txt = ''
+        self.logger.debug('aggregated %d lines%s', len(junctions), txt)
 
         n = SurfaceWaterNetwork(lines, polygons)
         n.segments['agg_patch'] = agg_patch
@@ -725,11 +736,67 @@ class SurfaceWaterNetwork(object):
             accum.name = 'accumulated_' + accum.name
         except TypeError:
             pass
+        segnumset = set(self.segments.index)
         for segnum in self.segments.sort_values('sequence').index:
             from_segnums = self.segments.at[segnum, 'from_segnums']
             if from_segnums:
-                accum[segnum] += accum[list(from_segnums)].sum()
+                from_segnums = from_segnums.intersection(segnumset)
+                if from_segnums:
+                    accum[segnum] += sum(accum[s] for s in from_segnums)
         return accum
+
+    def evaluate_upstream_length(self):
+        """Evaluates upstream length of segments, adds to segments"""
+        self.logger.debug('evaluating upstream length')
+        self.segments['upstream_length'] = \
+            self.accumulate_values(self.segments.length)
+
+    def evaluate_upstream_area(self):
+        """Evaluates upstream area from catchments, adds to segments"""
+        self.logger.debug('evaluating upstream area')
+        if self.catchments is None:
+            raise ValueError("can't evaluate upstream area without catchments")
+        self.segments['upstream_area'] = \
+            self.accumulate_values(self.catchments.area)
+
+    def estimate_width(self, a=1.42, b=0.52, upstream_area='upstream_area'):
+        """Estimate stream width based on upstream area and fitting parameters
+
+        The column 'upstream_area' (in m^2) must exist in segments, as
+        automatically calculated if provided catchments (polygons), or
+        appended manually.
+
+        Stream width is based on the formula:
+
+            width = a + (upstream_area / 1e6) ** b
+
+        Parameters
+        ----------
+        a, b : float or pandas.Series, optional
+            Fitting parameters, with defaults a=1.42, and b=0.52
+        upstream_area : str or pd.Series
+            Column name in segments (default 'upstream_area') to use for
+            upstream area (in m^2), or series of upstream areas.
+
+        Returns
+        -------
+        None
+        """
+        self.logger.debug('evaluating width')
+        if isinstance(upstream_area, pd.Series):
+            upstream_area_km2 = upstream_area / 1e6
+        elif isinstance(upstream_area, str):
+            if upstream_area not in self.segments.columns:
+                raise ValueError(
+                    '{!r} not found in segments.columns'.format(upstream_area))
+            upstream_area_km2 = self.segments[upstream_area] / 1e6
+        else:
+            raise ValueError('unknown use for upstream_area')
+        if not isinstance(a, (float, int)):
+            a = self.segment_series(a, 'a')
+        if not isinstance(b, (float, int)):
+            b = self.segment_series(a, 'b')
+        self.segments['width'] = a + upstream_area_km2 ** b
 
     def segment_series(self, value, name=None):
         """Returns a pandas.Series along the segment index
