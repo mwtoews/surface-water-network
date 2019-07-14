@@ -561,7 +561,9 @@ class SurfaceWaterNetwork(object):
         SurfaceWaterNetwork
             Columns 'agg_patch' and 'agg_path' are added to segments to
             provide a segnum list from the original surface water network
-            to the aggregated object.
+            to the aggregated object. Column 'agg_unpath' lists other
+            segnums that flow into 'agg_path'. Also 'from_segnums' is updated
+            to reflect the uppermost segment.
         """
         if (isinstance(follow_up, str) and follow_up in self.segments.columns):
             pass
@@ -675,6 +677,7 @@ class SurfaceWaterNetwork(object):
         junctions_goto = {s: to_segnums.get(s, None) for s in junctions}
         agg_patch = pd.Series(dtype=object)
         agg_path = pd.Series(dtype=object)
+        agg_unpath = pd.Series(dtype=object)
         if self.catchments is not None:
             polygons = geopandas.GeoSeries()
         else:
@@ -698,9 +701,16 @@ class SurfaceWaterNetwork(object):
             else:  # internal
                 agg_path_l = list(up_path_internal_segnums(segnum))
             agg_path.at[segnum] = agg_path_l
-            agg_path_l.reverse()
+            # gather unfollowed paths, e.g. to accumulate flow
+            agg_path_s = set(agg_path_l)
+            agg_unpath_l = []
+            for aseg in agg_path_l:
+                agg_unpath_l += sorted(
+                        from_segnums.get(aseg, set([])).difference(agg_path_s))
+            agg_unpath.at[segnum] = agg_unpath_l
+            # agg_path_l.reverse()
             lines.at[segnum] = linemerge(list(
-                    self.segments.loc[agg_path_l, 'geometry']))
+                    self.segments.loc[reversed(agg_path_l), 'geometry']))
 
         # copy a few other properties
         lines.index.name = self.segments.index.name
@@ -713,10 +723,11 @@ class SurfaceWaterNetwork(object):
             txt = ''
         self.logger.debug('aggregated %d lines%s', len(junctions), txt)
 
-        n = SurfaceWaterNetwork(lines, polygons)
-        n.segments['agg_patch'] = agg_patch
-        n.segments['agg_path'] = agg_path
-        return n
+        na = SurfaceWaterNetwork(lines, polygons)
+        na.segments['agg_patch'] = agg_patch
+        na.segments['agg_path'] = agg_path
+        na.segments['agg_unpath'] = agg_unpath
+        return na
 
     def accumulate_values(self, values):
         """Accumulate values down the stream network
@@ -2262,7 +2273,7 @@ class ModelPlot(object):
             if proj_str:
                 self.pprj = pyproj.Proj(proj_str)
             elif epsg:
-                self.pprj = pyproj.Proj('+init=epsg:' + str(epsg))
+                self.pprj = pyproj.Proj('epsg:' + str(epsg))
         except RuntimeError:
             pass
         if domain_extent is None and self.pprj is not None:
