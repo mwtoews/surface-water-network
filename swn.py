@@ -1328,8 +1328,9 @@ class MfSfrNetwork(object):
                         append_reach_df(segnum, line, row, col, geom)
                     else:
                         self.logger.debug(
-                            'attempted to merge segnum %s at (%s, %s), however'
-                            ' geometry was %s', segnum, row, col, geom.wkt)
+                            'attempted to merge segnum %s at (%s, %s): %s '
+                            'segment geometry is:\n%s', segnum, row, col,
+                            grid_geom.wkt, geom.wkt)
         if drop_reach_ids:
             reach_df.drop(drop_reach_ids, axis=0, inplace=True)
         # TODO: Some reaches match multiple cells if they share a border
@@ -2567,7 +2568,7 @@ def topnet2ts(nc_path, varname, log_level=logging.INFO):
     return df
 
 
-def gdf_to_shapefile(gdf, shp_fname):
+def gdf_to_shapefile(gdf, shp_fname, **kwargs):
     """Write any GeoDataFrame to a shapefile
 
     This is a workaround to the to_file method, which cannot save
@@ -2579,11 +2580,15 @@ def gdf_to_shapefile(gdf, shp_fname):
         GeoDataFrame to export
     shp_fname : str
         File path for output shapefile
+    kwargs : mapping
+        Keyword arguments passed to to_file and to fiona.open
 
     Returns
     -------
     None
     """
+    if not isinstance(gdf, geopandas.GeoDataFrame):
+        raise ValueError('expected gdf to be a GeoDataFrame')
     gdf = gdf.copy()
     geom_name = gdf.geometry.name
     for col, dtype in gdf.dtypes.iteritems():
@@ -2595,4 +2600,24 @@ def gdf_to_shapefile(gdf, shp_fname):
             gdf.loc[is_none, col] = ''
         elif dtype == bool:
             gdf[col] = gdf[col].astype(int)
-    gdf.to_file(str(shp_fname))
+    # potential names that need to be shortened to <= 10 characters for DBF
+    colname10 = {
+        'to_segnum': 'to_segnum',
+        'from_segnums': 'frm_segnum',
+        'cat_group': 'cat_group',
+        'num_to_outlet': 'num_to_out',
+        'dist_to_outlet': 'dst_to_out',
+        'sequence': 'sequence',
+        'stream_order': 'strm_order',
+        'upstream_length': 'upstr_len',
+        'upstream_area': 'upstr_area',
+        'agg_patch': 'agg_patch',
+        'agg_path': 'agg_path',
+        'agg_unpath': 'agg_unpath',
+    }
+    for k, v in list(colname10.items()):
+        assert len(v) <= 10, v
+        if k == v or k not in gdf.columns:
+            del colname10[k]
+    gdf.rename(columns=colname10).reset_index(drop=False)\
+        .to_file(str(shp_fname), **kwargs)
