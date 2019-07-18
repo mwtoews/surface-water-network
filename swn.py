@@ -370,8 +370,6 @@ class SurfaceWaterNetwork(object):
         self.evaluate_upstream_length()
         if polygons is not None:
             self.catchments = polygons.copy()
-            self.evaluate_upstream_area()
-            self.estimate_width()
 
     @classmethod
     def init_from_gdal(cls, lines_srs, elevation_srs=None):
