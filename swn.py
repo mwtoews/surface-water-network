@@ -10,6 +10,7 @@ try:
 except ImportError:
     sjoin = False
 from fiona import crs as fiona_crs
+from itertools import combinations
 from math import sqrt
 from shapely import wkt
 from shapely.geometry import LineString, Point, Polygon, box
@@ -74,6 +75,7 @@ def get_sindex(gdf):
 
 
 def _abbr_str(lst, limit=15):
+    """Returns str of list that is abbreviated (if necessary)"""
     if isinstance(lst, list):
         is_set = False
     elif isinstance(lst, set):
@@ -95,6 +97,7 @@ def _abbr_str(lst, limit=15):
         return '{' + res + '}'
     else:
         return '[' + res + ']'
+
 
 class MidpointNormalize(colors.Normalize):
     def __init__(self, vmin=None, vmax=None, midpoint=None, clip=False):
@@ -1172,41 +1175,124 @@ class MfSfrNetwork(object):
         grid_sindex = get_sindex(grid_cells)
         reach_include = swn._segment_series(reach_include_fraction) * cell_size
         # Make an empty DataFrame for reaches
-        reach_df = pd.DataFrame(columns=['geometry'])
-        reach_df.insert(1, column='segnum',
-                        value=pd.Series(dtype=self.segments.index.dtype))
-        reach_df.insert(2, column='dist', value=pd.Series(dtype=float))
-        reach_df.insert(3, column='row', value=pd.Series(dtype=int))
-        reach_df.insert(4, column='col', value=pd.Series(dtype=int))
+        self.reaches = pd.DataFrame(columns=['geometry'])
+        self.reaches.insert(1, column='row', value=pd.Series(dtype=int))
+        self.reaches.insert(2, column='col', value=pd.Series(dtype=int))
+        empty_reach_df = self.reaches.copy()  # take this before more added
+        self.reaches.insert(1, column='segnum',
+                            value=pd.Series(dtype=self.segments.index.dtype))
+        self.reaches.insert(2, column='dist', value=pd.Series(dtype=float))
+        empty_reach_df.insert(3, column='length', value=pd.Series(dtype=float))
+        empty_reach_df.insert(4, column='moved', value=pd.Series(dtype=bool))
 
-        # general helper function
-        def append_reach_df(segnum, line, row, col, reach_geom):
-            if line.has_z:
-                # intersection(line) does not preserve Z coords,
-                # but line.interpolate(d) works as expected
-                reach_geom = LineString(line.interpolate(
-                    line.project(Point(c))) for c in reach_geom.coords)
-            # Get a point from the middle of the reach_geom
-            reach_mid_pt = reach_geom.interpolate(0.5, normalized=True)
-            reach_df.loc[len(reach_df.index)] = {
-                'geometry': reach_geom,
-                'segnum': segnum,
-                'dist': line.project(reach_mid_pt, normalized=True),
-                'row': row,
-                'col': col,
-            }
-
-        # recusive helper functions
-        def append_reach(segnum, row, col, line, reach_geom):
+        # recusive helper function
+        def append_reach_df(df, row, col, reach_geom, moved=False):
             if reach_geom.geom_type == 'LineString':
-                append_reach_df(segnum, line, row, col, reach_geom)
+                df.loc[len(df.index)] = {
+                    'geometry': reach_geom,
+                    'row': row,
+                    'col': col,
+                    'length': reach_geom.length,
+                    'moved': moved,
+                }
             elif reach_geom.geom_type.startswith('Multi'):
                 for sub_reach_geom in reach_geom.geoms:  # recurse
-                    append_reach(segnum, row, col, line, sub_reach_geom)
+                    append_reach_df(df, row, col, sub_reach_geom, moved)
             else:
                 raise NotImplementedError(reach_geom.geom_type)
 
-        def reassign_reach(segnum, line, rem):
+        # helper function that returns early, if necessary
+        def assign_short_reach(reach_df, idx, segnum):
+            reach = reach_df.loc[idx]
+            reach_geom = reach['geometry']
+            threshold = reach_include[segnum]
+            if reach_geom.length > threshold:
+                return
+            cell_lengths = reach_df.groupby(['row', 'col'])['length'].sum()
+            this_row_col = reach['row'], reach['col']
+            this_cell_length = cell_lengths[this_row_col]
+            if this_cell_length > threshold:
+                return
+            grid_geom = grid_cells.at[(reach['row'], reach['col']), 'geometry']
+            # determine if it is crossing the grid once or twice
+            grid_points = reach_geom.intersection(grid_geom.exterior)
+            split_short = (
+                grid_points.geom_type == 'Point' or
+                (grid_points.geom_type == 'MultiPoint' and
+                 len(grid_points) == 2))
+            if not split_short:
+                return
+            matches = []
+            # sequence scan on reach_df
+            for oidx, orch in reach_df.iterrows():
+                if oidx == idx or orch['moved']:
+                    continue
+                other_row_col = orch['row'], orch['col']
+                other_cell_length = cell_lengths[other_row_col]
+                if (orch['geometry'].distance(reach_geom) < 1e-6 and
+                        this_cell_length < other_cell_length):
+                    matches.append((oidx, orch['geometry']))
+            if len(matches) == 0:
+                # don't merge, e.g. reach does not connect to adjacent cell
+                pass
+            elif len(matches) == 1:
+                # short segment is in one other cell only
+                # update new row and col values, keep geometry as it is
+                row_col1 = tuple(reach_df.loc[matches[0][0], ['row', 'col']])
+                reach_df.loc[idx, ['row', 'col', 'moved']] = row_col1 + (True,)
+                # self.logger.debug(
+                #    'moved short segment of %s from %s to %s',
+                #    segnum, this_row_col, row_col1)
+            elif len(matches) == 2:
+                assert grid_points.geom_type == 'MultiPoint', grid_points.wkt
+                if len(grid_points) != 2:
+                    self.logger.critical(
+                        'expected 2 points, found %s', len(grid_points))
+                # Build a tiny DataFrame of coordinates for this reach
+                reach_c = pd.DataFrame({
+                    'pt': [Point(c) for c in reach_geom.coords[:]]
+                })
+                if len(reach_c) == 2:
+                    # If this is a simple line with two coords, split it
+                    reach_c.index = [0, 2]
+                    reach_c.loc[1] = {
+                        'pt': reach_geom.interpolate(0.5, normalized=True)}
+                    reach_c.sort_index(inplace=True)
+                    reach_geom = LineString(list(reach_c['pt']))  # rebuild
+                # first match assumed to be touching the start of the line
+                if reach_c.at[0, 'pt'].distance(matches[1][1]) < 1e-6:
+                    matches.reverse()
+                reach_c['d1'] = reach_c['pt'].apply(
+                                lambda p: p.distance(matches[0][1]))
+                reach_c['d2'] = reach_c['pt'].apply(
+                                lambda p: p.distance(matches[1][1]))
+                reach_c['dm'] = reach_c[['d1', 'd2']].min(1)
+                # try a simple split where distances switch
+                ds = reach_c['d1'] < reach_c['d2']
+                cidx = ds[ds].index[-1]
+                # ensure it's not the index of either end
+                if cidx == 0:
+                    cidx = 1
+                elif cidx == len(reach_c) - 1:
+                    cidx = len(reach_c) - 2
+                row1, col1 = list(reach_df.loc[matches[0][0], ['row', 'col']])
+                reach_geom1 = LineString(reach_geom.coords[:(cidx + 1)])
+                row2, col2 = list(reach_df.loc[matches[1][0], ['row', 'col']])
+                reach_geom2 = LineString(reach_geom.coords[cidx:])
+                # update the first, append the second
+                reach_df.loc[idx, ['row', 'col', 'length', 'moved']] = \
+                    (row1, col1, reach_geom1.length, True)
+                reach_df.at[idx, 'geometry'] = reach_geom1
+                append_reach_df(reach_df, row2, col2, reach_geom2, moved=True)
+                # self.logger.debug(
+                #   'split and moved short segment of %s from %s to %s and %s',
+                #   segnum, this_row_col, (row1, col1), (row2, col2))
+            else:
+                self.logger.critical('unhandled assign_short_reach case with '
+                                     '%d matches: %s\n%s\n%s', len(matches),
+                                     matches, reach, grid_points.wkt)
+
+        def assign_remaining_reach(reach_df, segnum, rem):
             if rem.geom_type == 'LineString':
                 threshold = cell_size * 2.0
                 if rem.length > threshold:
@@ -1214,6 +1300,7 @@ class MfSfrNetwork(object):
                         'remaining line segment from %s too long to merge '
                         '(%.1f > %.1f)', segnum, rem.length, threshold)
                     return
+                # search full grid for other cells that could match
                 if grid_sindex:
                     bbox_match = sorted(grid_sindex.intersection(rem.bounds))
                     sub = grid_cells.geometry.iloc[bbox_match]
@@ -1240,7 +1327,7 @@ class MfSfrNetwork(object):
                             'remaining line segment from %s too far away to '
                             'merge (%.1f > %.1f)', segnum, mdist, threshold)
                         return
-                    append_reach_df(segnum, line, row, col, rem)
+                    append_reach_df(reach_df, row, col, rem, moved=True)
                 elif len(matches) == 2:  # complex: need to split it
                     if len(rem_c) == 2:
                         # If this is a simple line with two coords, split it
@@ -1265,29 +1352,28 @@ class MfSfrNetwork(object):
                         return
                     # try a simple split where distances switch
                     ds = rem_c['d1'] < rem_c['d2']
-                    idx = ds[ds].index[-1]
+                    cidx = ds[ds].index[-1]
                     # ensure it's not the index of either end
-                    if idx == 0:
-                        idx = 1
-                    elif idx == len(rem_c) - 1:
-                        idx = len(rem_c) - 2
+                    if cidx == 0:
+                        cidx = 1
+                    elif cidx == len(rem_c) - 1:
+                        cidx = len(rem_c) - 2
                     row, col = matches[0][0:2]
-                    rem1 = LineString(rem.coords[:(idx + 1)])
-                    append_reach_df(segnum, line, row, col, rem1)
+                    rem1 = LineString(rem.coords[:(cidx + 1)])
+                    append_reach_df(reach_df, row, col, rem1, moved=True)
                     row, col = matches[1][0:2]
-                    rem2 = LineString(rem.coords[idx:])
-                    append_reach_df(segnum, line, row, col, rem2)
+                    rem2 = LineString(rem.coords[cidx:])
+                    append_reach_df(reach_df, row, col, rem2, moved=True)
                 else:
-                    self.logger.error(
+                    self.logger.critical(
                         'how does this happen? Segments from %d touching %d '
                         'grid cells', segnum, len(matches))
             elif rem.geom_type.startswith('Multi'):
                 for sub_rem_geom in rem.geoms:  # recurse
-                    reassign_reach(segnum, line, sub_rem_geom)
+                    assign_remaining_reach(reach_df, segnum, sub_rem_geom)
             else:
-                raise NotImplementedError(reach_geom.geom_type)
+                raise NotImplementedError(rem.geom_type)
 
-        drop_reach_ids = []
         for segnum, line in self.segments.geometry.iteritems():
             remaining_line = line
             if grid_sindex:
@@ -1297,45 +1383,72 @@ class MfSfrNetwork(object):
                 sub = grid_cells.geometry.iloc[bbox_match]
             else:  # slow scan of all cells
                 sub = grid_cells.geometry
+            # Find all intersections between segment and grid cells
+            reach_df = empty_reach_df.copy()
             for (row, col), grid_geom in sub.iteritems():
                 reach_geom = grid_geom.intersection(line)
-                if not reach_geom.is_empty and reach_geom.geom_type != 'Point':
-                    remaining_line = remaining_line.difference(grid_geom)
-                    append_reach(segnum, row, col, line, reach_geom)
-                    if ibound_action == 'modify' and ibound[row, col] == 0:
-                        ibound_modified += 1
-                        ibound[row, col] = 1
+                if reach_geom.is_empty or reach_geom.geom_type == 'Point':
+                    continue
+                remaining_line = remaining_line.difference(grid_geom)
+                append_reach_df(reach_df, row, col, reach_geom)
+            # Determine if any remaining portions of the line can be used
             if line is not remaining_line and remaining_line.length > 0:
-                # Determine if any remaining portions of the line can be used
-                reassign_reach(segnum, line, remaining_line)
-            # Potentially merge a few reaches for each segnum/row/col
-            gb = reach_df.loc[reach_df['segnum'] == segnum]\
-                .groupby(['row', 'col'])['geometry'].apply(list).copy()
-            for (row, col), geoms in gb.iteritems():
+                assign_remaining_reach(reach_df, segnum, remaining_line)
+            # Reassign short reaches to two or more adjacent grid cells
+            # starting with the shortest reach
+            reach_lengths = reach_df['length'].loc[
+                reach_df['length'] < reach_include[segnum]]
+            for idx in list(reach_lengths.sort_values().index):
+                assign_short_reach(reach_df, idx, segnum)
+            # Potentially merge a few reaches for each row/col of this segnum
+            drop_reach_ids = []
+            gb = reach_df.groupby(['row', 'col'])['geometry'].apply(list)
+            for (row, col), geoms in gb.copy().iteritems():
+                row_col = row, col
                 if len(geoms) > 1:
                     geom = linemerge(geoms)
                     if geom.geom_type == 'MultiLineString':
                         # workaround for odd floating point issue
                         geom = linemerge([wkt.loads(g.wkt) for g in geoms])
                     if geom.geom_type == 'LineString':
-                        sel = ((reach_df['segnum'] == segnum) &
-                               (reach_df['row'] == row) &
+                        sel = ((reach_df['row'] == row) &
                                (reach_df['col'] == col))
                         drop_reach_ids += list(sel.index[sel])
                         self.logger.debug(
-                            'merging %d reaches for segnum %s at (%s, %s)',
-                            sel.sum(), segnum, row, col)
-                        append_reach_df(segnum, line, row, col, geom)
-                    else:
-                        self.logger.debug(
-                            'attempted to merge segnum %s at (%s, %s): %s '
-                            'segment geometry is:\n%s', segnum, row, col,
-                            grid_geom.wkt, geom.wkt)
-        if drop_reach_ids:
-            reach_df.drop(drop_reach_ids, axis=0, inplace=True)
-        # TODO: Some reaches match multiple cells if they share a border
-        self.reaches = geopandas.GeoDataFrame(
-            reach_df, geometry='geometry', crs=crs)
+                            'merging %d reaches for segnum %s at %s',
+                            sel.sum(), segnum, row_col)
+                        append_reach_df(reach_df, row, col, geom)
+                    elif any(a.distance(b) < 1e-6
+                             for a, b in combinations(geoms, 2)):
+                        self.logger.warning(
+                            'failed to merge segnum %s at %s: %s',
+                            segnum, row_col, geom.wkt)
+                    # else: this is probably a meandering MultiLineString
+            if drop_reach_ids:
+                reach_df.drop(drop_reach_ids, axis=0, inplace=True)
+            # TODO: Some reaches match multiple cells if they share a border
+            # Add all reaches for this segment
+            for _, reach in reach_df.iterrows():
+                row, col, reach_geom = reach.loc[['row', 'col', 'geometry']]
+                if line.has_z:
+                    # intersection(line) does not preserve Z coords,
+                    # but line.interpolate(d) works as expected
+                    reach_geom = LineString(line.interpolate(
+                        line.project(Point(c))) for c in reach_geom.coords)
+                # Get a point from the middle of the reach_geom
+                reach_mid_pt = reach_geom.interpolate(0.5, normalized=True)
+                reach_record = {
+                    'geometry': reach_geom,
+                    'segnum': segnum,
+                    'dist': line.project(reach_mid_pt, normalized=True),
+                    'row': row,
+                    'col': col,
+                }
+                self.reaches.loc[len(self.reaches.index)] = reach_record
+                if ibound_action == 'modify' and ibound[row, col] == 0:
+                    ibound_modified += 1
+                    ibound[row, col] = 1
+
         if ibound_action == 'modify':
             if ibound_modified:
                 self.logger.debug(
@@ -1349,6 +1462,11 @@ class MfSfrNetwork(object):
                         columns={'ibound': 'prev_ibound'}, inplace=True)
             else:
                 self.reaches['prev_ibound'] = 1
+
+        # Now convert from DataFrame to GeoDataFrame
+        self.reaches = geopandas.GeoDataFrame(
+                self.reaches, geometry='geometry', crs=crs)
+
         # Assign segment data
         self.segments['min_slope'] = swn._segment_series(min_slope)
         if (self.segments['min_slope'] < 0.0).any():
