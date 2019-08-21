@@ -2275,14 +2275,16 @@ class MfSfrNetwork(object):
                             upreach_strtop = reach.strtop_incopt
                     # check if new stream top is above layer 1 with a buffer
                     # (allowing for bed thickness)
-                    if upreach_strtop < reach.bot + buffer + reach.strthick:
+                    reachbed_elev = upreach_strtop - reach.strthick
+                    if (reachbed_elev - buffer) < reach.bot:
                         # if new strtop is below layer one
                         # drop bottom of layer one to accomodate stream
                         # (top, bed thickness and buffer)
-                        new_elev = upreach_strtop - reach.strthick - buffer
-                        print('    dropping layer 1 bottom to {} to accomodate'
-                              ' stream @ i = {}, j = {}'
-                              .format(new_elev, reach.i, reach.j))
+                        new_elev = reachbed_elev - buffer
+                        print('    dropping layer 1 bottom from {} to {} '
+                              'to accommodate stream @ i = {}, j = {}'
+                              .format(reachbed_elev, new_elev,
+                                      reach.i, reach.j))
                         layerbots[0, reach.i, reach.j] = new_elev
                     upreach_cmid = reach.cmids
                     # upreach_slope=reach.slope
@@ -2292,15 +2294,18 @@ class MfSfrNetwork(object):
                 print('seg {} is always downstream and below the top'
                       .format(seg))
                 for reach in self.reach_data[rsel].itertuples():
-                    if reach.strtop < reach.bot + buffer + reach.strthick:
+                    reachbed_elev = reach.strtop - reach.strthick
+                    if (reachbed_elev - buffer) < reach.bot:
                         # strtop is below layer one
-                        # drop bottom of layer one to accomodate stream
+                        # drop bottom of layer one to accommodate stream
                         # (top, bed thickness and buffer)
-                        new_elev = reach.strtop - reach.strthick - buffer
-                        print('seg {} reach {} is below layer 1 bottom'
-                              .format(seg, reach.ireach))
-                        print('    dropping layer 1 bottom to {} to accomodate'
-                              ' stream @ i = {}, j = {}'
+                        new_elev = reachbed_elev - buffer
+                        print('seg {} reach {} @ {} '
+                              'is below layer 1 bottom @ {}'
+                              .format(seg, reach.ireach, reachbed_elev,
+                                      reach.bot))
+                        print('    dropping layer 1 bottom to {} '
+                              'to accommodate stream @ i = {}, j = {}'
                               .format(new_elev, reach.i, reach.j))
                         layerbots[0, reach.i, reach.j] = new_elev
         if fix_dis:
