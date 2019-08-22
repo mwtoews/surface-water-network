@@ -3,21 +3,18 @@ import geopandas
 import logging
 import numpy as np
 import pandas as pd
-import pyproj
 import sys
 try:
     from geopandas.tools import sjoin
 except ImportError:
     sjoin = False
-from fiona import crs as fiona_crs
 from itertools import combinations
 from math import sqrt
 from shapely import wkt
 from shapely.geometry import LineString, Point, Polygon, box
+from shapely.ops import cascaded_union, linemerge
 from matplotlib import pyplot as plt
 from matplotlib import colors, cm
-from mpl_toolkits.axes_grid1 import make_axes_locatable
-from shapely.ops import cascaded_union, linemerge
 
 try:
     from osgeo import gdal
@@ -28,10 +25,6 @@ try:
     from rtree.index import Index as RTreeIndex
 except ImportError:
     rtree = False
-try:
-    import flopy
-except ImportError:
-    flopy = False
 
 __version__ = '0.1'
 __author__ = 'Mike Toews'
@@ -1099,9 +1092,11 @@ class MfSfrNetwork(object):
             self.logger = logging.getLogger(self.__class__.__name__)
             self.logger.handlers = module_logger.handlers
             self.logger.setLevel(module_logger.level)
-        if not flopy:
+        try:
+            import flopy
+        except ImportError:
             raise ImportError('this class requires flopy')
-        elif not isinstance(swn, SurfaceWaterNetwork):
+        if not isinstance(swn, SurfaceWaterNetwork):
             raise ValueError('swn must be a SurfaceWaterNetwork object')
         elif not isinstance(model, flopy.modflow.mf.Modflow):
             raise ValueError('model must be a flopy.modflow.mf.Modflow object')
@@ -1121,6 +1116,7 @@ class MfSfrNetwork(object):
         modelgrid_crs = None
         modelgrid = model.modelgrid
         if modelgrid.proj4 is not None:
+            from fiona import crs as fiona_crs
             modelgrid_crs = fiona_crs.from_string(modelgrid.proj4)
         if (segments_crs is not None and modelgrid_crs is not None and
                 segments_crs != modelgrid_crs):
@@ -1653,6 +1649,7 @@ class MfSfrNetwork(object):
         -------
         None or dict (if return_dict)
         """
+        from flopy.modflow.mfsfr2 import ModflowSfr2
         # Build stress period DataFrame from modflow model
         dis = self.model.dis
         stress_df = pd.DataFrame({'perlen': dis.perlen.array})
@@ -1759,7 +1756,7 @@ class MfSfrNetwork(object):
         has_pptsw = len(pptsw.columns) > 0
         # Take only a subset of columns to sfr
         colnames = []
-        n = flopy.modflow.mfsfr2.ModflowSfr2.get_default_segment_dtype().names
+        n = ModflowSfr2.get_default_segment_dtype().names
         for name in n:
             if name in self.segment_data.columns:
                 colnames.append(name)
@@ -1819,8 +1816,9 @@ class MfSfrNetwork(object):
 
     def set_reach_data(self, return_df=False):
         # Take only a subset of columns to sfr
+        from flopy.modflow.mfsfr2 import ModflowSfr2
         colnames = []
-        n = flopy.modflow.mfsfr2.ModflowSfr2.get_default_reach_dtype().names
+        n = ModflowSfr2.get_default_reach_dtype().names
         for name in n:
             if name in self.reach_data.columns:
                 colnames.append(name)
@@ -2385,7 +2383,7 @@ class ModelPlot(object):
         :param domain_extent: np.array of array(
                                     [long-left , long-right, lat-up, lat-dn])
         """
-
+        import pyproj
         self.model = model
         # Use model projection, if defined by either proj4 or epsg attrs
         proj_str = model.modelgrid.proj4
@@ -2516,6 +2514,7 @@ class ModelPlot(object):
         """
         initiate a mpl divider for the colorbar location
         """
+        from mpl_toolkits.axes_grid1 import make_axes_locatable
         self.divider = make_axes_locatable(self.ax)
 
     def _add_ibound_mask(self, lay, zorder=20, alpha=0.5):
