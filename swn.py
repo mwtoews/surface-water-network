@@ -1591,7 +1591,7 @@ class MfSfrNetwork(object):
             lambda x: self.segment_data.loc[
                 self.segments.loc[x, 'to_segnum'], 'nseg'] if
             self.segments.loc[
-                x, 'to_segnum'] in self.segment_data.index else 0.)
+                x, 'to_segnum'] in self.segment_data.index else 0)
         self.segment_data['iupseg'] = 0  # no diversions (yet)
         self.segment_data['iprior'] = 0
         self.segment_data['flow'] = 0.0
@@ -1757,9 +1757,13 @@ class MfSfrNetwork(object):
         # Take only a subset of columns to sfr
         colnames = []
         n = ModflowSfr2.get_default_segment_dtype().names
-        for name in n:
-            if name in self.segment_data.columns:
-                colnames.append(name)
+        diff = set(n) - set(self.segment_data.columns)
+        self.segment_data = pd.concat(
+            [self.segment_data,
+             pd.DataFrame(
+                 np.zeros([len(self.segment_data.index), len(diff)]),
+                 columns=diff, index=self.segment_data.index)], axis=1)
+        colnames = list(n)
         for iper in range(dis.nper):
             # Store data for each stress period
             self.segment_data['flow'] = 0.0
@@ -1818,10 +1822,15 @@ class MfSfrNetwork(object):
         # Take only a subset of columns to sfr
         from flopy.modflow.mfsfr2 import ModflowSfr2
         colnames = []
-        n = ModflowSfr2.get_default_reach_dtype().names
-        for name in n:
-            if name in self.reach_data.columns:
-                colnames.append(name)
+        n = set(ModflowSfr2.get_default_reach_dtype().names)
+        n.discard('reachID')
+        diff = n - set(self.reach_data.columns)
+        self.reach_data = pd.concat(
+            [self.reach_data,
+             pd.DataFrame(
+                 np.zeros([len(self.reach_data.index), len(diff)]),
+                 columns=diff, index=self.reach_data.index)], axis=1)
+        colnames = list(n)
         if return_df:
             return self.reach_data[colnames]
         else:
@@ -1877,10 +1886,10 @@ class MfSfrNetwork(object):
         Calculates the upstream and downstream incision of the segment
         :return:
         """
-        self.segment_data['diff_up'] = \
-            self.segment_data['top_up'] - self.segment_data['elevup']
-        self.segment_data['diff_dn'] = \
-            self.segment_data['top_dn'] - self.segment_data['elevdn']
+        self.segment_data['diff_up'] = (self.segment_data['top_up'] -
+                                        self.segment_data['elevup'])
+        self.segment_data['diff_dn'] = (self.segment_data['top_dn'] -
+                                        self.segment_data['elevdn'])
         return self.segment_data[['diff_up', 'diff_dn']]
 
     def set_seg_minincise(self, minincise=0.2, max_str_z=None):
@@ -1893,11 +1902,11 @@ class MfSfrNetwork(object):
         :return: incisions at the upstream and downstream end of each segment
         """
         sel = self.segment_data['diff_up'] < minincise
-        self.segment_data.loc[sel, 'elevup'] = \
-            self.segment_data.loc[sel, 'top_up'] - minincise
+        self.segment_data.loc[sel, 'elevup'] = (self.segment_data.loc[
+                                                    sel, 'top_up'] - minincise)
         sel = self.segment_data['diff_dn'] < minincise
-        self.segment_data.loc[sel, 'elevdn'] = \
-            self.segment_data.loc[sel, 'top_dn'] - minincise
+        self.segment_data.loc[sel, 'elevdn'] = (self.segment_data.loc[
+                                                    sel, 'top_dn'] - minincise)
         if max_str_z is not None:
             sel = self.segment_data['elevup'] > max_str_z
             self.segment_data.loc[sel, 'elevup'] = max_str_z
@@ -2328,6 +2337,7 @@ class MfSfrNetwork(object):
 
     def plot_reaches_above(self, model, seg, dem=None,
                            plot_bottom=False, points2=None):
+        _ = self.set_topbot_elevs_at_reaches()
         dis = model.dis
         sfr = model.sfr
         if dem is None:
