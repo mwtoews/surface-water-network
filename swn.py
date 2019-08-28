@@ -2143,6 +2143,9 @@ class MfSfrNetwork(object):
         """
         buffer = 1.0  # 1 m (buffer to leave at the base of layer 1 -
         # also helps with precision issues)
+        # make sure elevations are up-to-date
+        _ = self.reconcile_reach_strtop()  # recalculate REACH strtop elevations
+        _ = self.set_topbot_elevs_at_reaches()
         # top read from dis as float32 so comparison need to be with like
         reachsel = self.reach_data['top'] <= self.reach_data['strtop']
         print('{} segments with reaches above model top'.format(
@@ -2337,6 +2340,7 @@ class MfSfrNetwork(object):
 
     def plot_reaches_above(self, model, seg, dem=None,
                            plot_bottom=False, points2=None):
+        # ensure reach elevations are up-to-date
         _ = self.set_topbot_elevs_at_reaches()
         dis = model.dis
         sfr = model.sfr
