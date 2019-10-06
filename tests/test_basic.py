@@ -7,7 +7,7 @@ import numpy as np
 from shapely import wkt
 from shapely.geometry import LineString
 
-from .common import datadir, swn, wkt_to_dataframe, wkt_to_geoseries
+from .conftest import datadir, swn, wkt_to_dataframe, wkt_to_geoseries
 
 
 @pytest.fixture

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import numpy as np
 
-from .common import swn
+from .conftest import swn
 
 
 def test_init(costal_swn, costal_lines_gdf):

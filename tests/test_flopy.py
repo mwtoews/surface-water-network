@@ -9,7 +9,7 @@ try:
 except ImportError:
     pytest.skip("skipping tests that require flopy", allow_module_level=True)
 
-from .common import datadir, swn, wkt_to_geoseries
+from .conftest import datadir, swn, wkt_to_geoseries
 
 
 @pytest.fixture
