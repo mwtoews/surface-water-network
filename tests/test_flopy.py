@@ -431,7 +431,7 @@ def test_reach_barely_outside_ibound():
 
 
 @pytest.fixture
-def costal_flopy_m():
+def coastal_flopy_m():
     return flopy.modflow.Modflow.load('h.nam', model_ws=datadir, check=False)
 
 
@@ -442,14 +442,14 @@ def check_number_sum_hex(a, n, h):
     assert ah.startswith(h), '{0} does not start with {1}'.format(ah, h)
 
 
-def test_costal_process_flopy(
-        costal_swn, costal_flopy_m, clostal_flow_m, tmpdir_factory):
-    n = costal_swn
+def test_coastal_process_flopy(
+        coastal_swn, coastal_flopy_m, coastal_flow_m, tmpdir_factory):
+    n = coastal_swn
     assert len(n) == 304
-    m = costal_flopy_m
+    m = coastal_flopy_m
     # Make sure this is the model we are thinking of
     assert m.modelgrid.extent == (1802000.0, 1819000.0, 5861000.0, 5879000.0)
-    nm = swn.MfSfrNetwork(n, m, inflow=clostal_flow_m)
+    nm = swn.MfSfrNetwork(n, m, inflow=coastal_flow_m)
     assert len(nm.segments) == 304
     assert nm.segments['in_model'].sum() == 184
     # Check remaining reaches added that are inside model domain
@@ -539,7 +539,7 @@ def test_costal_process_flopy(
     check_number_sum_hex(
         m.bas6.ibound.array, 509, 'c4135a084b2593e0b69c148136a3ad6d')
     # Write output files
-    outdir = tmpdir_factory.mktemp('costal')
+    outdir = tmpdir_factory.mktemp('coastal')
     m.model_ws = str(outdir)
     m.write_input()
     nm.grid_cells.to_file(str(outdir.join('grid_cells.shp')))
@@ -547,14 +547,14 @@ def test_costal_process_flopy(
     swn.gdf_to_shapefile(nm.segments, outdir.join('segments.shp'))
 
 
-def test_costal_elevations(
-        costal_swn, costal_flopy_m, clostal_flow_m, tmpdir_factory):
-    n = costal_swn
+def test_coastal_elevations(
+        coastal_swn, coastal_flopy_m, coastal_flow_m, tmpdir_factory):
+    n = coastal_swn
     assert len(n) == 304
-    m = costal_flopy_m
+    m = coastal_flopy_m
     # Make sure this is the model we are thinking of
     assert m.modelgrid.extent == (1802000.0, 1819000.0, 5861000.0, 5879000.0)
-    nm = swn.MfSfrNetwork(n, m, inflow=clostal_flow_m)
+    nm = swn.MfSfrNetwork(n, m, inflow=coastal_flow_m)
     _ = nm.set_topbot_elevs_at_reaches()
     seg_data = nm.set_segment_data(return_dict=True)
     reach_data = nm.set_reach_data(return_df=True)
@@ -595,17 +595,17 @@ def test_costal_elevations(
     temp = None
 
 
-def test_costal_reduced_process_flopy(
-        costal_lines_gdf, costal_flopy_m, clostal_flow_m, tmpdir_factory):
-    n = swn.SurfaceWaterNetwork(costal_lines_gdf.geometry)
+def test_coastal_reduced_process_flopy(
+        coastal_lines_gdf, coastal_flopy_m, coastal_flow_m, tmpdir_factory):
+    n = swn.SurfaceWaterNetwork(coastal_lines_gdf.geometry)
     assert len(n) == 304
-    m = costal_flopy_m
+    m = coastal_flopy_m
     # Modify swn object
     n.remove(
         condition=n.segments['stream_order'] == 1,
         segnums=n.query(upstream=3047927))
     assert len(n) == 130
-    nm = swn.MfSfrNetwork(n, m, inflow=clostal_flow_m)
+    nm = swn.MfSfrNetwork(n, m, inflow=coastal_flow_m)
     # These should be split between two cells
     reach_geoms = nm.reaches.loc[
         nm.reaches['segnum'] == 3047750, 'geometry']
@@ -687,7 +687,7 @@ def test_costal_reduced_process_flopy(
     #    sd.width2, 1840, '5749f425818b3b18e395b2a432520a4e')
     # Check other packages
     # Write output files
-    outdir = tmpdir_factory.mktemp('costal')
+    outdir = tmpdir_factory.mktemp('coastal')
     m.model_ws = str(outdir)
     m.write_input()
     nm.grid_cells.to_file(str(outdir.join('grid_cells.shp')))
@@ -695,12 +695,12 @@ def test_costal_reduced_process_flopy(
     swn.gdf_to_shapefile(nm.segments, outdir.join('segments.shp'))
 
 
-def test_costal_process_flopy_ibound_modify(
-        costal_swn, clostal_flow_m, tmpdir_factory):
-    n = costal_swn
+def test_coastal_process_flopy_ibound_modify(
+        coastal_swn, coastal_flow_m, tmpdir_factory):
+    n = coastal_swn
     assert len(n) == 304
     m = flopy.modflow.Modflow.load('h.nam', model_ws=datadir, check=False)
-    nm = swn.MfSfrNetwork(n, m, ibound_action='modify', inflow=clostal_flow_m)
+    nm = swn.MfSfrNetwork(n, m, ibound_action='modify', inflow=coastal_flow_m)
     assert len(nm.segments) == 304
     assert nm.segments['in_model'].sum() == 304
     # Check a remaining reach added that is outside model domain

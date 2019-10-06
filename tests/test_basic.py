@@ -885,7 +885,7 @@ def test_adjust_elevation_profile_use_min_slope():
     assert (n.profiles == expected_profiles).all()
 
 
-def test_topnet2ts(clostal_flow_ts):
+def test_topnet2ts(coastal_flow_ts):
     pytest.importorskip('netCDF4')
     nc_fname = 'streamq_20170115_20170128_topnet_03046727_strahler1.nc'
     flow = swn.topnet2ts(os.path.join(datadir, nc_fname), 'mod_flow')
@@ -901,6 +901,6 @@ def test_topnet2ts(clostal_flow_ts):
             flow.index.map(lambda x: x.strftime('%Y-%m-%d')))
     # Compare against CSV version of this data
     assert flow.shape == (14, 304)
-    np.testing.assert_array_equal(flow.columns, clostal_flow_ts.columns)
-    np.testing.assert_array_equal(flow.index, clostal_flow_ts.index)
-    np.testing.assert_array_almost_equal(flow, clostal_flow_ts, 2)
+    np.testing.assert_array_equal(flow.columns, coastal_flow_ts.columns)
+    np.testing.assert_array_equal(flow.index, coastal_flow_ts.index)
+    np.testing.assert_array_almost_equal(flow, coastal_flow_ts, 2)
