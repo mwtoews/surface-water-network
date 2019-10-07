@@ -9,28 +9,25 @@ try:
 except ImportError:
     pytest.skip("skipping tests that require flopy", allow_module_level=True)
 
-from .conftest import datadir, swn, wkt_to_geoseries
+from .conftest import swn, \
+    datadir, force_2d, wkt_to_geoseries
+
+# same valid network used in test_basic
+n3d_lines = wkt_to_geoseries([
+    'LINESTRING Z (60 100 14, 60  80 12)',
+    'LINESTRING Z (40 130 15, 60 100 14)',
+    'LINESTRING Z (70 130 15, 60 100 14)',
+])
 
 
 @pytest.fixture
 def n3d():
-    # same valid network used in test_basic
-    lines = wkt_to_geoseries([
-        'LINESTRING Z (60 100 14, 60  80 12)',
-        'LINESTRING Z (40 130 15, 60 100 14)',
-        'LINESTRING Z (70 130 15, 60 100 14)',
-    ])
-    return swn.SurfaceWaterNetwork(lines)
+    return swn.SurfaceWaterNetwork(n3d_lines)
 
 
 @pytest.fixture
 def n2d():
-    lines = wkt_to_geoseries([
-        'LINESTRING (60 100, 60  80)',
-        'LINESTRING (40 130, 60 100)',
-        'LINESTRING (70 130, 60 100)',
-    ])
-    return swn.SurfaceWaterNetwork(lines)
+    return swn.SurfaceWaterNetwork(force_2d(n3d_lines))
 
 
 def test_process_flopy_instance_errors(n3d):

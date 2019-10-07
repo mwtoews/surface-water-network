@@ -7,61 +7,53 @@ import numpy as np
 from shapely import wkt
 from shapely.geometry import LineString
 
-from .conftest import datadir, swn, wkt_to_dataframe, wkt_to_geoseries
+from .conftest import swn, \
+    datadir, force_2d, wkt_to_dataframe, wkt_to_geoseries
+
+
+# a few static objects (not fixtures)
+
+valid_lines_list = [
+    'LINESTRING Z (60 100 14, 60  80 12)',
+    'LINESTRING Z (40 130 15, 60 100 14)',
+    'LINESTRING Z (70 130 15, 60 100 14)',
+]
+
+valid_df = wkt_to_dataframe(valid_lines_list)
+
+valid_lines = wkt_to_geoseries(valid_lines_list)
+
+valid_polygons = wkt_to_geoseries([
+    'POLYGON ((35 100, 75 100, 75  80, 35  80, 35 100))',
+    'POLYGON ((35 135, 60 135, 60 100, 35 100, 35 135))',
+    'POLYGON ((60 135, 75 135, 75 100, 60 100, 60 135))',
+])
 
 
 @pytest.fixture
-def wkt_list():
-    # valid network
-    return [
-        'LINESTRING Z (60 100 14, 60  80 12)',
-        'LINESTRING Z (40 130 15, 60 100 14)',
-        'LINESTRING Z (70 130 15, 60 100 14)',
-    ]
+def valid_n():
+    return swn.SurfaceWaterNetwork(valid_lines)
 
 
-@pytest.fixture
-def df(wkt_list):
-    return wkt_to_dataframe(wkt_list)
-
-
-@pytest.fixture
-def lines(wkt_list):
-    return wkt_to_geoseries(wkt_list)
-
-
-@pytest.fixture
-def polygons(wkt_list):
-    return wkt_to_geoseries([
-        'POLYGON ((35 100, 75 100, 75  80, 35  80, 35 100))',
-        'POLYGON ((35 135, 60 135, 60 100, 35 100, 35 135))',
-        'POLYGON ((60 135, 75 135, 75 100, 60 100, 60 135))',
-    ])
-
-
-@pytest.fixture
-def n(lines):
-    return swn.SurfaceWaterNetwork(lines)
-
-
-def test_init_errors(lines):
+def test_init_errors():
     with pytest.raises(ValueError, match='lines must be a GeoSeries'):
         swn.SurfaceWaterNetwork(object())
     with pytest.raises(ValueError, match='lines must be a GeoSeries'):
-        swn.SurfaceWaterNetwork(df)
+        swn.SurfaceWaterNetwork(valid_df)
     with pytest.raises(ValueError, match='one or more lines are required'):
-        swn.SurfaceWaterNetwork(lines[0:0])
+        swn.SurfaceWaterNetwork(valid_lines[0:0])
 
 
-def test_init_geom_type(df):
-    wkt_list = df['wkt'].tolist()
+def test_init_geom_type():
+    wkt_list = valid_lines_list[:]
     wkt_list[1] = 'MULTILINESTRING Z ((70 130 15, 60 100 14))'
     lines = wkt_to_geoseries(wkt_list)
     with pytest.raises(ValueError, match='lines must all be LineString types'):
         swn.SurfaceWaterNetwork(lines)
 
 
-def test_init_defaults(n):
+def test_init_defaults(valid_n):
+    n = valid_n
     assert n.logger is not None
     assert len(n.warnings) == 0
     assert len(n.errors) == 0
@@ -89,10 +81,8 @@ def test_init_defaults(n):
     assert len(n.messages) == 0
 
 
-def test_init_2D_geom(df):
-    # Rewrite WKT as 2D
-    lines = wkt_to_geoseries(
-        df['wkt'].apply(wkt.loads).apply(wkt.dumps, output_dimension=2))
+def test_init_2D_geom():
+    lines = force_2d(valid_lines)
     n = swn.SurfaceWaterNetwork(lines)
     assert len(n.warnings) == 0
     assert len(n.errors) == 0
@@ -130,9 +120,9 @@ def test_init_mismatch_3D():
     assert list(n.segments.index) == [0, 1, 2]
 
 
-def test_init_reversed_lines(lines):
+def test_init_reversed_lines():
     # same as the working lines, but reversed in the opposite direction
-    lines = lines.geometry.apply(lambda x: LineString(x.coords[::-1]))
+    lines = valid_lines.geometry.apply(lambda x: LineString(x.coords[::-1]))
     n = swn.SurfaceWaterNetwork(lines)
     assert len(n.warnings) == 0
     assert len(n.errors) == 2
@@ -255,8 +245,8 @@ def test_init_line_connects_to_middle():
     assert n.from_segnums == {}
 
 
-def test_init_geoseries(wkt_list):
-    gs = wkt_to_geoseries(wkt_list, geom_name='foo')
+def test_init_geoseries():
+    gs = wkt_to_geoseries(valid_lines_list, geom_name='foo')
     n = swn.SurfaceWaterNetwork(gs)
     assert len(n.warnings) == 0
     assert len(n.errors) == 0
@@ -268,36 +258,36 @@ def test_init_geoseries(wkt_list):
     assert dict(a) == {0: 9.0, 1: 2.0, 2: 4.0}
 
 
-def test_accumulate_values_must_be_series(n):
+def test_accumulate_values_must_be_series(valid_n):
     with pytest.raises(ValueError, match='values must be a pandas Series'):
-        n.accumulate_values([3.0, 2.0, 4.0])
+        valid_n.accumulate_values([3.0, 2.0, 4.0])
 
 
-def test_accumulate_values_different_index(n):
+def test_accumulate_values_different_index(valid_n):
     # indexes don't completely overlap
     v = pd.Series([3.0, 2.0, 4.0])
     v.index += 1
     with pytest.raises(ValueError, match='index is different'):
-        n.accumulate_values(v)
+        valid_n.accumulate_values(v)
     # indexes overlap, but have a different sequence
     v = pd.Series([3.0, 2.0, 4.0]).sort_values()
     with pytest.raises(ValueError, match='index is different'):
-        n.accumulate_values(v)
+        valid_n.accumulate_values(v)
 
 
-def test_accumulate_values_expected(n):
+def test_accumulate_values_expected(valid_n):
     v = pd.Series([2.0, 3.0, 4.0])
-    a = n.accumulate_values(v)
+    a = valid_n.accumulate_values(v)
     assert dict(a) == {0: 9.0, 1: 3.0, 2: 4.0}
     assert a.name is None
 
 
-def test_init_polygons(lines, polygons):
+def test_init_polygons():
     expected_area = [800.0, 875.0, 525.0]
     expected_upstream_area = [2200.0, 875.0, 525.0]
     expected_upstream_width = [1.4615, 1.4457, 1.4397]
     # from GeoSeries
-    n = swn.SurfaceWaterNetwork(lines, polygons.geometry)
+    n = swn.SurfaceWaterNetwork(valid_lines, valid_polygons)
     assert n.catchments is not None
     np.testing.assert_array_almost_equal(n.catchments.area, expected_area)
     np.testing.assert_array_almost_equal(
@@ -305,7 +295,7 @@ def test_init_polygons(lines, polygons):
     np.testing.assert_array_almost_equal(
             n.segments['width'], expected_upstream_width, 4)
     # from GeoDataFrame
-    n = swn.SurfaceWaterNetwork(lines, polygons)
+    n = swn.SurfaceWaterNetwork(valid_lines, valid_polygons)
     assert n.catchments is not None
     np.testing.assert_array_almost_equal(n.catchments.area, expected_area)
     np.testing.assert_array_almost_equal(
@@ -319,13 +309,13 @@ def test_init_polygons(lines, polygons):
     with pytest.raises(
             ValueError,
             match='polygons must be a GeoSeries or None'):
-        swn.SurfaceWaterNetwork(lines, 1.0)
+        swn.SurfaceWaterNetwork(valid_lines, 1.0)
 
 
-def test_catchments_property(lines, polygons):
-    n = swn.SurfaceWaterNetwork(lines)
+def test_catchments_property():
+    n = swn.SurfaceWaterNetwork(valid_lines)
     assert n.catchments is None
-    n.catchments = polygons.geometry
+    n.catchments = valid_polygons
     assert n.catchments is not None
     np.testing.assert_array_almost_equal(
             n.catchments.area, [800.0, 875.0, 525.0])
@@ -343,11 +333,11 @@ def test_catchments_property(lines, polygons):
     with pytest.raises(
             ValueError,
             match=r'catchments\.index is different than for segments'):
-        n.catchments = polygons.iloc[1:]
+        n.catchments = valid_polygons.iloc[1:]
 
 
-def test_estimate_width(lines, polygons):
-    n = swn.SurfaceWaterNetwork(lines, polygons.geometry)
+def test_estimate_width():
+    n = swn.SurfaceWaterNetwork(valid_lines, valid_polygons)
     # defaults
     np.testing.assert_array_almost_equal(
             n.segments['width'], [1.4615, 1.4457, 1.4397], 4)
@@ -372,7 +362,7 @@ def test_estimate_width(lines, polygons):
     np.testing.assert_array_almost_equal(
             n.segments['width'], [1.4615, 1.4457, 1.4397], 4)
     # based on a column, where upstream_area is not available
-    n2 = swn.SurfaceWaterNetwork(lines)
+    n2 = swn.SurfaceWaterNetwork(valid_lines)
     assert 'width' not in n2.segments.columns
     assert 'upstream_area' not in n2.segments.columns
     n2.segments['foo_upstream'] = n2.segments['upstream_length'] * 25
@@ -390,7 +380,8 @@ def test_estimate_width(lines, polygons):
         n2.estimate_width()
 
 
-def test_segment_series(n):
+def test_segment_series(valid_n):
+    n = valid_n
     # from scalar
     v = n._segment_series(8.0)
     assert list(v.index) == [0, 1, 2]
@@ -472,7 +463,8 @@ def test_outlet_series():
         n._outlet_series(s)
 
 
-def test_pair_segment_values(n):
+def test_pair_segment_values(valid_n):
+    n = valid_n
     # from scalar
     p = n._pair_segment_values(8.0)
     assert list(p.columns) == [1, 2]
@@ -562,8 +554,8 @@ def test_pair_segment_values(n):
     np.testing.assert_equal(p, expected)
 
 
-def test_remove_condition(lines, polygons):
-    n = swn.SurfaceWaterNetwork(lines, polygons.geometry)
+def test_remove_condition():
+    n = swn.SurfaceWaterNetwork(valid_lines, valid_polygons)
     assert len(n) == 3
     # manually copy these, to compare later
     n.segments['orig_upstream_length'] = n.segments['upstream_length']
@@ -599,8 +591,8 @@ def test_remove_condition(lines, polygons):
         n.segments.at[0, 'orig_width'], 1.4615, 4)
 
 
-def test_remove_segnums(lines):
-    n = swn.SurfaceWaterNetwork(lines)
+def test_remove_segnums():
+    n = swn.SurfaceWaterNetwork(valid_lines)
     assert len(n) == 3
     n.remove(segnums=[1])
     assert len(n) == 2
@@ -608,7 +600,7 @@ def test_remove_segnums(lines):
     assert list(n.segments.index) == [0, 2]
     assert n.segments.at[0, 'from_segnums'] == set([1, 2])
     # repeats are ok
-    n = swn.SurfaceWaterNetwork(lines)
+    n = swn.SurfaceWaterNetwork(valid_lines)
     n.remove(segnums=[1, 2, 1])
     assert len(n) == 1
     assert len(n.segments) == 1
@@ -616,7 +608,8 @@ def test_remove_segnums(lines):
     assert n.segments.at[0, 'from_segnums'] == set([1, 2])
 
 
-def test_remove_errors(n):
+def test_remove_errors(valid_n):
+    n = valid_n
     assert len(n) == 3
     n.remove()  # no segments selected to remove; no changes made
     assert len(n) == 3
@@ -632,21 +625,21 @@ def test_remove_errors(n):
         n.remove(segnums=[0, 1, 2])
 
 
-@pytest.fixture
-def fluss_gs():
-    # https://commons.wikimedia.org/wiki/File:Flussordnung_(Strahler).svg
-    return geopandas.GeoSeries(wkt.loads('''MULTILINESTRING(
-        (380 490, 370 420), (300 460, 370 420), (370 420, 420 330),
-        (190 250, 280 270), (225 180, 280 270), (280 270, 420 330),
-        (420 330, 584 250), (520 220, 584 250), (584 250, 710 160),
-        (740 270, 710 160), (735 350, 740 270), (880 320, 740 270),
-        (925 370, 880 320), (974 300, 880 320), (760 460, 735 350),
-        (650 430, 735 350), (710 160, 770 100), (700  90, 770 100),
-        (770 100, 820  40))''').geoms)
+# https://commons.wikimedia.org/wiki/File:Flussordnung_(Strahler).svg
+fluss_gs = geopandas.GeoSeries(wkt.loads('''\
+MULTILINESTRING(
+    (380 490, 370 420), (300 460, 370 420), (370 420, 420 330),
+    (190 250, 280 270), (225 180, 280 270), (280 270, 420 330),
+    (420 330, 584 250), (520 220, 584 250), (584 250, 710 160),
+    (740 270, 710 160), (735 350, 740 270), (880 320, 740 270),
+    (925 370, 880 320), (974 300, 880 320), (760 460, 735 350),
+    (650 430, 735 350), (710 160, 770 100), (700  90, 770 100),
+    (770 100, 820  40))
+''').geoms)
 
 
 @pytest.fixture
-def fluss_n(fluss_gs):
+def fluss_n():
     return swn.SurfaceWaterNetwork(fluss_gs)
 
 
@@ -817,28 +810,28 @@ def test_aggregate_fluss_coarse(fluss_n):
         [[3], [14], [17, 8, 9], [7, 2, 5], [0], [10, 11], [12]]
 
 
-def test_adjust_elevation_profile_min_slope_float(n):
-    n.adjust_elevation_profile(2./1000)
+def test_adjust_elevation_profile_min_slope_float(valid_n):
+    valid_n.adjust_elevation_profile(2./1000)
 
 
-def test_adjust_elevation_profile_min_slope_series(n):
-    min_slope = pd.Series(2./1000, index=n.segments.index)
+def test_adjust_elevation_profile_min_slope_series(valid_n):
+    min_slope = pd.Series(2./1000, index=valid_n.segments.index)
     min_slope[1] = 3./1000
-    n.adjust_elevation_profile(min_slope)
+    valid_n.adjust_elevation_profile(min_slope)
 
 
-def test_adjust_elevation_profile_different_index(n):
-    min_slope = pd.Series(2./1000, index=n.segments.index)
+def test_adjust_elevation_profile_different_index(valid_n):
+    min_slope = pd.Series(2./1000, index=valid_n.segments.index)
     min_slope[1] = 3./1000
     min_slope.index += 1
     with pytest.raises(ValueError, match='index is different'):
-        n.adjust_elevation_profile(min_slope)
+        valid_n.adjust_elevation_profile(min_slope)
 
 
-def test_adjust_elevation_profile_min_slope_gt_zero(n):
+def test_adjust_elevation_profile_min_slope_gt_zero(valid_n):
     with pytest.raises(ValueError,
                        match='min_slope must be greater than zero'):
-        n.adjust_elevation_profile(-2./1000)
+        valid_n.adjust_elevation_profile(-2./1000)
 
 
 def test_adjust_elevation_profile_no_change():

@@ -41,6 +41,10 @@ def wkt_to_geoseries(wkt_list, geom_name=None):
     return geom
 
 
+def force_2d(gs):
+    return wkt_to_geoseries(gs.apply(wkt.dumps, output_dimension=2))
+
+
 @pytest.fixture(scope='session', autouse=True)
 def coastal_lines_gdf():
     shp_srs = os.path.join(datadir, 'DN2_Coastal_strahler1z_stream_vf.shp')
@@ -49,7 +53,7 @@ def coastal_lines_gdf():
     return gdf
 
 
-@pytest.fixture(scope='session', autouse=True)
+@pytest.fixture(scope='module')
 def coastal_polygons_gdf(coastal_lines_gdf):
     shp_srs = os.path.join(datadir, 'DN2_Coastal_strahler1_vf.shp')
     polygons = geopandas.read_file(shp_srs)
@@ -73,7 +77,7 @@ def coastal_polygons_gdf(coastal_lines_gdf):
     return polygons.reindex(index=coastal_lines_gdf.index)
 
 
-@pytest.fixture(scope='session', autouse=True)
+@pytest.fixture(scope='module')
 def coastal_swn(coastal_lines_gdf):
     return swn.SurfaceWaterNetwork(coastal_lines_gdf.geometry)
 
@@ -87,7 +91,7 @@ def coastal_flow_ts():
     return ts
 
 
-@pytest.fixture(scope='session', autouse=True)
+@pytest.fixture(scope='module')
 def coastal_flow_m(coastal_flow_ts):
     flow_m = pd.DataFrame(coastal_flow_ts.mean(0)).T
     # flow_m.index = pd.DatetimeIndex(['2000-01-01'])
