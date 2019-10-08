@@ -45,6 +45,11 @@ def force_2d(gs):
     return wkt_to_geoseries(gs.apply(wkt.dumps, output_dimension=2))
 
 
+def round_coords(gs, rounding_precision=3):
+    return wkt_to_geoseries(
+            gs.apply(wkt.dumps, rounding_precision=rounding_precision))
+
+
 @pytest.fixture(scope='session', autouse=True)
 def coastal_lines_gdf():
     shp_srs = os.path.join(datadir, 'DN2_Coastal_strahler1z_stream_vf.shp')

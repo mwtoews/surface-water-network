@@ -8,7 +8,7 @@ from shapely import wkt
 from shapely.geometry import LineString
 
 from .conftest import swn, \
-    datadir, force_2d, wkt_to_dataframe, wkt_to_geoseries
+    datadir, force_2d, round_coords, wkt_to_dataframe, wkt_to_geoseries
 
 
 # a few static objects (not fixtures)
@@ -810,6 +810,25 @@ def test_aggregate_fluss_coarse(fluss_n):
         [[3], [14], [17, 8, 9], [7, 2, 5], [0], [10, 11], [12]]
 
 
+def test_adjust_elevation_profile_errors(valid_n):
+    with pytest.raises(
+            ValueError,
+            match='min_slope must be greater than zero'):
+        valid_n.adjust_elevation_profile(0.0)
+
+    n2d = swn.SurfaceWaterNetwork(force_2d(valid_lines))
+    with pytest.raises(
+            AttributeError,
+            match='line geometry does not have Z dimension'):
+        n2d.adjust_elevation_profile()
+
+    min_slope = pd.Series(2./1000, index=valid_n.segments.index)
+    min_slope[1] = 3./1000
+    min_slope.index += 1
+    with pytest.raises(ValueError, match='index is different'):
+        valid_n.adjust_elevation_profile(min_slope)
+
+
 def test_adjust_elevation_profile_min_slope_float(valid_n):
     valid_n.adjust_elevation_profile(2./1000)
 
@@ -820,27 +839,13 @@ def test_adjust_elevation_profile_min_slope_series(valid_n):
     valid_n.adjust_elevation_profile(min_slope)
 
 
-def test_adjust_elevation_profile_different_index(valid_n):
-    min_slope = pd.Series(2./1000, index=valid_n.segments.index)
-    min_slope[1] = 3./1000
-    min_slope.index += 1
-    with pytest.raises(ValueError, match='index is different'):
-        valid_n.adjust_elevation_profile(min_slope)
-
-
-def test_adjust_elevation_profile_min_slope_gt_zero(valid_n):
-    with pytest.raises(ValueError,
-                       match='min_slope must be greater than zero'):
-        valid_n.adjust_elevation_profile(-2./1000)
-
-
 def test_adjust_elevation_profile_no_change():
     lines = wkt_to_geoseries(['LINESTRING Z (0 0 8, 1 0 7, 2 0 6)'])
     n = swn.SurfaceWaterNetwork(lines)
     n.adjust_elevation_profile()
     assert len(n.messages) == 0
     assert (lines == n.segments.geometry).all()
-    expected_profiles = wkt_to_geoseries(['LINESTRING (2 8, 1 7, 0 6)'])
+    expected_profiles = wkt_to_geoseries(['LINESTRING (0 8, 1 7, 2 6)'])
     assert (n.profiles == expected_profiles).all()
 
 
@@ -848,33 +853,38 @@ def test_adjust_elevation_profile_use_min_slope():
     lines = wkt_to_geoseries(['LINESTRING Z (0 0 8, 1 0 9)'])
     n = swn.SurfaceWaterNetwork(lines)
     n.adjust_elevation_profile()
+    n.profiles = round_coords(n.profiles)
+    n.segments.geometry = round_coords(n.segments.geometry)
     assert len(n.messages) == 1
-    assert n.messages[0] == 'adjusting 1 coordinate elevation in segment 0'
+    assert n.messages[0] == \
+        'segment 0: adjusted 1 coordinate elevation by 1.001'
     expected = wkt_to_geoseries(['LINESTRING Z (0 0 8, 1 0 7.999)'])
     assert (expected == n.segments.geometry).all()
-    expected_profiles = wkt_to_geoseries(['LINESTRING (1 8, 0 7.999)'])
+    expected_profiles = wkt_to_geoseries(['LINESTRING (0 8, 1 7.999)'])
     assert (n.profiles == expected_profiles).all()
 
     lines = wkt_to_geoseries(['LINESTRING Z (0 0 8, 1 0 9, 2 0 6)'])
     n = swn.SurfaceWaterNetwork(lines)
     n.adjust_elevation_profile(0.1)
     assert len(n.messages) == 1
-    assert n.messages[0] == 'adjusting 1 coordinate elevation in segment 0'
+    assert n.messages[0] == \
+        'segment 0: adjusted 1 coordinate elevation by 1.100'
     expected = wkt_to_geoseries(['LINESTRING Z (0 0 8, 1 0 7.9, 2 0 6)'])
     assert (expected == n.segments.geometry).all()
-    expected_profiles = wkt_to_geoseries(['LINESTRING (2 8, 1 7.9, 0 6)'])
+    expected_profiles = wkt_to_geoseries(['LINESTRING (0 8, 1 7.9, 2 6)'])
     assert (n.profiles == expected_profiles).all()
 
     lines = wkt_to_geoseries(['LINESTRING Z (0 0 8, 1 0 5, 2 0 6, 3 0 5)'])
     n = swn.SurfaceWaterNetwork(lines)
     n.adjust_elevation_profile(0.2)
     assert len(n.messages) == 1
-    assert n.messages[0] == 'adjusting 2 coordinate elevations in segment 0'
+    assert n.messages[0] == \
+        'segment 0: adjusted 2 coordinate elevations between 0.400 and 1.200'
     expected = wkt_to_geoseries(
             ['LINESTRING Z (0 0 8, 1 0 5, 2 0 4.8, 3 0 4.6)'])
     assert (expected == n.segments.geometry).all()
     expected_profiles = wkt_to_geoseries(
-            ['LINESTRING (3 8, 2 5, 1 4.8, 0 4.6)'])
+            ['LINESTRING (0 8, 1 5, 2 4.8, 3 4.6)'])
     assert (n.profiles == expected_profiles).all()
 
 

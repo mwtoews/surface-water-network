@@ -10,11 +10,11 @@ except ImportError:
     sjoin = False
 from itertools import combinations
 from math import sqrt
+from matplotlib import pyplot as plt
+from matplotlib import colors, cm
 from shapely import wkt
 from shapely.geometry import LineString, Point, Polygon, box
 from shapely.ops import cascaded_union, linemerge
-from matplotlib import pyplot as plt
-from matplotlib import colors, cm
 
 try:
     from osgeo import gdal
@@ -906,51 +906,109 @@ class SurfaceWaterNetwork(object):
             Default 1./1000 (or 0.001).
         """
         min_slope = self._segment_series(min_slope)
-        if (min_slope < 0.0).any():
+        if (min_slope <= 0.0).any():
             raise ValueError('min_slope must be greater than zero')
         elif not self.has_z:
             raise AttributeError('line geometry does not have Z dimension')
+
         geom_name = self.segments.geometry.name
-        # Build elevation profiles as 2D coordinates,
-        # where X is 2D distance from downstream coordinate and Y is elevation
-        profiles = []
+        from_segnums = self.from_segnums
+        to_segnums = dict(self.to_segnums)
+        modified_d = {}  # key is segnum, value is drop amount (+ve is down)
         self.messages = []
+
+        # Build elevation profile list storing three values per coordinate:
+        #   [dx, elev], where dx is 2D distance from upstream coord
+        #   elev is the adjusted elevation
+        profile_d = {}  # key is segnum, value is list of profile tuples
         for segnum, geom in self.segments.geometry.iteritems():
-            modified = 0
             coords = geom.coords[:]  # coordinates
             x0, y0, z0 = coords[0]  # upstream coordinate
-            dist = geom.length  # total 2D distance from downstream coordinate
-            profile_coords = [(dist, z0)]
+            profile = [[0.0, z0]]
             for idx, (x1, y1, z1) in enumerate(coords[1:], 1):
-                dz = z0 - z1
                 dx = sqrt((x0 - x1) ** 2 + (y0 - y1) ** 2)
-                dist -= dx
-                # Check and enforce minimum slope
+                profile.append([dx, z1])
+                x0, y0, z0 = x1, y1, z1
+            profile_d[segnum] = profile
+        # Process elevation adjustments in flow sequence
+        for segnum in self.segments.sort_values('sequence').index:
+            if segnum not in modified_d:
+                modified_d[segnum] = []
+            profile = profile_d[segnum]
+            # Get upstream last coordinates, and check if drop0 needs updating
+            dx, z0 = profile[0]
+            if segnum in from_segnums:
+                last_zs = [profile_d[n][-1][1] for n in from_segnums[segnum]]
+                if last_zs:
+                    last_zs_min = min(last_zs)
+                    if last_zs_min < z0:
+                        drop = z0 - last_zs_min
+                        z0 -= drop
+                        profile[0][1] = z0
+                        modified_d[segnum].append(drop)
+                    elif min(last_zs) > z0:
+                        raise NotImplementedError('unexpected scenario')
+            # Check and enforce minimum slope for remaining coords
+            for idx, (dx, z1) in enumerate(profile[1:], 1):
+                dz = z0 - z1
                 slope = dz / dx
                 if slope < min_slope[segnum]:
-                    modified += 1
-                    z1 = z0 - dx * min_slope[segnum]
-                    coords[idx] = (x1, y1, z1)
-                profile_coords.append((dist, z1))
-                x0, y0, z0 = x1, y1, z1
-            if modified > 0:
-                m = ('adjusting %d coordinate elevation%s in segment %s',
-                     modified, 's' if modified != 1 else '', segnum)
-                self.logger.debug(*m)
-                self.messages.append(m[0] % m[1:])
+                    drop = z1 - z0 + dx * min_slope[segnum]
+                    z1 -= drop
+                    profile[idx][1] = z1
+                    modified_d[segnum].append(drop)
+                    # print('adj', z0 + drop0, dx * min_slope[segnum], drop)
+                z0 = z1
+            # Ensure last coordinate matches other segments that end here
+            if segnum in to_segnums:
+                beside_segnums = from_segnums[to_segnums[segnum]]
+                if beside_segnums:
+                    last_zs = [profile_d[n][-1][1] for n in beside_segnums]
+                    last_zs_min = min(last_zs)
+                    if max(last_zs) != last_zs_min:
+                        for bsegnum in beside_segnums:
+                            if profile_d[bsegnum][-1][1] != last_zs_min:
+                                drop = profile_d[bsegnum][-1][1] - last_zs_min
+                                profile_d[bsegnum][-1][1] -= drop
+                                if bsegnum not in modified_d:
+                                    modified_d[bsegnum] = [drop]
+                                elif len(modified_d[bsegnum]) == 0:
+                                    modified_d[bsegnum].append(drop)
+                                else:
+                                    modified_d[bsegnum][-1] += drop
+        # Adjust geometries and report some information on adjustments
+        profiles = []
+        for segnum in self.segments.index:
+            profile = profile_d[segnum]
+            modified = modified_d[segnum]
             if modified:
+                if len(modified) == 1:
+                    msg = (
+                        'segment %s: adjusted 1 coordinate elevation by %.3f',
+                        segnum, modified[0])
+                else:
+                    msg = (
+                        'segment %s: adjusted %d coordinate elevations between'
+                        ' %.3f and %.3f', segnum, len(modified),
+                        min(modified), max(modified))
+                self.logger.debug(*msg)
+                self.messages.append(msg[0] % msg[1:])
+                coords = self.segments.geometry[segnum].coords[:]
+                dist = 0.0
+                for idx in range(len(profile)):
+                    dist += profile[idx][0]
+                    profile[idx][0] = dist
+                    coords[idx] = coords[idx][0:2] + (profile[idx][1],)
                 self.segments.at[segnum, geom_name] = LineString(coords)
-            profiles.append(LineString(profile_coords))
-        self.profiles = geopandas.GeoSeries(profiles)
-        return
-        # TODO: adjust connected segments
-        # Find minimum elevation, then force any segs downstream to flow down
-        self.profiles.geometry.bounds.miny.sort_values()
-
-        # lines = self.segments
-        numiter = 0
-        while True:
-            numiter += 1
+            else:
+                self.logger.debug('segment %s: not adjusted', segnum)
+                dist = 0.0
+                for idx in range(len(profile)):
+                    dist += profile[idx][0]
+                    profile[idx][0] = dist
+            profiles.append(LineString(profile))
+        self.profiles = geopandas.GeoSeries(
+                profiles, index=self.segments.index)
 
     def remove(self, condition=False, segnums=[]):
         """Remove segments (and catchments)
