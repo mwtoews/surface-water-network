@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import numpy as np
+import os
 import pandas as pd
 import pytest
 from hashlib import md5
@@ -137,13 +138,22 @@ def test_process_flopy_n3d_defaults(n3d, tmpdir_factory):
 
       Segment IDs: 0 (bottom), 1 & 2 (top)
     """
-    n = n3d
-    m = flopy.modflow.Modflow()
-    flopy.modflow.ModflowDis(
+    # Create a simple MODFLOW model
+    m = flopy.modflow.Modflow(version='mf2005')
+    _ = flopy.modflow.ModflowDis(
         m, nlay=1, nrow=3, ncol=2, delr=20.0, delc=20.0, top=15.0, botm=10.0,
         xul=30.0, yul=130.0)
-    flopy.modflow.ModflowBas(m)
-    nm = swn.MfSfrNetwork(n, m)
+    _ = flopy.modflow.ModflowOc(
+        m, stress_period_data={
+            (0, 0): ['print head', 'save head', 'save budget']})
+    _ = flopy.modflow.ModflowBas(m, strt=15.0, stoper=5.0)
+    _ = flopy.modflow.ModflowSip(m)
+    _ = flopy.modflow.ModflowLpf(m, ipakcb=52, laytyp=0, hk=1e-2)
+    _ = flopy.modflow.ModflowRch(m, ipakcb=52, rech=1e-4)
+    nm = swn.MfSfrNetwork(n3d, m)
+    m.sfr.ipakcb = 52
+    m.sfr.istcb2 = -53
+    m.add_output_file(53, extension='sfo', binflag=True)
     # Data set 1c
     assert abs(m.sfr.nstrm) == 7
     assert m.sfr.nss == 3
@@ -188,13 +198,48 @@ def test_process_flopy_n3d_defaults(n3d, tmpdir_factory):
     np.testing.assert_array_almost_equal(sd.hcond2, [1.0, 1.0, 1.0])
     np.testing.assert_array_almost_equal(sd.thickm2, [1.0, 1.0, 1.0])
     np.testing.assert_array_almost_equal(sd.width2, [10.0, 10.0, 10.0])
-    # Write output files
+    # Run model and read outputs
     outdir = tmpdir_factory.mktemp('n3d')
     m.model_ws = str(outdir)
     m.write_input()
-    nm.grid_cells.to_file(str(outdir.join('grid_cells.shp')))
+    success, buff = m.run_model()
+    assert success
+    hds_fname = str(outdir.join(m.name + '.hds'))
+    cbc_fname = str(outdir.join(m.name + '.cbc'))
+    sfo_fname = str(outdir.join(m.name + '.sfo'))
+    b = flopy.utils.HeadFile(hds_fname)
+    heads = b.get_data()
+    b.close()
+    b = flopy.utils.CellBudgetFile(cbc_fname)
+    sl = b.get_data(text='STREAM LEAKAGE')[0]
+    b.close()
+    b = flopy.utils.CellBudgetFile(sfo_fname)
+    sf = b.get_data(text='STREAMFLOW OUT')[0]
+    b.close()
+    # Transfer model outputs to reaches dataframe
+    nm.reaches['head'] = \
+        heads[nm.reach_data['k'], nm.reach_data['i'], nm.reach_data['j']]
+    nm.reaches['sfrleakage'] = sl['q']
+    nm.reaches['sfr_Q'] = sf['q']
     nm.reaches.to_file(str(outdir.join('reaches.shp')))
+    nm.grid_cells.to_file(str(outdir.join('grid_cells.shp')))
     swn.gdf_to_shapefile(nm.segments, outdir.join('segments.shp'))
+    # Check results
+    assert heads.shape == (1, 3, 2)
+    np.testing.assert_array_almost_equal(
+        heads,
+        np.array([[
+                [14.604243, 14.409589],
+                [14.172486, 13.251323],
+                [13.861891, 12.751296]]]))
+    np.testing.assert_array_almost_equal(
+        sl['q'],
+        np.array([-0.00859839, 0.00420513, 0.00439326, 0.0, 0.0,
+                  -0.12359641, -0.12052996]))
+    np.testing.assert_array_almost_equal(
+        sf['q'],
+        np.array([0.00859839, 0.00439326, 0.0, 0.0, 0.0,
+                  0.12359641, 0.24412636]))
 
 
 def test_process_flopy_n3d_vars(n3d, tmpdir_factory):
