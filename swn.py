@@ -2796,18 +2796,14 @@ def gdf_to_shapefile(gdf, shp_fname, **kwargs):
             gdf[col] = gdf[col].astype(int)
     # potential names that need to be shortened to <= 10 characters for DBF
     colname10 = {
-        'to_segnum': 'to_segnum',
-        'from_segnums': 'frm_segnum',
-        'cat_group': 'cat_group',
+        'to_segnum': 'to_seg',
+        'from_segnums': 'from_seg',
         'num_to_outlet': 'num_to_out',
         'dist_to_outlet': 'dst_to_out',
-        'sequence': 'sequence',
         'stream_order': 'strm_order',
         'upstream_length': 'upstr_len',
         'upstream_area': 'upstr_area',
-        'agg_patch': 'agg_patch',
-        'agg_path': 'agg_path',
-        'agg_unpath': 'agg_unpath',
+        'inflow_segnums': 'inflow_seg',
     }
     for k, v in list(colname10.items()):
         assert len(v) <= 10, v
