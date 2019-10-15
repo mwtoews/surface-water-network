@@ -443,6 +443,97 @@ def test_process_flopy_n2d_min_slope(n2d, tmpdir_factory):
     swn.gdf_to_shapefile(nm.segments, outdir.join('segments.shp'))
 
 
+def test_process_flopy_interp_2d_to_3d(tmpdir_factory):
+    # similar to 3D version, but getting information from model
+    outdir = tmpdir_factory.mktemp('interp_2d_to_3d')
+    # Create a simple MODFLOW model
+    top = np.array([
+        [16.0, 15.0],
+        [15.0, 15.0],
+        [14.0, 14.0],
+    ])
+    m = flopy.modflow.Modflow(version='mf2005')
+    flopy.modflow.ModflowDis(
+        m, nlay=1, nrow=3, ncol=2, delr=20.0, delc=20.0, top=top, botm=10.0,
+        xul=30.0, yul=130.0)
+    _ = flopy.modflow.ModflowOc(
+        m, stress_period_data={
+            (0, 0): ['print head', 'save head', 'save budget']})
+    _ = flopy.modflow.ModflowBas(m, strt=top, stoper=5.0)
+    _ = flopy.modflow.ModflowSip(m)
+    _ = flopy.modflow.ModflowLpf(m, ipakcb=52, laytyp=0, hk=1.0)
+    _ = flopy.modflow.ModflowRch(m, ipakcb=52, rech=0.01)
+    gt = swn.geotransform_from_flopy(m)
+    n = swn.SurfaceWaterNetwork(swn.interp_2d_to_3d(n3d_lines, top, gt))
+    n.adjust_elevation_profile()
+    nm = swn.MfSfrNetwork(n, m)
+    m.sfr.ipakcb = 52
+    m.sfr.istcb2 = -53
+    m.add_output_file(53, extension='sfo', binflag=True)
+    # Data set 1c
+    assert abs(m.sfr.nstrm) == 7
+    assert m.sfr.nss == 3
+    # Data set 2
+    np.testing.assert_array_almost_equal(
+        m.sfr.reach_data.rchlen,
+        [18.027756, 6.009252, 12.018504, 21.081851, 10.540926, 10.0, 10.0])
+    np.testing.assert_array_almost_equal(
+        m.sfr.reach_data.strtop,
+        [15.742094, 15.39822, 15.140314, 14.989459, 14.973648, 14.726283,
+         14.242094])
+    np.testing.assert_array_almost_equal(
+        m.sfr.reach_data.slope,
+        [0.02861207, 0.02861207, 0.02861207, 0.001, 0.001, 0.04841886,
+         0.04841886])
+    sd = m.sfr.segment_data[0]
+    assert list(sd.nseg) == [1, 2, 3]
+    assert list(sd.icalc) == [1, 1, 1]
+    assert list(sd.outseg) == [3, 3, 0]
+    assert list(sd.iupseg) == [0, 0, 0]
+    # See test_process_flopy_n3d_defaults for other checks
+    # Run model and read outputs
+    m.model_ws = str(outdir)
+    m.write_input()
+    success, buff = m.run_model()
+    assert success
+    hds_fname = str(outdir.join(m.name + '.hds'))
+    cbc_fname = str(outdir.join(m.name + '.cbc'))
+    sfo_fname = str(outdir.join(m.name + '.sfo'))
+    b = flopy.utils.HeadFile(hds_fname)
+    heads = b.get_data()
+    b.close()
+    b = flopy.utils.CellBudgetFile(cbc_fname)
+    sl = b.get_data(text='STREAM LEAKAGE')[0]
+    b.close()
+    b = flopy.utils.CellBudgetFile(sfo_fname)
+    sf = b.get_data(text='STREAMFLOW OUT')[0]
+    b.close()
+    # Transfer model outputs to reaches dataframe
+    nm.reaches['head'] = \
+        heads[nm.reach_data['k'], nm.reach_data['i'], nm.reach_data['j']]
+    nm.reaches['sfrleakage'] = sl['q']
+    nm.reaches['sfr_Q'] = sf['q']
+    nm.reaches.to_file(str(outdir.join('reaches.shp')))
+    nm.grid_cells.to_file(str(outdir.join('grid_cells.shp')))
+    swn.gdf_to_shapefile(nm.segments, outdir.join('segments.shp'))
+    # Check results
+    assert heads.shape == (1, 3, 2)
+    np.testing.assert_array_almost_equal(
+        heads,
+        np.array([[
+                [15.595171, 15.015385],
+                [15.554525, 14.750549],
+                [15.509117, 14.458664]]], np.float32))
+    np.testing.assert_array_almost_equal(
+        sl['q'],
+        np.array([-0.61594236, 0.61594236, 0.0, -6.4544363, 6.4544363,
+                  -14.501283, -9.499095], np.float32))
+    np.testing.assert_array_almost_equal(
+        sf['q'],
+        np.array([0.61594236, 0.0,  0.0, 6.4544363, 0.0,
+                  14.501283, 24.000378], np.float32))
+
+
 def test_set_elevations(n2d, tmpdir_factory):
     # similar to 3D version, but getting information from model
     outdir = tmpdir_factory.mktemp('n2d')
