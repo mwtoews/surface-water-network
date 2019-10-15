@@ -2877,3 +2877,28 @@ def interp_2d_to_3d(gs, grid, gt):
         return type(geom)(zip(x, y, z))
 
     return gs.apply(geom2dto3d)
+
+
+def geotransform_from_flopy(m):
+    """Returns GDAL-style geotransform from flopy model"""
+    try:
+        import flopy
+    except ImportError:
+        raise ImportError('this method requires flopy')
+    if not isinstance(m, flopy.mbase.BaseModel):
+        raise TypeError("'m' must be a flopy model")
+    mg = m.modelgrid
+    if mg.angrot != 0.0:
+        raise NotImplementedError('rotated grids not supported')
+    if mg.delr.min() != mg.delr.max():
+        raise ValueError('delr not uniform')
+    if mg.delc.min() != mg.delc.max():
+        raise ValueError('delc not uniform')
+    a = mg.delr[0]
+    b = 0.0
+    c = mg.xoffset
+    d = 0.0
+    e = -mg.delc[0]
+    f = mg.yoffset - e * mg.nrow
+    # GDAL order of affine transformation coefficients
+    return c, a, b, f, d, e
