@@ -2811,3 +2811,69 @@ def gdf_to_shapefile(gdf, shp_fname, **kwargs):
             del colname10[k]
     gdf.rename(columns=colname10).reset_index(drop=False)\
         .to_file(str(shp_fname), **kwargs)
+
+
+def interp_2d_to_3d(gs, grid, gt):
+    """Interpolate 2D vector to a 3D grid using a georeferenced grid
+
+    Parameters
+    ----------
+    gs : geopandas.GeoSeries
+        Input geopandas GeoSeries
+    grid : np.ndarray
+        2D array of values, e.g. DEM
+    gt : tuple
+        GDAL-style geotransform coefficients for grid
+
+    Returns
+    -------
+    geopandas.GeoSeries
+        With 3rd dimension values interpolated from grid.
+    """
+
+    assert gt[1] > 0, gt[1]
+    assert gt[2] == 0, gt[2]
+    assert gt[4] == 0, gt[4]
+    assert gt[5] < 0, gt[5]
+    hx = gt[1] / 2.0
+    hy = gt[5] / 2.0
+    div = gt[1] * gt[5]
+    ny, nx = grid.shape
+    ar = np.pad(grid, 1, 'symmetric')
+
+    def geom2dto3d(geom):
+        x, y = geom.xy
+        x = np.array(x)
+        y = np.array(y)
+        # Determine outside points
+        outside = (
+            (x < gt[0]) | (x > (gt[0] + nx * gt[1])) |
+            (y > gt[3]) | (y < (gt[3] + ny * gt[5])))
+        if outside.any():
+            raise ValueError('{0} coordinates are outside grid'
+                             .format(outside.sum()))
+        # Use half raster cell widths for cell center values
+        fx = (x - (gt[0] + hx)) / gt[1]
+        fy = (y - (gt[3] + hy)) / gt[5]
+        ix1 = np.floor(fx).astype(np.int32)
+        iy1 = np.floor(fy).astype(np.int32)
+        ix2 = ix1 + 1
+        iy2 = iy1 + 1
+        # Calculate differences from point to bounding raster midpoints
+        dx1 = x - (gt[0] + ix1 * gt[1] + hx)
+        dy1 = y - (gt[3] + iy1 * gt[5] + hy)
+        dx2 = (gt[0] + ix2 * gt[1] + hx) - x
+        dy2 = (gt[3] + iy2 * gt[5] + hy) - y
+        # Use a 1-padded array to interpolate edges nicely, so add 1 to index
+        ix1 += 1
+        ix2 += 1
+        iy1 += 1
+        iy2 += 1
+        # Use the differences to weigh the four raster values
+        z = (ar[iy1, ix1] * dx2 * dy2 / div +
+             ar[iy1, ix2] * dx1 * dy2 / div +
+             ar[iy2, ix1] * dx2 * dy1 / div +
+             ar[iy2, ix2] * dx1 * dy1 / div)
+        return type(geom)(zip(x, y, z))
+
+    return gs.apply(geom2dto3d)
