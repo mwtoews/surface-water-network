@@ -2202,7 +2202,8 @@ class MfSfrNetwork(object):
         buffer = 1.0  # 1 m (buffer to leave at the base of layer 1 -
         # also helps with precision issues)
         # make sure elevations are up-to-date
-        _ = self.reconcile_reach_strtop()  # recalculate REACH strtop elevations
+        # recalculate REACH strtop elevations
+        _ = self.reconcile_reach_strtop()
         _ = self.set_topbot_elevs_at_reaches()
         # top read from dis as float32 so comparison need to be with like
         reachsel = self.reach_data['top'] <= self.reach_data['strtop']
@@ -2519,7 +2520,7 @@ class ModelPlot(object):
     #     # rivers = cartopy.feature.NaturalEarthFeature(
     #     #     category='physical', name='rivers_lake_centerlines',
     #     #     scale='10m', facecolor='none', edgecolor='b')
-    #     # ax.add_feature(rivers, linewidth=0.5,)#,transform=ccrs.PlateCarree())
+    #   # ax.add_feature(rivers, linewidth=0.5,)#,transform=ccrs.PlateCarree())
     #     self._label_utm_grid()
 
     # def _label_utm_grid(self):
@@ -2527,17 +2528,18 @@ class ModelPlot(object):
     #     Label axes as UTM
     #     Warning: should only use with small area UTM maps
     #     """
-    #     for val, label in zip(self.ax.get_xticks(), self.ax.get_xticklabels()):
+    #   for val, label in zip(self.ax.get_xticks(), self.ax.get_xticklabels()):
     #         label.set_text(str(val))
     #         label.set_position((val, 0))
     #         label.set_rotation(90)
     #
-    #     for val, label in zip(self.ax.get_yticks(), self.ax.get_yticklabels()):
+    #   for val, label in zip(self.ax.get_yticks(), self.ax.get_yticklabels()):
     #         label.set_text(str(val))
     #         label.set_position((0, val))
     #
     #     self.ax.tick_params(bottom=True, top=True, left=True, right=True,
-    #                         labelbottom=True, labeltop=False, labelleft=True, labelright=False)
+    #                         labelbottom=True, labeltop=False, labelleft=True,
+    #                         labelright=False)
     #
     #     self.ax.xaxis.set_visible(True)
     #     self.ax.yaxis.set_visible(True)

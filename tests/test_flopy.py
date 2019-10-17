@@ -685,7 +685,8 @@ def check_number_sum_hex(a, n, h):
     assert ah.startswith(h), '{0} does not start with {1}'.format(ah, h)
 
 
-def test_coastal_process_flopy(coastal_swn, coastal_flow_m, tmpdir_factory):
+def test_coastal_process_flopy(tmpdir_factory,
+                               coastal_lines_gdf, coastal_flow_m):
     outdir = tmpdir_factory.mktemp('coastal')
     # Load a MODFLOW model
     m = flopy.modflow.Modflow.load(
@@ -696,7 +697,10 @@ def test_coastal_process_flopy(coastal_swn, coastal_flow_m, tmpdir_factory):
     m.write_input()
     success, buff = m.run_model()
     assert success
-    nm = swn.MfSfrNetwork(coastal_swn, m, inflow=coastal_flow_m)
+    # Create a SWN with adjusted elevation profiles
+    n = swn.SurfaceWaterNetwork(coastal_lines_gdf.geometry)
+    n.adjust_elevation_profile()
+    nm = swn.MfSfrNetwork(n, m, inflow=coastal_flow_m)
     m.sfr.unit_number = [24]
     m.sfr.ipakcb = 50
     m.sfr.istcb2 = -51
@@ -1012,7 +1016,7 @@ def test_coastal_process_flopy_ibound_modify(coastal_swn, coastal_flow_m,
     # check_number_sum_hex(
     #     m.sfr.reach_data.strtop, 24142, 'bc96d80acc1b59c4d50759301ae2392a')
     # check_number_sum_hex(
-    #     m.sfr.reach_data.slope * 500, 6593, '0306817657dc6c85cb65c93f3fa15af0')
+    #     m.sfr.reach_data.slope * 500, 6593, '0306817657dc6c85cb65c93f3fa15a')
     # check_number_sum_hex(
     #     m.sfr.reach_data.strthick, 626, 'a3aa65f110b20b57fc7f445aa743759f')
     # check_number_sum_hex(
