@@ -117,6 +117,10 @@ class SurfaceWaterNetwork(object):
     catchments : geopandas.GeoSeries
         Catchments created from optional 'polygons' input, containing only
         the catchment polygon. Index must match segments.
+    diversions : geopandas.GeoDataFrame or pd.DataFrame
+        [Geo]DataFrame created from 'diversions' input, containing geometry
+        (if available) for a surface water abstraction location, and the
+        connected segment number from where the diversion occurs.
     END_SEGNUM : int
         Special segment number that indicates a line end, default is usually 0.
         This number is not part of segment.index.
@@ -434,6 +438,126 @@ class SurfaceWaterNetwork(object):
         if setting_new:
             self.evaluate_upstream_area()
             self.estimate_width()
+
+    @property
+    def diversions(self):
+        """Returns [Geo]DataFrame of surface water diversions or None"""
+        return getattr(self, '_diversions', None)
+
+    @diversions.setter
+    def diversions(self, value):
+        raise AttributeError("use 'set_diversions()' method")
+
+    def set_diversions(self, diversions, min_stream_order=None):
+        """Set surface water diversion locations
+
+        This method checks or assigns a segment number to divert surface water
+        flow from, and adds other columns to the diversions and segments data
+        frames.
+
+        If a 'from_segnum' column exists, these values are checked against the
+        index for segments, and adds/updates 'dist' (where possible) to
+        describe the distance from the diversion to the end of the segment.
+
+        If 'from_segnum' is not provided and a GeoDataFrame is provided, then
+        the closest segment end is identified, using optional min_stream_order
+        preferentially select higher-order stream segments.
+
+        Parameters
+        ----------
+        diversions : pd.DataFrame, geopandas.GeoDataFrame or None
+            Data frame of surface water diversions, a modified copy kept as a
+            'diversions' property. Use None to unset this property.
+        min_stream_order : int, optional
+            Finds stream segments with a minimum stream order. Default None.
+        """
+        if diversions is None:
+            self._diversions = None
+            if 'diversions' in self.segments:
+                self.segments.drop('diversions', axis=1, inplace=True)
+            return
+
+        if not isinstance(diversions, (geopandas.GeoDataFrame, pd.DataFrame)):
+            raise ValueError('a [Geo]DataFrame is expected')
+
+        is_spatial = (
+            isinstance(diversions, geopandas.GeoDataFrame)
+            and 'geometry' in diversions.columns
+            and (~diversions.is_empty).all())
+
+        if is_spatial:
+            # Make sure CRS is the same as segments (if defined)
+            diversions_crs = getattr(diversions, 'crs', None)
+            segments_crs = getattr(self.segments, 'crs', None)
+            if diversions_crs != segments_crs:
+                self.logger.warning(
+                    'CRS for diversions and segments are different: '
+                    '{0} vs. {1}'.format(diversions_crs, segments_crs))
+        if 'from_segnum' in diversions.columns:
+            self.logger.debug(
+                "checking existing 'from_segnum' column for diversions")
+            sn = set(self.segments.index)
+            dn = set(diversions['from_segnum'])
+            if not sn.issuperset(dn):
+                diff = dn.difference(sn)
+                raise ValueError(
+                    "{0} 'from_segnum' are not found in segments.index: {1}"
+                    .format(len(diff), _abbr_str(diff)))
+            self._diversions = diversions.copy()
+            if is_spatial:
+                self._diversions['dist_end'] = np.nan
+                self._diversions['dist_line'] = np.nan
+                geom_name = self._diversions.geometry.name
+                for idx, item in self._diversions.iterrows():
+                    div_geom = item[geom_name]
+                    seg_geom = self.segments.geometry[item['from_segnum']]
+                    dist_end = div_geom.distance(Point(seg_geom.coords[-1]))
+                    dist_line = div_geom.distance(seg_geom)
+                    self._diversions.loc[idx, ['dist_end', 'dist_line']] = \
+                        [dist_end, dist_line]
+        elif is_spatial:
+            self.logger.debug(
+                'assigning columns for diversions based on spatial distances')
+            self._diversions = diversions.copy()
+            self._diversions['from_segnum'] = self.END_SEGNUM
+            self._diversions['dist_end'] = np.nan
+            self._diversions['dist_line'] = np.nan
+            if min_stream_order is not None:
+                sel = self.segments['stream_order'] >= min_stream_order
+                if not sel.any():
+                    raise ValueError(
+                        "'from_segnum' value too high (nothing selected)")
+                seg_lines = self.segments.loc[sel, 'geometry']
+            else:
+                seg_lines = self.segments.geometry
+            seg_ends = seg_lines.apply(lambda g: Point(g.coords[-1]))
+            # a point that is 0.1 m upstream from end
+            seg_near_ends = seg_lines.interpolate(-0.1, False)
+            for idx, geom in self._diversions.geometry.iteritems():
+                # build table of distances to nearest lines and end points
+                sel = list(seg_lines.sindex.nearest(geom.coords[0],
+                                                    num_results=8))
+                dists = pd.DataFrame({
+                    'dist_end': seg_ends.iloc[sel].distance(geom),
+                    'dist_line': seg_lines.iloc[sel].distance(geom),
+                    'seg_near_ends': seg_near_ends.iloc[sel].distance(geom),
+                    }, index=seg_lines.iloc[sel].index).sort_values(
+                        ['dist_end', 'dist_line', 'seg_near_ends'])
+                # assign closest segnum
+                self._diversions.loc[
+                    idx, ['from_segnum', 'dist_end', 'dist_line']] = \
+                    [dists.index[0]] + \
+                    list(dists.iloc[0][['dist_end', 'dist_line']])
+        else:
+            raise ValueError(
+                "'gdf' does not appear to be spatial or have a 'from_segnum' "
+                "column")
+        # Update segments column to mirror this information
+        self.segments['diversions'] = None
+        for segnum in self._diversions['from_segnum'].unique():
+            sel = self._diversions['from_segnum'] == segnum
+            self.segments.at[segnum, 'diversions'] = \
+                set(self._diversions.loc[sel].index)
 
     @property
     def has_z(self):

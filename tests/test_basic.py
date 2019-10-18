@@ -336,6 +336,100 @@ def test_catchments_property():
         n.catchments = valid_polygons.iloc[1:]
 
 
+def test_set_diversions_geodataframe():
+    n = swn.SurfaceWaterNetwork(valid_lines)
+    diversions = geopandas.GeoDataFrame(geometry=[
+        Point(58, 97), Point(62, 97), Point(61, 89), Point(59, 89)])
+    # check errors
+    with pytest.raises(
+            AttributeError,
+            match=r'use \'set_diversions\(\)\' method'):
+        n.diversions = diversions
+    with pytest.raises(
+            ValueError,
+            match=r'a \[Geo\]DataFrame is expected'):
+        n.set_diversions([1])
+    with pytest.raises(
+            ValueError,
+            match=r'a \[Geo\]DataFrame is expected'):
+        n.set_diversions(diversions.geometry)
+    with pytest.raises(
+            ValueError,
+            match='does not appear to be spatial'):
+        n.set_diversions(geopandas.GeoDataFrame([1]))
+    # normal operation
+    assert n.diversions is None
+    n.set_diversions(diversions)
+    assert n.diversions is not None
+    np.testing.assert_array_almost_equal(
+        n.diversions['dist_end'], [3.605551, 3.605551, 9.055385, 9.055385])
+    np.testing.assert_array_almost_equal(
+        n.diversions['dist_line'], [3.605551, 3.605551, 1.0, 1.0])
+    np.testing.assert_array_equal(
+        n.diversions['from_segnum'], [1, 2, 0, 0])
+    np.testing.assert_array_equal(
+        n.segments['diversions'], [set([2, 3]), set([0]), set([1])])
+    # Unset
+    n.set_diversions(None)
+    assert n.diversions is None
+    assert 'diversions' not in n.segments.columns
+    # Try again with min_stream_order option
+    n.set_diversions(diversions, min_stream_order=2)
+    assert n.diversions is not None
+    np.testing.assert_array_almost_equal(
+        n.diversions['dist_end'], [17.117243, 17.117243, 9.055385, 9.055385])
+    np.testing.assert_array_equal(
+        n.diversions['dist_line'], [2.0, 2.0, 1.0, 1.0])
+    np.testing.assert_array_equal(
+        n.diversions['from_segnum'], [0, 0, 0, 0])
+    np.testing.assert_array_equal(
+        n.segments['diversions'], [set([0, 1, 2, 3]), None, None])
+    # Try again, but use 'from_segnum' column
+    diversions = geopandas.GeoDataFrame(
+        {'from_segnum': [0, 2]}, geometry=[Point(55, 97), Point(68, 105)])
+    n.set_diversions(diversions)
+    assert n.diversions is not None
+    np.testing.assert_array_almost_equal(
+        n.diversions['dist_end'], [17.720045,  9.433981])
+    np.testing.assert_array_almost_equal(
+        n.diversions['dist_line'], [5.0, 6.008328])
+    np.testing.assert_array_equal(
+        n.diversions['from_segnum'], [0, 2])
+    np.testing.assert_array_equal(
+        n.segments['diversions'], [set([0]), None, set([1])])
+
+
+def test_set_diversions_dataframe():
+    n = swn.SurfaceWaterNetwork(valid_lines)
+    diversions = pd.DataFrame({'from_segnum': [0, 2]})
+    # check errors
+    with pytest.raises(
+            AttributeError,
+            match=r'use \'set_diversions\(\)\' method'):
+        n.diversions = diversions
+    with pytest.raises(
+            ValueError,
+            match=r'a \[Geo\]DataFrame is expected'):
+        n.set_diversions(diversions.from_segnum)
+    with pytest.raises(
+            ValueError,
+            match='does not appear to be spatial'):
+        n.set_diversions(pd.DataFrame([1]))
+    # normal operation
+    assert n.diversions is None
+    n.set_diversions(diversions)
+    assert n.diversions is not None
+    assert 'dist_end' not in n.diversions.columns
+    assert 'dist_line' not in n.diversions.columns
+    np.testing.assert_array_equal(n.diversions['from_segnum'], [0, 2])
+    np.testing.assert_array_equal(
+        n.segments['diversions'], [set([0]), None, set([1])])
+    # Unset
+    n.set_diversions(None)
+    assert n.diversions is None
+    assert 'diversions' not in n.segments.columns
+
+
 def test_estimate_width():
     n = swn.SurfaceWaterNetwork(valid_lines, valid_polygons)
     # defaults
