@@ -26,7 +26,7 @@ try:
 except ImportError:
     rtree = False
 
-__version__ = '0.1'
+__version__ = '0.2'
 __author__ = 'Mike Toews'
 
 module_logger = logging.getLogger(__name__)
@@ -1784,6 +1784,89 @@ class MfSfrNetwork(object):
         segment_cols.remove('elevup')
         segment_cols.remove('elevdn')
         self.segment_data[segment_cols] = self.segments[segment_cols]
+        # Now consider any diversions (i.e. SW takes)
+        diversions = swn.diversions
+        if diversions is not None:
+            # Add columns for ICALC=0
+            self.segment_data['depth1'] = 0.0
+            self.segment_data['depth2'] = 0.0
+            is_spatial = (
+                isinstance(diversions, geopandas.GeoDataFrame)
+                and 'geometry' in diversions.columns
+                and (~diversions.is_empty).all())
+            segnum = self.reaches['segnum'].max()
+            divid = 0
+            for dividx, divn in diversions.iterrows():
+                divid -= 1
+                segnum += 1
+                from_seg = self.segment_data.loc[divn.from_segnum]
+                seg_d = dict(from_seg)
+                seg_d.update({
+                    'nseg': segnum,
+                    'icalc': 0,
+                    'outseg': 0,
+                    'iupseg': divn.from_segnum,
+                    'iprior': 0,  # normal behaviour for SW takes
+                    'flow': 0.0,  # TODO: where should this come from?
+                    'runoff': 0.0,
+                    'etsw': 0.0,
+                    'pptsw': 0.0,
+                    'roughch': 0.0,
+                    'hcond1': 0.0,
+                    'hcond2': 0.0,
+                    'thickm1': 1.0,  # unit thickness required
+                    'thickm2': 1.0,
+                    'width1': 0.0,
+                    'width2': 0.0,
+                    'depth1': 11.0,
+                    'depth2': 11.0,
+                })
+                reach_d = dict(self.reach_data.loc[
+                    self.reach_data.iseg == divn.from_segnum].iloc[-1])
+                row = int(reach_d['i'])
+                col = int(reach_d['j'])
+                reach_d.update({
+                    'k': 0,  # base-zero, top layer
+                    'i': row,
+                    'j': col,
+                    'iseg': segnum,
+                    'ireach': 1,
+                    'rchlen': 1.0,  # unit length required
+                    'slope': 0.0,
+                    'strthick': 1.0,
+                    'strhc1': 0.0,
+                })
+                # Assign one reach at grid cell
+                if is_spatial:
+                    # Find grid cell nearest to diversion
+                    if grid_sindex:
+                        bbox_match = sorted(
+                            grid_sindex.nearest(divn.geometry.bounds))
+                        # more than one nearest can exist! just take one...
+                        grid_cell = grid_cells.iloc[bbox_match[0]]
+                        if len(bbox_match) > 1:
+                            self.logger.warning(
+                                '%d grid cells are nearest to diversion %r, '
+                                'but only taking the first %s',
+                                len(bbox_match), dividx, grid_cell)
+                    else:  # slow scan of all cells
+                        raise NotImplemented('expected a grid spatial index')
+                    row, col = grid_cell.name
+                    strtop = dis.top[row, col]
+                    reach_d.update({'i': row, 'j': col, 'strtop': strtop})
+                else:
+                    strtop = dis.top[row, col]
+                    seg_d.update({'elevup': strtop, 'elevdn': strtop})
+                depth = strtop + 1.0
+                seg_d.update({'depth1': depth, 'depth2': depth})
+                self.reach_data.loc[len(self.reach_data) + 1] = reach_d
+                print('seg_d: ' + str(seg_d))
+                print('divid: ' + str(divid))
+                print('self.segment_data.iloc[0]: ' + str(self.segment_data.iloc[0]))
+                print(set(seg_d.keys()).difference(set(self.segment_data.columns)))
+                self.segment_data.loc[len(self.segment_data) + 1] = seg_d
+            # self.reaches
+                
         segment_data = self.set_segment_data(
             inflow=inflow, flow=flow, runoff=runoff, etsw=etsw, pptsw=pptsw,
             return_dict=True)

@@ -1097,13 +1097,13 @@ def test_process_flopy_lines_on_boundaries():
 def test_process_flopy_diversion(tmpdir_factory):
     outdir = tmpdir_factory.mktemp('diversion')
     # Create a simple MODFLOW model
+    m = flopy.modflow.Modflow(version='mf2005')
     top = np.array([
         [16.0, 15.0],
         [15.0, 15.0],
         [14.0, 14.0],
     ])
-    m = flopy.modflow.Modflow(version='mf2005')
-    flopy.modflow.ModflowDis(
+    _ = flopy.modflow.ModflowDis(
         m, nlay=1, nrow=3, ncol=2, delr=20.0, delc=20.0, top=top, botm=10.0,
         xul=30.0, yul=130.0)
     _ = flopy.modflow.ModflowOc(
