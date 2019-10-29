@@ -1950,11 +1950,22 @@ class MfSfrNetwork(object):
         stress_df['start'] = pd.to_datetime(modeltime.start_datetime)
         stress_df['end'] = stress_df['duration'] + stress_df.at[0, 'start']
         stress_df.loc[1:, 'start'] = stress_df['end'].iloc[:-1].values
+
+        # Consider all IDs from segments/diversions
         segments_segnums = set(self.segments.index)
-        if self.diversions is not None:
-            diversions_idxs = set(self.diversions.index)
+        if self.diversions:
+            diversions_divids = set(self.diversions.index)
         else:
-            diversions_idxs = set()
+            diversions_divids = set()
+        # However, only those in segment_data are actually used
+        nss = len(self.segment_data)
+        is_diversion = self.segment_data['iupseg'] != 0
+        segnum2nseg = self.segment_data[~is_diversion]\
+            .reset_index().set_index('segnum')['nseg']
+        divid2nseg = self.segment_data[is_diversion]\
+            .reset_index().set_index('segnum')['nseg']
+        segnum_s = set(segnum2nseg.index)
+        # divid_s = set(divid2nseg.index)
 
         def check_ts(data, name, drop_segnums=True, diversions=False):
             if isinstance(data, dict):
@@ -1989,11 +2000,13 @@ class MfSfrNetwork(object):
                     return data
                 parent = self.diversions
                 parent_name = 'diversions'
-                parent_set = diversions_idxs
+                parent_set = diversions_divids
+                # parent_subset = divid_s  # TODO: not done this part yet
             else:
                 parent = self.segments
                 parent_name = 'segments'
                 parent_set = segments_segnums
+                # parent_subset = segnum_s
             try:
                 data.columns = data.columns.astype(parent.index.dtype)
             except TypeError:
@@ -2004,7 +2017,7 @@ class MfSfrNetwork(object):
             if len(data_segnums) > 0:
                 if data_segnums.isdisjoint(parent_set):
                     raise ValueError(
-                        '{0}.columns not found in {1}.index'
+                        '{0}.columns (or keys) not found in {1}.index'
                         .format(name, parent_name))
                 if drop_segnums:
                     not_found = data_segnums.difference(parent_set)
@@ -2015,6 +2028,7 @@ class MfSfrNetwork(object):
                             len(not_found), len(data_segnums), name,
                             parent_name)
                         data.drop(not_found, axis=1, inplace=True)
+                # TODO map segnum2nseg
             return data
 
         self.logger.debug('checking timeseries data against modflow model')
@@ -2030,18 +2044,12 @@ class MfSfrNetwork(object):
         missing_inflow = 0
         self.segments['inflow_segnums'] = None
         # Determine upstream flows needed for each SFR segment
-        is_diversion = self.segment_data['iupseg'] != 0
-        sfr_segnums = set(self.segment_data.loc[~is_diversion, 'segnum'])
-        segnum2nseg = self.segment_data[~is_diversion]\
-            .reset_index().set_index('segnum')['nseg']
-        divid2nseg = self.segment_data[is_diversion]\
-            .reset_index().set_index('segnum')['nseg']
         for segnum in self.segment_data.loc[~is_diversion, 'segnum']:
             from_segnums = self.segments.at[segnum, 'from_segnums']
             if not from_segnums:
                 continue
             # gather segments outside SFR network
-            outside_segnums = from_segnums.difference(sfr_segnums)
+            outside_segnums = from_segnums.difference(segnum_s)
             if not outside_segnums:
                 continue
             if has_inflow:
@@ -2074,17 +2082,14 @@ class MfSfrNetwork(object):
         has_runoff = len(runoff.columns) > 0
         has_etsw = len(etsw.columns) > 0
         has_pptsw = len(pptsw.columns) > 0
-        # Take only a subset of columns to sfr
-        colnames = []
-        n = ModflowSfr2.get_default_segment_dtype().names
-        diff = set(n) - set(self.segment_data.columns)
-        self.segment_data = pd.concat(
-            [self.segment_data,
-             pd.DataFrame(
-                 np.zeros([len(self.segment_data.index), len(diff)]),
-                 columns=diff, index=self.segment_data.index)], axis=1)
-        colnames = list(n)
-        colnames.remove('nseg')
+        # Append missing columns
+        segment_column_names = []
+        for name, dtype in ModflowSfr2.get_default_segment_dtype().descr:
+            if name == 'nseg':  # skip adding the index
+                continue
+            segment_column_names.append(name)
+            if name not in self.segment_data.columns:
+                self.segment_data[name] = np.zeros(nss, dtype=dtype)
         for iper in range(dis.nper):
             # Store data for each stress period
             self.segment_data['flow'] = 0.0
@@ -2115,7 +2120,7 @@ class MfSfrNetwork(object):
                 item = pptsw.iloc[iper]
                 self.segment_data.loc[
                     segnum2nseg[item.index].values, 'pptsw'] = item
-            segment_data[iper] = self.segment_data[colnames]\
+            segment_data[iper] = self.segment_data[segment_column_names]\
                 .to_records(index=True)  # index is nseg
 
         # For models with more than one stress period, evaluate summary stats
