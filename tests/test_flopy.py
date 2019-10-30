@@ -109,7 +109,7 @@ def test_process_flopy_instance_errors(n3d):
 
     with pytest.raises(
             ValueError,
-            match=r'flow\.columns not found in segments\.index'):
+            match=r'flow\.columns \(or keys\) not found in segments\.index'):
         swn.MfSfrNetwork(
             n, m, flow=pd.DataFrame(
                     {'3': 1.1},  # segnum 3 does not exist
@@ -241,9 +241,13 @@ def test_process_flopy_n3d_defaults(n3d, tmpdir_factory):
                   0.12359641, 0.24412636], np.float32))
 
 
-def test_process_flopy_n3d_vars(n3d, tmpdir_factory):
+def test_process_flopy_n3d_vars(tmpdir_factory):
     # Repeat, but with min_slope enforced, and other options
     outdir = tmpdir_factory.mktemp('n3d')
+    # Create a local swn object to modify
+    n3d = swn.SurfaceWaterNetwork(n3d_lines)
+    # manually add outside flow from extra segnums, referenced with inflow
+    n3d.segments.at[1, 'from_segnums'] = {3, 4}
     # Create a simple MODFLOW model
     m = flopy.modflow.Modflow(version='mf2005')
     _ = flopy.modflow.ModflowDis(
@@ -258,7 +262,7 @@ def test_process_flopy_n3d_vars(n3d, tmpdir_factory):
     _ = flopy.modflow.ModflowRch(m, ipakcb=52, rech=0.01)
     nm = swn.MfSfrNetwork(
         n3d, m, min_slope=0.03, hyd_cond1=2, thickness1=2.0,
-        inflow={0: 9.6, 1: 9.7, 2: 9.8}, flow={1: 18.4},
+        inflow={3: 9.6, 4: 9.7}, flow={1: 18.4},
         runoff={1: 5}, pptsw={2: 1.8}, etsw={0: 0.01, 1: 0.02, 2: 0.03})
     m.sfr.ipakcb = 52
     m.sfr.istcb2 = -53
@@ -283,8 +287,10 @@ def test_process_flopy_n3d_vars(n3d, tmpdir_factory):
     np.testing.assert_array_equal(sd.outseg, [3, 3, 0])
     np.testing.assert_array_equal(sd.iupseg, [0, 0, 0])
     np.testing.assert_array_equal(sd.iprior, [0, 0, 0])
-    # note that 'inflow' was effectivley ignored, as is expected
-    np.testing.assert_array_almost_equal(sd.flow, [18.4, 0.0, 0.0])
+    # note that 'inflow' gets added to nseg 1 flow
+    np.testing.assert_array_equal(
+        nm.segment_data.inflow_segnums, [set([3, 4]), None, None])
+    np.testing.assert_array_almost_equal(sd.flow, [18.4 + 9.6 + 9.7, 0.0, 0.0])
     np.testing.assert_array_almost_equal(sd.runoff, [5.0, 0.0, 0.0])
     np.testing.assert_array_almost_equal(sd.etsw, [0.02, 0.03, 0.01])
     np.testing.assert_array_almost_equal(sd.pptsw, [0.0, 1.8, 0.0])
@@ -325,17 +331,17 @@ def test_process_flopy_n3d_vars(n3d, tmpdir_factory):
     np.testing.assert_array_almost_equal(
         heads,
         np.array([[
-                [14.61918, 14.488327],
-                [14.469823, 13.904094],
-                [14.086194, 12.902566]]], np.float32))
+                [14.620145, 14.489456],
+                [14.494376, 13.962832],
+                [14.100152, 12.905928]]], np.float32))
     np.testing.assert_array_almost_equal(
         sl['q'],
-        np.array([-2.5990355, -4.6846976, 23.472631, 2.9517243, 36.87717,
-                  -65.09191, -14.925813], np.float32))
+        np.array([-2.717792, -4.734348, 36.266556, 2.713955, 30.687397,
+                  -70.960304, -15.255642], np.float32))
     np.testing.assert_array_almost_equal(
         sf['q'],
-        np.array([19.893484, 24.209665, 0.0, 370.19705, 519.8943,
-                  583.9862, 597.91205], np.float32))
+        np.array([39.31224, 43.67807, 6.67448, 370.4348, 526.3218,
+                  602.95654, 617.21216], np.float32))
 
 
 def test_process_flopy_n2d_defaults(n2d, tmpdir_factory):
@@ -1167,7 +1173,7 @@ def test_process_flopy_diversion(tmpdir_factory):
         heads[nm.reach_data['k'], nm.reach_data['i'], nm.reach_data['j']]
     nm.reaches['sfrleakage'] = sl['q']
     nm.reaches = pd.concat([nm.reaches, sfl], axis=1)
-    nm.reaches.to_file(str(outdir.join('reaches.shp')))
+    swn.gdf_to_shapefile(nm.reaches, outdir.join('reaches.shp'))
     nm.grid_cells.to_file(str(outdir.join('grid_cells.shp')))
     swn.gdf_to_shapefile(nm.segments, outdir.join('segments.shp'))
     # Check results
