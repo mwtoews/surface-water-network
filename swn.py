@@ -1816,11 +1816,12 @@ class MfSfrNetwork(object):
                     continue
                 iupseg = segnum2nseg_d[divn.from_segnum]
                 assert iupseg != 0, iupseg
+                nseg = len(self.segment_data) + 1
                 rchlen = 1.0  # unit length required
                 thickm = 1.0  # unit thickness required
                 hcond = 0.0  # don't allow GW exchange
                 seg_d = dict(self.segment_data.loc[iupseg])
-                seg_d.update({
+                seg_d.update({  # index is nseg
                     'segnum': divid,
                     'icalc': 0,  # stream depth is specified
                     'outseg': 0,
@@ -1843,7 +1844,7 @@ class MfSfrNetwork(object):
                     'k': 0,  # base-zero, top layer
                     'i': row,
                     'j': col,
-                    'iseg': segnum,
+                    'iseg': nseg,
                     'ireach': 1,
                     'rchlen': rchlen,
                     'slope': 0.0,
@@ -1875,7 +1876,7 @@ class MfSfrNetwork(object):
                 depth = strtop + 1.0
                 seg_d.update({'depth1': depth, 'depth2': depth})
                 self.reach_data.loc[len(self.reach_data) + 1] = reach_d
-                self.segment_data.loc[len(self.segment_data) + 1] = seg_d
+                self.segment_data.loc[nseg] = seg_d
             if drop_divids:
                 self.diversions.drop(drop_divids, axis=0, inplace=True)
                 self.logger.debug(
@@ -1901,12 +1902,18 @@ class MfSfrNetwork(object):
 
     def set_segment_data(self, abstraction={}, inflow={}, flow={}, runoff={},
                          etsw={}, pptsw={}, return_dict=False):
-        """Set segment_data required for flopy.modflow.mfsfr2.ModflowSfr2
+        """Set timeseries data in segment_data required for flopy's ModflowSfr2
 
         This method does two things:
+
             1. Updates sfr.segment_data, which is a dict of rec.array
-                for each stress period.
-            2. Updates summary statistics in segment_data
+               for each stress period.
+            2. Updates summary statistics in segment_data if there are more
+               than one stress period, otherwise values are kept for one
+               stress period.
+
+        Other stationary data members that are part of segment_data
+        (e.g. hcond1, elevup, etc.) are not modified.
 
         Parameters
         ----------
@@ -1938,7 +1945,7 @@ class MfSfrNetwork(object):
 
         Returns
         -------
-        None or dict (if return_dict)
+        None or dict (if return_dict is True)
         """
         from flopy.modflow.mfsfr2 import ModflowSfr2
         # Build stress period DataFrame from modflow model
@@ -1986,7 +1993,14 @@ class MfSfrNetwork(object):
                         '{0}.index does not match expected ({1})'
                         .format(name, t))
             # Also do basic check of column IDs against diversions/segments
-            if name == 'abstractions':
+            if name == 'abstraction':
+                if not has_diversions:
+                    if len(data.columns) > 0:
+                        self.logger.error(
+                            'abstraction provided, but diversions are not '
+                            'defined for the surface water network')
+                        data.drop(data.columns, axis=1, inplace=True)
+                    return data
                 parent = self.diversions
                 parent_name = 'diversions'
                 parent_s = diversions_divids
@@ -2003,8 +2017,8 @@ class MfSfrNetwork(object):
             data_id_s = set(data.columns)
             if len(data_id_s) > 0:
                 if data_id_s.isdisjoint(parent_s):
-                    msg = '{0}.columns (or keys) not found in {1}.index'\
-                        .format(name, parent_name)
+                    msg = '{0}.columns (or keys) not found in {1}.index: {2}'\
+                        .format(name, parent_name, _abbr_str(data_id_s))
                     if name == 'inflow':
                         self.logger.warning(msg)
                     else:
@@ -2014,9 +2028,9 @@ class MfSfrNetwork(object):
                     if not data_id_s.issubset(parent_s):
                         self.logger.warning(
                             'dropping %s of %s %s.columns, which are '
-                            'not found in %s.index',
+                            'not found in %s.index: %s',
                             len(not_found), len(data_id_s), name,
-                            parent_name)
+                            parent_name, _abbr_str(data_id_s))
                         data.drop(not_found, axis=1, inplace=True)
             return data
 
@@ -2046,12 +2060,6 @@ class MfSfrNetwork(object):
                 colid2nseg_d = segnum2nseg.to_dict()
                 parent_descr = 'regular segments'
             colid_s = set(colid2nseg_d.keys())
-            if name == 'abstraction' and not has_diversions:
-                self.logger.error(
-                    'abstraction provided, but diversions are not '
-                    'defined for the surface water network')
-                data.drop(data.columns, axis=1, inplace=True)
-                data_id_s = set(data.columns)
             not_found = data_id_s.difference(colid_s)
             if not data_id_s.issubset(colid_s):
                 self.logger.warning(
@@ -2073,9 +2081,11 @@ class MfSfrNetwork(object):
         # Create an 'inflows' DataFrame calculated from combining 'inflow'
         inflows = pd.DataFrame(index=inflow.index)
         has_inflow = len(inflow.columns) > 0
-        missing_inflow = 0
+        missing_inflow_segnums = []
         if has_inflow:
             self.segment_data['inflow_segnums'] = None
+        elif 'inflow_segnums' in self.segment_data:
+            self.segment_data.drop('inflow_segnums', axis=1, inplace=True)
         # Determine upstream flows needed for each SFR segment
         for segnum in self.segment_data.loc[~is_diversion, 'segnum']:
             nseg = segnum2nseg[segnum]
@@ -2097,18 +2107,19 @@ class MfSfrNetwork(object):
                         self.logger.warning(
                             'flow from segment %s not provided by inflow term '
                             '(needed for %s)', from_segnum, segnum)
-                        missing_inflow += 1
+                        missing_inflow_segnums.append(from_segnum)
                 if inflow_segnums:
                     inflows[nseg] = inflow_series
                     self.segment_data.at[nseg, 'inflow_segnums'] = \
                         inflow_segnums
             else:
-                missing_inflow += len(outside_segnums)
-        if not has_inflow and missing_inflow > 0:
+                missing_inflow_segnums += outside_segnums
+        if not has_inflow and len(missing_inflow_segnums) > 0:
             self.logger.warning(
                 'inflow from %d segnums are needed to determine flow from '
-                'outside SFR network', missing_inflow)
-        # Append missing columns
+                'outside SFR network: %s', len(missing_inflow_segnums),
+                _abbr_str(missing_inflow_segnums))
+        # Append extra columns to segment_data that are used by flopy
         segment_column_names = []
         nss = len(self.segment_data)
         for name, dtype in ModflowSfr2.get_default_segment_dtype().descr:

@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
+import geopandas
 import numpy as np
 import pandas as pd
 import pytest
 from hashlib import md5
 from shapely import wkt
+from shapely.geometry import Point
 try:
     import flopy
 except ImportError:
@@ -239,6 +241,205 @@ def test_process_flopy_n3d_defaults(n3d, tmpdir_factory):
         sf['q'],
         np.array([0.00859839, 0.00439326, 0.0, 0.0, 0.0,
                   0.12359641, 0.24412636], np.float32))
+
+
+def test_set_segment_data():
+    # Note that set_segment_data is used both internally and externally
+    # Create a local swn object to modify
+    n3d = swn.SurfaceWaterNetwork(n3d_lines)
+    # manually add outside flow from extra segnums, referenced with inflow
+    n3d.segments.at[1, 'from_segnums'] = {3, 4}
+    # Create a simple MODFLOW model object (don't write/run)
+    m = flopy.modflow.Modflow(version='mf2005')
+    _ = flopy.modflow.ModflowDis(
+        m, nlay=1, nrow=3, ncol=2, delr=20.0, delc=20.0, top=15.0, botm=10.0,
+        xul=30.0, yul=130.0)
+    _ = flopy.modflow.ModflowBas(m, strt=15.0, stoper=5.0)
+    nm = swn.MfSfrNetwork(
+        n3d, m, min_slope=0.03, hyd_cond1=2, thickness1=2.0,
+        inflow={3: 9.6, 4: 9.7}, flow={1: 18.4},
+        runoff={1: 5}, pptsw={2: 1.8}, etsw={0: 0.01, 1: 0.02, 2: 0.03})
+    # Check only data set 6
+    assert m.sfr.nss == 3
+    assert len(m.sfr.segment_data) == 1
+    sd = m.sfr.segment_data[0]
+    np.testing.assert_array_equal(sd.nseg, [1, 2, 3])
+    np.testing.assert_array_equal(sd.icalc, [1, 1, 1])
+    np.testing.assert_array_equal(sd.outseg, [3, 3, 0])
+    np.testing.assert_array_equal(sd.iupseg, [0, 0, 0])
+    np.testing.assert_array_equal(sd.iprior, [0, 0, 0])
+    # note that 'inflow' gets added to nseg 1 flow
+    assert 'inflow_segnums' in nm.segment_data.columns
+    np.testing.assert_array_equal(
+        nm.segment_data.inflow_segnums, [set([3, 4]), None, None])
+    np.testing.assert_array_almost_equal(
+        sd.flow, np.array([18.4 + 9.6 + 9.7, 0.0, 0.0], dtype=np.float32))
+    np.testing.assert_array_almost_equal(sd.runoff, [5.0, 0.0, 0.0])
+    np.testing.assert_array_almost_equal(sd.etsw, [0.02, 0.03, 0.01])
+    np.testing.assert_array_almost_equal(sd.pptsw, [0.0, 1.8, 0.0])
+    np.testing.assert_array_almost_equal(sd.roughch, [0.024, 0.024, 0.024])
+    np.testing.assert_array_almost_equal(sd.hcond1, [2.0, 2.0, 2.0])
+    np.testing.assert_array_almost_equal(sd.thickm1, [2.0, 2.0, 2.0])
+    np.testing.assert_array_almost_equal(sd.width1, [10.0, 10.0, 10.0])
+    np.testing.assert_array_almost_equal(sd.hcond2, [2.0, 2.0, 2.0])
+    np.testing.assert_array_almost_equal(sd.thickm2, [2.0, 2.0, 2.0])
+    np.testing.assert_array_almost_equal(sd.width2, [10.0, 10.0, 10.0])
+
+    # Re-write segment_data without arguments
+    nm.set_segment_data()
+    assert m.sfr.nss == 3
+    assert len(m.sfr.segment_data) == 1
+    sd = m.sfr.segment_data[0]
+    np.testing.assert_array_equal(sd.nseg, [1, 2, 3])
+    np.testing.assert_array_equal(sd.icalc, [1, 1, 1])
+    np.testing.assert_array_equal(sd.outseg, [3, 3, 0])
+    np.testing.assert_array_equal(sd.iupseg, [0, 0, 0])
+    np.testing.assert_array_equal(sd.iprior, [0, 0, 0])
+    # note that 'inflow' gets added to nseg 1 flow
+    assert 'inflow_segnums' not in nm.segment_data.columns
+    # These timeseries sets are now all zero
+    np.testing.assert_array_equal(sd.flow, [0.0, 0.0, 0.0])
+    np.testing.assert_array_equal(sd.runoff, [0.0, 0.0, 0.0])
+    np.testing.assert_array_equal(sd.etsw, [0.0, 0.0, 0.0])
+    np.testing.assert_array_equal(sd.pptsw, [0.0, 0.0, 0.0])
+    # And these stationary datasets are unchanged
+    np.testing.assert_array_almost_equal(sd.roughch, [0.024, 0.024, 0.024])
+    np.testing.assert_array_almost_equal(sd.hcond1, [2.0, 2.0, 2.0])
+    np.testing.assert_array_almost_equal(sd.thickm1, [2.0, 2.0, 2.0])
+    np.testing.assert_array_almost_equal(sd.width1, [10.0, 10.0, 10.0])
+    np.testing.assert_array_almost_equal(sd.hcond2, [2.0, 2.0, 2.0])
+    np.testing.assert_array_almost_equal(sd.thickm2, [2.0, 2.0, 2.0])
+    np.testing.assert_array_almost_equal(sd.width2, [10.0, 10.0, 10.0])
+
+    # Re-write segment_data with arguments
+    # note that this network does not have diversions, so abstraction term will
+    # not be used and generate a warning
+    nm.set_segment_data(
+        abstraction={0: 123.0}, runoff={1: 5.5}, inflow={3: 9.6, 4: 9.7})
+    assert m.sfr.nss == 3
+    assert len(m.sfr.segment_data) == 1
+    sd = m.sfr.segment_data[0]
+    np.testing.assert_array_equal(sd.nseg, [1, 2, 3])
+    np.testing.assert_array_equal(sd.icalc, [1, 1, 1])
+    np.testing.assert_array_equal(sd.outseg, [3, 3, 0])
+    np.testing.assert_array_equal(sd.iupseg, [0, 0, 0])
+    np.testing.assert_array_equal(sd.iprior, [0, 0, 0])
+    assert 'inflow_segnums' in nm.segment_data.columns
+    np.testing.assert_array_equal(
+        nm.segment_data.inflow_segnums, [set([3, 4]), None, None])
+    np.testing.assert_array_almost_equal(
+        sd.flow, np.array([9.6 + 9.7, 0.0, 0.0], dtype=np.float32))
+    np.testing.assert_array_almost_equal(sd.runoff, [5.5, 0.0, 0.0])
+    np.testing.assert_array_equal(sd.etsw, [0.0, 0.0, 0.0])
+    np.testing.assert_array_equal(sd.pptsw, [0.0, 0.0, 0.0])
+    # And these stationary datasets are unchanged
+    np.testing.assert_array_almost_equal(sd.roughch, [0.024, 0.024, 0.024])
+    np.testing.assert_array_almost_equal(sd.hcond1, [2.0, 2.0, 2.0])
+    np.testing.assert_array_almost_equal(sd.thickm1, [2.0, 2.0, 2.0])
+    np.testing.assert_array_almost_equal(sd.width1, [10.0, 10.0, 10.0])
+    np.testing.assert_array_almost_equal(sd.hcond2, [2.0, 2.0, 2.0])
+    np.testing.assert_array_almost_equal(sd.thickm2, [2.0, 2.0, 2.0])
+    np.testing.assert_array_almost_equal(sd.width2, [10.0, 10.0, 10.0])
+
+    # Use another model with multiple stress periods
+    m = flopy.modflow.Modflow(version='mf2005')
+    _ = flopy.modflow.ModflowDis(
+        m, nlay=1, nrow=3, ncol=2, nper=4, delr=20.0, delc=20.0,
+        top=15.0, botm=10.0, xul=30.0, yul=130.0)
+    _ = flopy.modflow.ModflowBas(m, strt=15.0, stoper=5.0)
+    nm = swn.MfSfrNetwork(
+        n3d, m,
+        inflow={3: 9.6, 4: 9.7}, flow={1: [18.4, 13.1, 16.4, 9.2]},
+        runoff={1: 5}, pptsw={2: [1.8, 0.2, 1.3, 0.9]},
+        etsw={0: 0.01, 1: 0.02, 2: [0.03, 0.02, 0.03, 0.01]})
+    # Check only data set 6
+    assert m.sfr.nss == 3
+    assert len(m.sfr.segment_data) == 4
+    for iper in range(4):
+        sd = m.sfr.segment_data[iper]
+        np.testing.assert_array_equal(sd.nseg, [1, 2, 3])
+        np.testing.assert_array_equal(sd.icalc, [1, 1, 1])
+        np.testing.assert_array_equal(sd.outseg, [3, 3, 0])
+        np.testing.assert_array_equal(sd.iupseg, [0, 0, 0])
+        np.testing.assert_array_equal(sd.iprior, [0, 0, 0])
+        np.testing.assert_array_almost_equal(sd.roughch, [0.024, 0.024, 0.024])
+        np.testing.assert_array_almost_equal(sd.hcond1, [1.0, 1.0, 1.0])
+        np.testing.assert_array_almost_equal(sd.thickm1, [1.0, 1.0, 1.0])
+        np.testing.assert_array_almost_equal(sd.width1, [10.0, 10.0, 10.0])
+        np.testing.assert_array_almost_equal(sd.hcond2, [1.0, 1.0, 1.0])
+        np.testing.assert_array_almost_equal(sd.thickm2, [1.0, 1.0, 1.0])
+        np.testing.assert_array_almost_equal(sd.width2, [10.0, 10.0, 10.0])
+    assert 'inflow_segnums' in nm.segment_data.columns
+    np.testing.assert_array_equal(
+        nm.segment_data.inflow_segnums, [set([3, 4]), None, None])
+    sd = m.sfr.segment_data[0]
+    np.testing.assert_array_almost_equal(sd.flow, [9.6 + 9.7 + 18.4, 0.0, 0.0])
+    np.testing.assert_array_almost_equal(sd.runoff, [5.0, 0.0, 0.0])
+    np.testing.assert_array_almost_equal(sd.etsw, [0.02, 0.03, 0.01])
+    np.testing.assert_array_almost_equal(sd.pptsw, [0.0, 1.8, 0.0])
+    sd = m.sfr.segment_data[1]
+    np.testing.assert_array_almost_equal(
+        sd.flow, np.array([9.6 + 9.7 + 13.1, 0.0, 0.0], dtype=np.float32))
+    np.testing.assert_array_almost_equal(sd.runoff, [5.0, 0.0, 0.0])
+    np.testing.assert_array_almost_equal(sd.etsw, [0.02, 0.02, 0.01])
+    np.testing.assert_array_almost_equal(sd.pptsw, [0.0, 0.2, 0.0])
+    sd = m.sfr.segment_data[2]
+    np.testing.assert_array_almost_equal(
+        sd.flow, np.array([9.6 + 9.7 + 16.4, 0.0, 0.0], dtype=np.float32))
+    np.testing.assert_array_almost_equal(sd.runoff, [5.0, 0.0, 0.0])
+    np.testing.assert_array_almost_equal(sd.etsw, [0.02, 0.03, 0.01])
+    np.testing.assert_array_almost_equal(sd.pptsw, [0.0, 1.3, 0.0])
+    sd = m.sfr.segment_data[3]
+    np.testing.assert_array_almost_equal(
+        sd.flow, np.array([9.6 + 9.7 + 9.2, 0.0, 0.0], dtype=np.float32))
+    np.testing.assert_array_almost_equal(sd.runoff, [5.0, 0.0, 0.0])
+    np.testing.assert_array_almost_equal(sd.etsw, [0.02, 0.01, 0.01])
+    np.testing.assert_array_almost_equal(sd.pptsw, [0.0, 0.9, 0.0])
+
+    # Check errors
+    with pytest.raises(ValueError, match='flow must be a dict or DataFrame'):
+        nm.set_segment_data(flow=1.1)
+
+    m.dis.nper = 4  # TODO: is this alowed?
+    with pytest.raises(
+            ValueError,
+            match=r'length of flow \(1\) is different than nper \(4\)'):
+        nm.set_segment_data(
+            flow=pd.DataFrame(
+                {'1': [1.1]},
+                index=pd.DatetimeIndex(['1970-01-01'])))
+
+    with pytest.raises(
+            ValueError,
+            match=r'flow\.index must be a pandas\.DatetimeIndex'):
+        nm.set_segment_data(flow=pd.DataFrame({'1': [1.1] * 4}))
+
+    with pytest.raises(
+            ValueError,
+            match=r'flow\.index does not match expected \(1970\-01\-01, 1970'):
+        nm.set_segment_data(
+            flow=pd.DataFrame(
+                {'1': 1.1},  # starts on the wrong day
+                index=pd.DatetimeIndex(['1970-01-02'] * 4) +
+                pd.TimedeltaIndex(range(4), 'days')))
+
+    with pytest.raises(
+            ValueError,
+            match=r'flow\.columns\.dtype must be same as segments\.index\.dt'):
+        nm.set_segment_data(
+            flow=pd.DataFrame(
+                {'s1': 1.1},  # can't convert key to int
+                index=pd.DatetimeIndex(['1970-01-01'] * 4) +
+                pd.TimedeltaIndex(range(4), 'days')))
+
+    with pytest.raises(
+            ValueError,
+            match=r'flow\.columns \(or keys\) not found in segments\.index'):
+        nm.set_segment_data(
+            flow=pd.DataFrame(
+                {'3': 1.1},  # segnum 3 does not exist
+                index=pd.DatetimeIndex(['1970-01-01'] * 4) +
+                pd.TimedeltaIndex(range(4), 'days')))
 
 
 def test_process_flopy_n3d_vars(tmpdir_factory):
@@ -1121,31 +1322,35 @@ def test_process_flopy_diversion(tmpdir_factory):
     gt = swn.geotransform_from_flopy(m)
     n = swn.SurfaceWaterNetwork(swn.interp_2d_to_3d(n3d_lines, top, gt))
     n.adjust_elevation_profile()
-    nm = swn.MfSfrNetwork(n, m)
+    diversions = geopandas.GeoDataFrame(geometry=[
+        Point(58, 97), Point(62, 97), Point(61, 89), Point(59, 89)])
+    n.set_diversions(diversions=diversions)
+    nm = swn.MfSfrNetwork(n, m, hyd_cond1=0.0)
     m.sfr.ipakcb = 52
     m.sfr.istcb2 = 54
     m.add_output_file(54, extension='sfl', binflag=False)
     # Data set 1c
-    assert abs(m.sfr.nstrm) == 7
-    assert m.sfr.nss == 3
+    assert abs(m.sfr.nstrm) == 11
+    assert m.sfr.nss == 7
     # Data set 2
     np.testing.assert_array_almost_equal(
         m.sfr.reach_data.rchlen,
-        [18.027756, 6.009252, 12.018504, 21.081851, 10.540926, 10.0, 10.0])
+        [18.027756, 6.009252, 12.018504, 21.081851, 10.540926, 10.0, 10.0,
+         1.0, 1.0, 1.0, 1.0])
     np.testing.assert_array_almost_equal(
         m.sfr.reach_data.strtop,
         [15.742094, 15.39822, 15.140314, 14.989459, 14.973648, 14.726283,
-         14.242094])
+         14.242094, 15.0, 15.0, 14.0, 14.0])
     np.testing.assert_array_almost_equal(
         m.sfr.reach_data.slope,
         [0.02861207, 0.02861207, 0.02861207, 0.001, 0.001, 0.04841886,
-         0.04841886])
+         0.04841886, 0.0, 0.0, 0.0, 0.0])
     sd = m.sfr.segment_data[0]
-    assert list(sd.nseg) == [1, 2, 3]
-    assert list(sd.icalc) == [1, 1, 1]
-    assert list(sd.outseg) == [3, 3, 0]
-    assert list(sd.iupseg) == [0, 0, 0]
-    # See test_process_flopy_n3d_defaults for other checks
+    np.testing.assert_array_equal(sd.nseg, [1, 2, 3, 4, 5, 6, 7])
+    np.testing.assert_array_equal(sd.icalc,  [1, 1, 1, 0, 0, 0, 0])
+    np.testing.assert_array_equal(sd.outseg,  [3, 3, 0, 0, 0, 0, 0])
+    np.testing.assert_array_equal(sd.iupseg,  [0, 0, 0, 1, 2, 3, 3])
+    np.testing.assert_array_equal(sd.iprior,  [0, 0, 0, 0, 0, 0, 0])
     # Run model and read outputs
     m.model_ws = str(outdir)
     m.write_input()
@@ -1168,58 +1373,42 @@ def test_process_flopy_diversion(tmpdir_factory):
     # this index modification is only valid for steady models
     sfl.index += 1
     sfl.index.name = 'reachID'
-    # Transfer model outputs to reaches dataframe
-    nm.reaches['head'] = \
+    # Transfer model outputs to reach_data dataframe
+    nm.reach_data['head'] = \
         heads[nm.reach_data['k'], nm.reach_data['i'], nm.reach_data['j']]
-    nm.reaches['sfrleakage'] = sl['q']
-    nm.reaches = pd.concat([nm.reaches, sfl], axis=1)
+    nm.reach_data['sfrleakage'] = sl['q']
+    nm.reach_data = pd.concat([nm.reach_data, sfl], axis=1)
+    nm.reach_data.to_csv(str(outdir.join('reach_data.csv')))
     swn.gdf_to_shapefile(nm.reaches, outdir.join('reaches.shp'))
     nm.grid_cells.to_file(str(outdir.join('grid_cells.shp')))
     swn.gdf_to_shapefile(nm.segments, outdir.join('segments.shp'))
     # Check results
     assert heads.shape == (1, 3, 2)
-    np.testing.assert_array_almost_equal(
-        heads,
-        np.array([[
-                [15.595171, 15.015385],
-                [15.554525, 14.750549],
-                [15.509117, 14.458664]]], np.float32))
-    np.testing.assert_array_almost_equal(
-        sl['q'],
-        np.array([-0.61594236, 0.61594236, 0.0, -6.4544363, 6.4544363,
-                  -14.501283, -9.499095], np.float32))
-    np.testing.assert_array_almost_equal(
-        sfl['Qin'],
-        np.array([0.61594236, 0.0,  0.0, 6.4544363, 0.0,
-                  14.501283, 24.000378], np.float32))
-    np.testing.assert_array_almost_equal(
-        sfl['Qaquifer'],
-        np.array([0.61594236, 0.0,  0.0, 6.4544363, 0.0,
-                  14.501283, 24.000378], np.float32))
-    np.testing.assert_array_almost_equal(
-        sfl['Qout'],
-        np.array([0.61594236, 0.0,  0.0, 6.4544363, 0.0,
-                  14.501283, 24.000378], np.float32))
+    assert (heads == 15.0).all()
+    assert (sl['q'] == 0.0).all()
+    assert (sfl['Qin'] == 0.0).all()
+    assert (sfl['Qaquifer'] == 0.0).all()
+    assert (sfl['Qout'] == 0.0).all()
     assert (sfl['Qovr'] == 0.0).all()
     assert (sfl['Qprecip'] == 0.0).all()
     assert (sfl['Qet'] == 0.0).all()
     np.testing.assert_array_almost_equal(
         sfl['stage'],
-        np.array([0.61594236, 0.0,  0.0, 6.4544363, 0.0,
-                  14.501283, 24.000378], np.float32))
+        np.array([15.5916, 15.3911, 15.2406, 14.9881, 14.9822, 14.7029,
+                  14.5208, 15.4412, 14.9816, 14.4842, 14.4842], np.float32))
     np.testing.assert_array_almost_equal(
         sfl['depth'],
         np.array([0.61594236, 0.0,  0.0, 6.4544363, 0.0,
-                  14.501283, 24.000378], np.float32))
+                  14.501283, 24.000378, 0.0, 0.0, 0.0, 0.0], np.float32))
     np.testing.assert_array_almost_equal(
         sfl['width'],
         np.array([0.61594236, 0.0,  0.0, 6.4544363, 0.0,
-                  14.501283, 24.000378], np.float32))
+                  14.501283, 24.000378, 0.0, 0.0, 0.0, 0.0], np.float32))
     np.testing.assert_array_almost_equal(
         sfl['Cond'],
         np.array([0.61594236, 0.0,  0.0, 6.4544363, 0.0,
-                  14.501283, 24.000378], np.float32))
+                  14.501283, 24.000378, 0.0, 0.0, 0.0, 0.0], np.float32))
     np.testing.assert_array_almost_equal(
         sfl['gradient'],
         np.array([0.61594236, 0.0,  0.0, 6.4544363, 0.0,
-                  14.501283, 24.000378], np.float32))
+                  14.501283, 24.000378, 0.0, 0.0, 0.0, 0.0], np.float32))
