@@ -6,6 +6,7 @@ import pytest
 from hashlib import md5
 from shapely import wkt
 from shapely.geometry import Point
+from warnings import warn
 try:
     import flopy
 except ImportError:
@@ -30,6 +31,73 @@ def n3d():
 @pytest.fixture
 def n2d():
     return swn.SurfaceWaterNetwork(force_2d(n3d_lines))
+
+
+def read_head(hed_fname, reach_data=None):
+    """Reads MODFLOW Head file
+
+    If reach_data is not None, it is modified inplace to add a 'head' column
+
+    Returns numpy array
+    """
+    try:
+        b = flopy.utils.HeadFile(hed_fname)
+        data = b.get_data()
+    finally:
+        b.close()
+    if reach_data is not None:
+        reach_data['head'] = \
+            data[reach_data['k'], reach_data['i'], reach_data['j']]
+    return data
+
+
+def read_budget(bud_fname, text, reach_data=None, colname=None):
+    """Reads MODFLOW cell-by-cell file
+
+    If reach_data is not None, it is modified inplace to add data in 'colname'
+
+    Returns numpy array
+    """
+    try:
+        b = flopy.utils.CellBudgetFile(bud_fname)
+        res = b.get_data(text=text)
+        if len(res) != 1:
+            warn('get_data(text={!r}) returned more than one array'
+                 .format(text))
+        data = res[0]
+    finally:
+        b.close()
+    if reach_data is not None:
+        if isinstance(data, np.recarray) and 'q' in data.dtype.names:
+            reach_data[colname] = data['q']
+        else:
+            reach_data[colname] = \
+                data[reach_data['k'], reach_data['i'], reach_data['j']]
+    return data
+
+
+def read_sfl(sfl_fname, reach_data=None):
+    """Reads MODFLOW stream flow listing ASCII file
+
+    If reach_data is not None, it is modified inplace to add new columns
+
+    Returns DataFrame of stream flow listing file
+    """
+    sfl = flopy.utils.SfrFile(sfl_fname).get_dataframe()
+    # this index modification is only valid for steady models
+    if sfl.index.name is None:
+        sfl.index += 1
+        sfl.index.name = 'reachID'
+    if 'col16' in sfl.columns:
+        sfl.rename(columns={'col16': 'gradient'}, inplace=True)
+    dont_copy = ['layer', 'row', 'column', 'segment', 'reach', 'k', 'i', 'j']
+    if reach_data is not None:
+        if not (reach_data.index == sfl.index).all():
+            raise IndexError('reach_data.index is different')
+        for cn in sfl.columns:
+            if cn not in dont_copy:
+                reach_data[cn] = sfl[cn]
+    return sfl
 
 
 def test_process_flopy_instance_errors(n3d):
@@ -208,20 +276,11 @@ def test_process_flopy_n3d_defaults(n3d, tmpdir_factory):
     hds_fname = str(outdir.join(m.name + '.hds'))
     cbc_fname = str(outdir.join(m.name + '.cbc'))
     sfo_fname = str(outdir.join(m.name + '.sfo'))
-    b = flopy.utils.HeadFile(hds_fname)
-    heads = b.get_data()
-    b.close()
-    b = flopy.utils.CellBudgetFile(cbc_fname)
-    sl = b.get_data(text='STREAM LEAKAGE')[0]
-    b.close()
-    b = flopy.utils.CellBudgetFile(sfo_fname)
-    sf = b.get_data(text='STREAMFLOW OUT')[0]
-    b.close()
-    # Transfer model outputs to reaches dataframe
-    nm.reaches['head'] = \
-        heads[nm.reach_data['k'], nm.reach_data['i'], nm.reach_data['j']]
-    nm.reaches['sfrleakage'] = sl['q']
-    nm.reaches['sfr_Q'] = sf['q']
+    heads = read_head(hds_fname)
+    sl = read_budget(cbc_fname, 'STREAM LEAKAGE', nm.reach_data, 'sfrleakage')
+    sf = read_budget(sfo_fname, 'STREAMFLOW OUT', nm.reach_data, 'sfr_Q')
+    # Write some files
+    nm.reach_data.to_csv(str(outdir.join('reach_data.csv')))
     nm.reaches.to_file(str(outdir.join('reaches.shp')))
     nm.grid_cells.to_file(str(outdir.join('grid_cells.shp')))
     swn.gdf_to_shapefile(nm.segments, outdir.join('segments.shp'))
@@ -510,20 +569,11 @@ def test_process_flopy_n3d_vars(tmpdir_factory):
     hds_fname = str(outdir.join(m.name + '.hds'))
     cbc_fname = str(outdir.join(m.name + '.cbc'))
     sfo_fname = str(outdir.join(m.name + '.sfo'))
-    b = flopy.utils.HeadFile(hds_fname)
-    heads = b.get_data()
-    b.close()
-    b = flopy.utils.CellBudgetFile(cbc_fname)
-    sl = b.get_data(text='STREAM LEAKAGE')[0]
-    b.close()
-    b = flopy.utils.CellBudgetFile(sfo_fname)
-    sf = b.get_data(text='STREAMFLOW OUT')[0]
-    b.close()
-    # Transfer model outputs to reaches dataframe
-    nm.reaches['head'] = \
-        heads[nm.reach_data['k'], nm.reach_data['i'], nm.reach_data['j']]
-    nm.reaches['sfrleakage'] = sl['q']
-    nm.reaches['sfr_Q'] = sf['q']
+    heads = read_head(hds_fname)
+    sl = read_budget(cbc_fname, 'STREAM LEAKAGE', nm.reach_data, 'sfrleakage')
+    sf = read_budget(sfo_fname, 'STREAMFLOW OUT', nm.reach_data, 'sfr_Q')
+    # Write some files
+    nm.reach_data.to_csv(str(outdir.join('reach_data.csv')))
     nm.reaches.to_file(str(outdir.join('reaches.shp')))
     nm.grid_cells.to_file(str(outdir.join('grid_cells.shp')))
     swn.gdf_to_shapefile(nm.segments, outdir.join('segments.shp'))
@@ -706,20 +756,11 @@ def test_process_flopy_interp_2d_to_3d(tmpdir_factory):
     hds_fname = str(outdir.join(m.name + '.hds'))
     cbc_fname = str(outdir.join(m.name + '.cbc'))
     sfo_fname = str(outdir.join(m.name + '.sfo'))
-    b = flopy.utils.HeadFile(hds_fname)
-    heads = b.get_data()
-    b.close()
-    b = flopy.utils.CellBudgetFile(cbc_fname)
-    sl = b.get_data(text='STREAM LEAKAGE')[0]
-    b.close()
-    b = flopy.utils.CellBudgetFile(sfo_fname)
-    sf = b.get_data(text='STREAMFLOW OUT')[0]
-    b.close()
-    # Transfer model outputs to reaches dataframe
-    nm.reaches['head'] = \
-        heads[nm.reach_data['k'], nm.reach_data['i'], nm.reach_data['j']]
-    nm.reaches['sfrleakage'] = sl['q']
-    nm.reaches['sfr_Q'] = sf['q']
+    heads = read_head(hds_fname)
+    sl = read_budget(cbc_fname, 'STREAM LEAKAGE', nm.reach_data, 'sfrleakage')
+    sf = read_budget(sfo_fname, 'STREAMFLOW OUT', nm.reach_data, 'sfr_Q')
+    # Write some files
+    nm.reach_data.to_csv(str(outdir.join('reach_data.csv')))
     nm.reaches.to_file(str(outdir.join('reaches.shp')))
     nm.grid_cells.to_file(str(outdir.join('grid_cells.shp')))
     swn.gdf_to_shapefile(nm.segments, outdir.join('segments.shp'))
@@ -821,20 +862,11 @@ def test_set_elevations(n2d, tmpdir_factory):
     hds_fname = str(outdir.join(m.name + '.hds'))
     cbc_fname = str(outdir.join(m.name + '.cbc'))
     sfo_fname = str(outdir.join(m.name + '.sfo'))
-    b = flopy.utils.HeadFile(hds_fname)
-    heads = b.get_data()
-    b.close()
-    b = flopy.utils.CellBudgetFile(cbc_fname)
-    sl = b.get_data(text='STREAM LEAKAGE')[0]
-    b.close()
-    b = flopy.utils.CellBudgetFile(sfo_fname)
-    sf = b.get_data(text='STREAMFLOW OUT')[0]
-    b.close()
-    # Transfer model outputs to reaches dataframe
-    nm.reaches['head'] = \
-        heads[nm.reach_data['k'], nm.reach_data['i'], nm.reach_data['j']]
-    nm.reaches['sfrleakage'] = sl['q']
-    nm.reaches['sfr_Q'] = sf['q']
+    heads = read_head(hds_fname)
+    sl = read_budget(cbc_fname, 'STREAM LEAKAGE', nm.reach_data, 'sfrleakage')
+    sf = read_budget(sfo_fname, 'STREAMFLOW OUT', nm.reach_data, 'sfr_Q')
+    # Write some files
+    nm.reach_data.to_csv(str(outdir.join('reach_data.csv')))
     nm.reaches.to_file(str(outdir.join('reaches.shp')))
     nm.grid_cells.to_file(str(outdir.join('grid_cells.shp')))
     swn.gdf_to_shapefile(nm.segments, outdir.join('segments.shp'))
@@ -908,7 +940,7 @@ def test_coastal_process_flopy(tmpdir_factory,
     n = swn.SurfaceWaterNetwork(coastal_lines_gdf.geometry)
     n.adjust_elevation_profile()
     nm = swn.MfSfrNetwork(n, m, inflow=coastal_flow_m)
-    m.sfr.unit_number = [24]
+    m.sfr.unit_number = [24]  # WARNING: unit 17 of package SFR already in use
     m.sfr.ipakcb = 50
     m.sfr.istcb2 = -51
     m.add_output_file(51, extension='sfo', binflag=True)
@@ -1031,7 +1063,7 @@ def test_coastal_elevations(coastal_swn, coastal_flow_m, tmpdir_factory):
     _ = nm.get_seg_ijk()
     tops = nm.get_top_elevs_at_segs().top_up
     max_str_z = tops.describe()['75%']
-    for seg in nm.segment_data.nseg[nm.segment_data.nseg.isin([1, 18])]:
+    for seg in nm.segment_data.index[nm.segment_data.index.isin([1, 18])]:
         nm.plot_reaches_above(m, seg)
     _ = nm.fix_segment_elevs(min_incise=0.2, min_slope=1.e-4,
                              max_str_z=max_str_z)
@@ -1043,7 +1075,7 @@ def test_coastal_elevations(coastal_swn, coastal_flow_m, tmpdir_factory):
         reach_data=reach_data.to_records(index=True),
         segment_data=seg_data)
     nm.plot_reaches_above(m, 'all', plot_bottom=False)
-    for seg in nm.segment_data.nseg[nm.segment_data.nseg.isin([1, 18])]:
+    for seg in nm.segment_data.index[nm.segment_data.index.isin([1, 18])]:
         nm.plot_reaches_above(m, seg)
     _ = nm.set_topbot_elevs_at_reaches()
     nm.fix_reach_elevs()
@@ -1054,7 +1086,7 @@ def test_coastal_elevations(coastal_swn, coastal_flow_m, tmpdir_factory):
         reach_data=reach_data.to_records(index=True),
         segment_data=seg_data)
     nm.plot_reaches_above(m, 'all', plot_bottom=False)
-    for seg in nm.segment_data.nseg[nm.segment_data.nseg.isin([1, 18])]:
+    for seg in nm.segment_data.index[nm.segment_data.index.isin([1, 18])]:
         nm.plot_reaches_above(m, seg)
     m.sfr.unit_number = [24]
     m.sfr.ipakcb = 50
@@ -1325,6 +1357,8 @@ def test_process_flopy_diversion(tmpdir_factory):
     diversions = geopandas.GeoDataFrame(geometry=[
         Point(58, 97), Point(62, 97), Point(61, 89), Point(59, 89)])
     n.set_diversions(diversions=diversions)
+
+    # With zero specified flow for all terms
     nm = swn.MfSfrNetwork(n, m, hyd_cond1=0.0)
     m.sfr.ipakcb = 52
     m.sfr.istcb2 = 54
@@ -1356,35 +1390,16 @@ def test_process_flopy_diversion(tmpdir_factory):
     m.write_input()
     success, buff = m.run_model()
     assert success
-    hds_fname = str(outdir.join(m.name + '.hds'))
     cbc_fname = str(outdir.join(m.name + '.cbc'))
     sfl_fname = str(outdir.join(m.name + '.sfl'))
-    b = flopy.utils.HeadFile(hds_fname)
-    heads = b.get_data()
-    b.close()
-    b = flopy.utils.CellBudgetFile(cbc_fname)
-    sl = b.get_data(text='STREAM LEAKAGE')[0]
-    b.close()
-    sfl = flopy.utils.SfrFile(sfl_fname).get_dataframe()
-    sfl.drop(columns=['layer', 'row', 'column', 'segment', 'reach',
-                      'k', 'i', 'j'], inplace=True)
-    if 'col16' in sfl.columns:
-        sfl.rename(columns={'col16': 'gradient'}, inplace=True)
-    # this index modification is only valid for steady models
-    sfl.index += 1
-    sfl.index.name = 'reachID'
-    # Transfer model outputs to reach_data dataframe
-    nm.reach_data['head'] = \
-        heads[nm.reach_data['k'], nm.reach_data['i'], nm.reach_data['j']]
-    nm.reach_data['sfrleakage'] = sl['q']
-    nm.reach_data = pd.concat([nm.reach_data, sfl], axis=1)
+    sl = read_budget(cbc_fname, 'STREAM LEAKAGE', nm.reach_data, 'sfrleakage')
+    sfl = read_sfl(sfl_fname, nm.reach_data)
+    # Write some files
     nm.reach_data.to_csv(str(outdir.join('reach_data.csv')))
     swn.gdf_to_shapefile(nm.reaches, outdir.join('reaches.shp'))
     nm.grid_cells.to_file(str(outdir.join('grid_cells.shp')))
     swn.gdf_to_shapefile(nm.segments, outdir.join('segments.shp'))
     # Check results
-    assert heads.shape == (1, 3, 2)
-    assert (heads == 15.0).all()
     assert (sl['q'] == 0.0).all()
     assert (sfl['Qin'] == 0.0).all()
     assert (sfl['Qaquifer'] == 0.0).all()
@@ -1392,23 +1407,62 @@ def test_process_flopy_diversion(tmpdir_factory):
     assert (sfl['Qovr'] == 0.0).all()
     assert (sfl['Qprecip'] == 0.0).all()
     assert (sfl['Qet'] == 0.0).all()
+    # Don't check stage, depth or gradient
     np.testing.assert_array_almost_equal(
-        sfl['stage'],
-        np.array([15.5916, 15.3911, 15.2406, 14.9881, 14.9822, 14.7029,
-                  14.5208, 15.4412, 14.9816, 14.4842, 14.4842], np.float32))
-    np.testing.assert_array_almost_equal(
-        sfl['depth'],
-        np.array([0.61594236, 0.0,  0.0, 6.4544363, 0.0,
-                  14.501283, 24.000378, 0.0, 0.0, 0.0, 0.0], np.float32))
-    np.testing.assert_array_almost_equal(
-        sfl['width'],
-        np.array([0.61594236, 0.0,  0.0, 6.4544363, 0.0,
-                  14.501283, 24.000378, 0.0, 0.0, 0.0, 0.0], np.float32))
-    np.testing.assert_array_almost_equal(
-        sfl['Cond'],
-        np.array([0.61594236, 0.0,  0.0, 6.4544363, 0.0,
-                  14.501283, 24.000378, 0.0, 0.0, 0.0, 0.0], np.float32))
-    np.testing.assert_array_almost_equal(
-        sfl['gradient'],
-        np.array([0.61594236, 0.0,  0.0, 6.4544363, 0.0,
-                  14.501283, 24.000378, 0.0, 0.0, 0.0, 0.0], np.float32))
+        nm.reach_data['width'],
+        [10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 0.0, 0.0, 0.0, 0.0])
+    assert (nm.reach_data['Cond'] == 0.0).all()
+
+    # Route some flow from headwater segments
+    m.sfr.segment_data = nm.set_segment_data(
+        flow={1: 2, 2: 3}, return_dict=True)
+    m.sfr.write_file()
+    success, buff = m.run_model()
+    assert success
+    sl = read_budget(cbc_fname, 'STREAM LEAKAGE', nm.reach_data, 'sfrleakage')
+    sfl = read_sfl(sfl_fname, nm.reach_data)
+    expected_flow = np.array(
+        [2.0, 2.0, 2.0, 3.0, 3.0, 5.0, 5.0, 0.0, 0.0, 0.0, 0.0])
+    assert (sl['q'] == 0.0).all()
+    np.testing.assert_almost_equal(sfl['Qin'], expected_flow)
+    assert (sfl['Qaquifer'] == 0.0).all()
+    np.testing.assert_almost_equal(sfl['Qout'], expected_flow)
+    assert (sfl['Qovr'] == 0.0).all()
+    assert (sfl['Qprecip'] == 0.0).all()
+    assert (sfl['Qet'] == 0.0).all()
+
+    # Same, but with abstraction
+    m.sfr.segment_data = nm.set_segment_data(
+        abstraction={0: 1.1}, flow={1: 2, 2: 3}, return_dict=True)
+    m.sfr.write_file()
+    success, buff = m.run_model()
+    assert success
+    sl = read_budget(cbc_fname, 'STREAM LEAKAGE', nm.reach_data, 'sfrleakage')
+    sfl = read_sfl(sfl_fname, nm.reach_data)
+    expected_flow = np.array(
+        [2.0, 2.0, 2.0, 3.0, 3.0, 3.9, 3.9, 1.1, 0.0, 0.0, 0.0])
+    assert (sl['q'] == 0.0).all()
+    np.testing.assert_almost_equal(sfl['Qin'], expected_flow)
+    assert (sfl['Qaquifer'] == 0.0).all()
+    np.testing.assert_almost_equal(sfl['Qout'], expected_flow)
+    assert (sfl['Qovr'] == 0.0).all()
+    assert (sfl['Qprecip'] == 0.0).all()
+    assert (sfl['Qet'] == 0.0).all()
+
+    # More abstraction with dry streams
+    m.sfr.segment_data = nm.set_segment_data(
+        abstraction={0: 1.1, 1: 3.3}, flow={1: 2, 2: 3}, return_dict=True)
+    m.sfr.write_file()
+    success, buff = m.run_model()
+    assert success
+    sl = read_budget(cbc_fname, 'STREAM LEAKAGE', nm.reach_data, 'sfrleakage')
+    sfl = read_sfl(sfl_fname, nm.reach_data)
+    expected_flow = np.array(
+        [2.0, 2.0, 2.0, 3.0, 3.0, 0.9, 0.9, 1.1, 3.0, 0.0, 0.0])
+    assert (sl['q'] == 0.0).all()
+    np.testing.assert_almost_equal(sfl['Qin'], expected_flow)
+    assert (sfl['Qaquifer'] == 0.0).all()
+    np.testing.assert_almost_equal(sfl['Qout'], expected_flow)
+    assert (sfl['Qovr'] == 0.0).all()
+    assert (sfl['Qprecip'] == 0.0).all()
+    assert (sfl['Qet'] == 0.0).all()

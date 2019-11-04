@@ -2046,18 +2046,21 @@ class MfSfrNetwork(object):
         is_diversion = self.segment_data['iupseg'] != 0
         divid2nseg = self.segment_data[is_diversion]\
             .reset_index().set_index('segnum')['nseg']
+        divid2nseg_d = divid2nseg.to_dict()
         segnum2nseg = self.segment_data[~is_diversion]\
             .reset_index().set_index('segnum')['nseg']
+        segnum2nseg_d = segnum2nseg.to_dict()
+        segnum_s = set(segnum2nseg_d.keys())
 
         def map_nseg(data, name):
             data_id_s = set(data.columns)
             if len(data_id_s) == 0:
                 return data
             if name == 'abstraction':
-                colid2nseg_d = divid2nseg.to_dict()
+                colid2nseg_d = divid2nseg_d
                 parent_descr = 'diversions'
             else:
-                colid2nseg_d = segnum2nseg.to_dict()
+                colid2nseg_d = segnum2nseg_d
                 parent_descr = 'regular segments'
             colid_s = set(colid2nseg_d.keys())
             not_found = data_id_s.difference(colid_s)
@@ -2088,12 +2091,12 @@ class MfSfrNetwork(object):
             self.segment_data.drop('inflow_segnums', axis=1, inplace=True)
         # Determine upstream flows needed for each SFR segment
         for segnum in self.segment_data.loc[~is_diversion, 'segnum']:
-            nseg = segnum2nseg[segnum]
+            nseg = segnum2nseg_d[segnum]
             from_segnums = self.segments.at[segnum, 'from_segnums']
             if not from_segnums:
                 continue
             # gather segments outside SFR network
-            outside_segnums = from_segnums.difference(segments_segnums)
+            outside_segnums = from_segnums.difference(segnum_s)
             if not outside_segnums:
                 continue
             if has_inflow:
@@ -2322,7 +2325,7 @@ class MfSfrNetwork(object):
         """
         # downstreambuffer = 0.001 # 1mm
         # find where seg is listed as outseg
-        outsegsel = self.segment_data['outseg'] == seg.nseg
+        outsegsel = self.segment_data['outseg'] == seg.name
         # set outseg elevup
         outseg_elevup = self.segment_data.loc[outsegsel, 'outseg_elevup']
         return outseg_elevup
@@ -2348,7 +2351,7 @@ class MfSfrNetwork(object):
         prefslope = np.max([surfslope, minslope])
         if seg.outseg > 0.0:
             # select outflow segment for current seg and pull out elevup
-            outsegsel = self.segment_data['nseg'] == seg.outseg
+            outsegsel = self.segment_data.index == seg.outseg
             outseg_elevup = self.segment_data.loc[outsegsel, 'elevup']
             down = outseg_elevup.values[0]
             if down >= up - (seg.seglen * prefslope):
@@ -2357,7 +2360,7 @@ class MfSfrNetwork(object):
                 outseg_up = up - (seg.seglen * prefslope) - downstreambuffer
                 print('Segment {}, outseg = {}, old outseg_elevup = {}, '
                       'new outseg_elevup = {}'
-                      .format(int(seg.nseg), int(seg.outseg),
+                      .format(seg.name, seg.outseg,
                               seg.outseg_elevup, outseg_up))
             else:
                 dn = down
@@ -2369,11 +2372,11 @@ class MfSfrNetwork(object):
                 dn = up - (seg.seglen * prefslope)
                 print('Outflow Segment {}, outseg = {}, old elevdn = {}, '
                       'new elevdn = {}'
-                      .format(int(seg.nseg), int(seg.outseg), seg.elevdn, dn))
+                      .format(seg.name, seg.outseg, seg.elevdn, dn))
             else:
                 dn = down
         # this returns a DF once the apply is done!
-        return pd.Series({'nseg': seg.nseg, 'elevdn': dn,
+        return pd.Series({'nseg': seg.name, 'elevdn': dn,
                           'outseg_elevup': outseg_up})
 
     def set_forward_segs(self, min_slope=1.e-4):
@@ -2393,7 +2396,7 @@ class MfSfrNetwork(object):
             # get elevdn and outseg_elevups with a minimum slope constraint
             # index should align with self.segment_data index
             # not applying directly allows us to filter out nans
-            tmp = self.segment_data.loc[segsel].apply(
+            tmp = self.segment_data.assign(_='').loc[segsel].apply(
                 self.minslope_seg, args=[min_slope], axis=1)
             ednsel = tmp[tmp['elevdn'].notna()].index
             oeupsel = tmp[tmp['outseg_elevup'].notna()].index
