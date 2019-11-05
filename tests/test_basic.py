@@ -5,7 +5,7 @@ import pandas as pd
 import pytest
 import numpy as np
 from shapely import wkt
-from shapely.geometry import LineString
+from shapely.geometry import LineString, Point
 
 from .conftest import swn, \
     datadir, force_2d, round_coords, wkt_to_dataframe, wkt_to_geoseries
@@ -334,6 +334,100 @@ def test_catchments_property():
             ValueError,
             match=r'catchments\.index is different than for segments'):
         n.catchments = valid_polygons.iloc[1:]
+
+
+def test_set_diversions_geodataframe():
+    n = swn.SurfaceWaterNetwork(valid_lines)
+    diversions = geopandas.GeoDataFrame(geometry=[
+        Point(58, 97), Point(62, 97), Point(61, 89), Point(59, 89)])
+    # check errors
+    with pytest.raises(
+            AttributeError,
+            match=r'use \'set_diversions\(\)\' method'):
+        n.diversions = diversions
+    with pytest.raises(
+            ValueError,
+            match=r'a \[Geo\]DataFrame is expected'):
+        n.set_diversions([1])
+    with pytest.raises(
+            ValueError,
+            match=r'a \[Geo\]DataFrame is expected'):
+        n.set_diversions(diversions.geometry)
+    with pytest.raises(
+            ValueError,
+            match='does not appear to be spatial'):
+        n.set_diversions(geopandas.GeoDataFrame([1]))
+    # normal operation
+    assert n.diversions is None
+    n.set_diversions(diversions)
+    assert n.diversions is not None
+    np.testing.assert_array_almost_equal(
+        n.diversions['dist_end'], [3.605551, 3.605551, 9.055385, 9.055385])
+    np.testing.assert_array_almost_equal(
+        n.diversions['dist_line'], [3.605551, 3.605551, 1.0, 1.0])
+    np.testing.assert_array_equal(
+        n.diversions['from_segnum'], [1, 2, 0, 0])
+    np.testing.assert_array_equal(
+        n.segments['diversions'], [set([2, 3]), set([0]), set([1])])
+    # Unset
+    n.set_diversions(None)
+    assert n.diversions is None
+    assert 'diversions' not in n.segments.columns
+    # Try again with min_stream_order option
+    n.set_diversions(diversions, min_stream_order=2)
+    assert n.diversions is not None
+    np.testing.assert_array_almost_equal(
+        n.diversions['dist_end'], [17.117243, 17.117243, 9.055385, 9.055385])
+    np.testing.assert_array_equal(
+        n.diversions['dist_line'], [2.0, 2.0, 1.0, 1.0])
+    np.testing.assert_array_equal(
+        n.diversions['from_segnum'], [0, 0, 0, 0])
+    np.testing.assert_array_equal(
+        n.segments['diversions'], [set([0, 1, 2, 3]), None, None])
+    # Try again, but use 'from_segnum' column
+    diversions = geopandas.GeoDataFrame(
+        {'from_segnum': [0, 2]}, geometry=[Point(55, 97), Point(68, 105)])
+    n.set_diversions(diversions)
+    assert n.diversions is not None
+    np.testing.assert_array_almost_equal(
+        n.diversions['dist_end'], [17.720045,  9.433981])
+    np.testing.assert_array_almost_equal(
+        n.diversions['dist_line'], [5.0, 6.008328])
+    np.testing.assert_array_equal(
+        n.diversions['from_segnum'], [0, 2])
+    np.testing.assert_array_equal(
+        n.segments['diversions'], [set([0]), None, set([1])])
+
+
+def test_set_diversions_dataframe():
+    n = swn.SurfaceWaterNetwork(valid_lines)
+    diversions = pd.DataFrame({'from_segnum': [0, 2]})
+    # check errors
+    with pytest.raises(
+            AttributeError,
+            match=r'use \'set_diversions\(\)\' method'):
+        n.diversions = diversions
+    with pytest.raises(
+            ValueError,
+            match=r'a \[Geo\]DataFrame is expected'):
+        n.set_diversions(diversions.from_segnum)
+    with pytest.raises(
+            ValueError,
+            match='does not appear to be spatial'):
+        n.set_diversions(pd.DataFrame([1]))
+    # normal operation
+    assert n.diversions is None
+    n.set_diversions(diversions)
+    assert n.diversions is not None
+    assert 'dist_end' not in n.diversions.columns
+    assert 'dist_line' not in n.diversions.columns
+    np.testing.assert_array_equal(n.diversions['from_segnum'], [0, 2])
+    np.testing.assert_array_equal(
+        n.segments['diversions'], [set([0]), None, set([1])])
+    # Unset
+    n.set_diversions(None)
+    assert n.diversions is None
+    assert 'diversions' not in n.segments.columns
 
 
 def test_estimate_width():
@@ -886,6 +980,46 @@ def test_adjust_elevation_profile_use_min_slope():
     expected_profiles = wkt_to_geoseries(
             ['LINESTRING (0 8, 1 5, 2 4.8, 3 4.6)'])
     assert (n.profiles == expected_profiles).all()
+
+
+def test_interp_2d_to_3d():
+    grid = np.array([
+        [18.0, 15.0],
+        [14.0, 13.0],
+        [12.0, 10.0],
+    ])
+    gt = (30.0, 20.0, 0.0, 130.0, 0.0, -20.0)
+    # Test points within
+    x = np.tile(np.arange(30, 80, 10), 7)
+    y = np.repeat(np.arange(70, 140, 10)[::-1], 5)
+    expected_z = [
+        18.0, 18.0, 16.5, 15.0, 15.0,
+        18.0, 18.0, 16.5, 15.0, 15.0,
+        16.0, 16.0, 15.0, 14.0, 14.0,
+        14.0, 14.0, 13.5, 13.0, 13.0,
+        13.0, 13.0, 12.25, 11.5, 11.5,
+        12.0, 12.0, 11.0, 10.0, 10.0,
+        12.0, 12.0, 11.0, 10.0, 10.0]
+    gs2d = geopandas.GeoSeries([Point(xy) for xy in zip(x, y)])
+    gs3d = swn.interp_2d_to_3d(gs2d, grid, gt)
+    np.testing.assert_array_equal(gs3d.apply(lambda g: g.z), expected_z)
+    # plt.imshow(np.array(expected_z).reshape((7, 5)))
+    # plt.imshow(grid)
+    # Test inside corners
+    x_in = [30, 70, 70, 30]
+    y_in = [130, 130, 70, 70]
+    gs3d = swn.interp_2d_to_3d(
+            geopandas.GeoSeries([Point(xy) for xy in zip(x_in, y_in)]),
+            grid, gt)
+    np.testing.assert_array_equal(gs3d.apply(lambda g: g.z), [18, 15, 10, 12])
+    # Points outside shoud raise an exception
+    x_out = [29, 71, 71, 29]
+    y_out = [131, 131, 69, 69]
+    outside_combs = list(zip(x_out, y_out)) + list(zip(x_in, y_out)) + \
+        list(zip(x_out, y_in))
+    for pt in outside_combs:
+        with pytest.raises(ValueError, match='coordinates are outside grid'):
+            swn.interp_2d_to_3d(geopandas.GeoSeries([Point(pt)]), grid, gt)
 
 
 def test_topnet2ts(coastal_flow_ts):
