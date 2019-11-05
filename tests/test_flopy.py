@@ -103,7 +103,7 @@ def read_sfl(sfl_fname, reach_data=None):
 def test_process_flopy_instance_errors(n3d):
     n = n3d
     n.segments = n.segments.copy()
-    m = flopy.modflow.Modflow()
+    m = flopy.modflow.Modflow(version='mf2005', exe_name='mf2005')
 
     with pytest.raises(
             ValueError,
@@ -209,7 +209,7 @@ def test_process_flopy_n3d_defaults(n3d, tmpdir_factory):
     """
     outdir = tmpdir_factory.mktemp('n3d')
     # Create a simple MODFLOW model
-    m = flopy.modflow.Modflow(version='mf2005')
+    m = flopy.modflow.Modflow(version='mf2005', exe_name='mf2005')
     _ = flopy.modflow.ModflowDis(
         m, nlay=1, nrow=3, ncol=2, delr=20.0, delc=20.0, top=15.0, botm=10.0,
         xul=30.0, yul=130.0)
@@ -309,7 +309,7 @@ def test_set_segment_data():
     # manually add outside flow from extra segnums, referenced with inflow
     n3d.segments.at[1, 'from_segnums'] = {3, 4}
     # Create a simple MODFLOW model object (don't write/run)
-    m = flopy.modflow.Modflow(version='mf2005')
+    m = flopy.modflow.Modflow(version='mf2005', exe_name='mf2005')
     _ = flopy.modflow.ModflowDis(
         m, nlay=1, nrow=3, ncol=2, delr=20.0, delc=20.0, top=15.0, botm=10.0,
         xul=30.0, yul=130.0)
@@ -401,7 +401,7 @@ def test_set_segment_data():
     np.testing.assert_array_almost_equal(sd.width2, [10.0, 10.0, 10.0])
 
     # Use another model with multiple stress periods
-    m = flopy.modflow.Modflow(version='mf2005')
+    m = flopy.modflow.Modflow(version='mf2005', exe_name='mf2005')
     _ = flopy.modflow.ModflowDis(
         m, nlay=1, nrow=3, ncol=2, nper=4, delr=20.0, delc=20.0,
         top=15.0, botm=10.0, xul=30.0, yul=130.0)
@@ -509,7 +509,7 @@ def test_process_flopy_n3d_vars(tmpdir_factory):
     # manually add outside flow from extra segnums, referenced with inflow
     n3d.segments.at[1, 'from_segnums'] = {3, 4}
     # Create a simple MODFLOW model
-    m = flopy.modflow.Modflow(version='mf2005')
+    m = flopy.modflow.Modflow(version='mf2005', exe_name='mf2005')
     _ = flopy.modflow.ModflowDis(
         m, nlay=1, nrow=3, ncol=2, delr=20.0, delc=20.0, top=15.0, botm=10.0,
         xul=30.0, yul=130.0)
@@ -604,7 +604,8 @@ def test_process_flopy_n2d_defaults(n2d, tmpdir_factory):
         [15.0, 15.0],
         [14.0, 14.0],
     ])
-    m = flopy.modflow.Modflow(version='mf2005')
+    print('exe: ' + str(mf2005_exe))
+    m = flopy.modflow.Modflow(version='mf2005', exe_name='mf2005')
     flopy.modflow.ModflowDis(
         m, nlay=1, nrow=3, ncol=2, delr=20.0, delc=20.0, top=top, botm=10.0,
         xul=30.0, yul=130.0)
@@ -658,7 +659,7 @@ def test_process_flopy_n2d_min_slope(n2d, tmpdir_factory):
         [15.0, 15.0],
         [14.0, 14.0],
     ])
-    m = flopy.modflow.Modflow(version='mf2005')
+    m = flopy.modflow.Modflow(version='mf2005', exe_name='mf2005')
     _ = flopy.modflow.ModflowDis(
         m, nlay=1, nrow=3, ncol=2, delr=20.0, delc=20.0, top=top, botm=10.0,
         xul=30.0, yul=130.0)
@@ -709,7 +710,7 @@ def test_process_flopy_interp_2d_to_3d(tmpdir_factory):
         [15.0, 15.0],
         [14.0, 14.0],
     ])
-    m = flopy.modflow.Modflow(version='mf2005')
+    m = flopy.modflow.Modflow(version='mf2005', exe_name='mf2005')
     flopy.modflow.ModflowDis(
         m, nlay=1, nrow=3, ncol=2, delr=20.0, delc=20.0, top=top, botm=10.0,
         xul=30.0, yul=130.0)
@@ -791,7 +792,7 @@ def test_set_elevations(n2d, tmpdir_factory):
         [15.0, 15.0],
         [14.0, 14.0],
     ])
-    m = flopy.modflow.Modflow(version='mf2005')
+    m = flopy.modflow.Modflow(version='mf2005', exe_name='mf2005')
     _ = flopy.modflow.ModflowDis(
         m, nlay=1, nrow=3, ncol=2, delr=20.0, delc=20.0, top=top, botm=10.0,
         xul=30.0, yul=130.0)
@@ -893,7 +894,7 @@ def test_reach_barely_outside_ibound():
         'LINESTRING (15 125, 70 90, 120 120, 130 90, '
         '150 110, 180 90, 190 110, 290 80)'
     ]))
-    m = flopy.modflow.Modflow()
+    m = flopy.modflow.Modflow(version='mf2005', exe_name='mf2005')
     flopy.modflow.ModflowDis(
         m, nrow=2, ncol=3, delr=100.0, delc=100.0, xul=0.0, yul=200.0)
     flopy.modflow.ModflowBas(m, ibound=np.array([[1, 1, 1], [0, 0, 0]]))
@@ -1315,7 +1316,7 @@ def test_coastal_process_flopy_ibound_modify(coastal_swn, coastal_flow_m,
 
 
 def test_process_flopy_lines_on_boundaries():
-    m = flopy.modflow.Modflow()
+    m = flopy.modflow.Modflow(version='mf2005', exe_name='mf2005')
     flopy.modflow.ModflowDis(
         m, nrow=3, ncol=3, delr=100, delc=100, xul=0, yul=300)
     flopy.modflow.ModflowBas(m)
@@ -1336,7 +1337,7 @@ def test_process_flopy_lines_on_boundaries():
 def test_process_flopy_diversion(tmpdir_factory):
     outdir = tmpdir_factory.mktemp('diversion')
     # Create a simple MODFLOW model
-    m = flopy.modflow.Modflow(version='mf2005')
+    m = flopy.modflow.Modflow(version='mf2005', exe_name='mf2005')
     top = np.array([
         [16.0, 15.0],
         [15.0, 15.0],

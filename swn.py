@@ -2010,7 +2010,7 @@ class MfSfrNetwork(object):
                 parent_s = segments_segnums
             try:
                 data.columns = data.columns.astype(parent.index.dtype)
-            except TypeError:
+            except (ValueError, TypeError):
                 raise ValueError(
                     '{0}.columns.dtype must be same as {1}.index.dtype'
                     .format(name, parent_name))
