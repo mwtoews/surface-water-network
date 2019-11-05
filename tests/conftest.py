@@ -16,7 +16,7 @@ except ImportError:
 sys.path.insert(
     0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 
-import swn  # noqa: E402
+import swn
 
 
 datadir = os.path.join('tests', 'data')

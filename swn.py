@@ -26,7 +26,7 @@ try:
 except ImportError:
     rtree = False
 
-__version__ = '0.2'
+__version__ = '0.1'
 __author__ = 'Mike Toews'
 
 module_logger = logging.getLogger(__name__)
@@ -117,10 +117,6 @@ class SurfaceWaterNetwork(object):
     catchments : geopandas.GeoSeries
         Catchments created from optional 'polygons' input, containing only
         the catchment polygon. Index must match segments.
-    diversions : geopandas.GeoDataFrame or pd.DataFrame
-        [Geo]DataFrame created from 'diversions' input, containing geometry
-        (if available) for a surface water abstraction location, and the
-        connected segment number from where the diversion occurs.
     END_SEGNUM : int
         Special segment number that indicates a line end, default is usually 0.
         This number is not part of segment.index.
@@ -438,126 +434,6 @@ class SurfaceWaterNetwork(object):
         if setting_new:
             self.evaluate_upstream_area()
             self.estimate_width()
-
-    @property
-    def diversions(self):
-        """Returns [Geo]DataFrame of surface water diversions or None"""
-        return getattr(self, '_diversions', None)
-
-    @diversions.setter
-    def diversions(self, value):
-        raise AttributeError("use 'set_diversions()' method")
-
-    def set_diversions(self, diversions, min_stream_order=None):
-        """Set surface water diversion locations
-
-        This method checks or assigns a segment number to divert surface water
-        flow from, and adds other columns to the diversions and segments data
-        frames.
-
-        If a 'from_segnum' column exists, these values are checked against the
-        index for segments, and adds/updates 'dist' (where possible) to
-        describe the distance from the diversion to the end of the segment.
-
-        If 'from_segnum' is not provided and a GeoDataFrame is provided, then
-        the closest segment end is identified, using optional min_stream_order
-        preferentially select higher-order stream segments.
-
-        Parameters
-        ----------
-        diversions : pd.DataFrame, geopandas.GeoDataFrame or None
-            Data frame of surface water diversions, a modified copy kept as a
-            'diversions' property. Use None to unset this property.
-        min_stream_order : int, optional
-            Finds stream segments with a minimum stream order. Default None.
-        """
-        if diversions is None:
-            self._diversions = None
-            if 'diversions' in self.segments:
-                self.segments.drop('diversions', axis=1, inplace=True)
-            return
-
-        if not isinstance(diversions, (geopandas.GeoDataFrame, pd.DataFrame)):
-            raise ValueError('a [Geo]DataFrame is expected')
-
-        is_spatial = (
-            isinstance(diversions, geopandas.GeoDataFrame)
-            and 'geometry' in diversions.columns
-            and (~diversions.is_empty).all())
-
-        if is_spatial:
-            # Make sure CRS is the same as segments (if defined)
-            diversions_crs = getattr(diversions, 'crs', None)
-            segments_crs = getattr(self.segments, 'crs', None)
-            if diversions_crs != segments_crs:
-                self.logger.warning(
-                    'CRS for diversions and segments are different: '
-                    '{0} vs. {1}'.format(diversions_crs, segments_crs))
-        if 'from_segnum' in diversions.columns:
-            self.logger.debug(
-                "checking existing 'from_segnum' column for diversions")
-            sn = set(self.segments.index)
-            dn = set(diversions['from_segnum'])
-            if not sn.issuperset(dn):
-                diff = dn.difference(sn)
-                raise ValueError(
-                    "{0} 'from_segnum' are not found in segments.index: {1}"
-                    .format(len(diff), _abbr_str(diff)))
-            self._diversions = diversions.copy()
-            if is_spatial:
-                self._diversions['dist_end'] = np.nan
-                self._diversions['dist_line'] = np.nan
-                geom_name = self._diversions.geometry.name
-                for idx, item in self._diversions.iterrows():
-                    div_geom = item[geom_name]
-                    seg_geom = self.segments.geometry[item['from_segnum']]
-                    dist_end = div_geom.distance(Point(seg_geom.coords[-1]))
-                    dist_line = div_geom.distance(seg_geom)
-                    self._diversions.loc[idx, ['dist_end', 'dist_line']] = \
-                        [dist_end, dist_line]
-        elif is_spatial:
-            self.logger.debug(
-                'assigning columns for diversions based on spatial distances')
-            self._diversions = diversions.copy()
-            self._diversions['from_segnum'] = self.END_SEGNUM
-            self._diversions['dist_end'] = np.nan
-            self._diversions['dist_line'] = np.nan
-            if min_stream_order is not None:
-                sel = self.segments['stream_order'] >= min_stream_order
-                if not sel.any():
-                    raise ValueError(
-                        "'from_segnum' value too high (nothing selected)")
-                seg_lines = self.segments.loc[sel, 'geometry']
-            else:
-                seg_lines = self.segments.geometry
-            seg_ends = seg_lines.apply(lambda g: Point(g.coords[-1]))
-            # a point that is 0.1 m upstream from end
-            seg_near_ends = seg_lines.interpolate(-0.1, False)
-            for idx, geom in self._diversions.geometry.iteritems():
-                # build table of distances to nearest lines and end points
-                sel = list(seg_lines.sindex.nearest(geom.coords[0],
-                                                    num_results=8))
-                dists = pd.DataFrame({
-                    'dist_end': seg_ends.iloc[sel].distance(geom),
-                    'dist_line': seg_lines.iloc[sel].distance(geom),
-                    'seg_near_ends': seg_near_ends.iloc[sel].distance(geom),
-                    }, index=seg_lines.iloc[sel].index).sort_values(
-                        ['dist_end', 'dist_line', 'seg_near_ends'])
-                # assign closest segnum
-                self._diversions.loc[
-                    idx, ['from_segnum', 'dist_end', 'dist_line']] = \
-                    [dists.index[0]] + \
-                    list(dists.iloc[0][['dist_end', 'dist_line']])
-        else:
-            raise ValueError(
-                "'gdf' does not appear to be spatial or have a 'from_segnum' "
-                "column")
-        # Update segments column to mirror this information
-        self.segments['diversions'] = None
-        for segnum in self._diversions['from_segnum'].unique():
-            sel = self._diversions['from_segnum'] == segnum
-            self.segments.at[segnum, 'diversions'] = \
-                set(self._diversions.loc[sel].index)
 
     @property
     def has_z(self):
@@ -1193,17 +1069,11 @@ class MfSfrNetwork(object):
         Instance of a flopy MODFLOW model
     segments : geopandas.GeoDataFrame
         Copied from swn.segments, but with additional columns added
-    diversions :  geopandas.GeoDataFrame, pd.DataFrame or None
-        Copied from swn.diversions, if set/defined.
     reach_data : pandas.DataFrame
-        Similar to structure in model.sfr.reach_data with index 'reachID',
-        ordered and starting from 1.
+        Similar to structure in model.sfr.reach_data
     segment_data : pandas.DataFrame
         Simialr to structure in model.sfr.segment_data, but for one stress
         period. Transient data (where applicable) will show summary statistics.
-        The index is 'nseg', ordered and starting from 1. An additional column
-        'segnum' is used to identify segments, and if defined,
-        abstraction/diversion identifiers, where iupseg != 0.
     logger : logging.Logger
         Logger to show messages.
     """
@@ -1213,8 +1083,7 @@ class MfSfrNetwork(object):
                  hyd_cond1=1., hyd_cond_out=None,
                  thickness1=1., thickness_out=None,
                  width1=10., width_out=None, roughch=0.024,
-                 abstraction={}, inflow={},
-                 flow={}, runoff={}, etsw={}, pptsw={},
+                 inflow={}, flow={}, runoff={}, etsw={}, pptsw={},
                  logger=None):
         """Create a MODFLOW SFR structure from a surface water network
 
@@ -1263,9 +1132,6 @@ class MfSfrNetwork(object):
             Manning's roughness coefficient for the channel. If float, then
             this is a global value, otherwise it is per-segment with a Series.
             Default 0.024.
-        abstraction : dict or pandas.DataFrame, optional
-            See generate_segment_data for details.
-            Default is {} (no abstraction from diversions).
         inflow : dict or pandas.DataFrame, optional
             See generate_segment_data for details.
             Default is {} (no outside inflow added to flow term).
@@ -1768,158 +1634,52 @@ class MfSfrNetwork(object):
         self.reach_data.insert(0, column='k', value=0)  # only top layer
         self.reach_data.insert(5, column='rchlen', value=self.reaches.length)
         # Build segment_data for Data Set 6
-        self.segment_data = self.reaches[['iseg', 'segnum']]\
-            .drop_duplicates().rename(columns={'iseg': 'nseg'})
-        # index changes from 'reachID', to 'segnum', to finally 'nseg'
-        segnum2nseg_d = self.segment_data.set_index('segnum')['nseg'].to_dict()
-        self.segment_data['icalc'] = 1  # assumption for all streams
-        self.segment_data['outseg'] = self.segment_data['segnum'].map(
-            lambda x: segnum2nseg_d.get(self.segments.loc[x, 'to_segnum'], 0))
-        self.segment_data['iupseg'] = 0  # handle diversions next
+        self.segment_data = self.reaches[['iseg', 'segnum']].drop_duplicates()
+        self.segment_data['elevup'] = self.reaches.loc[
+            self.segment_data.index].strtop
+        self.segment_data['elevdn'] = self.reaches.loc[
+            self.reaches.groupby(['iseg']).ireach.idxmax().values
+        ].strtop.values
+        self.segment_data.rename(columns={'iseg': 'nseg'}, inplace=True)
+        self.segment_data.set_index('segnum', inplace=True)
+        self.segment_data.index.name = self.segments.index.name
+        self.segment_data['icalc'] = 1  # assumption
+        # Translate 'to_segnum' to 'outseg' via 'nseg'
+        self.segment_data['outseg'] = self.segment_data.index.map(
+            lambda x: self.segment_data.loc[
+                self.segments.loc[x, 'to_segnum'], 'nseg'] if
+            self.segments.loc[
+                x, 'to_segnum'] in self.segment_data.index else 0)
+        self.segment_data['iupseg'] = 0  # no diversions (yet)
         self.segment_data['iprior'] = 0
         self.segment_data['flow'] = 0.0
         self.segment_data['runoff'] = 0.0
         self.segment_data['etsw'] = 0.0
         self.segment_data['pptsw'] = 0.0
-        # upper elevation from the first and last reachID items from reaches
-        self.segment_data['elevup'] = \
-            self.reaches.loc[self.segment_data.index, 'strtop']
-        self.segment_data['elevdn'] = self.reaches.loc[
-            self.reaches.groupby(['iseg']).ireach.idxmax().values,
-            'strtop'].values
-        self.segment_data.set_index('segnum', drop=False, inplace=True)
         # copy several columns over (except 'elevup' and 'elevdn', for now)
         segment_cols.remove('elevup')
         segment_cols.remove('elevdn')
         self.segment_data[segment_cols] = self.segments[segment_cols]
-        # now use nseg as primary index, not reachID or segnum
-        self.segment_data.set_index('nseg', inplace=True)
-        self.segment_data.sort_index(inplace=True)
-        # Add diversions (i.e. SW takes)
-        if swn.diversions is not None:
-            self.diversions = swn.diversions.copy()
-            # Add columns for ICALC=0
-            self.segment_data['depth1'] = 0.0
-            self.segment_data['depth2'] = 0.0
-            # workaround for coercion issue
-            self.segment_data['foo'] = ''
-            self.reach_data['foo'] = ''
-            is_spatial = (
-                isinstance(self.diversions, geopandas.GeoDataFrame)
-                and 'geometry' in self.diversions.columns
-                and (~self.diversions.is_empty).all())
-            drop_divids = []
-            for divid, divn in self.diversions.iterrows():
-                if divn.from_segnum not in segnum2nseg_d:
-                    # segnum does not exist -- segment is outside model
-                    drop_divids.append(divid)
-                    continue
-                iupseg = segnum2nseg_d[divn.from_segnum]
-                assert iupseg != 0, iupseg
-                nseg = len(self.segment_data) + 1
-                rchlen = 1.0  # unit length required
-                thickm = 1.0  # unit thickness required
-                hcond = 0.0  # don't allow GW exchange
-                seg_d = dict(self.segment_data.loc[iupseg])
-                seg_d.update({  # index is nseg
-                    'segnum': divid,
-                    'icalc': 0,  # stream depth is specified
-                    'outseg': 0,
-                    'iupseg': iupseg,
-                    'iprior': 0,  # normal behaviour for SW takes
-                    'flow': 0.0,  # abstraction assigned later
-                    'runoff': 0.0,
-                    'etsw': 0.0,
-                    'pptsw': 0.0,
-                    'roughch': 0.0,  # not used
-                    'hcond1': hcond, 'hcond2': hcond,
-                    'thickm1': thickm, 'thickm2': thickm,
-                    'width1': 0.0, 'width2': 0.0,  # not used
-                })
-                reach_d = dict(self.reach_data.loc[
-                    self.reach_data.iseg == iupseg].iloc[-1])
-                row = int(reach_d['i'])
-                col = int(reach_d['j'])
-                reach_d.update({
-                    'k': 0,  # base-zero, top layer
-                    'i': row,
-                    'j': col,
-                    'iseg': nseg,
-                    'ireach': 1,
-                    'rchlen': rchlen,
-                    'slope': 0.0,
-                    'strthick': thickm,
-                    'strhc1': hcond,
-                })
-                # Assign one reach at grid cell
-                if is_spatial:
-                    # Find grid cell nearest to diversion
-                    if grid_sindex:
-                        bbox_match = sorted(
-                            grid_sindex.nearest(divn.geometry.bounds))
-                        # more than one nearest can exist! just take one...
-                        grid_cell = grid_cells.iloc[bbox_match[0]]
-                        if len(bbox_match) > 1:
-                            self.logger.warning(
-                                '%d grid cells are nearest to diversion %r, '
-                                'but only taking the first %s',
-                                len(bbox_match), divid, grid_cell)
-                    else:  # slow scan of all cells
-                        raise NotImplementedError(
-                            'expected a grid spatial index')
-                    row, col = grid_cell.name
-                    strtop = dis.top[row, col]
-                    reach_d.update({'i': row, 'j': col, 'strtop': strtop})
-                else:
-                    strtop = dis.top[row, col]
-                    seg_d.update({'elevup': strtop, 'elevdn': strtop})
-                depth = strtop + 1.0
-                seg_d.update({'depth1': depth, 'depth2': depth})
-                self.reach_data.loc[len(self.reach_data) + 1] = reach_d
-                self.segment_data.loc[nseg] = seg_d
-            if drop_divids:
-                self.diversions.drop(drop_divids, axis=0, inplace=True)
-                self.logger.debug(
-                    'added %d diversions, dropped %d that did not connect to '
-                    'existing segments',
-                    len(self.diversions), len(drop_divids))
-            else:
-                self.logger.debug(
-                    'added all %d diversions', len(self.diversions))
-            # end of coercion workaround
-            self.segment_data.drop('foo', axis=1, inplace=True)
-            self.reach_data.drop('foo', axis=1, inplace=True)
-        else:
-            self.diversions = None
         segment_data = self.set_segment_data(
-            abstraction=abstraction, inflow=inflow,
-            flow=flow, runoff=runoff, etsw=etsw, pptsw=pptsw, return_dict=True)
+            inflow=inflow, flow=flow, runoff=runoff, etsw=etsw, pptsw=pptsw,
+            return_dict=True)
         # Create flopy Sfr2 package
         flopy.modflow.mfsfr2.ModflowSfr2(
                 model=model,
                 reach_data=self.reach_data.to_records(index=True),
                 segment_data=segment_data)
 
-    def set_segment_data(self, abstraction={}, inflow={}, flow={}, runoff={},
+    def set_segment_data(self, inflow={}, flow={}, runoff={},
                          etsw={}, pptsw={}, return_dict=False):
-        """Set timeseries data in segment_data required for flopy's ModflowSfr2
+        """Set segment_data required for flopy.modflow.mfsfr2.ModflowSfr2
 
         This method does two things:
-
             1. Updates sfr.segment_data, which is a dict of rec.array
-               for each stress period.
-            2. Updates summary statistics in segment_data if there are more
-               than one stress period, otherwise values are kept for one
-               stress period.
-
-        Other stationary data members that are part of segment_data
-        (e.g. hcond1, elevup, etc.) are not modified.
+                for each stress period.
+            2. Updates summary statistics in segment_data
 
         Parameters
         ----------
-        abstraction : dict or pandas.DataFrame, optional
-            Surface water abstraction from diversions. Default is {} (zero).
-            Keys are matched to diversions index.
         inflow : dict or pandas.DataFrame, optional
             Streamflow at the bottom of each segment, which is used to to
             determine the streamflow entering the upstream end of a segment if
@@ -1945,7 +1705,7 @@ class MfSfrNetwork(object):
 
         Returns
         -------
-        None or dict (if return_dict is True)
+        None or dict (if return_dict)
         """
         from flopy.modflow.mfsfr2 import ModflowSfr2
         # Build stress period DataFrame from modflow model
@@ -1957,23 +1717,14 @@ class MfSfrNetwork(object):
         stress_df['start'] = pd.to_datetime(modeltime.start_datetime)
         stress_df['end'] = stress_df['duration'] + stress_df.at[0, 'start']
         stress_df.loc[1:, 'start'] = stress_df['end'].iloc[:-1].values
-        # Consider all IDs from segments/diversions
         segments_segnums = set(self.segments.index)
-        has_diversions = self.diversions is not None
-        if has_diversions:
-            diversions_divids = set(self.diversions.index)
-        else:
-            diversions_divids = set()
 
-        def check_ts(data, name):
-            """Returns DataFrame with index along nper and columns for
-            either segnum or divid (checked later)"""
+        def check_ts(data, name, drop_segnums=True):
             if isinstance(data, dict):
                 data = pd.DataFrame(data, index=stress_df['start'])
             elif not isinstance(data, pd.DataFrame):
                 raise ValueError(
                     '{0} must be a dict or DataFrame'.format(name))
-            data.index.name = name  # handy for debugging
             if len(data) != dis.nper:
                 raise ValueError(
                     'length of {0} ({1}) is different than nper ({2})'
@@ -1992,111 +1743,46 @@ class MfSfrNetwork(object):
                     raise ValueError(
                         '{0}.index does not match expected ({1})'
                         .format(name, t))
-            # Also do basic check of column IDs against diversions/segments
-            if name == 'abstraction':
-                if not has_diversions:
-                    if len(data.columns) > 0:
-                        self.logger.error(
-                            'abstraction provided, but diversions are not '
-                            'defined for the surface water network')
-                        data.drop(data.columns, axis=1, inplace=True)
-                    return data
-                parent = self.diversions
-                parent_name = 'diversions'
-                parent_s = diversions_divids
-            else:
-                parent = self.segments
-                parent_name = 'segments'
-                parent_s = segments_segnums
             try:
-                data.columns = data.columns.astype(parent.index.dtype)
-            except (ValueError, TypeError):
+                data.columns = data.columns.astype(self.segments.index.dtype)
+            except TypeError:
                 raise ValueError(
-                    '{0}.columns.dtype must be same as {1}.index.dtype'
-                    .format(name, parent_name))
-            data_id_s = set(data.columns)
-            if len(data_id_s) > 0:
-                if data_id_s.isdisjoint(parent_s):
-                    msg = '{0}.columns (or keys) not found in {1}.index: {2}'\
-                        .format(name, parent_name, _abbr_str(data_id_s))
-                    if name == 'inflow':
-                        self.logger.warning(msg)
-                    else:
-                        raise ValueError(msg)
-                if name != 'inflow':  # some segnums accumulate outside flow
-                    not_found = data_id_s.difference(parent_s)
-                    if not data_id_s.issubset(parent_s):
+                    '{0}.columns.dtype must be same as segments.index.dtype'
+                    .format(name))
+            data_segnums = set(data.columns)
+            if len(data_segnums) > 0:
+                if data_segnums.isdisjoint(segments_segnums):
+                    raise ValueError(
+                        '{0}.columns not found in segments.index'.format(name))
+                if drop_segnums:
+                    not_found = data_segnums.difference(segments_segnums)
+                    if not data_segnums.issubset(segments_segnums):
                         self.logger.warning(
                             'dropping %s of %s %s.columns, which are '
-                            'not found in %s.index: %s',
-                            len(not_found), len(data_id_s), name,
-                            parent_name, _abbr_str(data_id_s))
+                            'not found in segments.index',
+                            len(not_found), len(data_segnums), name)
                         data.drop(not_found, axis=1, inplace=True)
             return data
 
         self.logger.debug('checking timeseries data against modflow model')
-        abstraction = check_ts(abstraction, 'abstraction')
-        inflow = check_ts(inflow, 'inflow')
+        inflow = check_ts(inflow, 'inflow', drop_segnums=False)
         flow = check_ts(flow, 'flow')
         runoff = check_ts(runoff, 'runoff')
         etsw = check_ts(etsw, 'etsw')
         pptsw = check_ts(pptsw, 'pptsw')
-
-        # Translate segnum/divid to nseg
-        is_diversion = self.segment_data['iupseg'] != 0
-        divid2nseg = self.segment_data[is_diversion]\
-            .reset_index().set_index('segnum')['nseg']
-        divid2nseg_d = divid2nseg.to_dict()
-        segnum2nseg = self.segment_data[~is_diversion]\
-            .reset_index().set_index('segnum')['nseg']
-        segnum2nseg_d = segnum2nseg.to_dict()
-        segnum_s = set(segnum2nseg_d.keys())
-
-        def map_nseg(data, name):
-            data_id_s = set(data.columns)
-            if len(data_id_s) == 0:
-                return data
-            if name == 'abstraction':
-                colid2nseg_d = divid2nseg_d
-                parent_descr = 'diversions'
-            else:
-                colid2nseg_d = segnum2nseg_d
-                parent_descr = 'regular segments'
-            colid_s = set(colid2nseg_d.keys())
-            not_found = data_id_s.difference(colid_s)
-            if not data_id_s.issubset(colid_s):
-                self.logger.warning(
-                    'dropping %s of %s %s.columns, which are '
-                    'not found in segment_data.index for %s',
-                    len(not_found), len(data_id_s), name,
-                    parent_descr)
-                data.drop(not_found, axis=1, inplace=True)
-            return data.rename(columns=colid2nseg_d)
-
-        self.logger.debug('mapping segnum/divid to segment_data.index (nseg)')
-        abstraction = map_nseg(abstraction, 'abstraction')
-        flow = map_nseg(flow, 'flow')
-        runoff = map_nseg(runoff, 'runoff')
-        etsw = map_nseg(etsw, 'etsw')
-        pptsw = map_nseg(pptsw, 'pptsw')
-
-        self.logger.debug('accumulating inflow from outside network')
         # Create an 'inflows' DataFrame calculated from combining 'inflow'
         inflows = pd.DataFrame(index=inflow.index)
         has_inflow = len(inflow.columns) > 0
-        missing_inflow_segnums = []
-        if has_inflow:
-            self.segment_data['inflow_segnums'] = None
-        elif 'inflow_segnums' in self.segment_data:
-            self.segment_data.drop('inflow_segnums', axis=1, inplace=True)
+        missing_inflow = 0
+        self.segments['inflow_segnums'] = None
         # Determine upstream flows needed for each SFR segment
-        for segnum in self.segment_data.loc[~is_diversion, 'segnum']:
-            nseg = segnum2nseg_d[segnum]
+        sfr_segnums = set(self.segment_data.index)
+        for segnum in self.segment_data.index:
             from_segnums = self.segments.at[segnum, 'from_segnums']
             if not from_segnums:
                 continue
             # gather segments outside SFR network
-            outside_segnums = from_segnums.difference(segnum_s)
+            outside_segnums = from_segnums.difference(sfr_segnums)
             if not outside_segnums:
                 continue
             if has_inflow:
@@ -2110,44 +1796,38 @@ class MfSfrNetwork(object):
                         self.logger.warning(
                             'flow from segment %s not provided by inflow term '
                             '(needed for %s)', from_segnum, segnum)
-                        missing_inflow_segnums.append(from_segnum)
+                        missing_inflow += 1
                 if inflow_segnums:
-                    inflows[nseg] = inflow_series
-                    self.segment_data.at[nseg, 'inflow_segnums'] = \
-                        inflow_segnums
+                    inflows[segnum] = inflow_series
+                    self.segments.at[segnum, 'inflow_segnums'] = inflow_segnums
             else:
-                missing_inflow_segnums += outside_segnums
-        if not has_inflow and len(missing_inflow_segnums) > 0:
+                missing_inflow += len(outside_segnums)
+        if not has_inflow and missing_inflow > 0:
             self.logger.warning(
                 'inflow from %d segnums are needed to determine flow from '
-                'outside SFR network: %s', len(missing_inflow_segnums),
-                _abbr_str(missing_inflow_segnums))
-        # Append extra columns to segment_data that are used by flopy
-        segment_column_names = []
-        nss = len(self.segment_data)
-        for name, dtype in ModflowSfr2.get_default_segment_dtype().descr:
-            if name == 'nseg':  # skip adding the index
-                continue
-            segment_column_names.append(name)
-            if name not in self.segment_data.columns:
-                self.segment_data[name] = np.zeros(nss, dtype=dtype)
-        # Re-assmble stress period dict for flopy, with iper keys
+                'outside SFR network', missing_inflow)
         segment_data = {}
-        has_abstraction = len(abstraction.columns) > 0
         has_inflows = len(inflows.columns) > 0
         has_flow = len(flow.columns) > 0
         has_runoff = len(runoff.columns) > 0
         has_etsw = len(etsw.columns) > 0
         has_pptsw = len(pptsw.columns) > 0
+        # Take only a subset of columns to sfr
+        colnames = []
+        n = ModflowSfr2.get_default_segment_dtype().names
+        diff = set(n) - set(self.segment_data.columns)
+        self.segment_data = pd.concat(
+            [self.segment_data,
+             pd.DataFrame(
+                 np.zeros([len(self.segment_data.index), len(diff)]),
+                 columns=diff, index=self.segment_data.index)], axis=1)
+        colnames = list(n)
         for iper in range(dis.nper):
             # Store data for each stress period
             self.segment_data['flow'] = 0.0
             self.segment_data['runoff'] = 0.0
             self.segment_data['etsw'] = 0.0
             self.segment_data['pptsw'] = 0.0
-            if has_abstraction:
-                item = abstraction.iloc[iper]
-                self.segment_data.loc[item.index, 'flow'] = item
             if has_inflows:
                 item = inflows.iloc[iper]
                 self.segment_data.loc[item.index, 'flow'] += item
@@ -2163,8 +1843,8 @@ class MfSfrNetwork(object):
             if has_pptsw:
                 item = pptsw.iloc[iper]
                 self.segment_data.loc[item.index, 'pptsw'] = item
-            segment_data[iper] = self.segment_data[segment_column_names]\
-                .to_records(index=True)  # index is nseg
+            segment_data[iper] = self.segment_data[colnames]\
+                .to_records(index=False)
 
         # For models with more than one stress period, evaluate summary stats
         if dis.nper > 1:
@@ -2185,7 +1865,6 @@ class MfSfrNetwork(object):
                 self.segment_data.loc[mean_v.index, name + '_mean'] = mean_v
                 self.segment_data.loc[max_v.index, name + '_max'] = max_v
 
-            add_summary_stats('abstraction', abstraction)
             add_summary_stats('inflow', inflows)
             add_summary_stats('flow', flow)
             add_summary_stats('runoff', runoff)
@@ -2302,15 +1981,19 @@ class MfSfrNetwork(object):
         """
         # extract segment length for calculating minimun drop later
         seglen = self.reach_data.groupby('iseg').rchlen.sum()
-        self.segment_data.loc[seglen.index, 'seglen'] = seglen
-        return seglen
+        idx_name = self.segment_data.index.name or 'index'
+        self.segment_data = self.segment_data.reset_index().merge(
+            seglen, left_on='nseg', right_index=True, how='left'
+        ).set_index(idx_name)
+        self.segment_data.rename(columns={'rchlen': "seglen"}, inplace=True)
+        return self.segment_data['seglen']
 
     def get_outseg_elev(self):
         """Get the maximum elevup associated with all downstream segments
         for each segment"""
         self.segment_data['outseg_elevup'] = self.segment_data.outseg.apply(
             lambda x: self.segment_data.loc[
-                self.segment_data.index == x].elevup).max(axis=1)
+                self.segment_data.nseg == x].elevup).max(axis=1)
         return self.segment_data['outseg_elevup']
 
     def set_outseg_elev_for_seg(self, seg):
@@ -2325,7 +2008,7 @@ class MfSfrNetwork(object):
         """
         # downstreambuffer = 0.001 # 1mm
         # find where seg is listed as outseg
-        outsegsel = self.segment_data['outseg'] == seg.name
+        outsegsel = self.segment_data['outseg'] == seg.nseg
         # set outseg elevup
         outseg_elevup = self.segment_data.loc[outsegsel, 'outseg_elevup']
         return outseg_elevup
@@ -2351,7 +2034,7 @@ class MfSfrNetwork(object):
         prefslope = np.max([surfslope, minslope])
         if seg.outseg > 0.0:
             # select outflow segment for current seg and pull out elevup
-            outsegsel = self.segment_data.index == seg.outseg
+            outsegsel = self.segment_data['nseg'] == seg.outseg
             outseg_elevup = self.segment_data.loc[outsegsel, 'elevup']
             down = outseg_elevup.values[0]
             if down >= up - (seg.seglen * prefslope):
@@ -2360,7 +2043,7 @@ class MfSfrNetwork(object):
                 outseg_up = up - (seg.seglen * prefslope) - downstreambuffer
                 print('Segment {}, outseg = {}, old outseg_elevup = {}, '
                       'new outseg_elevup = {}'
-                      .format(seg.name, seg.outseg,
+                      .format(int(seg.nseg), int(seg.outseg),
                               seg.outseg_elevup, outseg_up))
             else:
                 dn = down
@@ -2372,11 +2055,11 @@ class MfSfrNetwork(object):
                 dn = up - (seg.seglen * prefslope)
                 print('Outflow Segment {}, outseg = {}, old elevdn = {}, '
                       'new elevdn = {}'
-                      .format(seg.name, seg.outseg, seg.elevdn, dn))
+                      .format(int(seg.nseg), int(seg.outseg), seg.elevdn, dn))
             else:
                 dn = down
         # this returns a DF once the apply is done!
-        return pd.Series({'nseg': seg.name, 'elevdn': dn,
+        return pd.Series({'nseg': seg.nseg, 'elevdn': dn,
                           'outseg_elevup': outseg_up})
 
     def set_forward_segs(self, min_slope=1.e-4):
@@ -2389,14 +2072,14 @@ class MfSfrNetwork(object):
         """
         # upper most segments (not referenced as outsegs)
         # segdata_df = self.segment_data.sort_index(axis=1)
-        segsel = ~self.segment_data.index.isin(self.segment_data['outseg'])
+        segsel = ~self.segment_data['nseg'].isin(self.segment_data['outseg'])
         while segsel.sum() > 0:
             print('Checking elevdn and outseg_elevup for {} segments'
                   .format(segsel.sum()))
             # get elevdn and outseg_elevups with a minimum slope constraint
             # index should align with self.segment_data index
             # not applying directly allows us to filter out nans
-            tmp = self.segment_data.assign(_='').loc[segsel].apply(
+            tmp = self.segment_data.loc[segsel].apply(
                 self.minslope_seg, args=[min_slope], axis=1)
             ednsel = tmp[tmp['elevdn'].notna()].index
             oeupsel = tmp[tmp['outseg_elevup'].notna()].index
@@ -2414,7 +2097,7 @@ class MfSfrNetwork(object):
             self.segment_data.loc[eupsel, 'elevup'] = \
                 tmp2.loc[eupsel, 'elevup']
             # get list of next outsegs
-            segsel = self.segment_data.index.isin(
+            segsel = self.segment_data['nseg'].isin(
                 self.segment_data.loc[segsel, 'outseg'])
         return self.segment_data
 
@@ -2469,7 +2152,7 @@ class MfSfrNetwork(object):
             :param seg: one row of reach data dataframe grouped by segment
             :return: reaches by segment with strtop adjusted
             """
-            segsel = self.segment_data.index == seg.name
+            segsel = self.segment_data['nseg'] == seg.name
 
             seg_elevup = self.segment_data.loc[segsel, 'elevup'].values[0]
             seg_slope = self.segment_data.loc[segsel, 'Zslope'].values[0]
@@ -2519,8 +2202,7 @@ class MfSfrNetwork(object):
         buffer = 1.0  # 1 m (buffer to leave at the base of layer 1 -
         # also helps with precision issues)
         # make sure elevations are up-to-date
-        # recalculate REACH strtop elevations
-        _ = self.reconcile_reach_strtop()
+        _ = self.reconcile_reach_strtop()  # recalculate REACH strtop elevations
         _ = self.set_topbot_elevs_at_reaches()
         # top read from dis as float32 so comparison need to be with like
         reachsel = self.reach_data['top'] <= self.reach_data['strtop']
@@ -2538,10 +2220,10 @@ class MfSfrNetwork(object):
         # copy of layer 1 bottom (for updating to fit in stream reaches)
         layerbots = self.model.dis.botm.array.copy()
         # loop over each segment
-        for seg in self.segment_data.index:  # (all segs)
+        for seg in self.segment_data['nseg'].values:  # (all segs)
             # selection for segment in reachdata and seg data
             rsel = self.reach_data['iseg'] == seg
-            segsel = self.segment_data.index == seg
+            segsel = self.segment_data['nseg'] == seg
 
             if seg in segsabove:
                 # check top and bottom reaches are above layer 1 bottom
@@ -2837,7 +2519,7 @@ class ModelPlot(object):
     #     # rivers = cartopy.feature.NaturalEarthFeature(
     #     #     category='physical', name='rivers_lake_centerlines',
     #     #     scale='10m', facecolor='none', edgecolor='b')
-    #   # ax.add_feature(rivers, linewidth=0.5,)#,transform=ccrs.PlateCarree())
+    #     # ax.add_feature(rivers, linewidth=0.5,)#,transform=ccrs.PlateCarree())
     #     self._label_utm_grid()
 
     # def _label_utm_grid(self):
@@ -2845,18 +2527,17 @@ class ModelPlot(object):
     #     Label axes as UTM
     #     Warning: should only use with small area UTM maps
     #     """
-    #   for val, label in zip(self.ax.get_xticks(), self.ax.get_xticklabels()):
+    #     for val, label in zip(self.ax.get_xticks(), self.ax.get_xticklabels()):
     #         label.set_text(str(val))
     #         label.set_position((val, 0))
     #         label.set_rotation(90)
     #
-    #   for val, label in zip(self.ax.get_yticks(), self.ax.get_yticklabels()):
+    #     for val, label in zip(self.ax.get_yticks(), self.ax.get_yticklabels()):
     #         label.set_text(str(val))
     #         label.set_position((0, val))
     #
     #     self.ax.tick_params(bottom=True, top=True, left=True, right=True,
-    #                         labelbottom=True, labeltop=False, labelleft=True,
-    #                         labelright=False)
+    #                         labelbottom=True, labeltop=False, labelleft=True, labelright=False)
     #
     #     self.ax.xaxis.set_visible(True)
     #     self.ax.yaxis.set_visible(True)
@@ -3130,94 +2811,3 @@ def gdf_to_shapefile(gdf, shp_fname, **kwargs):
             del colname10[k]
     gdf.rename(columns=colname10).reset_index(drop=False)\
         .to_file(str(shp_fname), **kwargs)
-
-
-def interp_2d_to_3d(gs, grid, gt):
-    """Interpolate 2D vector to a 3D grid using a georeferenced grid
-
-    Parameters
-    ----------
-    gs : geopandas.GeoSeries
-        Input geopandas GeoSeries
-    grid : np.ndarray
-        2D array of values, e.g. DEM
-    gt : tuple
-        GDAL-style geotransform coefficients for grid
-
-    Returns
-    -------
-    geopandas.GeoSeries
-        With 3rd dimension values interpolated from grid.
-    """
-
-    assert gt[1] > 0, gt[1]
-    assert gt[2] == 0, gt[2]
-    assert gt[4] == 0, gt[4]
-    assert gt[5] < 0, gt[5]
-    hx = gt[1] / 2.0
-    hy = gt[5] / 2.0
-    div = gt[1] * gt[5]
-    ny, nx = grid.shape
-    ar = np.pad(grid, 1, 'symmetric')
-
-    def geom2dto3d(geom):
-        x, y = geom.xy
-        x = np.array(x)
-        y = np.array(y)
-        # Determine outside points
-        outside = (
-            (x < gt[0]) | (x > (gt[0] + nx * gt[1])) |
-            (y > gt[3]) | (y < (gt[3] + ny * gt[5])))
-        if outside.any():
-            raise ValueError('{0} coordinates are outside grid'
-                             .format(outside.sum()))
-        # Use half raster cell widths for cell center values
-        fx = (x - (gt[0] + hx)) / gt[1]
-        fy = (y - (gt[3] + hy)) / gt[5]
-        ix1 = np.floor(fx).astype(np.int32)
-        iy1 = np.floor(fy).astype(np.int32)
-        ix2 = ix1 + 1
-        iy2 = iy1 + 1
-        # Calculate differences from point to bounding raster midpoints
-        dx1 = x - (gt[0] + ix1 * gt[1] + hx)
-        dy1 = y - (gt[3] + iy1 * gt[5] + hy)
-        dx2 = (gt[0] + ix2 * gt[1] + hx) - x
-        dy2 = (gt[3] + iy2 * gt[5] + hy) - y
-        # Use a 1-padded array to interpolate edges nicely, so add 1 to index
-        ix1 += 1
-        ix2 += 1
-        iy1 += 1
-        iy2 += 1
-        # Use the differences to weigh the four raster values
-        z = (ar[iy1, ix1] * dx2 * dy2 / div +
-             ar[iy1, ix2] * dx1 * dy2 / div +
-             ar[iy2, ix1] * dx2 * dy1 / div +
-             ar[iy2, ix2] * dx1 * dy1 / div)
-        return type(geom)(zip(x, y, z))
-
-    return gs.apply(geom2dto3d)
-
-
-def geotransform_from_flopy(m):
-    """Returns GDAL-style geotransform from flopy model"""
-    try:
-        import flopy
-    except ImportError:
-        raise ImportError('this method requires flopy')
-    if not isinstance(m, flopy.mbase.BaseModel):
-        raise TypeError("'m' must be a flopy model")
-    mg = m.modelgrid
-    if mg.angrot != 0.0:
-        raise NotImplementedError('rotated grids not supported')
-    if mg.delr.min() != mg.delr.max():
-        raise ValueError('delr not uniform')
-    if mg.delc.min() != mg.delc.max():
-        raise ValueError('delc not uniform')
-    a = mg.delr[0]
-    b = 0.0
-    c = mg.xoffset
-    d = 0.0
-    e = -mg.delc[0]
-    f = mg.yoffset - e * mg.nrow
-    # GDAL order of affine transformation coefficients
-    return c, a, b, f, d, e
