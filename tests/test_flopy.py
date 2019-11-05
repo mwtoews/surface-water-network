@@ -1,9 +1,12 @@
 # -*- coding: utf-8 -*-
+import geopandas
 import numpy as np
 import pandas as pd
 import pytest
 from hashlib import md5
 from shapely import wkt
+from shapely.geometry import Point
+from warnings import warn
 try:
     import flopy
 except ImportError:
@@ -30,10 +33,77 @@ def n2d():
     return swn.SurfaceWaterNetwork(force_2d(n3d_lines))
 
 
+def read_head(hed_fname, reach_data=None):
+    """Reads MODFLOW Head file
+
+    If reach_data is not None, it is modified inplace to add a 'head' column
+
+    Returns numpy array
+    """
+    try:
+        b = flopy.utils.HeadFile(hed_fname)
+        data = b.get_data()
+    finally:
+        b.close()
+    if reach_data is not None:
+        reach_data['head'] = \
+            data[reach_data['k'], reach_data['i'], reach_data['j']]
+    return data
+
+
+def read_budget(bud_fname, text, reach_data=None, colname=None):
+    """Reads MODFLOW cell-by-cell file
+
+    If reach_data is not None, it is modified inplace to add data in 'colname'
+
+    Returns numpy array
+    """
+    try:
+        b = flopy.utils.CellBudgetFile(bud_fname)
+        res = b.get_data(text=text)
+        if len(res) != 1:
+            warn('get_data(text={!r}) returned more than one array'
+                 .format(text))
+        data = res[0]
+    finally:
+        b.close()
+    if reach_data is not None:
+        if isinstance(data, np.recarray) and 'q' in data.dtype.names:
+            reach_data[colname] = data['q']
+        else:
+            reach_data[colname] = \
+                data[reach_data['k'], reach_data['i'], reach_data['j']]
+    return data
+
+
+def read_sfl(sfl_fname, reach_data=None):
+    """Reads MODFLOW stream flow listing ASCII file
+
+    If reach_data is not None, it is modified inplace to add new columns
+
+    Returns DataFrame of stream flow listing file
+    """
+    sfl = flopy.utils.SfrFile(sfl_fname).get_dataframe()
+    # this index modification is only valid for steady models
+    if sfl.index.name is None:
+        sfl.index += 1
+        sfl.index.name = 'reachID'
+    if 'col16' in sfl.columns:
+        sfl.rename(columns={'col16': 'gradient'}, inplace=True)
+    dont_copy = ['layer', 'row', 'column', 'segment', 'reach', 'k', 'i', 'j']
+    if reach_data is not None:
+        if not (reach_data.index == sfl.index).all():
+            raise IndexError('reach_data.index is different')
+        for cn in sfl.columns:
+            if cn not in dont_copy:
+                reach_data[cn] = sfl[cn]
+    return sfl
+
+
 def test_process_flopy_instance_errors(n3d):
     n = n3d
     n.segments = n.segments.copy()
-    m = flopy.modflow.Modflow()
+    m = flopy.modflow.Modflow(version='mf2005', exe_name='mf2005')
 
     with pytest.raises(
             ValueError,
@@ -109,7 +179,7 @@ def test_process_flopy_instance_errors(n3d):
 
     with pytest.raises(
             ValueError,
-            match=r'flow\.columns not found in segments\.index'):
+            match=r'flow\.columns \(or keys\) not found in segments\.index'):
         swn.MfSfrNetwork(
             n, m, flow=pd.DataFrame(
                     {'3': 1.1},  # segnum 3 does not exist
@@ -139,7 +209,7 @@ def test_process_flopy_n3d_defaults(n3d, tmpdir_factory):
     """
     outdir = tmpdir_factory.mktemp('n3d')
     # Create a simple MODFLOW model
-    m = flopy.modflow.Modflow(version='mf2005')
+    m = flopy.modflow.Modflow(version='mf2005', exe_name='mf2005')
     _ = flopy.modflow.ModflowDis(
         m, nlay=1, nrow=3, ncol=2, delr=20.0, delc=20.0, top=15.0, botm=10.0,
         xul=30.0, yul=130.0)
@@ -206,20 +276,11 @@ def test_process_flopy_n3d_defaults(n3d, tmpdir_factory):
     hds_fname = str(outdir.join(m.name + '.hds'))
     cbc_fname = str(outdir.join(m.name + '.cbc'))
     sfo_fname = str(outdir.join(m.name + '.sfo'))
-    b = flopy.utils.HeadFile(hds_fname)
-    heads = b.get_data()
-    b.close()
-    b = flopy.utils.CellBudgetFile(cbc_fname)
-    sl = b.get_data(text='STREAM LEAKAGE')[0]
-    b.close()
-    b = flopy.utils.CellBudgetFile(sfo_fname)
-    sf = b.get_data(text='STREAMFLOW OUT')[0]
-    b.close()
-    # Transfer model outputs to reaches dataframe
-    nm.reaches['head'] = \
-        heads[nm.reach_data['k'], nm.reach_data['i'], nm.reach_data['j']]
-    nm.reaches['sfrleakage'] = sl['q']
-    nm.reaches['sfr_Q'] = sf['q']
+    heads = read_head(hds_fname)
+    sl = read_budget(cbc_fname, 'STREAM LEAKAGE', nm.reach_data, 'sfrleakage')
+    sf = read_budget(sfo_fname, 'STREAMFLOW OUT', nm.reach_data, 'sfr_Q')
+    # Write some files
+    nm.reach_data.to_csv(str(outdir.join('reach_data.csv')))
     nm.reaches.to_file(str(outdir.join('reaches.shp')))
     nm.grid_cells.to_file(str(outdir.join('grid_cells.shp')))
     swn.gdf_to_shapefile(nm.segments, outdir.join('segments.shp'))
@@ -241,11 +302,214 @@ def test_process_flopy_n3d_defaults(n3d, tmpdir_factory):
                   0.12359641, 0.24412636], np.float32))
 
 
-def test_process_flopy_n3d_vars(n3d, tmpdir_factory):
+def test_set_segment_data():
+    # Note that set_segment_data is used both internally and externally
+    # Create a local swn object to modify
+    n3d = swn.SurfaceWaterNetwork(n3d_lines)
+    # manually add outside flow from extra segnums, referenced with inflow
+    n3d.segments.at[1, 'from_segnums'] = {3, 4}
+    # Create a simple MODFLOW model object (don't write/run)
+    m = flopy.modflow.Modflow(version='mf2005', exe_name='mf2005')
+    _ = flopy.modflow.ModflowDis(
+        m, nlay=1, nrow=3, ncol=2, delr=20.0, delc=20.0, top=15.0, botm=10.0,
+        xul=30.0, yul=130.0)
+    _ = flopy.modflow.ModflowBas(m, strt=15.0, stoper=5.0)
+    nm = swn.MfSfrNetwork(
+        n3d, m, min_slope=0.03, hyd_cond1=2, thickness1=2.0,
+        inflow={3: 9.6, 4: 9.7}, flow={1: 18.4},
+        runoff={1: 5}, pptsw={2: 1.8}, etsw={0: 0.01, 1: 0.02, 2: 0.03})
+    # Check only data set 6
+    assert m.sfr.nss == 3
+    assert len(m.sfr.segment_data) == 1
+    sd = m.sfr.segment_data[0]
+    np.testing.assert_array_equal(sd.nseg, [1, 2, 3])
+    np.testing.assert_array_equal(sd.icalc, [1, 1, 1])
+    np.testing.assert_array_equal(sd.outseg, [3, 3, 0])
+    np.testing.assert_array_equal(sd.iupseg, [0, 0, 0])
+    np.testing.assert_array_equal(sd.iprior, [0, 0, 0])
+    # note that 'inflow' gets added to nseg 1 flow
+    assert 'inflow_segnums' in nm.segment_data.columns
+    np.testing.assert_array_equal(
+        nm.segment_data.inflow_segnums, [set([3, 4]), None, None])
+    np.testing.assert_array_almost_equal(
+        sd.flow, np.array([18.4 + 9.6 + 9.7, 0.0, 0.0], dtype=np.float32))
+    np.testing.assert_array_almost_equal(sd.runoff, [5.0, 0.0, 0.0])
+    np.testing.assert_array_almost_equal(sd.etsw, [0.02, 0.03, 0.01])
+    np.testing.assert_array_almost_equal(sd.pptsw, [0.0, 1.8, 0.0])
+    np.testing.assert_array_almost_equal(sd.roughch, [0.024, 0.024, 0.024])
+    np.testing.assert_array_almost_equal(sd.hcond1, [2.0, 2.0, 2.0])
+    np.testing.assert_array_almost_equal(sd.thickm1, [2.0, 2.0, 2.0])
+    np.testing.assert_array_almost_equal(sd.width1, [10.0, 10.0, 10.0])
+    np.testing.assert_array_almost_equal(sd.hcond2, [2.0, 2.0, 2.0])
+    np.testing.assert_array_almost_equal(sd.thickm2, [2.0, 2.0, 2.0])
+    np.testing.assert_array_almost_equal(sd.width2, [10.0, 10.0, 10.0])
+
+    # Re-write segment_data without arguments
+    nm.set_segment_data()
+    assert m.sfr.nss == 3
+    assert len(m.sfr.segment_data) == 1
+    sd = m.sfr.segment_data[0]
+    np.testing.assert_array_equal(sd.nseg, [1, 2, 3])
+    np.testing.assert_array_equal(sd.icalc, [1, 1, 1])
+    np.testing.assert_array_equal(sd.outseg, [3, 3, 0])
+    np.testing.assert_array_equal(sd.iupseg, [0, 0, 0])
+    np.testing.assert_array_equal(sd.iprior, [0, 0, 0])
+    # note that 'inflow' gets added to nseg 1 flow
+    assert 'inflow_segnums' not in nm.segment_data.columns
+    # These timeseries sets are now all zero
+    np.testing.assert_array_equal(sd.flow, [0.0, 0.0, 0.0])
+    np.testing.assert_array_equal(sd.runoff, [0.0, 0.0, 0.0])
+    np.testing.assert_array_equal(sd.etsw, [0.0, 0.0, 0.0])
+    np.testing.assert_array_equal(sd.pptsw, [0.0, 0.0, 0.0])
+    # And these stationary datasets are unchanged
+    np.testing.assert_array_almost_equal(sd.roughch, [0.024, 0.024, 0.024])
+    np.testing.assert_array_almost_equal(sd.hcond1, [2.0, 2.0, 2.0])
+    np.testing.assert_array_almost_equal(sd.thickm1, [2.0, 2.0, 2.0])
+    np.testing.assert_array_almost_equal(sd.width1, [10.0, 10.0, 10.0])
+    np.testing.assert_array_almost_equal(sd.hcond2, [2.0, 2.0, 2.0])
+    np.testing.assert_array_almost_equal(sd.thickm2, [2.0, 2.0, 2.0])
+    np.testing.assert_array_almost_equal(sd.width2, [10.0, 10.0, 10.0])
+
+    # Re-write segment_data with arguments
+    # note that this network does not have diversions, so abstraction term will
+    # not be used and generate a warning
+    nm.set_segment_data(
+        abstraction={0: 123.0}, runoff={1: 5.5}, inflow={3: 9.6, 4: 9.7})
+    assert m.sfr.nss == 3
+    assert len(m.sfr.segment_data) == 1
+    sd = m.sfr.segment_data[0]
+    np.testing.assert_array_equal(sd.nseg, [1, 2, 3])
+    np.testing.assert_array_equal(sd.icalc, [1, 1, 1])
+    np.testing.assert_array_equal(sd.outseg, [3, 3, 0])
+    np.testing.assert_array_equal(sd.iupseg, [0, 0, 0])
+    np.testing.assert_array_equal(sd.iprior, [0, 0, 0])
+    assert 'inflow_segnums' in nm.segment_data.columns
+    np.testing.assert_array_equal(
+        nm.segment_data.inflow_segnums, [set([3, 4]), None, None])
+    np.testing.assert_array_almost_equal(
+        sd.flow, np.array([9.6 + 9.7, 0.0, 0.0], dtype=np.float32))
+    np.testing.assert_array_almost_equal(sd.runoff, [5.5, 0.0, 0.0])
+    np.testing.assert_array_equal(sd.etsw, [0.0, 0.0, 0.0])
+    np.testing.assert_array_equal(sd.pptsw, [0.0, 0.0, 0.0])
+    # And these stationary datasets are unchanged
+    np.testing.assert_array_almost_equal(sd.roughch, [0.024, 0.024, 0.024])
+    np.testing.assert_array_almost_equal(sd.hcond1, [2.0, 2.0, 2.0])
+    np.testing.assert_array_almost_equal(sd.thickm1, [2.0, 2.0, 2.0])
+    np.testing.assert_array_almost_equal(sd.width1, [10.0, 10.0, 10.0])
+    np.testing.assert_array_almost_equal(sd.hcond2, [2.0, 2.0, 2.0])
+    np.testing.assert_array_almost_equal(sd.thickm2, [2.0, 2.0, 2.0])
+    np.testing.assert_array_almost_equal(sd.width2, [10.0, 10.0, 10.0])
+
+    # Use another model with multiple stress periods
+    m = flopy.modflow.Modflow(version='mf2005', exe_name='mf2005')
+    _ = flopy.modflow.ModflowDis(
+        m, nlay=1, nrow=3, ncol=2, nper=4, delr=20.0, delc=20.0,
+        top=15.0, botm=10.0, xul=30.0, yul=130.0)
+    _ = flopy.modflow.ModflowBas(m, strt=15.0, stoper=5.0)
+    nm = swn.MfSfrNetwork(
+        n3d, m,
+        inflow={3: 9.6, 4: 9.7}, flow={1: [18.4, 13.1, 16.4, 9.2]},
+        runoff={1: 5}, pptsw={2: [1.8, 0.2, 1.3, 0.9]},
+        etsw={0: 0.01, 1: 0.02, 2: [0.03, 0.02, 0.03, 0.01]})
+    # Check only data set 6
+    assert m.sfr.nss == 3
+    assert len(m.sfr.segment_data) == 4
+    for iper in range(4):
+        sd = m.sfr.segment_data[iper]
+        np.testing.assert_array_equal(sd.nseg, [1, 2, 3])
+        np.testing.assert_array_equal(sd.icalc, [1, 1, 1])
+        np.testing.assert_array_equal(sd.outseg, [3, 3, 0])
+        np.testing.assert_array_equal(sd.iupseg, [0, 0, 0])
+        np.testing.assert_array_equal(sd.iprior, [0, 0, 0])
+        np.testing.assert_array_almost_equal(sd.roughch, [0.024, 0.024, 0.024])
+        np.testing.assert_array_almost_equal(sd.hcond1, [1.0, 1.0, 1.0])
+        np.testing.assert_array_almost_equal(sd.thickm1, [1.0, 1.0, 1.0])
+        np.testing.assert_array_almost_equal(sd.width1, [10.0, 10.0, 10.0])
+        np.testing.assert_array_almost_equal(sd.hcond2, [1.0, 1.0, 1.0])
+        np.testing.assert_array_almost_equal(sd.thickm2, [1.0, 1.0, 1.0])
+        np.testing.assert_array_almost_equal(sd.width2, [10.0, 10.0, 10.0])
+    assert 'inflow_segnums' in nm.segment_data.columns
+    np.testing.assert_array_equal(
+        nm.segment_data.inflow_segnums, [set([3, 4]), None, None])
+    sd = m.sfr.segment_data[0]
+    np.testing.assert_array_almost_equal(sd.flow, [9.6 + 9.7 + 18.4, 0.0, 0.0])
+    np.testing.assert_array_almost_equal(sd.runoff, [5.0, 0.0, 0.0])
+    np.testing.assert_array_almost_equal(sd.etsw, [0.02, 0.03, 0.01])
+    np.testing.assert_array_almost_equal(sd.pptsw, [0.0, 1.8, 0.0])
+    sd = m.sfr.segment_data[1]
+    np.testing.assert_array_almost_equal(
+        sd.flow, np.array([9.6 + 9.7 + 13.1, 0.0, 0.0], dtype=np.float32))
+    np.testing.assert_array_almost_equal(sd.runoff, [5.0, 0.0, 0.0])
+    np.testing.assert_array_almost_equal(sd.etsw, [0.02, 0.02, 0.01])
+    np.testing.assert_array_almost_equal(sd.pptsw, [0.0, 0.2, 0.0])
+    sd = m.sfr.segment_data[2]
+    np.testing.assert_array_almost_equal(
+        sd.flow, np.array([9.6 + 9.7 + 16.4, 0.0, 0.0], dtype=np.float32))
+    np.testing.assert_array_almost_equal(sd.runoff, [5.0, 0.0, 0.0])
+    np.testing.assert_array_almost_equal(sd.etsw, [0.02, 0.03, 0.01])
+    np.testing.assert_array_almost_equal(sd.pptsw, [0.0, 1.3, 0.0])
+    sd = m.sfr.segment_data[3]
+    np.testing.assert_array_almost_equal(
+        sd.flow, np.array([9.6 + 9.7 + 9.2, 0.0, 0.0], dtype=np.float32))
+    np.testing.assert_array_almost_equal(sd.runoff, [5.0, 0.0, 0.0])
+    np.testing.assert_array_almost_equal(sd.etsw, [0.02, 0.01, 0.01])
+    np.testing.assert_array_almost_equal(sd.pptsw, [0.0, 0.9, 0.0])
+
+    # Check errors
+    with pytest.raises(ValueError, match='flow must be a dict or DataFrame'):
+        nm.set_segment_data(flow=1.1)
+
+    m.dis.nper = 4  # TODO: is this alowed?
+    with pytest.raises(
+            ValueError,
+            match=r'length of flow \(1\) is different than nper \(4\)'):
+        nm.set_segment_data(
+            flow=pd.DataFrame(
+                {'1': [1.1]},
+                index=pd.DatetimeIndex(['1970-01-01'])))
+
+    with pytest.raises(
+            ValueError,
+            match=r'flow\.index must be a pandas\.DatetimeIndex'):
+        nm.set_segment_data(flow=pd.DataFrame({'1': [1.1] * 4}))
+
+    with pytest.raises(
+            ValueError,
+            match=r'flow\.index does not match expected \(1970\-01\-01, 1970'):
+        nm.set_segment_data(
+            flow=pd.DataFrame(
+                {'1': 1.1},  # starts on the wrong day
+                index=pd.DatetimeIndex(['1970-01-02'] * 4) +
+                pd.TimedeltaIndex(range(4), 'days')))
+
+    with pytest.raises(
+            ValueError,
+            match=r'flow\.columns\.dtype must be same as segments\.index\.dt'):
+        nm.set_segment_data(
+            flow=pd.DataFrame(
+                {'s1': 1.1},  # can't convert key to int
+                index=pd.DatetimeIndex(['1970-01-01'] * 4) +
+                pd.TimedeltaIndex(range(4), 'days')))
+
+    with pytest.raises(
+            ValueError,
+            match=r'flow\.columns \(or keys\) not found in segments\.index'):
+        nm.set_segment_data(
+            flow=pd.DataFrame(
+                {'3': 1.1},  # segnum 3 does not exist
+                index=pd.DatetimeIndex(['1970-01-01'] * 4) +
+                pd.TimedeltaIndex(range(4), 'days')))
+
+
+def test_process_flopy_n3d_vars(tmpdir_factory):
     # Repeat, but with min_slope enforced, and other options
     outdir = tmpdir_factory.mktemp('n3d')
+    # Create a local swn object to modify
+    n3d = swn.SurfaceWaterNetwork(n3d_lines)
+    # manually add outside flow from extra segnums, referenced with inflow
+    n3d.segments.at[1, 'from_segnums'] = {3, 4}
     # Create a simple MODFLOW model
-    m = flopy.modflow.Modflow(version='mf2005')
+    m = flopy.modflow.Modflow(version='mf2005', exe_name='mf2005')
     _ = flopy.modflow.ModflowDis(
         m, nlay=1, nrow=3, ncol=2, delr=20.0, delc=20.0, top=15.0, botm=10.0,
         xul=30.0, yul=130.0)
@@ -258,7 +522,7 @@ def test_process_flopy_n3d_vars(n3d, tmpdir_factory):
     _ = flopy.modflow.ModflowRch(m, ipakcb=52, rech=0.01)
     nm = swn.MfSfrNetwork(
         n3d, m, min_slope=0.03, hyd_cond1=2, thickness1=2.0,
-        inflow={0: 9.6, 1: 9.7, 2: 9.8}, flow={1: 18.4},
+        inflow={3: 9.6, 4: 9.7}, flow={1: 18.4},
         runoff={1: 5}, pptsw={2: 1.8}, etsw={0: 0.01, 1: 0.02, 2: 0.03})
     m.sfr.ipakcb = 52
     m.sfr.istcb2 = -53
@@ -283,8 +547,10 @@ def test_process_flopy_n3d_vars(n3d, tmpdir_factory):
     np.testing.assert_array_equal(sd.outseg, [3, 3, 0])
     np.testing.assert_array_equal(sd.iupseg, [0, 0, 0])
     np.testing.assert_array_equal(sd.iprior, [0, 0, 0])
-    # note that 'inflow' was effectivley ignored, as is expected
-    np.testing.assert_array_almost_equal(sd.flow, [18.4, 0.0, 0.0])
+    # note that 'inflow' gets added to nseg 1 flow
+    np.testing.assert_array_equal(
+        nm.segment_data.inflow_segnums, [set([3, 4]), None, None])
+    np.testing.assert_array_almost_equal(sd.flow, [18.4 + 9.6 + 9.7, 0.0, 0.0])
     np.testing.assert_array_almost_equal(sd.runoff, [5.0, 0.0, 0.0])
     np.testing.assert_array_almost_equal(sd.etsw, [0.02, 0.03, 0.01])
     np.testing.assert_array_almost_equal(sd.pptsw, [0.0, 1.8, 0.0])
@@ -303,20 +569,11 @@ def test_process_flopy_n3d_vars(n3d, tmpdir_factory):
     hds_fname = str(outdir.join(m.name + '.hds'))
     cbc_fname = str(outdir.join(m.name + '.cbc'))
     sfo_fname = str(outdir.join(m.name + '.sfo'))
-    b = flopy.utils.HeadFile(hds_fname)
-    heads = b.get_data()
-    b.close()
-    b = flopy.utils.CellBudgetFile(cbc_fname)
-    sl = b.get_data(text='STREAM LEAKAGE')[0]
-    b.close()
-    b = flopy.utils.CellBudgetFile(sfo_fname)
-    sf = b.get_data(text='STREAMFLOW OUT')[0]
-    b.close()
-    # Transfer model outputs to reaches dataframe
-    nm.reaches['head'] = \
-        heads[nm.reach_data['k'], nm.reach_data['i'], nm.reach_data['j']]
-    nm.reaches['sfrleakage'] = sl['q']
-    nm.reaches['sfr_Q'] = sf['q']
+    heads = read_head(hds_fname)
+    sl = read_budget(cbc_fname, 'STREAM LEAKAGE', nm.reach_data, 'sfrleakage')
+    sf = read_budget(sfo_fname, 'STREAMFLOW OUT', nm.reach_data, 'sfr_Q')
+    # Write some files
+    nm.reach_data.to_csv(str(outdir.join('reach_data.csv')))
     nm.reaches.to_file(str(outdir.join('reaches.shp')))
     nm.grid_cells.to_file(str(outdir.join('grid_cells.shp')))
     swn.gdf_to_shapefile(nm.segments, outdir.join('segments.shp'))
@@ -325,17 +582,17 @@ def test_process_flopy_n3d_vars(n3d, tmpdir_factory):
     np.testing.assert_array_almost_equal(
         heads,
         np.array([[
-                [14.61918, 14.488327],
-                [14.469823, 13.904094],
-                [14.086194, 12.902566]]], np.float32))
+                [14.620145, 14.489456],
+                [14.494376, 13.962832],
+                [14.100152, 12.905928]]], np.float32))
     np.testing.assert_array_almost_equal(
         sl['q'],
-        np.array([-2.5990355, -4.6846976, 23.472631, 2.9517243, 36.87717,
-                  -65.09191, -14.925813], np.float32))
+        np.array([-2.717792, -4.734348, 36.266556, 2.713955, 30.687397,
+                  -70.960304, -15.255642], np.float32))
     np.testing.assert_array_almost_equal(
         sf['q'],
-        np.array([19.893484, 24.209665, 0.0, 370.19705, 519.8943,
-                  583.9862, 597.91205], np.float32))
+        np.array([39.31224, 43.67807, 6.67448, 370.4348, 526.3218,
+                  602.95654, 617.21216], np.float32))
 
 
 def test_process_flopy_n2d_defaults(n2d, tmpdir_factory):
@@ -347,7 +604,8 @@ def test_process_flopy_n2d_defaults(n2d, tmpdir_factory):
         [15.0, 15.0],
         [14.0, 14.0],
     ])
-    m = flopy.modflow.Modflow(version='mf2005')
+    print('exe: ' + str(mf2005_exe))
+    m = flopy.modflow.Modflow(version='mf2005', exe_name='mf2005')
     flopy.modflow.ModflowDis(
         m, nlay=1, nrow=3, ncol=2, delr=20.0, delc=20.0, top=top, botm=10.0,
         xul=30.0, yul=130.0)
@@ -401,7 +659,7 @@ def test_process_flopy_n2d_min_slope(n2d, tmpdir_factory):
         [15.0, 15.0],
         [14.0, 14.0],
     ])
-    m = flopy.modflow.Modflow(version='mf2005')
+    m = flopy.modflow.Modflow(version='mf2005', exe_name='mf2005')
     _ = flopy.modflow.ModflowDis(
         m, nlay=1, nrow=3, ncol=2, delr=20.0, delc=20.0, top=top, botm=10.0,
         xul=30.0, yul=130.0)
@@ -443,6 +701,88 @@ def test_process_flopy_n2d_min_slope(n2d, tmpdir_factory):
     swn.gdf_to_shapefile(nm.segments, outdir.join('segments.shp'))
 
 
+def test_process_flopy_interp_2d_to_3d(tmpdir_factory):
+    # similar to 3D version, but getting information from model
+    outdir = tmpdir_factory.mktemp('interp_2d_to_3d')
+    # Create a simple MODFLOW model
+    top = np.array([
+        [16.0, 15.0],
+        [15.0, 15.0],
+        [14.0, 14.0],
+    ])
+    m = flopy.modflow.Modflow(version='mf2005', exe_name='mf2005')
+    flopy.modflow.ModflowDis(
+        m, nlay=1, nrow=3, ncol=2, delr=20.0, delc=20.0, top=top, botm=10.0,
+        xul=30.0, yul=130.0)
+    _ = flopy.modflow.ModflowOc(
+        m, stress_period_data={
+            (0, 0): ['print head', 'save head', 'save budget']})
+    _ = flopy.modflow.ModflowBas(m, strt=top, stoper=5.0)
+    _ = flopy.modflow.ModflowSip(m)
+    _ = flopy.modflow.ModflowLpf(m, ipakcb=52, laytyp=0, hk=1.0)
+    _ = flopy.modflow.ModflowRch(m, ipakcb=52, rech=0.01)
+    gt = swn.geotransform_from_flopy(m)
+    n = swn.SurfaceWaterNetwork(swn.interp_2d_to_3d(n3d_lines, top, gt))
+    n.adjust_elevation_profile()
+    nm = swn.MfSfrNetwork(n, m)
+    m.sfr.ipakcb = 52
+    m.sfr.istcb2 = -53
+    m.add_output_file(53, extension='sfo', binflag=True)
+    # Data set 1c
+    assert abs(m.sfr.nstrm) == 7
+    assert m.sfr.nss == 3
+    # Data set 2
+    np.testing.assert_array_almost_equal(
+        m.sfr.reach_data.rchlen,
+        [18.027756, 6.009252, 12.018504, 21.081851, 10.540926, 10.0, 10.0])
+    np.testing.assert_array_almost_equal(
+        m.sfr.reach_data.strtop,
+        [15.742094, 15.39822, 15.140314, 14.989459, 14.973648, 14.726283,
+         14.242094])
+    np.testing.assert_array_almost_equal(
+        m.sfr.reach_data.slope,
+        [0.02861207, 0.02861207, 0.02861207, 0.001, 0.001, 0.04841886,
+         0.04841886])
+    sd = m.sfr.segment_data[0]
+    assert list(sd.nseg) == [1, 2, 3]
+    assert list(sd.icalc) == [1, 1, 1]
+    assert list(sd.outseg) == [3, 3, 0]
+    assert list(sd.iupseg) == [0, 0, 0]
+    # See test_process_flopy_n3d_defaults for other checks
+    # Run model and read outputs
+    m.model_ws = str(outdir)
+    m.write_input()
+    success, buff = m.run_model()
+    assert success
+    hds_fname = str(outdir.join(m.name + '.hds'))
+    cbc_fname = str(outdir.join(m.name + '.cbc'))
+    sfo_fname = str(outdir.join(m.name + '.sfo'))
+    heads = read_head(hds_fname)
+    sl = read_budget(cbc_fname, 'STREAM LEAKAGE', nm.reach_data, 'sfrleakage')
+    sf = read_budget(sfo_fname, 'STREAMFLOW OUT', nm.reach_data, 'sfr_Q')
+    # Write some files
+    nm.reach_data.to_csv(str(outdir.join('reach_data.csv')))
+    nm.reaches.to_file(str(outdir.join('reaches.shp')))
+    nm.grid_cells.to_file(str(outdir.join('grid_cells.shp')))
+    swn.gdf_to_shapefile(nm.segments, outdir.join('segments.shp'))
+    # Check results
+    assert heads.shape == (1, 3, 2)
+    np.testing.assert_array_almost_equal(
+        heads,
+        np.array([[
+                [15.595171, 15.015385],
+                [15.554525, 14.750549],
+                [15.509117, 14.458664]]], np.float32))
+    np.testing.assert_array_almost_equal(
+        sl['q'],
+        np.array([-0.61594236, 0.61594236, 0.0, -6.4544363, 6.4544363,
+                  -14.501283, -9.499095], np.float32))
+    np.testing.assert_array_almost_equal(
+        sf['q'],
+        np.array([0.61594236, 0.0,  0.0, 6.4544363, 0.0,
+                  14.501283, 24.000378], np.float32))
+
+
 def test_set_elevations(n2d, tmpdir_factory):
     # similar to 3D version, but getting information from model
     outdir = tmpdir_factory.mktemp('n2d')
@@ -452,7 +792,7 @@ def test_set_elevations(n2d, tmpdir_factory):
         [15.0, 15.0],
         [14.0, 14.0],
     ])
-    m = flopy.modflow.Modflow(version='mf2005')
+    m = flopy.modflow.Modflow(version='mf2005', exe_name='mf2005')
     _ = flopy.modflow.ModflowDis(
         m, nlay=1, nrow=3, ncol=2, delr=20.0, delc=20.0, top=top, botm=10.0,
         xul=30.0, yul=130.0)
@@ -523,20 +863,11 @@ def test_set_elevations(n2d, tmpdir_factory):
     hds_fname = str(outdir.join(m.name + '.hds'))
     cbc_fname = str(outdir.join(m.name + '.cbc'))
     sfo_fname = str(outdir.join(m.name + '.sfo'))
-    b = flopy.utils.HeadFile(hds_fname)
-    heads = b.get_data()
-    b.close()
-    b = flopy.utils.CellBudgetFile(cbc_fname)
-    sl = b.get_data(text='STREAM LEAKAGE')[0]
-    b.close()
-    b = flopy.utils.CellBudgetFile(sfo_fname)
-    sf = b.get_data(text='STREAMFLOW OUT')[0]
-    b.close()
-    # Transfer model outputs to reaches dataframe
-    nm.reaches['head'] = \
-        heads[nm.reach_data['k'], nm.reach_data['i'], nm.reach_data['j']]
-    nm.reaches['sfrleakage'] = sl['q']
-    nm.reaches['sfr_Q'] = sf['q']
+    heads = read_head(hds_fname)
+    sl = read_budget(cbc_fname, 'STREAM LEAKAGE', nm.reach_data, 'sfrleakage')
+    sf = read_budget(sfo_fname, 'STREAMFLOW OUT', nm.reach_data, 'sfr_Q')
+    # Write some files
+    nm.reach_data.to_csv(str(outdir.join('reach_data.csv')))
     nm.reaches.to_file(str(outdir.join('reaches.shp')))
     nm.grid_cells.to_file(str(outdir.join('grid_cells.shp')))
     swn.gdf_to_shapefile(nm.segments, outdir.join('segments.shp'))
@@ -563,7 +894,7 @@ def test_reach_barely_outside_ibound():
         'LINESTRING (15 125, 70 90, 120 120, 130 90, '
         '150 110, 180 90, 190 110, 290 80)'
     ]))
-    m = flopy.modflow.Modflow()
+    m = flopy.modflow.Modflow(version='mf2005', exe_name='mf2005')
     flopy.modflow.ModflowDis(
         m, nrow=2, ncol=3, delr=100.0, delc=100.0, xul=0.0, yul=200.0)
     flopy.modflow.ModflowBas(m, ibound=np.array([[1, 1, 1], [0, 0, 0]]))
@@ -594,7 +925,8 @@ def check_number_sum_hex(a, n, h):
     assert ah.startswith(h), '{0} does not start with {1}'.format(ah, h)
 
 
-def test_coastal_process_flopy(coastal_swn, coastal_flow_m, tmpdir_factory):
+def test_coastal_process_flopy(tmpdir_factory,
+                               coastal_lines_gdf, coastal_flow_m):
     outdir = tmpdir_factory.mktemp('coastal')
     # Load a MODFLOW model
     m = flopy.modflow.Modflow.load(
@@ -605,8 +937,11 @@ def test_coastal_process_flopy(coastal_swn, coastal_flow_m, tmpdir_factory):
     m.write_input()
     success, buff = m.run_model()
     assert success
-    nm = swn.MfSfrNetwork(coastal_swn, m, inflow=coastal_flow_m)
-    m.sfr.unit_number = [24]
+    # Create a SWN with adjusted elevation profiles
+    n = swn.SurfaceWaterNetwork(coastal_lines_gdf.geometry)
+    n.adjust_elevation_profile()
+    nm = swn.MfSfrNetwork(n, m, inflow=coastal_flow_m)
+    m.sfr.unit_number = [24]  # WARNING: unit 17 of package SFR already in use
     m.sfr.ipakcb = 50
     m.sfr.istcb2 = -51
     m.add_output_file(51, extension='sfo', binflag=True)
@@ -729,7 +1064,7 @@ def test_coastal_elevations(coastal_swn, coastal_flow_m, tmpdir_factory):
     _ = nm.get_seg_ijk()
     tops = nm.get_top_elevs_at_segs().top_up
     max_str_z = tops.describe()['75%']
-    for seg in nm.segment_data.nseg[nm.segment_data.nseg.isin([1, 18])]:
+    for seg in nm.segment_data.index[nm.segment_data.index.isin([1, 18])]:
         nm.plot_reaches_above(m, seg)
     _ = nm.fix_segment_elevs(min_incise=0.2, min_slope=1.e-4,
                              max_str_z=max_str_z)
@@ -741,7 +1076,7 @@ def test_coastal_elevations(coastal_swn, coastal_flow_m, tmpdir_factory):
         reach_data=reach_data.to_records(index=True),
         segment_data=seg_data)
     nm.plot_reaches_above(m, 'all', plot_bottom=False)
-    for seg in nm.segment_data.nseg[nm.segment_data.nseg.isin([1, 18])]:
+    for seg in nm.segment_data.index[nm.segment_data.index.isin([1, 18])]:
         nm.plot_reaches_above(m, seg)
     _ = nm.set_topbot_elevs_at_reaches()
     nm.fix_reach_elevs()
@@ -752,7 +1087,7 @@ def test_coastal_elevations(coastal_swn, coastal_flow_m, tmpdir_factory):
         reach_data=reach_data.to_records(index=True),
         segment_data=seg_data)
     nm.plot_reaches_above(m, 'all', plot_bottom=False)
-    for seg in nm.segment_data.nseg[nm.segment_data.nseg.isin([1, 18])]:
+    for seg in nm.segment_data.index[nm.segment_data.index.isin([1, 18])]:
         nm.plot_reaches_above(m, seg)
     m.sfr.unit_number = [24]
     m.sfr.ipakcb = 50
@@ -921,7 +1256,7 @@ def test_coastal_process_flopy_ibound_modify(coastal_swn, coastal_flow_m,
     # check_number_sum_hex(
     #     m.sfr.reach_data.strtop, 24142, 'bc96d80acc1b59c4d50759301ae2392a')
     # check_number_sum_hex(
-    #     m.sfr.reach_data.slope * 500, 6593, '0306817657dc6c85cb65c93f3fa15af0')
+    #     m.sfr.reach_data.slope * 500, 6593, '0306817657dc6c85cb65c93f3fa15a')
     # check_number_sum_hex(
     #     m.sfr.reach_data.strthick, 626, 'a3aa65f110b20b57fc7f445aa743759f')
     # check_number_sum_hex(
@@ -981,7 +1316,7 @@ def test_coastal_process_flopy_ibound_modify(coastal_swn, coastal_flow_m,
 
 
 def test_process_flopy_lines_on_boundaries():
-    m = flopy.modflow.Modflow()
+    m = flopy.modflow.Modflow(version='mf2005', exe_name='mf2005')
     flopy.modflow.ModflowDis(
         m, nrow=3, ncol=3, delr=100, delc=100, xul=0, yul=300)
     flopy.modflow.ModflowBas(m)
@@ -997,3 +1332,138 @@ def test_process_flopy_lines_on_boundaries():
     assert m.sfr.nss == 5
     # TODO: code needs to be improved for this type of case
     # assert abs(m.sfr.nstrm) == 8
+
+
+def test_process_flopy_diversion(tmpdir_factory):
+    outdir = tmpdir_factory.mktemp('diversion')
+    # Create a simple MODFLOW model
+    m = flopy.modflow.Modflow(version='mf2005', exe_name='mf2005')
+    top = np.array([
+        [16.0, 15.0],
+        [15.0, 15.0],
+        [14.0, 14.0],
+    ])
+    _ = flopy.modflow.ModflowDis(
+        m, nlay=1, nrow=3, ncol=2, delr=20.0, delc=20.0, top=top, botm=10.0,
+        xul=30.0, yul=130.0)
+    _ = flopy.modflow.ModflowOc(
+        m, stress_period_data={
+            (0, 0): ['print head', 'save head', 'save budget']})
+    _ = flopy.modflow.ModflowBas(m, strt=top)
+    _ = flopy.modflow.ModflowDe4(m)
+    _ = flopy.modflow.ModflowLpf(m, ipakcb=52, laytyp=0)
+    gt = swn.geotransform_from_flopy(m)
+    n = swn.SurfaceWaterNetwork(swn.interp_2d_to_3d(n3d_lines, top, gt))
+    n.adjust_elevation_profile()
+    diversions = geopandas.GeoDataFrame(geometry=[
+        Point(58, 97), Point(62, 97), Point(61, 89), Point(59, 89)])
+    n.set_diversions(diversions=diversions)
+
+    # With zero specified flow for all terms
+    nm = swn.MfSfrNetwork(n, m, hyd_cond1=0.0)
+    m.sfr.ipakcb = 52
+    m.sfr.istcb2 = 54
+    m.add_output_file(54, extension='sfl', binflag=False)
+    # Data set 1c
+    assert abs(m.sfr.nstrm) == 11
+    assert m.sfr.nss == 7
+    # Data set 2
+    np.testing.assert_array_almost_equal(
+        m.sfr.reach_data.rchlen,
+        [18.027756, 6.009252, 12.018504, 21.081851, 10.540926, 10.0, 10.0,
+         1.0, 1.0, 1.0, 1.0])
+    np.testing.assert_array_almost_equal(
+        m.sfr.reach_data.strtop,
+        [15.742094, 15.39822, 15.140314, 14.989459, 14.973648, 14.726283,
+         14.242094, 15.0, 15.0, 14.0, 14.0])
+    np.testing.assert_array_almost_equal(
+        m.sfr.reach_data.slope,
+        [0.02861207, 0.02861207, 0.02861207, 0.001, 0.001, 0.04841886,
+         0.04841886, 0.0, 0.0, 0.0, 0.0])
+    sd = m.sfr.segment_data[0]
+    np.testing.assert_array_equal(sd.nseg, [1, 2, 3, 4, 5, 6, 7])
+    np.testing.assert_array_equal(sd.icalc,  [1, 1, 1, 0, 0, 0, 0])
+    np.testing.assert_array_equal(sd.outseg,  [3, 3, 0, 0, 0, 0, 0])
+    np.testing.assert_array_equal(sd.iupseg,  [0, 0, 0, 1, 2, 3, 3])
+    np.testing.assert_array_equal(sd.iprior,  [0, 0, 0, 0, 0, 0, 0])
+    # Run model and read outputs
+    m.model_ws = str(outdir)
+    m.write_input()
+    success, buff = m.run_model()
+    assert success
+    cbc_fname = str(outdir.join(m.name + '.cbc'))
+    sfl_fname = str(outdir.join(m.name + '.sfl'))
+    sl = read_budget(cbc_fname, 'STREAM LEAKAGE', nm.reach_data, 'sfrleakage')
+    sfl = read_sfl(sfl_fname, nm.reach_data)
+    # Write some files
+    nm.reach_data.to_csv(str(outdir.join('reach_data.csv')))
+    swn.gdf_to_shapefile(nm.reaches, outdir.join('reaches.shp'))
+    nm.grid_cells.to_file(str(outdir.join('grid_cells.shp')))
+    swn.gdf_to_shapefile(nm.segments, outdir.join('segments.shp'))
+    # Check results
+    assert (sl['q'] == 0.0).all()
+    assert (sfl['Qin'] == 0.0).all()
+    assert (sfl['Qaquifer'] == 0.0).all()
+    assert (sfl['Qout'] == 0.0).all()
+    assert (sfl['Qovr'] == 0.0).all()
+    assert (sfl['Qprecip'] == 0.0).all()
+    assert (sfl['Qet'] == 0.0).all()
+    # Don't check stage, depth or gradient
+    np.testing.assert_array_almost_equal(
+        nm.reach_data['width'],
+        [10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 0.0, 0.0, 0.0, 0.0])
+    assert (nm.reach_data['Cond'] == 0.0).all()
+
+    # Route some flow from headwater segments
+    m.sfr.segment_data = nm.set_segment_data(
+        flow={1: 2, 2: 3}, return_dict=True)
+    m.sfr.write_file()
+    success, buff = m.run_model()
+    assert success
+    sl = read_budget(cbc_fname, 'STREAM LEAKAGE', nm.reach_data, 'sfrleakage')
+    sfl = read_sfl(sfl_fname, nm.reach_data)
+    expected_flow = np.array(
+        [2.0, 2.0, 2.0, 3.0, 3.0, 5.0, 5.0, 0.0, 0.0, 0.0, 0.0])
+    assert (sl['q'] == 0.0).all()
+    np.testing.assert_almost_equal(sfl['Qin'], expected_flow)
+    assert (sfl['Qaquifer'] == 0.0).all()
+    np.testing.assert_almost_equal(sfl['Qout'], expected_flow)
+    assert (sfl['Qovr'] == 0.0).all()
+    assert (sfl['Qprecip'] == 0.0).all()
+    assert (sfl['Qet'] == 0.0).all()
+
+    # Same, but with abstraction
+    m.sfr.segment_data = nm.set_segment_data(
+        abstraction={0: 1.1}, flow={1: 2, 2: 3}, return_dict=True)
+    m.sfr.write_file()
+    success, buff = m.run_model()
+    assert success
+    sl = read_budget(cbc_fname, 'STREAM LEAKAGE', nm.reach_data, 'sfrleakage')
+    sfl = read_sfl(sfl_fname, nm.reach_data)
+    expected_flow = np.array(
+        [2.0, 2.0, 2.0, 3.0, 3.0, 3.9, 3.9, 1.1, 0.0, 0.0, 0.0])
+    assert (sl['q'] == 0.0).all()
+    np.testing.assert_almost_equal(sfl['Qin'], expected_flow)
+    assert (sfl['Qaquifer'] == 0.0).all()
+    np.testing.assert_almost_equal(sfl['Qout'], expected_flow)
+    assert (sfl['Qovr'] == 0.0).all()
+    assert (sfl['Qprecip'] == 0.0).all()
+    assert (sfl['Qet'] == 0.0).all()
+
+    # More abstraction with dry streams
+    m.sfr.segment_data = nm.set_segment_data(
+        abstraction={0: 1.1, 1: 3.3}, flow={1: 2, 2: 3}, return_dict=True)
+    m.sfr.write_file()
+    success, buff = m.run_model()
+    assert success
+    sl = read_budget(cbc_fname, 'STREAM LEAKAGE', nm.reach_data, 'sfrleakage')
+    sfl = read_sfl(sfl_fname, nm.reach_data)
+    expected_flow = np.array(
+        [2.0, 2.0, 2.0, 3.0, 3.0, 0.9, 0.9, 1.1, 3.0, 0.0, 0.0])
+    assert (sl['q'] == 0.0).all()
+    np.testing.assert_almost_equal(sfl['Qin'], expected_flow)
+    assert (sfl['Qaquifer'] == 0.0).all()
+    np.testing.assert_almost_equal(sfl['Qout'], expected_flow)
+    assert (sfl['Qovr'] == 0.0).all()
+    assert (sfl['Qprecip'] == 0.0).all()
+    assert (sfl['Qet'] == 0.0).all()
