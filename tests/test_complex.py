@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import numpy as np
+from textwrap import dedent
 
 from .conftest import swn
 
@@ -73,6 +74,12 @@ def test_init(coastal_swn, coastal_lines_gdf):
     np.testing.assert_almost_equal(ul.max(), 144764.575, 3)
     assert 'upstream_area' not in n.segments.columns
     assert 'width' not in n.segments.columns
+    assert repr(n) == dedent('''\
+        <SurfaceWaterNetwork: with Z coordinates
+          304 segments: [3046409, 3046455, ..., 3050338, 3050418]
+          154 headwater: [3046409, 3046542, ..., 3050338, 3050418]
+          3 outlets: [3046700, 3046737, 3046736]
+          no diversions />''')
 
 
 def test_accumulate_values(coastal_swn, coastal_lines_gdf):
@@ -105,3 +112,9 @@ def test_catchment_polygons(coastal_lines_gdf, coastal_polygons_gdf):
     np.testing.assert_almost_equal(w.min(), 1.831, 3)
     np.testing.assert_almost_equal(w.mean(), 3.435, 3)
     np.testing.assert_almost_equal(w.max(), 12.420, 3)
+    assert repr(n) == dedent('''\
+        <SurfaceWaterNetwork: with Z coordinates and catchment polygons
+          304 segments: [3046409, 3046455, ..., 3050338, 3050418]
+          154 headwater: [3046409, 3046542, ..., 3050338, 3050418]
+          3 outlets: [3046700, 3046737, 3046736]
+          no diversions />''')

@@ -6,6 +6,7 @@ import pytest
 from hashlib import md5
 from shapely import wkt
 from shapely.geometry import Point
+from textwrap import dedent
 from warnings import warn
 try:
     import flopy
@@ -268,6 +269,13 @@ def test_process_flopy_n3d_defaults(n3d, tmpdir_factory):
     np.testing.assert_array_almost_equal(sd.hcond2, [1.0, 1.0, 1.0])
     np.testing.assert_array_almost_equal(sd.thickm2, [1.0, 1.0, 1.0])
     np.testing.assert_array_almost_equal(sd.width2, [10.0, 10.0, 10.0])
+    assert repr(nm) == dedent('''\
+        <MfSfrNetwork: flopy mf2005 'modflowtest'
+          7 in reach_data (reachID): [1, 2, ..., 6, 7]
+          3 in segment_data (nseg): [1, 2, 3]
+            3 from segments: [1, 2, 0]
+            no diversions
+          1 stress period with perlen: [1.0] />''')
     # Run model and read outputs
     m.model_ws = str(outdir)
     m.write_input()
@@ -343,6 +351,13 @@ def test_set_segment_data():
     np.testing.assert_array_almost_equal(sd.hcond2, [2.0, 2.0, 2.0])
     np.testing.assert_array_almost_equal(sd.thickm2, [2.0, 2.0, 2.0])
     np.testing.assert_array_almost_equal(sd.width2, [10.0, 10.0, 10.0])
+    assert repr(nm) == dedent('''\
+        <MfSfrNetwork: flopy mf2005 'modflowtest'
+          7 in reach_data (reachID): [1, 2, ..., 6, 7]
+          3 in segment_data (nseg): [1, 2, 3]
+            3 from segments: [1, 2, 0]
+            no diversions
+          1 stress period with perlen: [1.0] />''')
 
     # Re-write segment_data without arguments
     nm.set_segment_data()
@@ -369,6 +384,13 @@ def test_set_segment_data():
     np.testing.assert_array_almost_equal(sd.hcond2, [2.0, 2.0, 2.0])
     np.testing.assert_array_almost_equal(sd.thickm2, [2.0, 2.0, 2.0])
     np.testing.assert_array_almost_equal(sd.width2, [10.0, 10.0, 10.0])
+    assert repr(nm) == dedent('''\
+        <MfSfrNetwork: flopy mf2005 'modflowtest'
+          7 in reach_data (reachID): [1, 2, ..., 6, 7]
+          3 in segment_data (nseg): [1, 2, 3]
+            3 from segments: [1, 2, 0]
+            no diversions
+          1 stress period with perlen: [1.0] />''')
 
     # Re-write segment_data with arguments
     # note that this network does not have diversions, so abstraction term will
@@ -454,6 +476,13 @@ def test_set_segment_data():
     np.testing.assert_array_almost_equal(sd.runoff, [5.0, 0.0, 0.0])
     np.testing.assert_array_almost_equal(sd.etsw, [0.02, 0.01, 0.01])
     np.testing.assert_array_almost_equal(sd.pptsw, [0.0, 0.9, 0.0])
+    assert repr(nm) == dedent('''\
+        <MfSfrNetwork: flopy mf2005 'modflowtest'
+          7 in reach_data (reachID): [1, 2, ..., 6, 7]
+          3 in segment_data (nseg): [1, 2, 3]
+            3 from segments: [1, 2, 0]
+            no diversions
+          4 stress periods with perlen: [1.0, 1.0, 1.0, 1.0] />''')
 
     # Check errors
     with pytest.raises(ValueError, match='flow must be a dict or DataFrame'):
@@ -561,6 +590,13 @@ def test_process_flopy_n3d_vars(tmpdir_factory):
     np.testing.assert_array_almost_equal(sd.hcond2, [2.0, 2.0, 2.0])
     np.testing.assert_array_almost_equal(sd.thickm2, [2.0, 2.0, 2.0])
     np.testing.assert_array_almost_equal(sd.width2, [10.0, 10.0, 10.0])
+    assert repr(nm) == dedent('''\
+        <MfSfrNetwork: flopy mf2005 'modflowtest'
+          7 in reach_data (reachID): [1, 2, ..., 6, 7]
+          3 in segment_data (nseg): [1, 2, 3]
+            3 from segments: [1, 2, 0]
+            no diversions
+          1 stress period with perlen: [1.0] />''')
     # Run model and read outputs
     m.model_ws = str(outdir)
     m.write_input()
@@ -604,7 +640,6 @@ def test_process_flopy_n2d_defaults(n2d, tmpdir_factory):
         [15.0, 15.0],
         [14.0, 14.0],
     ])
-    print('exe: ' + str(mf2005_exe))
     m = flopy.modflow.Modflow(version='mf2005', exe_name='mf2005')
     flopy.modflow.ModflowDis(
         m, nlay=1, nrow=3, ncol=2, delr=20.0, delc=20.0, top=top, botm=10.0,
@@ -639,6 +674,13 @@ def test_process_flopy_n2d_defaults(n2d, tmpdir_factory):
     assert list(sd.outseg) == [3, 3, 0]
     assert list(sd.iupseg) == [0, 0, 0]
     # See test_process_flopy_n3d_defaults for other checks
+    assert repr(nm) == dedent('''\
+        <MfSfrNetwork: flopy mf2005 'modflowtest'
+          7 in reach_data (reachID): [1, 2, ..., 6, 7]
+          3 in segment_data (nseg): [1, 2, 3]
+            3 from segments: [1, 2, 0]
+            no diversions
+          1 stress period with perlen: [1.0] />''')
     # Run model
     m.model_ws = str(outdir)
     m.write_input()
@@ -916,6 +958,13 @@ def test_reach_barely_outside_ibound():
         'LINESTRING (200 107, 223.3 100, 290 80)'])
     expected_reaches_geom.index += 1
     assert nm.reaches.geom_almost_equals(expected_reaches_geom, 0).all()
+    assert repr(nm) == dedent('''\
+        <MfSfrNetwork: flopy mf2005 'modflowtest'
+          3 in reach_data (reachID): [1, 2, 3]
+          1 in segment_data (nseg): [1]
+            1 from segments: [0]
+            no diversions
+          1 stress period with perlen: [1.0] />''')
 
 
 def check_number_sum_hex(a, n, h):
@@ -1038,6 +1087,13 @@ def test_coastal_process_flopy(tmpdir_factory,
     # Check other packages
     check_number_sum_hex(
         m.bas6.ibound.array, 509, 'c4135a084b2593e0b69c148136a3ad6d')
+    assert repr(nm) == dedent('''\
+    <MfSfrNetwork: flopy mfnwt 'h'
+      296 in reach_data (reachID): [1, 2, ..., 295, 296]
+      184 in segment_data (nseg): [1, 2, ..., 183, 184]
+        184 from segments (61% used): [3049818, 3049819, ..., 3046952, 3046736]
+        no diversions
+      1 stress period with perlen: [1.0] />''')
     # Write output files
     nm.grid_cells.to_file(str(outdir.join('grid_cells.shp')))
     nm.reaches.to_file(str(outdir.join('reaches.shp')))
@@ -1194,6 +1250,13 @@ def test_coastal_reduced_process_flopy(
     #    sd.thickm2, 184, '1e57e4eaa6f22ada05f4d8cd719e7876')
     # check_number_sum_hex(
     #    sd.width2, 1840, '5749f425818b3b18e395b2a432520a4e')
+    assert repr(nm) == dedent('''\
+    <MfSfrNetwork: flopy mfnwt 'h'
+      154 in reach_data (reachID): [1, 2, ..., 153, 154]
+      94 in segment_data (nseg): [1, 2, ..., 93, 94]
+        94 from segments (72% used): [3049802, 3049683, ..., 3046952, 3046736]
+        no diversions
+      1 stress period with perlen: [1.0] />''')
     # Run model and read outputs
     m.model_ws = str(outdir)
     m.sfr.unit_number = [24]
@@ -1299,6 +1362,13 @@ def test_coastal_process_flopy_ibound_modify(coastal_swn, coastal_flow_m,
     # Check other packages
     check_number_sum_hex(
         m.bas6.ibound.array, 572, 'd353560128577b37f730562d2f89c025')
+    assert repr(nm) == dedent('''\
+        <MfSfrNetwork: flopy mfnwt 'h'
+          478 in reach_data (reachID): [1, 2, ..., 477, 478]
+          304 in segment_data (nseg): [1, 2, ..., 303, 304]
+            304 from segments: [3050413, 3050418, ..., 3046952, 3046736]
+            no diversions
+          1 stress period with perlen: [1.0] />''')
     # Run model and read outputs
     m.model_ws = str(outdir)
     m.sfr.unit_number = [24]
@@ -1386,6 +1456,14 @@ def test_process_flopy_diversion(tmpdir_factory):
     np.testing.assert_array_equal(sd.outseg,  [3, 3, 0, 0, 0, 0, 0])
     np.testing.assert_array_equal(sd.iupseg,  [0, 0, 0, 1, 2, 3, 3])
     np.testing.assert_array_equal(sd.iprior,  [0, 0, 0, 0, 0, 0, 0])
+    assert repr(nm) == dedent('''\
+        <MfSfrNetwork: flopy mf2005 'modflowtest'
+          11 in reach_data (reachID): [1, 2, ..., 10, 11]
+          7 in segment_data (nseg): [1, 2, ..., 6, 7]
+            3 from segments: [1, 2, 0]
+            4 from diversions[0, 1, 2, 3]
+          1 stress period with perlen: [1.0] />''')
+
     # Run model and read outputs
     m.model_ws = str(outdir)
     m.write_input()

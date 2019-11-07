@@ -15,6 +15,7 @@ from matplotlib import colors, cm
 from shapely import wkt
 from shapely.geometry import LineString, Point, Polygon, box
 from shapely.ops import cascaded_union, linemerge
+from textwrap import dedent
 
 try:
     from osgeo import gdal
@@ -370,6 +371,40 @@ class SurfaceWaterNetwork(object):
         self.evaluate_upstream_length()
         if polygons is not None:
             self.catchments = polygons.copy()
+
+    def __repr__(self):
+        modifiers = []
+        if self.has_z:
+            modifiers.append('Z coordinates')
+        if self.catchments is not None:
+            modifiers.append('catchment polygons')
+        if modifiers:
+            with_modifiers = ' with ' + modifiers[0]
+            if len(modifiers) == 2:
+                with_modifiers += ' and ' + modifiers[1]
+        else:
+            with_modifiers = ''
+        segments = list(self.segments.index)
+        hw_l = list(self.headwater)
+        out_l = list(self.outlets)
+        diversions = self.diversions
+        if diversions is None:
+            diversions_line = 'no diversions'
+        else:
+            div_l = list(diversions.index)
+            diversions_line = '{} diversions (as {}): {}'.format(
+                len(div_l), diversions.__class__.__name__, _abbr_str(div_l, 4))
+        return dedent('''\
+            <{}:{}
+              {} segments: {}
+              {} headwater: {}
+              {} outlets: {}
+              {} />'''.format(
+            self.__class__.__name__, with_modifiers,
+            len(segments), _abbr_str(segments, 4),
+            len(hw_l), _abbr_str(hw_l, 4),
+            len(out_l), _abbr_str(out_l, 4),
+            diversions_line))
 
     @classmethod
     def init_from_gdal(cls, lines_srs, elevation_srs=None):
@@ -1899,6 +1934,41 @@ class MfSfrNetwork(object):
                 model=model,
                 reach_data=self.reach_data.to_records(index=True),
                 segment_data=segment_data)
+
+    def __repr__(self):
+        is_diversion = self.segment_data['iupseg'] != 0
+        segnum_l = list(self.segment_data.loc[~is_diversion, 'segnum'])
+        segments_line = str(len(segnum_l)) + ' from segments'
+        if set(segnum_l) != set(self.segments.index):
+            segments_line += ' ({:.0%} used)'.format(
+                len(segnum_l) / float(len(self.segments)))
+        segments_line += ': ' + _abbr_str(segnum_l, 4)
+        if is_diversion.any() and self.diversions is not None:
+            divid_l = list(self.segment_data.loc[is_diversion, 'segnum'])
+            diversions_line = str(len(divid_l)) + ' from diversions'
+            if set(divid_l) != set(self.diversions.index):
+                diversions_line += ' ({:.0%} used)'.format(
+                    len(divid_l), len(divid_l) / float(len(self.diversions)))
+            diversions_line += _abbr_str(divid_l, 4)
+        else:
+            diversions_line = 'no diversions'
+        nper = self.model.dis.nper
+        return dedent('''\
+            <{}: flopy {} {!r}
+              {} in reach_data ({}): {}
+              {} in segment_data ({}): {}
+                {}
+                {}
+              {} stress period{} with perlen: {} />'''.format(
+            self.__class__.__name__, self.model.version, self.model.name,
+            len(self.reach_data), self.reach_data.index.name,
+            _abbr_str(list(self.reach_data.index), 4),
+            len(self.segment_data), self.segment_data.index.name,
+            _abbr_str(list(self.segment_data.index), 4),
+            segments_line,
+            diversions_line,
+            nper, '' if nper == 1 else 's',
+            _abbr_str(list(self.model.dis.perlen), 4)))
 
     def set_segment_data(self, abstraction={}, inflow={}, flow={}, runoff={},
                          etsw={}, pptsw={}, return_dict=False):

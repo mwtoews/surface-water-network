@@ -6,6 +6,7 @@ import pytest
 import numpy as np
 from shapely import wkt
 from shapely.geometry import LineString, Point
+from textwrap import dedent
 
 from .conftest import swn, \
     datadir, force_2d, round_coords, wkt_to_dataframe, wkt_to_geoseries
@@ -79,6 +80,13 @@ def test_init_defaults(valid_n):
     assert n.from_segnums == {0: set([1, 2])}
     n.adjust_elevation_profile()
     assert len(n.messages) == 0
+    assert str(n) == repr(n)
+    assert repr(n) == dedent('''\
+        <SurfaceWaterNetwork: with Z coordinates
+          3 segments: [0, 1, 2]
+          2 headwater: [1, 2]
+          1 outlets: [0]
+          no diversions />''')
 
 
 def test_init_2D_geom():
@@ -100,6 +108,12 @@ def test_init_2D_geom():
         n.segments['upstream_length'], [87.67828936, 36.05551275, 31.6227766])
     assert list(n.headwater) == [1, 2]
     assert list(n.outlets) == [0]
+    assert repr(n) == dedent('''\
+        <SurfaceWaterNetwork:
+          3 segments: [0, 1, 2]
+          2 headwater: [1, 2]
+          1 outlets: [0]
+          no diversions />''')
 
 
 def test_init_mismatch_3D():
@@ -118,6 +132,12 @@ def test_init_mismatch_3D():
     assert len(n) == 3
     assert n.has_z is True
     assert list(n.segments.index) == [0, 1, 2]
+    assert repr(n) == dedent('''\
+        <SurfaceWaterNetwork: with Z coordinates
+          3 segments: [0, 1, 2]
+          2 headwater: [0, 2]
+          1 outlets: [1]
+          no diversions />''')
 
 
 def test_init_reversed_lines():
@@ -148,6 +168,12 @@ def test_init_reversed_lines():
     assert list(n.outlets) == [1, 2]
     assert dict(n.to_segnums) == {0: 1}
     assert n.from_segnums == {1: set([0])}
+    assert repr(n) == dedent('''\
+        <SurfaceWaterNetwork: with Z coordinates
+          3 segments: [0, 1, 2]
+          2 headwater: [0, 2]
+          2 outlets: [1, 2]
+          no diversions />''')
 
 
 def test_init_all_converge():
@@ -182,6 +208,12 @@ def test_init_all_converge():
     assert list(n.outlets) == [0, 1, 2]
     assert dict(n.to_segnums) == {}
     assert n.from_segnums == {}
+    assert repr(n) == dedent('''\
+        <SurfaceWaterNetwork: with Z coordinates
+          3 segments: [0, 1, 2]
+          3 headwater: [0, 1, 2]
+          3 outlets: [0, 1, 2]
+          no diversions />''')
 
 
 def test_init_all_diverge():
@@ -216,6 +248,12 @@ def test_init_all_diverge():
     assert list(n.outlets) == [0, 1, 2]
     assert dict(n.to_segnums) == {}
     assert n.from_segnums == {}
+    assert repr(n) == dedent('''\
+        <SurfaceWaterNetwork: with Z coordinates
+          3 segments: [0, 1, 2]
+          3 headwater: [0, 1, 2]
+          3 outlets: [0, 1, 2]
+          no diversions />''')
 
 
 def test_init_line_connects_to_middle():
@@ -243,6 +281,12 @@ def test_init_line_connects_to_middle():
     assert list(n.outlets) == [0, 1]
     assert dict(n.to_segnums) == {}
     assert n.from_segnums == {}
+    assert repr(n) == dedent('''\
+        <SurfaceWaterNetwork: with Z coordinates
+          2 segments: [0, 1]
+          2 headwater: [0, 1]
+          2 outlets: [0, 1]
+          no diversions />''')
 
 
 def test_init_geoseries():
@@ -305,6 +349,12 @@ def test_init_polygons():
     # manual upstream area calculation
     np.testing.assert_array_almost_equal(
         n.accumulate_values(n.catchments.area), expected_upstream_area)
+    assert repr(n) == dedent('''\
+        <SurfaceWaterNetwork: with Z coordinates and catchment polygons
+          3 segments: [0, 1, 2]
+          2 headwater: [1, 2]
+          1 outlets: [0]
+          no diversions />''')
     # check error
     with pytest.raises(
             ValueError,
@@ -313,7 +363,8 @@ def test_init_polygons():
 
 
 def test_catchments_property():
-    n = swn.SurfaceWaterNetwork(valid_lines)
+    # also vary previous test with 2D lines
+    n = swn.SurfaceWaterNetwork(force_2d(valid_lines))
     assert n.catchments is None
     n.catchments = valid_polygons
     assert n.catchments is not None
@@ -323,6 +374,13 @@ def test_catchments_property():
             n.segments['upstream_area'], [2200.0, 875.0, 525.0])
     np.testing.assert_array_almost_equal(
             n.segments['width'], [1.4615, 1.4457, 1.4397], 4)
+    assert repr(n) == dedent('''\
+        <SurfaceWaterNetwork: with catchment polygons
+          3 segments: [0, 1, 2]
+          2 headwater: [1, 2]
+          1 outlets: [0]
+          no diversions />''')
+    # unset property
     n.catchments = None
     assert n.catchments is None
     # check errors
@@ -397,6 +455,12 @@ def test_set_diversions_geodataframe():
         n.diversions['from_segnum'], [0, 2])
     np.testing.assert_array_equal(
         n.segments['diversions'], [set([0]), None, set([1])])
+    assert repr(n) == dedent('''\
+        <SurfaceWaterNetwork: with Z coordinates
+          3 segments: [0, 1, 2]
+          2 headwater: [1, 2]
+          1 outlets: [0]
+          2 diversions (as GeoDataFrame): [0, 1] />''')
 
 
 def test_set_diversions_dataframe():
@@ -424,6 +488,12 @@ def test_set_diversions_dataframe():
     np.testing.assert_array_equal(n.diversions['from_segnum'], [0, 2])
     np.testing.assert_array_equal(
         n.segments['diversions'], [set([0]), None, set([1])])
+    assert repr(n) == dedent('''\
+        <SurfaceWaterNetwork: with Z coordinates
+          3 segments: [0, 1, 2]
+          2 headwater: [1, 2]
+          1 outlets: [0]
+          2 diversions (as DataFrame): [0, 1] />''')
     # Unset
     n.set_diversions(None)
     assert n.diversions is None
@@ -667,7 +737,7 @@ def test_remove_condition():
         n.segments.at[0, 'upstream_area'], 2200.0)
     np.testing.assert_almost_equal(
         n.segments.at[0, 'width'], 1.4615, 4)
-    # Manually re-tritter these
+    # Manually re-trigger these
     n.evaluate_upstream_length()
     n.evaluate_upstream_area()
     n.estimate_width()
@@ -761,6 +831,12 @@ def test_fluss_n(fluss_n):
         {16: set([8, 9]), 2: set([0, 1]), 5: set([3, 4]), 6: set([2, 5]),
          8: set([6, 7]),  9: set([10, 11]), 10: set([14, 15]),
          11: set([12, 13]), 18: set([16, 17])}
+    assert repr(n) == dedent('''\
+        <SurfaceWaterNetwork:
+          19 segments: [0, 1, ..., 17, 18]
+          10 headwater: [0, 1, ..., 15, 17]
+          1 outlets: [18]
+          no diversions />''')
 
 
 def test_fluss_n_query_upstream(fluss_n):
