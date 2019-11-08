@@ -34,10 +34,10 @@ def n2d():
     return swn.SurfaceWaterNetwork(force_2d(n3d_lines))
 
 
-def read_head(hed_fname, reach_data=None):
+def read_head(hed_fname, reaches=None):
     """Reads MODFLOW Head file
 
-    If reach_data is not None, it is modified inplace to add a 'head' column
+    If reaches is not None, it is modified inplace to add a 'head' column
 
     Returns numpy array
     """
@@ -46,16 +46,15 @@ def read_head(hed_fname, reach_data=None):
         data = b.get_data()
     finally:
         b.close()
-    if reach_data is not None:
-        reach_data['head'] = \
-            data[reach_data['k'], reach_data['i'], reach_data['j']]
+    if reaches is not None:
+        reaches['head'] = data[reaches['k'], reaches['i'], reaches['j']]
     return data
 
 
-def read_budget(bud_fname, text, reach_data=None, colname=None):
+def read_budget(bud_fname, text, reaches=None, colname=None):
     """Reads MODFLOW cell-by-cell file
 
-    If reach_data is not None, it is modified inplace to add data in 'colname'
+    If reaches is not None, it is modified inplace to add data in 'colname'
 
     Returns numpy array
     """
@@ -68,19 +67,18 @@ def read_budget(bud_fname, text, reach_data=None, colname=None):
         data = res[0]
     finally:
         b.close()
-    if reach_data is not None:
+    if reaches is not None:
         if isinstance(data, np.recarray) and 'q' in data.dtype.names:
-            reach_data[colname] = data['q']
+            reaches[colname] = data['q']
         else:
-            reach_data[colname] = \
-                data[reach_data['k'], reach_data['i'], reach_data['j']]
+            reaches[colname] = data[reaches['k'], reaches['i'], reaches['j']]
     return data
 
 
-def read_sfl(sfl_fname, reach_data=None):
+def read_sfl(sfl_fname, reaches=None):
     """Reads MODFLOW stream flow listing ASCII file
 
-    If reach_data is not None, it is modified inplace to add new columns
+    If reaches is not None, it is modified inplace to add new columns
 
     Returns DataFrame of stream flow listing file
     """
@@ -92,12 +90,15 @@ def read_sfl(sfl_fname, reach_data=None):
     if 'col16' in sfl.columns:
         sfl.rename(columns={'col16': 'gradient'}, inplace=True)
     dont_copy = ['layer', 'row', 'column', 'segment', 'reach', 'k', 'i', 'j']
-    if reach_data is not None:
-        if not (reach_data.index == sfl.index).all():
-            raise IndexError('reach_data.index is different')
+    if reaches is not None:
+        if not (reaches.index == sfl.index).all():
+            raise IndexError('reaches.index is different')
         for cn in sfl.columns:
-            if cn not in dont_copy:
-                reach_data[cn] = sfl[cn]
+            if cn == 'kstpkper':  # split tuple into two columns
+                reaches['kstp'] = sfl[cn].apply(lambda x: x[0])
+                reaches['kper'] = sfl[cn].apply(lambda x: x[1])
+            elif cn not in dont_copy:
+                reaches[cn] = sfl[cn]
     return sfl
 
 
@@ -271,7 +272,7 @@ def test_process_flopy_n3d_defaults(n3d, tmpdir_factory):
     np.testing.assert_array_almost_equal(sd.width2, [10.0, 10.0, 10.0])
     assert repr(nm) == dedent('''\
         <MfSfrNetwork: flopy mf2005 'modflowtest'
-          7 in reach_data (reachID): [1, 2, ..., 6, 7]
+          7 in reaches (reachID): [1, 2, ..., 6, 7]
           3 in segment_data (nseg): [1, 2, 3]
             3 from segments: [1, 2, 0]
             no diversions
@@ -285,10 +286,9 @@ def test_process_flopy_n3d_defaults(n3d, tmpdir_factory):
     cbc_fname = str(outdir.join(m.name + '.cbc'))
     sfo_fname = str(outdir.join(m.name + '.sfo'))
     heads = read_head(hds_fname)
-    sl = read_budget(cbc_fname, 'STREAM LEAKAGE', nm.reach_data, 'sfrleakage')
-    sf = read_budget(sfo_fname, 'STREAMFLOW OUT', nm.reach_data, 'sfr_Q')
+    sl = read_budget(cbc_fname, 'STREAM LEAKAGE', nm.reaches, 'sfrleakage')
+    sf = read_budget(sfo_fname, 'STREAMFLOW OUT', nm.reaches, 'sfr_Q')
     # Write some files
-    nm.reach_data.to_csv(str(outdir.join('reach_data.csv')))
     nm.reaches.to_file(str(outdir.join('reaches.shp')))
     nm.grid_cells.to_file(str(outdir.join('grid_cells.shp')))
     swn.gdf_to_shapefile(nm.segments, outdir.join('segments.shp'))
@@ -353,7 +353,7 @@ def test_set_segment_data():
     np.testing.assert_array_almost_equal(sd.width2, [10.0, 10.0, 10.0])
     assert repr(nm) == dedent('''\
         <MfSfrNetwork: flopy mf2005 'modflowtest'
-          7 in reach_data (reachID): [1, 2, ..., 6, 7]
+          7 in reaches (reachID): [1, 2, ..., 6, 7]
           3 in segment_data (nseg): [1, 2, 3]
             3 from segments: [1, 2, 0]
             no diversions
@@ -386,7 +386,7 @@ def test_set_segment_data():
     np.testing.assert_array_almost_equal(sd.width2, [10.0, 10.0, 10.0])
     assert repr(nm) == dedent('''\
         <MfSfrNetwork: flopy mf2005 'modflowtest'
-          7 in reach_data (reachID): [1, 2, ..., 6, 7]
+          7 in reaches (reachID): [1, 2, ..., 6, 7]
           3 in segment_data (nseg): [1, 2, 3]
             3 from segments: [1, 2, 0]
             no diversions
@@ -478,7 +478,7 @@ def test_set_segment_data():
     np.testing.assert_array_almost_equal(sd.pptsw, [0.0, 0.9, 0.0])
     assert repr(nm) == dedent('''\
         <MfSfrNetwork: flopy mf2005 'modflowtest'
-          7 in reach_data (reachID): [1, 2, ..., 6, 7]
+          7 in reaches (reachID): [1, 2, ..., 6, 7]
           3 in segment_data (nseg): [1, 2, 3]
             3 from segments: [1, 2, 0]
             no diversions
@@ -592,7 +592,7 @@ def test_process_flopy_n3d_vars(tmpdir_factory):
     np.testing.assert_array_almost_equal(sd.width2, [10.0, 10.0, 10.0])
     assert repr(nm) == dedent('''\
         <MfSfrNetwork: flopy mf2005 'modflowtest'
-          7 in reach_data (reachID): [1, 2, ..., 6, 7]
+          7 in reaches (reachID): [1, 2, ..., 6, 7]
           3 in segment_data (nseg): [1, 2, 3]
             3 from segments: [1, 2, 0]
             no diversions
@@ -606,10 +606,9 @@ def test_process_flopy_n3d_vars(tmpdir_factory):
     cbc_fname = str(outdir.join(m.name + '.cbc'))
     sfo_fname = str(outdir.join(m.name + '.sfo'))
     heads = read_head(hds_fname)
-    sl = read_budget(cbc_fname, 'STREAM LEAKAGE', nm.reach_data, 'sfrleakage')
-    sf = read_budget(sfo_fname, 'STREAMFLOW OUT', nm.reach_data, 'sfr_Q')
+    sl = read_budget(cbc_fname, 'STREAM LEAKAGE', nm.reaches, 'sfrleakage')
+    sf = read_budget(sfo_fname, 'STREAMFLOW OUT', nm.reaches, 'sfr_Q')
     # Write some files
-    nm.reach_data.to_csv(str(outdir.join('reach_data.csv')))
     nm.reaches.to_file(str(outdir.join('reaches.shp')))
     nm.grid_cells.to_file(str(outdir.join('grid_cells.shp')))
     swn.gdf_to_shapefile(nm.segments, outdir.join('segments.shp'))
@@ -676,7 +675,7 @@ def test_process_flopy_n2d_defaults(n2d, tmpdir_factory):
     # See test_process_flopy_n3d_defaults for other checks
     assert repr(nm) == dedent('''\
         <MfSfrNetwork: flopy mf2005 'modflowtest'
-          7 in reach_data (reachID): [1, 2, ..., 6, 7]
+          7 in reaches (reachID): [1, 2, ..., 6, 7]
           3 in segment_data (nseg): [1, 2, 3]
             3 from segments: [1, 2, 0]
             no diversions
@@ -800,10 +799,9 @@ def test_process_flopy_interp_2d_to_3d(tmpdir_factory):
     cbc_fname = str(outdir.join(m.name + '.cbc'))
     sfo_fname = str(outdir.join(m.name + '.sfo'))
     heads = read_head(hds_fname)
-    sl = read_budget(cbc_fname, 'STREAM LEAKAGE', nm.reach_data, 'sfrleakage')
-    sf = read_budget(sfo_fname, 'STREAMFLOW OUT', nm.reach_data, 'sfr_Q')
+    sl = read_budget(cbc_fname, 'STREAM LEAKAGE', nm.reaches, 'sfrleakage')
+    sf = read_budget(sfo_fname, 'STREAMFLOW OUT', nm.reaches, 'sfr_Q')
     # Write some files
-    nm.reach_data.to_csv(str(outdir.join('reach_data.csv')))
     nm.reaches.to_file(str(outdir.join('reaches.shp')))
     nm.grid_cells.to_file(str(outdir.join('grid_cells.shp')))
     swn.gdf_to_shapefile(nm.segments, outdir.join('segments.shp'))
@@ -849,30 +847,24 @@ def test_set_elevations(n2d, tmpdir_factory):
     # fix elevations
     _ = nm.set_topbot_elevs_at_reaches()
     seg_data = nm.set_segment_data(return_dict=True)
-    reach_data = nm.set_reach_data(return_df=True)
+    reach_data = nm.get_reach_data()
     _ = flopy.modflow.mfsfr2.ModflowSfr2(
-        model=m,
-        reach_data=reach_data.to_records(index=True),
-        segment_data=seg_data)
+        model=m, reach_data=reach_data, segment_data=seg_data)
     nm.plot_reaches_above(m, 'all', plot_bottom=True)
     _ = nm.fix_segment_elevs(min_incise=0.2, min_slope=1.e-4)
     _ = nm.reconcile_reach_strtop()
     seg_data = nm.set_segment_data(return_dict=True)
-    reach_data = nm.set_reach_data(return_df=True)
+    reach_data = nm.get_reach_data()
     _ = flopy.modflow.mfsfr2.ModflowSfr2(
-        model=m,
-        reach_data=reach_data.to_records(index=True),
-        segment_data=seg_data)
+        model=m, reach_data=reach_data, segment_data=seg_data)
     nm.plot_reaches_above(m, 'all', plot_bottom=True)
     nm.plot_reaches_above(m, 1)
     _ = nm.set_topbot_elevs_at_reaches()
     nm.fix_reach_elevs()
     seg_data = nm.set_segment_data(return_dict=True)
-    reach_data = nm.set_reach_data(return_df=True)
+    reach_data = nm.get_reach_data()
     _ = flopy.modflow.mfsfr2.ModflowSfr2(
-        model=m,
-        reach_data=reach_data.to_records(index=True),
-        segment_data=seg_data)
+        model=m, reach_data=reach_data, segment_data=seg_data)
     nm.plot_reaches_above(m, 'all', plot_bottom=True)
     m.sfr.ipakcb = 52
     m.sfr.istcb2 = -53
@@ -906,10 +898,9 @@ def test_set_elevations(n2d, tmpdir_factory):
     cbc_fname = str(outdir.join(m.name + '.cbc'))
     sfo_fname = str(outdir.join(m.name + '.sfo'))
     heads = read_head(hds_fname)
-    sl = read_budget(cbc_fname, 'STREAM LEAKAGE', nm.reach_data, 'sfrleakage')
-    sf = read_budget(sfo_fname, 'STREAMFLOW OUT', nm.reach_data, 'sfr_Q')
+    sl = read_budget(cbc_fname, 'STREAM LEAKAGE', nm.reaches, 'sfrleakage')
+    sf = read_budget(sfo_fname, 'STREAMFLOW OUT', nm.reaches, 'sfr_Q')
     # Write some files
-    nm.reach_data.to_csv(str(outdir.join('reach_data.csv')))
     nm.reaches.to_file(str(outdir.join('reaches.shp')))
     nm.grid_cells.to_file(str(outdir.join('grid_cells.shp')))
     swn.gdf_to_shapefile(nm.segments, outdir.join('segments.shp'))
@@ -960,7 +951,7 @@ def test_reach_barely_outside_ibound():
     assert nm.reaches.geom_almost_equals(expected_reaches_geom, 0).all()
     assert repr(nm) == dedent('''\
         <MfSfrNetwork: flopy mf2005 'modflowtest'
-          3 in reach_data (reachID): [1, 2, 3]
+          3 in reaches (reachID): [1, 2, 3]
           1 in segment_data (nseg): [1]
             1 from segments: [0]
             no diversions
@@ -1089,7 +1080,7 @@ def test_coastal_process_flopy(tmpdir_factory,
         m.bas6.ibound.array, 509, 'c4135a084b2593e0b69c148136a3ad6d')
     assert repr(nm) == dedent('''\
     <MfSfrNetwork: flopy mfnwt 'h'
-      296 in reach_data (reachID): [1, 2, ..., 295, 296]
+      296 in reaches (reachID): [1, 2, ..., 295, 296]
       184 in segment_data (nseg): [1, 2, ..., 183, 184]
         184 from segments (61% used): [3049818, 3049819, ..., 3046952, 3046736]
         no diversions
@@ -1110,11 +1101,9 @@ def test_coastal_elevations(coastal_swn, coastal_flow_m, tmpdir_factory):
     nm = swn.MfSfrNetwork(coastal_swn, m, inflow=coastal_flow_m)
     _ = nm.set_topbot_elevs_at_reaches()
     seg_data = nm.set_segment_data(return_dict=True)
-    reach_data = nm.set_reach_data(return_df=True)
+    reach_data = nm.get_reach_data()
     flopy.modflow.mfsfr2.ModflowSfr2(
-        model=m,
-        reach_data=reach_data.to_records(index=True),
-        segment_data=seg_data)
+        model=m, reach_data=reach_data, segment_data=seg_data)
     nm.plot_reaches_above(m, 'all', plot_bottom=False)
     # handy to set a max elevation that a stream can be
     _ = nm.get_seg_ijk()
@@ -1126,22 +1115,18 @@ def test_coastal_elevations(coastal_swn, coastal_flow_m, tmpdir_factory):
                              max_str_z=max_str_z)
     _ = nm.reconcile_reach_strtop()
     seg_data = nm.set_segment_data(return_dict=True)
-    reach_data = nm.set_reach_data(return_df=True)
+    reach_data = nm.get_reach_data()
     flopy.modflow.mfsfr2.ModflowSfr2(
-        model=m,
-        reach_data=reach_data.to_records(index=True),
-        segment_data=seg_data)
+        model=m, reach_data=reach_data, segment_data=seg_data)
     nm.plot_reaches_above(m, 'all', plot_bottom=False)
     for seg in nm.segment_data.index[nm.segment_data.index.isin([1, 18])]:
         nm.plot_reaches_above(m, seg)
     _ = nm.set_topbot_elevs_at_reaches()
     nm.fix_reach_elevs()
     seg_data = nm.set_segment_data(return_dict=True)
-    reach_data = nm.set_reach_data(return_df=True)
+    reach_data = nm.get_reach_data()
     flopy.modflow.mfsfr2.ModflowSfr2(
-        model=m,
-        reach_data=reach_data.to_records(index=True),
-        segment_data=seg_data)
+        model=m, reach_data=reach_data, segment_data=seg_data)
     nm.plot_reaches_above(m, 'all', plot_bottom=False)
     for seg in nm.segment_data.index[nm.segment_data.index.isin([1, 18])]:
         nm.plot_reaches_above(m, seg)
@@ -1252,7 +1237,7 @@ def test_coastal_reduced_process_flopy(
     #    sd.width2, 1840, '5749f425818b3b18e395b2a432520a4e')
     assert repr(nm) == dedent('''\
     <MfSfrNetwork: flopy mfnwt 'h'
-      154 in reach_data (reachID): [1, 2, ..., 153, 154]
+      154 in reaches (reachID): [1, 2, ..., 153, 154]
       94 in segment_data (nseg): [1, 2, ..., 93, 94]
         94 from segments (72% used): [3049802, 3049683, ..., 3046952, 3046736]
         no diversions
@@ -1364,7 +1349,7 @@ def test_coastal_process_flopy_ibound_modify(coastal_swn, coastal_flow_m,
         m.bas6.ibound.array, 572, 'd353560128577b37f730562d2f89c025')
     assert repr(nm) == dedent('''\
         <MfSfrNetwork: flopy mfnwt 'h'
-          478 in reach_data (reachID): [1, 2, ..., 477, 478]
+          478 in reaches (reachID): [1, 2, ..., 477, 478]
           304 in segment_data (nseg): [1, 2, ..., 303, 304]
             304 from segments: [3050413, 3050418, ..., 3046952, 3046736]
             no diversions
@@ -1440,7 +1425,7 @@ def test_process_flopy_diversion(tmpdir_factory):
     # Data set 2
     np.testing.assert_array_almost_equal(
         m.sfr.reach_data.rchlen,
-        [18.027756, 6.009252, 12.018504, 21.081851, 10.540926, 10.0, 10.0,
+        [18.027756, 6.009252, 12.018504, 21.081852, 10.540926, 10.0, 10.0,
          1.0, 1.0, 1.0, 1.0])
     np.testing.assert_array_almost_equal(
         m.sfr.reach_data.strtop,
@@ -1458,7 +1443,7 @@ def test_process_flopy_diversion(tmpdir_factory):
     np.testing.assert_array_equal(sd.iprior,  [0, 0, 0, 0, 0, 0, 0])
     assert repr(nm) == dedent('''\
         <MfSfrNetwork: flopy mf2005 'modflowtest'
-          11 in reach_data (reachID): [1, 2, ..., 10, 11]
+          11 in reaches (reachID): [1, 2, ..., 10, 11]
           7 in segment_data (nseg): [1, 2, ..., 6, 7]
             3 from segments: [1, 2, 0]
             4 from diversions[0, 1, 2, 3]
@@ -1471,11 +1456,10 @@ def test_process_flopy_diversion(tmpdir_factory):
     assert success
     cbc_fname = str(outdir.join(m.name + '.cbc'))
     sfl_fname = str(outdir.join(m.name + '.sfl'))
-    sl = read_budget(cbc_fname, 'STREAM LEAKAGE', nm.reach_data, 'sfrleakage')
-    sfl = read_sfl(sfl_fname, nm.reach_data)
+    sl = read_budget(cbc_fname, 'STREAM LEAKAGE', nm.reaches, 'sfrleakage')
+    sfl = read_sfl(sfl_fname, nm.reaches)
     # Write some files
-    nm.reach_data.to_csv(str(outdir.join('reach_data.csv')))
-    swn.gdf_to_shapefile(nm.reaches, outdir.join('reaches.shp'))
+    nm.reaches.to_file(str(outdir.join('reaches.shp')))
     nm.grid_cells.to_file(str(outdir.join('grid_cells.shp')))
     swn.gdf_to_shapefile(nm.segments, outdir.join('segments.shp'))
     # Check results
@@ -1488,9 +1472,9 @@ def test_process_flopy_diversion(tmpdir_factory):
     assert (sfl['Qet'] == 0.0).all()
     # Don't check stage, depth or gradient
     np.testing.assert_array_almost_equal(
-        nm.reach_data['width'],
+        nm.reaches['width'],
         [10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 0.0, 0.0, 0.0, 0.0])
-    assert (nm.reach_data['Cond'] == 0.0).all()
+    assert (nm.reaches['Cond'] == 0.0).all()
 
     # Route some flow from headwater segments
     m.sfr.segment_data = nm.set_segment_data(
@@ -1498,8 +1482,8 @@ def test_process_flopy_diversion(tmpdir_factory):
     m.sfr.write_file()
     success, buff = m.run_model()
     assert success
-    sl = read_budget(cbc_fname, 'STREAM LEAKAGE', nm.reach_data, 'sfrleakage')
-    sfl = read_sfl(sfl_fname, nm.reach_data)
+    sl = read_budget(cbc_fname, 'STREAM LEAKAGE', nm.reaches, 'sfrleakage')
+    sfl = read_sfl(sfl_fname, nm.reaches)
     expected_flow = np.array(
         [2.0, 2.0, 2.0, 3.0, 3.0, 5.0, 5.0, 0.0, 0.0, 0.0, 0.0])
     assert (sl['q'] == 0.0).all()
@@ -1516,8 +1500,8 @@ def test_process_flopy_diversion(tmpdir_factory):
     m.sfr.write_file()
     success, buff = m.run_model()
     assert success
-    sl = read_budget(cbc_fname, 'STREAM LEAKAGE', nm.reach_data, 'sfrleakage')
-    sfl = read_sfl(sfl_fname, nm.reach_data)
+    sl = read_budget(cbc_fname, 'STREAM LEAKAGE', nm.reaches, 'sfrleakage')
+    sfl = read_sfl(sfl_fname, nm.reaches)
     expected_flow = np.array(
         [2.0, 2.0, 2.0, 3.0, 3.0, 3.9, 3.9, 1.1, 0.0, 0.0, 0.0])
     assert (sl['q'] == 0.0).all()
@@ -1534,8 +1518,8 @@ def test_process_flopy_diversion(tmpdir_factory):
     m.sfr.write_file()
     success, buff = m.run_model()
     assert success
-    sl = read_budget(cbc_fname, 'STREAM LEAKAGE', nm.reach_data, 'sfrleakage')
-    sfl = read_sfl(sfl_fname, nm.reach_data)
+    sl = read_budget(cbc_fname, 'STREAM LEAKAGE', nm.reaches, 'sfrleakage')
+    sfl = read_sfl(sfl_fname, nm.reaches)
     expected_flow = np.array(
         [2.0, 2.0, 2.0, 3.0, 3.0, 0.9, 0.9, 1.1, 3.0, 0.0, 0.0])
     assert (sl['q'] == 0.0).all()

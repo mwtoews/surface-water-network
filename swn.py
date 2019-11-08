@@ -1230,9 +1230,10 @@ class MfSfrNetwork(object):
         Copied from swn.segments, but with additional columns added
     diversions :  geopandas.GeoDataFrame, pd.DataFrame or None
         Copied from swn.diversions, if set/defined.
-    reach_data : pandas.DataFrame
+    reaches : geopandas.GeoDataFrame
         Similar to structure in model.sfr.reach_data with index 'reachID',
-        ordered and starting from 1.
+        ordered and starting from 1. Contains geometry and other columns
+        not used by flopy. Use get_reach_data() for use with flopy.
     segment_data : pandas.DataFrame
         Simialr to structure in model.sfr.segment_data, but for one stress
         period. Transient data (where applicable) will show summary statistics.
@@ -1743,7 +1744,7 @@ class MfSfrNetwork(object):
                 val = 10 ** (dlhc * self.reaches.loc[sel, 'dist'] + lhc1)
             self.reaches.loc[sel, 'strhc1'] = val
         del self.reaches['sequence']
-        # del self.reaches['dist']
+        del self.reaches['dist']
         # Use MODFLOW SFR dataset 2 terms ISEG and IREACH, counting from 1
         self.reaches['iseg'] = 0
         self.reaches['ireach'] = 0
@@ -1758,8 +1759,9 @@ class MfSfrNetwork(object):
             self.reaches.at[idx, 'ireach'] = ireach
             prev_segnum = segnum
         self.reaches.reset_index(inplace=True, drop=True)
-        self.reaches.index += 1
-        self.reaches.index.name = 'reachID'  # starts at one
+        self.reaches.index += 1  # flopy series starts at one
+        self.reaches.index.name = 'reachID'
+        self.reaches['rchlen'] = self.reaches.geometry.length
         self.reaches['strtop'] = 0.0
         self.reaches['slope'] = 0.0
         if swn.has_z:
@@ -1790,18 +1792,9 @@ class MfSfrNetwork(object):
             self.logger.warning('enforcing min_slope for %d reaches (%.2f%%)',
                                 sel.sum(), 100.0 * sel.sum() / len(sel))
             self.reaches.loc[sel, 'slope'] = self.reaches.loc[sel, 'min_slope']
-        # Build reach_data for Data Set 2
-        # See flopy.modflow.ModflowSfr2.get_default_reach_dtype()
-        self.reach_data = pd.DataFrame(
-            self.reaches[[
-                'row', 'col', 'iseg', 'ireach',
-                'strtop', 'slope', 'strthick', 'strhc1']])
         if not hasattr(self.reaches.geometry, 'geom_type'):
             # workaround needed for reaches.to_file()
             self.reaches.geometry.geom_type = self.reaches.geom_type
-        self.reach_data.rename(columns={'row': 'i', 'col': 'j'}, inplace=True)
-        self.reach_data.insert(0, column='k', value=0)  # only top layer
-        self.reach_data.insert(5, column='rchlen', value=self.reaches.length)
         # Build segment_data for Data Set 6
         self.segment_data = self.reaches[['iseg', 'segnum']]\
             .drop_duplicates().rename(columns={'iseg': 'nseg'})
@@ -1838,12 +1831,15 @@ class MfSfrNetwork(object):
             self.segment_data['depth2'] = 0.0
             # workaround for coercion issue
             self.segment_data['foo'] = ''
-            self.reach_data['foo'] = ''
             is_spatial = (
                 isinstance(self.diversions, geopandas.GeoDataFrame)
                 and 'geometry' in self.diversions.columns
                 and (~self.diversions.is_empty).all())
             drop_divids = []
+            if swn.has_z:
+                empty_geom = wkt.loads('linestring z empty')
+            else:
+                empty_geom = wkt.loads('linestring empty')
             for divid, divn in self.diversions.iterrows():
                 if divn.from_segnum not in segnum2nseg_d:
                     # segnum does not exist -- segment is outside model
@@ -1852,8 +1848,8 @@ class MfSfrNetwork(object):
                 iupseg = segnum2nseg_d[divn.from_segnum]
                 assert iupseg != 0, iupseg
                 nseg = len(self.segment_data) + 1
-                rchlen = 1.0  # unit length required
-                thickm = 1.0  # unit thickness required
+                rchlen = 1.0  # length required
+                thickm = 1.0  # thickness required
                 hcond = 0.0  # don't allow GW exchange
                 seg_d = dict(self.segment_data.loc[iupseg])
                 seg_d.update({  # index is nseg
@@ -1871,17 +1867,15 @@ class MfSfrNetwork(object):
                     'thickm1': thickm, 'thickm2': thickm,
                     'width1': 0.0, 'width2': 0.0,  # not used
                 })
-                reach_d = dict(self.reach_data.loc[
-                    self.reach_data.iseg == iupseg].iloc[-1])
-                row = int(reach_d['i'])
-                col = int(reach_d['j'])
+                # Use the last reach as a template to modify for new reach
+                reach_d = dict(self.reaches.loc[
+                    self.reaches.iseg == iupseg].iloc[-1])
                 reach_d.update({
-                    'k': 0,  # base-zero, top layer
-                    'i': row,
-                    'j': col,
+                    'segnum': divid,
                     'iseg': nseg,
                     'ireach': 1,
                     'rchlen': rchlen,
+                    'min_slope': 0.0,
                     'slope': 0.0,
                     'strthick': thickm,
                     'strhc1': hcond,
@@ -1904,13 +1898,23 @@ class MfSfrNetwork(object):
                             'expected a grid spatial index')
                     row, col = grid_cell.name
                     strtop = dis.top[row, col]
-                    reach_d.update({'i': row, 'j': col, 'strtop': strtop})
+                    reach_d.update({
+                        'geometry': empty_geom,  # divn.geometry,
+                        'row': row,
+                        'col': col,
+                        'strtop': strtop,
+                    })
                 else:
-                    strtop = dis.top[row, col]
-                    seg_d.update({'elevup': strtop, 'elevdn': strtop})
-                depth = strtop + 1.0
+                    strtop = dis.top[reach_d['row'], reach_d['col']]
+                    reach_d['strtop'] = strtop
+                    seg_d.update({
+                        'geometry': empty_geom,
+                        'elevup': strtop,
+                        'elevdn': strtop,
+                    })
+                depth = strtop + thickm
                 seg_d.update({'depth1': depth, 'depth2': depth})
-                self.reach_data.loc[len(self.reach_data) + 1] = reach_d
+                self.reaches.loc[len(self.reaches) + 1] = reach_d
                 self.segment_data.loc[nseg] = seg_d
             if drop_divids:
                 self.diversions.drop(drop_divids, axis=0, inplace=True)
@@ -1923,17 +1927,18 @@ class MfSfrNetwork(object):
                     'added all %d diversions', len(self.diversions))
             # end of coercion workaround
             self.segment_data.drop('foo', axis=1, inplace=True)
-            self.reach_data.drop('foo', axis=1, inplace=True)
         else:
             self.diversions = None
+        # Finally, add/rename a few columns to align with reach_data
+        self.reaches.insert(2, column='k', value=0)
+        self.reaches.rename(columns={'row': 'i', 'col': 'j'}, inplace=True)
+        # Create flopy Sfr2 package
         segment_data = self.set_segment_data(
             abstraction=abstraction, inflow=inflow,
             flow=flow, runoff=runoff, etsw=etsw, pptsw=pptsw, return_dict=True)
-        # Create flopy Sfr2 package
+        reach_data = self.get_reach_data()
         flopy.modflow.mfsfr2.ModflowSfr2(
-                model=model,
-                reach_data=self.reach_data.to_records(index=True),
-                segment_data=segment_data)
+            model=model, reach_data=reach_data, segment_data=segment_data)
 
     def __repr__(self):
         is_diversion = self.segment_data['iupseg'] != 0
@@ -1955,20 +1960,40 @@ class MfSfrNetwork(object):
         nper = self.model.dis.nper
         return dedent('''\
             <{}: flopy {} {!r}
-              {} in reach_data ({}): {}
+              {} in reaches ({}): {}
               {} in segment_data ({}): {}
                 {}
                 {}
               {} stress period{} with perlen: {} />'''.format(
             self.__class__.__name__, self.model.version, self.model.name,
-            len(self.reach_data), self.reach_data.index.name,
-            _abbr_str(list(self.reach_data.index), 4),
+            len(self.reaches), self.reaches.index.name,
+            _abbr_str(list(self.reaches.index), 4),
             len(self.segment_data), self.segment_data.index.name,
             _abbr_str(list(self.segment_data.index), 4),
             segments_line,
             diversions_line,
             nper, '' if nper == 1 else 's',
             _abbr_str(list(self.model.dis.perlen), 4)))
+
+    def get_reach_data(self):
+        """Returns numpy.recarray for flopy's ModflowSfr2 reach_data
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        numpy.recarray
+        """
+        from flopy.modflow.mfsfr2 import ModflowSfr2
+        # Build reach_data for Data Set 2
+        reach_data_names = []
+        for name in ModflowSfr2.get_default_reach_dtype().names:
+            if name in self.reaches.columns:
+                reach_data_names.append(name)
+        reach_data = pd.DataFrame(self.reaches[reach_data_names])
+        return reach_data.to_records(index=True)
 
     def set_segment_data(self, abstraction={}, inflow={}, flow={}, runoff={},
                          etsw={}, pptsw={}, return_dict=False):
@@ -2267,31 +2292,12 @@ class MfSfrNetwork(object):
         else:
             self.model.sfr.segment_data = segment_data
 
-    def set_reach_data(self, return_df=False):
-        # Take only a subset of columns to sfr
-        from flopy.modflow.mfsfr2 import ModflowSfr2
-        colnames = []
-        n = set(ModflowSfr2.get_default_reach_dtype().names)
-        n.discard('reachID')
-        diff = n - set(self.reach_data.columns)
-        self.reach_data = pd.concat(
-            [self.reach_data,
-             pd.DataFrame(
-                 np.zeros([len(self.reach_data.index), len(diff)]),
-                 columns=diff, index=self.reach_data.index)], axis=1)
-        colnames = list(n)
-        if return_df:
-            return self.reach_data[colnames]
-        else:
-            self.model.sfr.rech_data = self.reach_data[
-                colnames].to_records(index=True)
-
     def get_seg_ijk(self):
         """
         This will just get the upstream and downstream segment k,i,j
         """
-        topidx = self.reach_data['ireach'] == 1
-        kij_df = self.reach_data[topidx][['iseg', 'k', 'i', 'j']].sort_values(
+        topidx = self.reaches['ireach'] == 1
+        kij_df = self.reaches[topidx][['iseg', 'k', 'i', 'j']].sort_values(
             'iseg')
         idx_name = self.segment_data.index.name or 'index'
         self.segment_data = self.segment_data.reset_index().merge(
@@ -2300,9 +2306,9 @@ class MfSfrNetwork(object):
         self.segment_data.rename(
             columns={"k": "k_up", "i": "i_up", "j": "j_up"}, inplace=True)
         # seg bottoms
-        btmidx = self.reach_data.groupby('iseg')['ireach'].transform(max) == \
-            self.reach_data['ireach']
-        kij_df = self.reach_data[btmidx][['iseg', 'k', 'i', 'j']].sort_values(
+        btmidx = self.reaches.groupby('iseg')['ireach'].transform(max) == \
+            self.reaches['ireach']
+        kij_df = self.reaches[btmidx][['iseg', 'k', 'i', 'j']].sort_values(
             'iseg')
 
         self.segment_data = self.segment_data.reset_index().merge(
@@ -2371,7 +2377,8 @@ class MfSfrNetwork(object):
         :return:
         """
         # extract segment length for calculating minimun drop later
-        seglen = self.reach_data.groupby('iseg').rchlen.sum()
+        reaches = self.reaches[['geometry', 'iseg', 'rchlen']].copy()
+        seglen = reaches.groupby('iseg')['rchlen'].sum()
         self.segment_data.loc[seglen.index, 'seglen'] = seglen
         return seglen
 
@@ -2530,7 +2537,7 @@ class MfSfrNetwork(object):
     def reconcile_reach_strtop(self):
         """
         recalculate reach strtop elevations after moving segment elevations
-        :return: Reach data df
+        :return: None
         """
         def reach_elevs(seg):
             """
@@ -2556,10 +2563,10 @@ class MfSfrNetwork(object):
         self.segment_data['Zslope'] = \
             ((self.segment_data['elevdn'] - self.segment_data['elevup']) /
              self.segment_data['seglen'])
-        segs = self.reach_data.groupby('iseg')
-        self.reach_data['seglen'] = segs.rchlen.cumsum()
-        self.reach_data = segs.apply(reach_elevs)
-        return self.reach_data
+        segs = self.reaches.groupby('iseg')
+        self.reaches['seglen'] = segs.rchlen.cumsum()
+        self.reaches = segs.apply(reach_elevs)
+        return self.reaches
 
     def set_topbot_elevs_at_reaches(self, m=None):
         """
@@ -2569,11 +2576,11 @@ class MfSfrNetwork(object):
         """
         if m is None:
             m = self.model
-        self.reach_data['top'] = m.dis.top.array[
-            tuple(self.reach_data[['i', 'j']].values.T)]
-        self.reach_data['bot'] = m.dis.botm[0].array[
-            tuple(self.reach_data[['i', 'j']].values.T)]
-        return self.reach_data[['top', 'bot']]
+        self.reaches['top'] = m.dis.top.array[
+            tuple(self.reaches[['i', 'j']].values.T)]
+        self.reaches['bot'] = m.dis.botm[0].array[
+            tuple(self.reaches[['i', 'j']].values.T)]
+        return self.reaches[['top', 'bot']]
 
     def fix_reach_elevs(self, minslope=0.0001, fix_dis=True, minthick=0.5):
         """
@@ -2590,14 +2597,14 @@ class MfSfrNetwork(object):
         # also helps with precision issues)
         # make sure elevations are up-to-date
         # recalculate REACH strtop elevations
-        _ = self.reconcile_reach_strtop()
+        self.reconcile_reach_strtop()
         _ = self.set_topbot_elevs_at_reaches()
         # top read from dis as float32 so comparison need to be with like
-        reachsel = self.reach_data['top'] <= self.reach_data['strtop']
+        reachsel = self.reaches['top'] <= self.reaches['strtop']
         print('{} segments with reaches above model top'.format(
-            self.reach_data[reachsel]['iseg'].unique().shape[0]))
+            self.reaches[reachsel]['iseg'].unique().shape[0]))
         # get segments with reaches above the top surface
-        segsabove = self.reach_data[reachsel].groupby(
+        segsabove = self.reaches[reachsel].groupby(
             'iseg').size().sort_values(ascending=False)
         # get incision gradient from segment elevups and elevdns
         # ('diff_up' and 'diff_dn' are the incisions of the top and
@@ -2610,13 +2617,13 @@ class MfSfrNetwork(object):
         # loop over each segment
         for seg in self.segment_data.index:  # (all segs)
             # selection for segment in reachdata and seg data
-            rsel = self.reach_data['iseg'] == seg
+            rsel = self.reaches['iseg'] == seg
             segsel = self.segment_data.index == seg
 
             if seg in segsabove:
                 # check top and bottom reaches are above layer 1 bottom
                 # (not adjusting elevations of reaches)
-                for reach in self.reach_data[rsel].iloc[[0, -1]].itertuples():
+                for reach in self.reaches[rsel].iloc[[0, -1]].itertuples():
                     if reach.strtop - reach.strthick < reach.bot + buffer:
                         # drop bottom of layer one to accomodate stream
                         new_elev = reach.strtop - reach.strthick - buffer
@@ -2629,28 +2636,28 @@ class MfSfrNetwork(object):
                         layerbots[0, reach.i, reach.j] = new_elev
                 # apparent optimised incision based
                 # on the incision gradient for the segment
-                self.reach_data.loc[rsel, 'strtop_incopt'] = \
-                    self.reach_data.loc[rsel, 'top'].subtract(
+                self.reaches.loc[rsel, 'strtop_incopt'] = \
+                    self.reaches.loc[rsel, 'top'].subtract(
                         self.segment_data.loc[segsel, 'diff_up'].values[0]) + \
-                    (self.reach_data.loc[rsel, 'cmids'].subtract(
-                        self.reach_data.loc[rsel, 'cmids'].values[0]) *
+                    (self.reaches.loc[rsel, 'cmids'].subtract(
+                        self.reaches.loc[rsel, 'cmids'].values[0]) *
                      self.segment_data.loc[segsel, 'incgrad'].values[0])
                 # falls apart when the top elevation is not monotonically
                 # decreasing down the segment (/always!)
 
                 # bottom reach elevation:
-                botreach_strtop = self.reach_data[rsel]['strtop'].values[-1]
+                botreach_strtop = self.reaches[rsel]['strtop'].values[-1]
                 # total segment length
-                seglen = self.reach_data[rsel]['seglen'].values[-1]
+                seglen = self.reaches[rsel]['seglen'].values[-1]
                 botreach_slope = minslope  # minimum slope of segment
                 # top reach elevation and "length?":
-                upreach_strtop = self.reach_data[rsel]['strtop'].values[0]
-                upreach_cmid = self.reach_data[rsel]['cmids'].values[0]
+                upreach_strtop = self.reaches[rsel]['strtop'].values[0]
+                upreach_cmid = self.reaches[rsel]['cmids'].values[0]
                 # use top reach as starting point
 
                 # loop over reaches in segement from second to penultimate
                 # (dont want to move elevup or elevdn)
-                for reach in self.reach_data[rsel][1:-1].itertuples():
+                for reach in self.reaches[rsel][1:-1].itertuples():
                     # strtop that would result from minimum slope
                     # from upstream reach
                     strtop_withminslope = upreach_strtop - (
@@ -2669,7 +2676,7 @@ class MfSfrNetwork(object):
                               .format(seg, reach.ireach))
                         print('    setting elevation to minslope from bottom')
                         # set to minimum slope from outreach
-                        self.reach_data.at[
+                        self.reaches.at[
                             reach.Index, 'strtop'] = strtop_min2bot
                         # update upreach for next iteration
                         upreach_strtop = strtop_min2bot
@@ -2681,7 +2688,7 @@ class MfSfrNetwork(object):
                         print('    setting elevation to minslope from '
                               'upstream')
                         # set to minimum slope from upstream reach
-                        self.reach_data.at[
+                        self.reaches.at[
                             reach.Index, 'strtop'] = strtop_withminslope
                         # update upreach for next iteration
                         upreach_strtop = strtop_withminslope
@@ -2707,7 +2714,7 @@ class MfSfrNetwork(object):
                                 # minimum slope from upstream
                                 print('    setting elevation to minslope '
                                       'from upstream')
-                                self.reach_data.at[reach.Index, 'strtop'] = \
+                                self.reaches.at[reach.Index, 'strtop'] = \
                                     strtop_withminslope
                                 upreach_strtop = strtop_withminslope
                             else:
@@ -2719,14 +2726,14 @@ class MfSfrNetwork(object):
                                 # set reach top so that it is above layer 1
                                 # bottom with a buffer
                                 # (allowing for bed thickness)
-                                self.reach_data.at[reach.Index, 'strtop'] = \
+                                self.reaches.at[reach.Index, 'strtop'] = \
                                     reach.bot + buffer + reach.strthick
                                 upreach_strtop = new_elev
                         else:
                             # strtop ok to set to 'optimum incision'
                             # set to "optimum incision"
                             print('    setting elevation to incopt')
-                            self.reach_data.at[
+                            self.reaches.at[
                                 reach.Index, 'strtop'] = reach.strtop_incopt
                             upreach_strtop = reach.strtop_incopt
                     # check if new stream top is above layer 1 with a buffer
@@ -2749,7 +2756,7 @@ class MfSfrNetwork(object):
                 # check if reaches are below layer 1
                 print('seg {} is always downstream and below the top'
                       .format(seg))
-                for reach in self.reach_data[rsel].itertuples():
+                for reach in self.reaches[rsel].itertuples():
                     reachbed_elev = reach.strtop - reach.strthick
                     if (reachbed_elev - buffer) < reach.bot:
                         # strtop is below layer one
@@ -2795,20 +2802,20 @@ class MfSfrNetwork(object):
                 dis.top.array, mask=model.bas6.ibound.array[0] == 0)
         sfrar = np.ma.zeros(dis.top.array.shape, 'f')
         sfrar.mask = np.ones(sfrar.shape)
-        lay1reaches = self.reach_data.loc[
-            self.reach_data.k.apply(lambda x: x == 1)]
+        lay1reaches = self.reaches.loc[
+            self.reaches.k.apply(lambda x: x == 1)]
         points = None
         if lay1reaches.shape[0] > 0:
             points = lay1reaches[['i', 'j']]
         # segsel=reachdata['iseg'].isin(segsabove.index)
         if seg == 'all':
-            segsel = np.ones((self.reach_data.shape[0]), dtype=bool)
+            segsel = np.ones((self.reaches.shape[0]), dtype=bool)
         else:
-            segsel = self.reach_data['iseg'] == seg
-        sfrar[tuple((self.reach_data[segsel][['i', 'j']]
+            segsel = self.reaches['iseg'] == seg
+        sfrar[tuple((self.reaches[segsel][['i', 'j']]
                      .values.T).tolist())] = \
-            (self.reach_data[segsel]['top'] -
-             self.reach_data[segsel]['strtop']).tolist()
+            (self.reaches[segsel]['top'] -
+             self.reaches[segsel]['strtop']).tolist()
         # .mask = np.ones(sfrar.shape)
         self.sfr_plot(model, sfrar, dem, points=points, points2=points2,
                       label="str below top (m)")
@@ -2819,10 +2826,10 @@ class MfSfrNetwork(object):
                                  mask=model.bas6.ibound.array[0] == 0)
             sfrarbot = np.ma.zeros(dis.botm.array[0].shape, 'f')
             sfrarbot.mask = np.ones(sfrarbot.shape)
-            sfrarbot[tuple((self.reach_data[segsel][['i', 'j']]
+            sfrarbot[tuple((self.reaches[segsel][['i', 'j']]
                             .values.T).tolist())] = \
-                (self.reach_data[segsel]['strtop'] -
-                 self.reach_data[segsel]['bot']).tolist()
+                (self.reaches[segsel]['strtop'] -
+                 self.reaches[segsel]['bot']).tolist()
             # .mask = np.ones(sfrar.shape)
             self.sfr_plot(model, sfrarbot, dembot, points=points,
                           points2=points2, label="str above bottom (m)")
