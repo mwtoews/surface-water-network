@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import matplotlib.pyplot as plt
 import numpy as np
 from textwrap import dedent
 
@@ -80,6 +81,8 @@ def test_init(coastal_swn, coastal_lines_gdf):
           154 headwater: [3046409, 3046542, ..., 3050338, 3050418]
           3 outlets: [3046700, 3046737, 3046736]
           no diversions />''')
+    _ = n.plot()
+    plt.close()
 
 
 def test_accumulate_values(coastal_swn, coastal_lines_gdf):
@@ -118,3 +121,5 @@ def test_catchment_polygons(coastal_lines_gdf, coastal_polygons_gdf):
           154 headwater: [3046409, 3046542, ..., 3050338, 3050418]
           3 outlets: [3046700, 3046737, 3046736]
           no diversions />''')
+    _ = n.plot()
+    plt.close()

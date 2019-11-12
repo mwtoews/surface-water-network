@@ -406,6 +406,79 @@ class SurfaceWaterNetwork(object):
             len(out_l), _abbr_str(out_l, 4),
             diversions_line))
 
+    def plot(self, column='stream_order', sort_column='sequence',
+             cmap='viridis_r', legend=False):
+        """
+        Shows map of surface water network lines, with points showing,
+        headwater (green dots), outlets (navy dots), and if present, diversion
+        locations with a blue dashed line to the diversion location at the
+        end of the segment line.
+
+        Parameters
+        ----------
+        column : str
+            Column from segments to use with 'cmap'; default 'stream_order'.
+            See also 'legend' to help interpret values.
+        sort_column : str
+            Column from segments to sort values; default 'sequence'.
+        cmap : str
+            Matplotlib color map; default 'viridis_r',
+        legend : bool
+            Show legend for 'column'; default False.
+
+        Returns
+        -------
+        AxesSubplot
+        """
+        import matplotlib.pyplot as plt
+
+        fig, ax = plt.subplots()
+        ax.set_aspect('equal')
+
+        segments = self.segments
+        if sort_column:
+            segments = self.segments.sort_values(sort_column)
+        segments.plot(
+            column=column, label='segments', legend=legend, ax=ax, cmap=cmap)
+
+        outet_points = geopandas.GeoSeries(
+            self.segments.loc[self.outlets].geometry.apply(
+                lambda g: Point(g.coords[-1])))
+        outet_points.plot(
+            ax=ax, label='outlet', marker='o', color='navy')
+
+        headwater_points = geopandas.GeoSeries(
+            self.segments.loc[self.headwater].geometry.apply(
+                lambda g: Point(g.coords[0])))
+        headwater_points.plot(
+            ax=ax, label='headwater', marker='.', color='green')
+
+        diversions = self.diversions
+        if diversions is not None:
+            diversions_is_spatial = (
+                isinstance(diversions, geopandas.GeoDataFrame)
+                and 'geometry' in diversions.columns
+                and (~diversions.is_empty).all())
+            if diversions_is_spatial:
+                diversion_points = diversions.geometry
+            else:
+                diversion_points = self.segments.loc[
+                    self.diversions['from_segnum']].geometry.apply(
+                        lambda g: Point(g.coords[-1]))
+            diversion_points.plot(
+                ax=ax, label='diversion', marker='+', color='red')
+            if diversions_is_spatial:
+                diversion_lines = []
+                for divid, item in self.diversions.iterrows():
+                    p = self.segments.loc[item.from_segnum].geometry.coords[-1]
+                    diversion_lines.append(
+                        LineString([item.geometry.coords[0], p]))
+                diversion_lines = geopandas.GeoSeries(diversion_lines)
+                diversion_lines.plot(
+                    ax=ax, label='diversion lines',
+                    linestyle='--', color='deepskyblue')
+        return ax
+
     @classmethod
     def init_from_gdal(cls, lines_srs, elevation_srs=None):
         """
@@ -1974,6 +2047,53 @@ class MfSfrNetwork(object):
             diversions_line,
             nper, '' if nper == 1 else 's',
             _abbr_str(list(self.model.dis.perlen), 4)))
+
+    def plot(self, column='iseg',
+             cmap='viridis_r', legend=False):
+        """
+        Shows map of reaches with inflow segments in royalblue
+
+        Parameters
+        ----------
+        column : str
+            Column from reaches to use with 'cmap'; default 'iseg'.
+            See also 'legend' to help interpret values.
+        cmap : str
+            Matplotlib color map; default 'viridis_r',
+        legend : bool
+            Show legend for 'column'; default False.
+
+        Returns
+        -------
+        AxesSubplot
+        """
+        import matplotlib.pyplot as plt
+
+        fig, ax = plt.subplots()
+        ax.set_aspect('equal')
+
+        self.reaches[~self.reaches.is_empty].plot(
+            column=column, label='reaches', legend=legend, ax=ax, cmap=cmap)
+
+        self.grid_cells.plot(ax=ax, color='whitesmoke', edgecolor='gainsboro')
+        # return ax
+
+        is_diversion = self.segment_data['iupseg'] != 0
+        outlet_sel = (self.segment_data['outseg'] == 0) & (~is_diversion)
+        outlet_points = self.reaches.loc[self.reaches['iseg'].isin(
+            self.segment_data.loc[outlet_sel].index), 'geometry']\
+            .apply(lambda g: Point(g.coords[-1]))
+        outlet_points.plot(
+            ax=ax, label='outlet', marker='o', color='navy')
+        if 'inflow_segnums' in self.segment_data.columns:
+            inflow_sel = ~self.segment_data['inflow_segnums'].isnull()
+            inflow_points = self.reaches.loc[self.reaches['iseg'].isin(
+                self.segment_data.loc[inflow_sel].index), 'geometry']\
+                .apply(lambda g: Point(g.coords[0]))
+            inflow_points.plot(
+                ax=ax, label='inflow points', marker='o', color='royalblue')
+
+        return ax
 
     def get_reach_data(self):
         """Returns numpy.recarray for flopy's ModflowSfr2 reach_data
