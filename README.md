@@ -67,8 +67,10 @@ n.remove(n.segments.stream_order == 1, segnums=n.query(upstream=3047927))
 
 Read flow data from a TopNet netCDF file:
 ```python
+import swn.file
+
 nc_fname = 'streamq_20170115_20170128_topnet_03046727_strahler1.nc'
-flow = swn.topnet2ts(os.path.join(datadir, nc_fname), 'mod_flow')
+flow = swn.file.topnet2ts(os.path.join(datadir, nc_fname), 'mod_flow')
 # convert from m3/s to m3/day
 flow *= 24 * 60 * 60
 # remove time and truncate to closest day

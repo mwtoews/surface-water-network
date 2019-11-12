@@ -3,19 +3,23 @@ import geopandas
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import pytest
 from hashlib import md5
 from shapely import wkt
 from shapely.geometry import Point
 from textwrap import dedent
-from warnings import warn
+
+import pytest
+from .conftest import datadir
+
 try:
     import flopy
 except ImportError:
     pytest.skip("skipping tests that require flopy", allow_module_level=True)
 
-from .conftest import swn, \
-    datadir, force_2d, wkt_to_geoseries
+import swn
+import swn.modflow
+from swn.file import gdf_to_shapefile
+from swn.spatial import interp_2d_to_3d, force_2d, wkt_to_geoseries
 
 # same valid network used in test_basic
 n3d_lines = wkt_to_geoseries([
@@ -63,6 +67,7 @@ def read_budget(bud_fname, text, reaches=None, colname=None):
         b = flopy.utils.CellBudgetFile(bud_fname)
         res = b.get_data(text=text)
         if len(res) != 1:
+            from warnings import warn
             warn('get_data(text={!r}) returned more than one array'
                  .format(text))
         data = res[0]
@@ -294,7 +299,7 @@ def test_process_flopy_n3d_defaults(n3d, tmpdir_factory):
     # Write some files
     nm.reaches.to_file(str(outdir.join('reaches.shp')))
     nm.grid_cells.to_file(str(outdir.join('grid_cells.shp')))
-    swn.gdf_to_shapefile(nm.segments, outdir.join('segments.shp'))
+    gdf_to_shapefile(nm.segments, outdir.join('segments.shp'))
     # Check results
     assert heads.shape == (1, 3, 2)
     np.testing.assert_array_almost_equal(
@@ -622,7 +627,7 @@ def test_process_flopy_n3d_vars(tmpdir_factory):
     # Write some files
     nm.reaches.to_file(str(outdir.join('reaches.shp')))
     nm.grid_cells.to_file(str(outdir.join('grid_cells.shp')))
-    swn.gdf_to_shapefile(nm.segments, outdir.join('segments.shp'))
+    gdf_to_shapefile(nm.segments, outdir.join('segments.shp'))
     # Check results
     assert heads.shape == (1, 3, 2)
     np.testing.assert_array_almost_equal(
@@ -702,7 +707,7 @@ def test_process_flopy_n2d_defaults(n2d, tmpdir_factory):
     # TODO: improve processing to correct elevation errors
     nm.reaches.to_file(str(outdir.join('reaches.shp')))
     nm.grid_cells.to_file(str(outdir.join('grid_cells.shp')))
-    swn.gdf_to_shapefile(nm.segments, outdir.join('segments.shp'))
+    gdf_to_shapefile(nm.segments, outdir.join('segments.shp'))
 
 
 def test_process_flopy_n2d_min_slope(n2d, tmpdir_factory):
@@ -752,7 +757,7 @@ def test_process_flopy_n2d_min_slope(n2d, tmpdir_factory):
     # TODO: improve processing to correct elevation errors
     nm.reaches.to_file(str(outdir.join('reaches.shp')))
     nm.grid_cells.to_file(str(outdir.join('grid_cells.shp')))
-    swn.gdf_to_shapefile(nm.segments, outdir.join('segments.shp'))
+    gdf_to_shapefile(nm.segments, outdir.join('segments.shp'))
 
 
 def test_process_flopy_interp_2d_to_3d(tmpdir_factory):
@@ -775,8 +780,8 @@ def test_process_flopy_interp_2d_to_3d(tmpdir_factory):
     _ = flopy.modflow.ModflowSip(m)
     _ = flopy.modflow.ModflowLpf(m, ipakcb=52, laytyp=0, hk=1.0)
     _ = flopy.modflow.ModflowRch(m, ipakcb=52, rech=0.01)
-    gt = swn.geotransform_from_flopy(m)
-    n = swn.SurfaceWaterNetwork(swn.interp_2d_to_3d(n3d_lines, top, gt))
+    gt = swn.modflow.geotransform_from_flopy(m)
+    n = swn.SurfaceWaterNetwork(interp_2d_to_3d(n3d_lines, top, gt))
     n.adjust_elevation_profile()
     nm = swn.MfSfrNetwork(n, m)
     m.sfr.ipakcb = 52
@@ -817,7 +822,7 @@ def test_process_flopy_interp_2d_to_3d(tmpdir_factory):
     # Write some files
     nm.reaches.to_file(str(outdir.join('reaches.shp')))
     nm.grid_cells.to_file(str(outdir.join('grid_cells.shp')))
-    swn.gdf_to_shapefile(nm.segments, outdir.join('segments.shp'))
+    gdf_to_shapefile(nm.segments, outdir.join('segments.shp'))
     # Check results
     assert heads.shape == (1, 3, 2)
     np.testing.assert_array_almost_equal(
@@ -920,7 +925,7 @@ def test_set_elevations(n2d, tmpdir_factory):
     # Write some files
     nm.reaches.to_file(str(outdir.join('reaches.shp')))
     nm.grid_cells.to_file(str(outdir.join('grid_cells.shp')))
-    swn.gdf_to_shapefile(nm.segments, outdir.join('segments.shp'))
+    gdf_to_shapefile(nm.segments, outdir.join('segments.shp'))
     # Check results
     assert heads.shape == (1, 3, 2)
     np.testing.assert_array_almost_equal(
@@ -1109,7 +1114,7 @@ def test_coastal_process_flopy(tmpdir_factory,
     # Write output files
     nm.grid_cells.to_file(str(outdir.join('grid_cells.shp')))
     nm.reaches.to_file(str(outdir.join('reaches.shp')))
-    swn.gdf_to_shapefile(nm.segments, outdir.join('segments.shp'))
+    gdf_to_shapefile(nm.segments, outdir.join('segments.shp'))
 
 
 def test_coastal_elevations(coastal_swn, coastal_flow_m, tmpdir_factory):
@@ -1284,7 +1289,7 @@ def test_coastal_reduced_process_flopy(
     # TODO: improve processing to correct elevation errors
     nm.grid_cells.to_file(str(outdir.join('grid_cells.shp')))
     nm.reaches.to_file(str(outdir.join('reaches.shp')))
-    swn.gdf_to_shapefile(nm.segments, outdir.join('segments.shp'))
+    gdf_to_shapefile(nm.segments, outdir.join('segments.shp'))
 
 
 def test_coastal_process_flopy_ibound_modify(coastal_swn, coastal_flow_m,
@@ -1341,6 +1346,7 @@ def test_coastal_process_flopy_ibound_modify(coastal_swn, coastal_flow_m,
     # Data set 6
     assert len(m.sfr.segment_data) == 1
     sd = m.sfr.segment_data[0]
+    del sd
     # check_number_sum_hex(
     #     sd.nseg, 46360, '22126069af5cfa16460d6b5ee2c9e25e')
     # check_number_sum_hex(
@@ -1398,7 +1404,7 @@ def test_coastal_process_flopy_ibound_modify(coastal_swn, coastal_flow_m,
     # TODO: improve processing to correct elevation errors
     nm.reaches.to_file(str(outdir.join('reaches.shp')))
     nm.grid_cells.to_file(str(outdir.join('grid_cells.shp')))
-    swn.gdf_to_shapefile(nm.segments, outdir.join('segments.shp'))
+    gdf_to_shapefile(nm.segments, outdir.join('segments.shp'))
 
 
 @pytest.mark.xfail
@@ -1441,8 +1447,8 @@ def test_process_flopy_diversion(tmpdir_factory):
     _ = flopy.modflow.ModflowBas(m, strt=top)
     _ = flopy.modflow.ModflowDe4(m)
     _ = flopy.modflow.ModflowLpf(m, ipakcb=52, laytyp=0)
-    gt = swn.geotransform_from_flopy(m)
-    n = swn.SurfaceWaterNetwork(swn.interp_2d_to_3d(n3d_lines, top, gt))
+    gt = swn.modflow.geotransform_from_flopy(m)
+    n = swn.SurfaceWaterNetwork(interp_2d_to_3d(n3d_lines, top, gt))
     n.adjust_elevation_profile()
     diversions = geopandas.GeoDataFrame(geometry=[
         Point(58, 97), Point(62, 97), Point(61, 89), Point(59, 89)])
@@ -1497,7 +1503,7 @@ def test_process_flopy_diversion(tmpdir_factory):
     # Write some files
     nm.reaches.to_file(str(outdir.join('reaches.shp')))
     nm.grid_cells.to_file(str(outdir.join('grid_cells.shp')))
-    swn.gdf_to_shapefile(nm.segments, outdir.join('segments.shp'))
+    gdf_to_shapefile(nm.segments, outdir.join('segments.shp'))
     # Check results
     assert (sl['q'] == 0.0).all()
     assert (sfl['Qin'] == 0.0).all()

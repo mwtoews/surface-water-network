@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from textwrap import dedent
 
-from .conftest import swn
+import swn
 
 
 def test_init(coastal_swn, coastal_lines_gdf):
