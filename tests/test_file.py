@@ -7,7 +7,6 @@ import pytest
 from .conftest import datadir
 
 import swn
-import swn.file
 
 
 def test_topnet2ts(coastal_flow_ts):

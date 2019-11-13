@@ -50,13 +50,21 @@ lines.set_index('nzsegment', inplace=True, verify_integrity=True)  # optional
 
 Initialise and create network:
 ```python
-n = swn.SurfaceWaterNetwork(lines)
+n = swn.SurfaceWaterNetwork(lines.geometry)
+print(n)
+# <SurfaceWaterNetwork: with Z coordinates
+#   304 segments: [3046409, 3046455, ..., 3050338, 3050418]
+#   154 headwater: [3046409, 3046542, ..., 3050338, 3050418]
+#   3 outlets: [3046700, 3046737, 3046736]
+#   no diversions />
 ```
 
-Plot something, write a Shapefile:
+Plot the network, write a Shapefile:
 ```python
-n.segments.sort_values('stream_order').plot('stream_order')
-n.segments.to_file('segments.shp')
+n.plot()
+
+import swn.file
+swn.file.gdf_to_shapefile(n.segments, 'segments.shp')
 ```
 
 Remove segments that meet a condition (stream order), or that are
