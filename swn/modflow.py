@@ -732,6 +732,7 @@ class MfSfrNetwork(object):
             self.diversions = None
         # Finally, add/rename a few columns to align with reach_data
         self.reaches.insert(2, column='k', value=0)
+        self.reaches.insert(3, column='outreach', value=pd.Series(dtype=int))
         self.reaches.rename(columns={'row': 'i', 'col': 'j'}, inplace=True)
         # Create flopy Sfr2 package
         segment_data = self.set_segment_data(
