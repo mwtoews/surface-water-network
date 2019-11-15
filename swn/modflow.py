@@ -626,6 +626,9 @@ class MfSfrNetwork(object):
         # Add diversions (i.e. SW takes)
         if swn.diversions is not None:
             self.diversions = swn.diversions.copy()
+            # Mark diversions that are not used / outside model
+            self.diversions['in_model'] = True
+            outside_model = []
             # Add columns for ICALC=0
             self.segment_data['depth1'] = 0.0
             self.segment_data['depth2'] = 0.0
@@ -635,7 +638,6 @@ class MfSfrNetwork(object):
                 isinstance(self.diversions, geopandas.GeoDataFrame) and
                 'geometry' in self.diversions.columns and
                 (~self.diversions.is_empty).all())
-            drop_divids = []
             if swn.has_z:
                 empty_geom = wkt.loads('linestring z empty')
             else:
@@ -643,7 +645,7 @@ class MfSfrNetwork(object):
             for divid, divn in self.diversions.iterrows():
                 if divn.from_segnum not in segnum2nseg_d:
                     # segnum does not exist -- segment is outside model
-                    drop_divids.append(divid)
+                    outside_model.append(divid)
                     continue
                 iupseg = segnum2nseg_d[divn.from_segnum]
                 assert iupseg != 0, iupseg
@@ -716,12 +718,12 @@ class MfSfrNetwork(object):
                 seg_d.update({'depth1': depth, 'depth2': depth})
                 self.reaches.loc[len(self.reaches) + 1] = reach_d
                 self.segment_data.loc[nseg] = seg_d
-            if drop_divids:
-                self.diversions.drop(drop_divids, axis=0, inplace=True)
+            if outside_model:
+                self.diversions.loc[list(outside_model), 'in_model'] = False
                 self.logger.debug(
-                    'added %d diversions, dropped %d that did not connect to '
+                    'added %d diversions, ignoring %d that did not connect to '
                     'existing segments',
-                    len(self.diversions), len(drop_divids))
+                    self.diversions['in_model'].sum(), len(outside_model))
             else:
                 self.logger.debug(
                     'added all %d diversions', len(self.diversions))
@@ -754,8 +756,8 @@ class MfSfrNetwork(object):
             diversions_line = str(len(divid_l)) + ' from diversions'
             if set(divid_l) != set(self.diversions.index):
                 diversions_line += ' ({:.0%} used)'.format(
-                    len(divid_l), len(divid_l) / float(len(self.diversions)))
-            diversions_line += abbr_str(divid_l, 4)
+                    len(divid_l) / float(len(self.diversions)))
+            diversions_line += ': ' + abbr_str(divid_l, 4)
         else:
             diversions_line = 'no diversions'
         nper = self.model.dis.nper

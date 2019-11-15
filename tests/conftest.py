@@ -47,6 +47,14 @@ def coastal_polygons_gdf(coastal_lines_gdf):
     return polygons.reindex(index=coastal_lines_gdf.index)
 
 
+@pytest.fixture(scope='session', autouse=True)
+def coastal_points_gdf():
+    shp_srs = os.path.join(datadir, 'Coastal_SW_abstraction.shp')
+    gdf = geopandas.read_file(shp_srs)
+    gdf.set_index('id', inplace=True)
+    return gdf
+
+
 @pytest.fixture(scope='module')
 def coastal_swn(coastal_lines_gdf):
     return swn.SurfaceWaterNetwork(coastal_lines_gdf.geometry)

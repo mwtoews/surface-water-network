@@ -15,6 +15,7 @@ def test_init(coastal_swn, coastal_lines_gdf):
     assert len(n.errors) == 0
     assert len(n) == 304
     assert n.has_z is True
+    assert n.diversions is None
     assert n.END_SEGNUM == 0
     assert 0 not in n.segments.index
     assert 3046700 in n.segments.index
@@ -121,5 +122,47 @@ def test_catchment_polygons(coastal_lines_gdf, coastal_polygons_gdf):
           154 headwater: [3046409, 3046542, ..., 3050338, 3050418]
           3 outlets: [3046700, 3046737, 3046736]
           no diversions />''')
+    _ = n.plot()
+    plt.close()
+
+
+def test_diversions(coastal_lines_gdf, coastal_points_gdf):
+    def min_stream_order_for_diversions(s):
+        return s.loc[~s['diversions'].isna(), 'stream_order'].min()
+
+    n = swn.SurfaceWaterNetwork(coastal_lines_gdf.geometry)
+    n.set_diversions(coastal_points_gdf)
+    assert len(n.errors) == 0
+    assert len(n) == 304
+    assert n.has_z is True
+    assert n.diversions is not None
+    assert len(n.diversions) == 20
+    assert min_stream_order_for_diversions(n.segments) == 1
+    np.testing.assert_array_equal(
+        list(n.diversions['from_segnum']),
+        [3047453, 3048415, 3048565, 3049225, 3046872, 3048250, 3047762,
+         3048498, 3049600, 3049599, 3048363, 3046409, 3048205, 3047735,
+         3049064, 3048326, 3048326, 3048351, 3047013, 3047013])
+    expected_repr = dedent('''\
+        <SurfaceWaterNetwork: with Z coordinates
+          304 segments: [3046409, 3046455, ..., 3050338, 3050418]
+          154 headwater: [3046409, 3046542, ..., 3050338, 3050418]
+          3 outlets: [3046700, 3046737, 3046736]
+          20 diversions (as GeoDataFrame): [101, 102, ..., 119, 120] />''')
+    assert repr(n) == expected_repr
+    _ = n.plot()
+    plt.close()
+    # Again, but with min_stream_order=2
+    n.set_diversions(coastal_points_gdf, min_stream_order=2)
+    assert len(n.errors) == 0
+    assert len(n) == 304
+    assert len(n.diversions) == 20
+    assert min_stream_order_for_diversions(n.segments) == 2
+    np.testing.assert_array_equal(
+        list(n.diversions['from_segnum']),
+        [3047453, 3048415, 3048540, 3049225, 3046872, 3048250, 3047762,
+         3048498, 3049599, 3049599, 3048363, 3046456, 3048205, 3047939,
+         3049065, 3048372, 3048372, 3048351, 3047013, 3047013])
+    assert repr(n) == expected_repr
     _ = n.plot()
     plt.close()

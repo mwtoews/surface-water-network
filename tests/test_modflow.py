@@ -1117,6 +1117,59 @@ def test_coastal_process_flopy(tmpdir_factory,
     gdf_to_shapefile(nm.segments, outdir.join('segments.shp'))
 
 
+def test_coastal_process_flopy_diversions(
+        tmpdir_factory, coastal_lines_gdf, coastal_points_gdf, coastal_flow_m):
+    outdir = tmpdir_factory.mktemp('coastal')
+    # Load a MODFLOW model
+    m = flopy.modflow.Modflow.load(
+        'h.nam', version='mfnwt', exe_name='mfnwt', model_ws=datadir,
+        check=False)
+    m.model_ws = str(outdir)
+    # Create a SWN with adjusted elevation profiles
+    n = swn.SurfaceWaterNetwork(coastal_lines_gdf.geometry)
+    n.set_diversions(coastal_points_gdf)
+    abstraction = pd.Series(coastal_points_gdf.index / 10,
+                            index=coastal_points_gdf.index).to_dict()
+    n.adjust_elevation_profile()
+    nm = swn.MfSfrNetwork(n, m, inflow=coastal_flow_m, abstraction=abstraction)
+    m.sfr.unit_number = [24]  # WARNING: unit 17 of package SFR already in use
+    m.sfr.ipakcb = 50
+    m.sfr.istcb2 = -51
+    m.add_output_file(51, extension='sfo', binflag=True)
+    # and breaks with default SFR due to elevation errors
+    m.write_input()
+    success, buff = m.run_model()
+    assert not success
+    # Check dataframes
+    assert len(nm.segments) == 304
+    assert nm.segments['in_model'].sum() == 184
+    assert len(nm.diversions) == 20
+    assert nm.diversions['in_model'].sum() == 17
+    # Data set 1c
+    assert abs(m.sfr.nstrm) == 313
+    assert m.sfr.nss == 201
+    # Data set 6
+    assert len(m.sfr.segment_data) == 1
+    sd = m.sfr.segment_data[0]
+    assert sd.flow.sum() > 0.0
+    assert sd.flow.min() == 0.0
+    assert sd.pptsw.sum() == 0.0
+    assert repr(nm) == dedent('''\
+    <MfSfrNetwork: flopy mfnwt 'h'
+      313 in reaches (reachID): [1, 2, ..., 312, 313]
+      201 in segment_data (nseg): [1, 2, ..., 200, 201]
+        184 from segments (61% used): [3049818, 3049819, ..., 3046952, 3046736]
+        17 from diversions (85% used)[101, 102, ..., 119, 120]
+      1 stress period with perlen: [1.0] />''')
+    _ = nm.plot()
+    plt.close()
+    # Write output files
+    nm.grid_cells.to_file(str(outdir.join('grid_cells.shp')))
+    nm.reaches.to_file(str(outdir.join('reaches.shp')))
+    gdf_to_shapefile(nm.segments, outdir.join('segments.shp'))
+    gdf_to_shapefile(nm.diversions, outdir.join('diversions.shp'))
+
+
 def test_coastal_elevations(coastal_swn, coastal_flow_m, tmpdir_factory):
     outdir = tmpdir_factory.mktemp('coastal')
     # Load a MODFLOW model
