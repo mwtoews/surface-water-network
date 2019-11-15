@@ -2,15 +2,17 @@
 # -*- coding: utf-8 -*-
 from setuptools import setup
 
-from swn import __version__ as version, __doc__ as long_description
+from swn import \
+    __version__ as version, __doc__ as long_description, \
+    __author__ as author, __email__ as author_email
 
 setup(
     name='swn',
     version=version,
-    description='Surface water network',
+    description=long_description.split('\n')[0],
     long_description=long_description,
-    author='Mike Taves',
-    author_email='mwtoews@gmail.com',
+    author=author,
+    author_email=author_email,
     url='https://github.com/mwtoews/surface-water-network',
     license='BSD',
     packages=['swn'],
