@@ -7,7 +7,7 @@ from shapely.geometry import LineString, Point
 from shapely.ops import cascaded_union, linemerge
 from textwrap import dedent
 
-from swn.logger import logger as module_logger, logging
+from swn.logger import get_logger
 from swn.spatial import get_sindex, gdal
 from swn.util import abbr_str
 
@@ -72,9 +72,7 @@ class SurfaceWaterNetwork(object):
             Logger to show messages.
         """
         if logger is None:
-            self.logger = logging.getLogger(self.__class__.__name__)
-            self.logger.handlers = module_logger.handlers
-            self.logger.setLevel(module_logger.level)
+            self.logger = get_logger(self.__class__.__name__)
         if not isinstance(lines, geopandas.GeoSeries):
             raise ValueError('lines must be a GeoSeries')
         elif len(lines) == 0:
@@ -403,9 +401,7 @@ class SurfaceWaterNetwork(object):
         lines_ds = gdal.Open(lines_srs, gdal.GA_ReadOnly)
         if lines_ds is None:
             raise IOError('cannot open lines: {}'.format(lines_srs))
-        logger = logging.getLogger(cls.__class__.__name__)
-        logger.handlers = module_logger.handlers
-        logger.setLevel(module_logger.level)
+        logger = get_logger(cls.__class__.__name__)
         logger.info('reading lines from: %s', lines_srs)
         projection = lines_ds.GetProjection()
         if elevation_srs is None:

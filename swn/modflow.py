@@ -13,7 +13,7 @@ from shapely.ops import linemerge
 from textwrap import dedent
 
 from swn.base import SurfaceWaterNetwork
-from swn.logger import logger as module_logger, logging
+from swn.logger import get_logger
 from swn.spatial import get_sindex
 from swn.util import abbr_str
 
@@ -118,9 +118,8 @@ class MfSfrNetwork(object):
             Logger to show messages.
         """
         if logger is None:
-            self.logger = logging.getLogger(self.__class__.__name__)
-            self.logger.handlers = module_logger.handlers
-            self.logger.setLevel(module_logger.level)
+            logger = get_logger(self.__class__.__name__)
+        self.logger = logger
         try:
             import flopy
         except ImportError:

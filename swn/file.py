@@ -4,7 +4,7 @@
 import geopandas
 import pandas as pd
 
-from swn.logger import logger as module_logger, logging
+from swn.logger import logging, get_logger
 
 
 def topnet2ts(nc_path, varname, log_level=logging.INFO):
@@ -30,9 +30,7 @@ def topnet2ts(nc_path, varname, log_level=logging.INFO):
         from netCDF4 import Dataset, num2date
     except ImportError:
         raise ImportError('this function requires netCDF4')
-    logger = logging.getLogger('topnet2ts')
-    logger.handlers = module_logger.handlers
-    logger.setLevel(log_level)
+    logger = get_logger('topnet2ts', log_level)
     logger.info('reading file:%s', nc_path)
     with Dataset(nc_path, 'r') as nc:
         var = nc.variables[varname]
