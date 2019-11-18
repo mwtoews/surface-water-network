@@ -449,7 +449,23 @@ def test_set_diversions_geodataframe():
     n.set_diversions(None)
     assert n.diversions is None
     assert 'diversions' not in n.segments.columns
-    # Try again with min_stream_order option
+    # ensure non-numeric indexes are OK
+    named_diversions = diversions.copy()
+    named_diversions.index = named_diversions.index.to_series().apply(
+        lambda x: 'SW{}'.format(x + 101))
+    n.set_diversions(named_diversions)
+    np.testing.assert_array_equal(
+        n.diversions['from_segnum'], [1, 2, 0, 0])
+    np.testing.assert_array_equal(
+        n.segments['diversions'],
+        [set(['SW103', 'SW104']), set(['SW101']), set(['SW102'])])
+    assert repr(n) == dedent('''\
+        <SurfaceWaterNetwork: with Z coordinates
+          3 segments: [0, 1, 2]
+          2 headwater: [1, 2]
+          1 outlets: [0]
+          4 diversions (as GeoDataFrame): [SW101, SW102, SW103, SW104] />''')
+    # with min_stream_order option
     n.set_diversions(diversions, min_stream_order=2)
     assert n.diversions is not None
     np.testing.assert_array_almost_equal(
@@ -460,7 +476,7 @@ def test_set_diversions_geodataframe():
         n.diversions['from_segnum'], [0, 0, 0, 0])
     np.testing.assert_array_equal(
         n.segments['diversions'], [set([0, 1, 2, 3]), None, None])
-    # Try again, but use 'from_segnum' column
+    # use 'from_segnum' column
     diversions = geopandas.GeoDataFrame(
         {'from_segnum': [0, 2]}, geometry=[Point(55, 97), Point(68, 105)])
     n.set_diversions(diversions)

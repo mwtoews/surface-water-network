@@ -1159,7 +1159,7 @@ def test_coastal_process_flopy_diversions(
       313 in reaches (reachID): [1, 2, ..., 312, 313]
       201 in segment_data (nseg): [1, 2, ..., 200, 201]
         184 from segments (61% used): [3049818, 3049819, ..., 3046952, 3046736]
-        17 from diversions (85% used)[101, 102, ..., 119, 120]
+        17 from diversions (85% used): [101, 102, ..., 119, 120]
       1 stress period with perlen: [1.0] />''')
     _ = nm.plot()
     plt.close()
@@ -1512,6 +1512,10 @@ def test_process_flopy_diversion(tmpdir_factory):
     m.sfr.ipakcb = 52
     m.sfr.istcb2 = 54
     m.add_output_file(54, extension='sfl', binflag=False)
+    assert len(nm.segments) == len(n.segments)
+    assert len(nm.diversions) == len(diversions)
+    assert nm.segments['in_model'].all()
+    assert nm.diversions['in_model'].all()
     # Data set 1c
     assert abs(m.sfr.nstrm) == 11
     assert m.sfr.nss == 7
@@ -1528,7 +1532,10 @@ def test_process_flopy_diversion(tmpdir_factory):
         m.sfr.reach_data.slope,
         [0.02861207, 0.02861207, 0.02861207, 0.001, 0.001, 0.04841886,
          0.04841886, 0.0, 0.0, 0.0, 0.0])
+    np.testing.assert_array_equal(
+        nm.segment_data['segnum'], [1, 2, 0, 0, 1, 2, 3])
     sd = m.sfr.segment_data[0]
+    np.testing.assert_array_equal(sd.nseg, nm.segment_data.index)
     np.testing.assert_array_equal(sd.nseg, [1, 2, 3, 4, 5, 6, 7])
     np.testing.assert_array_equal(sd.icalc,  [1, 1, 1, 0, 0, 0, 0])
     np.testing.assert_array_equal(sd.outseg,  [3, 3, 0, 0, 0, 0, 0])
@@ -1539,7 +1546,7 @@ def test_process_flopy_diversion(tmpdir_factory):
           11 in reaches (reachID): [1, 2, ..., 10, 11]
           7 in segment_data (nseg): [1, 2, ..., 6, 7]
             3 from segments: [1, 2, 0]
-            4 from diversions[0, 1, 2, 3]
+            4 from diversions: [0, 1, 2, 3]
           1 stress period with perlen: [1.0] />''')
     _ = nm.plot()
     plt.close()
@@ -1624,3 +1631,48 @@ def test_process_flopy_diversion(tmpdir_factory):
     assert (sfl['Qovr'] == 0.0).all()
     assert (sfl['Qprecip'] == 0.0).all()
     assert (sfl['Qet'] == 0.0).all()
+
+
+def test_process_flopy_named_diversion(tmpdir_factory):
+    # similar to test_process_flopy_diversion but with non-numeric indexes
+    outdir = tmpdir_factory.mktemp('diversion')
+    # Create a simple MODFLOW model
+    m = flopy.modflow.Modflow(version='mf2005', exe_name='mf2005')
+    _ = flopy.modflow.ModflowDis(
+        m, nrow=3, ncol=2, delr=20.0, delc=20.0, xul=30.0, yul=130.0)
+    _ = flopy.modflow.ModflowBas(m)
+    n = swn.SurfaceWaterNetwork(force_2d(n3d_lines))
+    diversions = geopandas.GeoDataFrame(geometry=[
+        Point(58, 97), Point(62, 97), Point(61, 89), Point(59, 89)])
+    diversions.index = diversions.index.to_series().apply(
+        lambda x: 'SW{}'.format(x + 101))
+    n.set_diversions(diversions=diversions)
+    nm = swn.MfSfrNetwork(n, m, flow={1: 2, 2: 3}, abstraction={'SW102': 1})
+    # Write some files
+    nm.reaches.to_file(str(outdir.join('reaches.shp')))
+    nm.grid_cells.to_file(str(outdir.join('grid_cells.shp')))
+    gdf_to_shapefile(nm.segments, outdir.join('segments.shp'))
+    m.write_input()
+    assert abs(m.sfr.nstrm) == 11
+    assert m.sfr.nss == 7
+    np.testing.assert_array_equal(
+        nm.segment_data['segnum'],
+        np.array([1, 2, 0, 'SW101', 'SW102', 'SW103', 'SW104'], dtype=object))
+    sd = m.sfr.segment_data[0]
+    np.testing.assert_array_equal(sd.nseg, nm.segment_data.index)
+    np.testing.assert_array_equal(sd.nseg, [1, 2, 3, 4, 5, 6, 7])
+    np.testing.assert_array_equal(sd.icalc, [1, 1, 1, 0, 0, 0, 0])
+    np.testing.assert_array_equal(sd.outseg, [3, 3, 0, 0, 0, 0, 0])
+    np.testing.assert_array_equal(sd.iupseg, [0, 0, 0, 1, 2, 3, 3])
+    np.testing.assert_array_equal(sd.iprior, [0, 0, 0, 0, 0, 0, 0])
+    np.testing.assert_array_equal(sd.flow, [2.0, 3.0, 0.0, 0.0, 1.0, 0.0, 0.0])
+    assert repr(nm) == dedent('''\
+        <MfSfrNetwork: flopy mf2005 'modflowtest'
+          11 in reaches (reachID): [1, 2, ..., 10, 11]
+          7 in segment_data (nseg): [1, 2, ..., 6, 7]
+            3 from segments: [1, 2, 0]
+            4 from diversions: [SW101, SW102, SW103, SW104]
+          1 stress period with perlen: [1.0] />''')
+    _ = nm.plot()
+    plt.close()
+    return
