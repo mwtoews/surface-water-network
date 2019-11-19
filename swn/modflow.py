@@ -816,12 +816,14 @@ class MfSfrNetwork(object):
         outlet_points.plot(
             ax=ax, label='outlet', marker='o', color='navy')
         if 'inflow_segnums' in self.segment_data.columns:
-            inflow_sel = ~self.segment_data['inflow_segnums'].isnull()
-            inflow_points = self.reaches.loc[self.reaches['iseg'].isin(
-                self.segment_data.loc[inflow_sel].index), 'geometry']\
-                .apply(lambda g: Point(g.coords[0]))
-            inflow_points.plot(
-                ax=ax, label='inflow points', marker='o', color='royalblue')
+            if self.segment_data['inflow_segnums'].any():
+                inflow_sel = ~self.segment_data['inflow_segnums'].isnull()
+                inflow_points = self.reaches.loc[self.reaches['iseg'].isin(
+                    self.segment_data.loc[inflow_sel].index), 'geometry']\
+                    .apply(lambda g: Point(g.coords[0]))
+                inflow_points.plot(
+                    ax=ax, label='inflow points', marker='o',
+                    color='royalblue')
 
         return ax
 
