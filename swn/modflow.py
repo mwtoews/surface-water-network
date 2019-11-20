@@ -199,7 +199,7 @@ class MfSfrNetwork(object):
         grid_sindex = get_sindex(grid_cells)
         reach_include = swn._segment_series(reach_include_fraction) * cell_size
         # Make an empty DataFrame for reaches
-        self.reaches = pd.DataFrame(columns=['geometry'])
+        self.reaches = pd.DataFrame(columns=['geometry'], dtype=object)
         self.reaches.insert(1, column='row', value=pd.Series(dtype=int))
         self.reaches.insert(2, column='col', value=pd.Series(dtype=int))
         empty_reach_df = self.reaches.copy()  # take this before more added
@@ -553,7 +553,7 @@ class MfSfrNetwork(object):
         for idx, segnum in self.reaches['segnum'].iteritems():
             if segnum != prev_segnum:
                 iseg += 1
-                ireach = 0
+                ireach = 0   # flopy counts from 0
             ireach += 1
             self.reaches.at[idx, 'iseg'] = iseg
             self.reaches.at[idx, 'ireach'] = ireach
@@ -609,12 +609,16 @@ class MfSfrNetwork(object):
         self.segment_data['runoff'] = 0.0
         self.segment_data['etsw'] = 0.0
         self.segment_data['pptsw'] = 0.0
-        # upper elevation from the first and last reachID items from reaches
+        # keep first and last reachID, copy strtop values to elevup and elevdn
+        self.segment_data['reachID1'] = self.segment_data.index.values
+        self.segment_data['reachIDN'] = \
+            self.reaches.groupby(['iseg']).ireach.idxmax().values
         self.segment_data['elevup'] = \
-            self.reaches.loc[self.segment_data.index, 'strtop']
-        self.segment_data['elevdn'] = self.reaches.loc[
-            self.reaches.groupby(['iseg']).ireach.idxmax().values,
-            'strtop'].values
+            self.reaches.loc[
+                self.segment_data['reachID1'].values, 'strtop'].values
+        self.segment_data['elevdn'] = \
+            self.reaches.loc[
+                self.segment_data['reachIDN'].values, 'strtop'].values
         self.segment_data.set_index('segnum', drop=False, inplace=True)
         # copy several columns over (except 'elevup' and 'elevdn', for now)
         segment_cols.remove('elevup')
@@ -649,6 +653,7 @@ class MfSfrNetwork(object):
                     continue
                 iupseg = segnum2nseg_d[divn.from_segnum]
                 assert iupseg != 0, iupseg
+                reachID = len(self.reaches) + 1
                 nseg = len(self.segment_data) + 1
                 rchlen = 1.0  # length required
                 thickm = 1.0  # thickness required
@@ -658,6 +663,8 @@ class MfSfrNetwork(object):
                     'segnum': divid,
                     'icalc': 0,  # stream depth is specified
                     'outseg': 0,
+                    'reachID1': reachID,
+                    'reachIDN': reachID,
                     'iupseg': iupseg,
                     'iprior': 0,  # normal behaviour for SW takes
                     'flow': 0.0,  # abstraction assigned later
@@ -672,7 +679,7 @@ class MfSfrNetwork(object):
                 # Use the last reach as a template to modify for new reach
                 reach_d = dict(self.reaches.loc[
                     self.reaches.iseg == iupseg].iloc[-1])
-                reach_d.update({
+                reach_d.update({  # index is reachID
                     'segnum': divid,
                     'iseg': nseg,
                     'ireach': 1,
@@ -716,7 +723,7 @@ class MfSfrNetwork(object):
                     })
                 depth = strtop + thickm
                 seg_d.update({'depth1': depth, 'depth2': depth})
-                self.reaches.loc[len(self.reaches) + 1] = reach_d
+                self.reaches.loc[reachID] = reach_d
                 self.segment_data.loc[nseg] = seg_d
             if outside_model:
                 self.diversions.loc[list(outside_model), 'in_model'] = False
@@ -731,9 +738,26 @@ class MfSfrNetwork(object):
             self.segment_data.drop('foo', axis=1, inplace=True)
         else:
             self.diversions = None
+        # Add connecting out reach for flopy
+        outseg_d = dict(self.segment_data['outseg'])
+        reachID1_d = dict(self.segment_data['reachID1'])
+        outreach = []
+        for reachID in self.reaches.index:
+            if (reachID == len(self.reaches.index)
+                    or self.reaches.at[reachID, 'ireach'] == 1):
+                nextseg = outseg_d[self.reaches.at[reachID, 'iseg']]
+                if nextseg > 0:
+                    nextrchid = reachID1_d[nextseg]
+                else:
+                    nextrchid = 0
+            else:
+                nextrchid = reachID + 1
+            outreach.append(nextrchid)
+        self.reaches.insert(
+            loc=list(self.reaches.columns).index('ireach') + 1,
+            column='outreach', value=outreach)
         # Finally, add/rename a few columns to align with reach_data
         self.reaches.insert(2, column='k', value=0)
-        self.reaches.insert(3, column='outreach', value=pd.Series(dtype=int))
         self.reaches.rename(columns={'row': 'i', 'col': 'j'}, inplace=True)
         # Create flopy Sfr2 package
         segment_data = self.set_segment_data(
