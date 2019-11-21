@@ -505,12 +505,13 @@ class MfSfrNetwork(object):
             if col in self.segments.columns:
                 del self.segments[col]
         # Combine pairs of series for each segment
-        self.segments = pd.concat([
-            self.segments,
+        more_segment_columns = pd.concat([
             swn._pair_segment_values(hyd_cond1, hyd_cond_out, 'hcond'),
             swn._pair_segment_values(thickness1, thickness_out, 'thickm'),
             swn._pair_segment_values(width1, width_out, name='width')
         ], axis=1, copy=False)
+        for name, series in more_segment_columns.iteritems():
+            self.segments[name] = series
         self.segments['roughch'] = swn._segment_series(roughch)
         # Mark segments that are not used
         self.segments['in_model'] = True
@@ -1741,7 +1742,10 @@ class ModelPlot(object):
             pass
         if domain_extent is None and self.pprj is not None:
             xmin, xmax, ymin, ymax = self.model.modelgrid.extent
-            assert not self.pprj.is_latlong()
+            if hasattr(self.pprj, 'is_latlong'):
+                assert not self.pprj.is_latlong()
+            else:  # newer versions
+                assert not self.pprj.crs.is_geographic
             lonmin, latmin = self.pprj(xmin, ymin, inverse=True)
             lonmax, latmax = self.pprj(xmax, ymax, inverse=True)
             self.domain_extent = [lonmin, lonmax, latmin, latmax]
