@@ -1169,60 +1169,86 @@ class MfSfrNetwork(object):
         else:
             self.model.sfr.segment_data = segment_data
 
-    def get_seg_ijk(self):
+    def get_seg_ijk(self, add_to_segment_data=False):
         """
-        This will just get the upstream and downstream segment k,i,j
+        Return DataFrame for segment_data with i, j, k indexes
+        for first and last reach of each segment.
+
+        Parameters
+        ----------
+        add_to_segment_data : bool
+            If True, append these to add_to_segment_data DataFrame.
+
+        Returns
+        -------
+        pandas.DataFrame
         """
-        topidx = self.reaches['ireach'] == 1
-        kij_df = self.reaches[topidx][['iseg', 'k', 'i', 'j']].sort_values(
-            'iseg')
-        idx_name = self.segment_data.index.name or 'index'
-        self.segment_data = self.segment_data.reset_index().merge(
-            kij_df, left_on='nseg', right_on='iseg', how='left').drop(
-            'iseg', axis=1).set_index(idx_name)
-        self.segment_data.rename(
-            columns={"k": "k_up", "i": "i_up", "j": "j_up"}, inplace=True)
-        # seg bottoms
-        btmidx = self.reaches.groupby('iseg')['ireach'].transform(max) == \
-            self.reaches['ireach']
-        kij_df = self.reaches[btmidx][['iseg', 'k', 'i', 'j']].sort_values(
-            'iseg')
+        self.logger.critical('get_seg_ijk() might be removed')
+        cols = ['i', 'j', 'k']
+        up = self.reaches.loc[
+                self.segment_data['reachID1'].values, cols
+            ].rename(columns=dict(zip(cols, (x + '_up' for x in cols))))
+        dn = self.reaches.loc[
+                self.segment_data['reachIDN'].values, cols
+            ].rename(columns=dict(zip(cols, (x + '_dn' for x in cols))))
+        df = pd.concat(
+            [up.reset_index(drop=True), dn.reset_index(drop=True)],
+            axis=1, copy=False)
+        df.index = self.segment_data.index
+        if add_to_segment_data:
+            for name, series in df.iteritems():
+                self.segment_data[name] = series
+        return df
 
-        self.segment_data = self.segment_data.reset_index().merge(
-            kij_df, left_on='nseg', right_on='iseg', how='left').drop(
-            'iseg', axis=1).set_index(idx_name)
-        self.segment_data.rename(
-            columns={"k": "k_dn", "i": "i_dn", "j": "j_dn"}, inplace=True)
-        return self.segment_data[[
-            "k_up", "i_up", "j_up", "k_dn", "i_dn", "j_dn"]]
-
-    def get_top_elevs_at_segs(self, m=None):
+    def get_top_elevs_at_segs(self, add_to_segment_data=False):
         """
         Get topsurface elevations associated with segment up and dn elevations.
         Adds elevation of model top at
         upstream and downstream ends of each segment
-        :param m: modeflow model with active dis package
-        :return: Adds 'top_up' and 'top_dn' columns to segment data dataframe
-        """
-        if m is None:
-            m = self.model
-        assert m.sfr is not None, "need sfr package"
-        self.segment_data['top_up'] = m.dis.top.array[
-            tuple(self.segment_data[['i_up', 'j_up']].values.T)]
-        self.segment_data['top_dn'] = m.dis.top.array[
-            tuple(self.segment_data[['i_dn', 'j_dn']].values.T)]
-        return self.segment_data[['top_up', 'top_dn']]
 
-    def get_segment_incision(self):
+        Parameters
+        ----------
+        add_to_segment_data : bool
+            If True, append these to add_to_segment_data DataFrame.
+
+        Returns
+        -------
+        pandas.DataFrame with 'top_up' and 'top_dn' columns
+        """
+        top = self.model.dis.top.array
+        up_ij = tuple(self.reaches.loc[
+            self.segment_data['reachID1'].values, ['i', 'j']].values.T)
+        dn_ij = tuple(self.reaches.loc[
+            self.segment_data['reachIDN'].values, ['i', 'j']].values.T)
+        df = pd.DataFrame(index=self.segment_data.index)
+        df['top_up'] = top[up_ij]
+        df['top_dn'] = top[dn_ij]
+        if add_to_segment_data:
+            for name, series in df.iteritems():
+                self.segment_data[name] = series
+        return df
+
+    def get_segment_incision(self, add_to_segment_data=False):
         """
         Calculates the upstream and downstream incision of the segment
-        :return:
+
+        Parameters
+        ----------
+        add_to_segment_data : bool
+            If True, append these to add_to_segment_data DataFrame.
+
+        Returns
+        -------
+        pandas.DataFrame with 'diff_up' and 'diff_dn' columns
         """
-        self.segment_data['diff_up'] = (self.segment_data['top_up'] -
-                                        self.segment_data['elevup'])
-        self.segment_data['diff_dn'] = (self.segment_data['top_dn'] -
-                                        self.segment_data['elevdn'])
-        return self.segment_data[['diff_up', 'diff_dn']]
+        top = self.get_top_elevs_at_segs()
+        df = pd.DataFrame(index=self.segment_data.index)
+        df['diff_up'] = top['top_up'] - self.segment_data['elevup']
+        df['diff_dn'] = top['top_dn'] - self.segment_data['elevdn']
+        if add_to_segment_data:
+            for name, series in df.iteritems():
+                self.segment_data[name] = series
+        return df
 
     def set_seg_minincise(self, minincise=0.2, max_str_z=None):
         """
@@ -1233,20 +1259,19 @@ class MfSfrNetwork(object):
         high elevations (forces incision to max_str_z)
         :return: incisions at the upstream and downstream end of each segment
         """
-        sel = self.segment_data['diff_up'] < minincise
-        self.segment_data.loc[sel, 'elevup'] = (self.segment_data.loc[
-                                                    sel, 'top_up'] - minincise)
-        sel = self.segment_data['diff_dn'] < minincise
-        self.segment_data.loc[sel, 'elevdn'] = (self.segment_data.loc[
-                                                    sel, 'top_dn'] - minincise)
+        top = self.get_top_elevs_at_segs()
+        diff = self.get_segment_incision()
+        sel = diff['diff_up'] < minincise
+        self.segment_data.loc[sel, 'elevup'] = \
+            top.loc[sel, 'top_up'] - minincise
+        sel = diff['diff_dn'] < minincise
+        self.segment_data.loc[sel, 'elevdn'] = \
+            top.loc[sel, 'top_dn'] - minincise
         if max_str_z is not None:
             sel = self.segment_data['elevup'] > max_str_z
             self.segment_data.loc[sel, 'elevup'] = max_str_z
             sel = self.segment_data['elevdn'] > max_str_z
             self.segment_data.loc[sel, 'elevdn'] = max_str_z
-        # recalculate incisions
-        updown_incision = self.get_segment_incision()
-        return updown_incision
 
     def get_segment_length(self):
         """
@@ -1301,7 +1326,7 @@ class MfSfrNetwork(object):
         dn = np.nan
         outseg_up = np.nan
         # prefer slope derived from surface
-        surfslope = (seg.top_up-seg.top_dn)/(10.*seg.seglen)
+        surfslope = (seg.top_up - seg.top_dn)/(10.*seg.seglen)
         prefslope = np.max([surfslope, minslope])
         if seg.outseg > 0.0:
             # select outflow segment for current seg and pull out elevup
@@ -1385,21 +1410,21 @@ class MfSfrNetwork(object):
         :param min_incise: desired minimum incision (in model units)
         :return: segment data dataframe
         """
-        kijcols = {"k_up", "i_up", "j_up", "k_dn", "i_dn", "j_dn"}
-        dif = kijcols - set(self.segment_data.columns)
-        if len(dif) > 1:
-            # some missing
-            # drop others
-            others = kijcols - dif
-            self.segment_data.drop(others, axis=0, inplace=True)
-            # get model locations for segments ends
-            _ = self.get_seg_ijk()
+        # kijcols = {"k_up", "i_up", "j_up", "k_dn", "i_dn", "j_dn"}
+        # dif = kijcols - set(self.segment_data.columns)
+        # if len(dif) > 1:
+        #    # some missing
+        #    # drop others
+        #    others = kijcols - dif
+        #    self.segment_data.drop(others, axis=0, inplace=True)
+        #    # get model locations for segments ends
+        #    _ = self.get_seg_ijk()
         # get model cell elevations at seg ends
-        _ = self.get_top_elevs_at_segs()
+        _ = self.get_top_elevs_at_segs(add_to_segment_data=True)
         # get current segment incision at seg ends
-        _ = self.get_segment_incision()
+        _ = self.get_segment_incision(add_to_segment_data=True)
         # move segments end elevation down to achieve minimum incision
-        _ = self.set_seg_minincise(minincise=min_incise, max_str_z=max_str_z)
+        self.set_seg_minincise(minincise=min_incise, max_str_z=max_str_z)
         # get the elevations of downstream segments
         _ = self.get_outseg_elev()
         # get segment length from reach lengths
@@ -1408,8 +1433,8 @@ class MfSfrNetwork(object):
         # and reconcile upstream elevation of downstream segments
         self.set_forward_segs(min_slope=min_slope)
         # reassess segment incision after processing.
-        self.get_segment_incision()
-        return self.segment_data
+        # diff = self.get_segment_incision()
+        # return self.segment_data
 
     def reconcile_reach_strtop(self):
         """
@@ -1445,19 +1470,20 @@ class MfSfrNetwork(object):
         self.reaches = segs.apply(reach_elevs)
         return self.reaches
 
-    def set_topbot_elevs_at_reaches(self, m=None):
+    def get_topbot_elevs_at_reaches(self, add_to_reaches=False):
         """
         get top and bottom elevation of the cell containing a reach
         :param m: Modflow model
         :return: dataframe with reach cell top and bottom elevations
         """
-        if m is None:
-            m = self.model
-        self.reaches['top'] = m.dis.top.array[
-            tuple(self.reaches[['i', 'j']].values.T)]
-        self.reaches['bot'] = m.dis.botm[0].array[
-            tuple(self.reaches[['i', 'j']].values.T)]
-        return self.reaches[['top', 'bot']]
+        i, j = self.reaches[['i', 'j']].values.T
+        df = pd.DataFrame(index=self.reaches.index)
+        df['top'] = self.model.dis.top.array[i, j]
+        df['bot'] = self.model.dis.botm[0].array[i, j]
+        if add_to_reaches:
+            for name, series in df.iteritems():
+                self.reaches[name] = series
+        return df
 
     def fix_reach_elevs(self, minslope=0.0001, fix_dis=True, minthick=0.5):
         """
@@ -1475,7 +1501,7 @@ class MfSfrNetwork(object):
         # make sure elevations are up-to-date
         # recalculate REACH strtop elevations
         self.reconcile_reach_strtop()
-        _ = self.set_topbot_elevs_at_reaches()
+        _ = self.get_topbot_elevs_at_reaches(add_to_reaches=True)
         # top read from dis as float32 so comparison need to be with like
         reachsel = self.reaches['top'] <= self.reaches['strtop']
         print('{} segments with reaches above model top'.format(
@@ -1671,7 +1697,7 @@ class MfSfrNetwork(object):
     def plot_reaches_above(self, model, seg, dem=None,
                            plot_bottom=False, points2=None):
         # ensure reach elevations are up-to-date
-        _ = self.set_topbot_elevs_at_reaches()
+        _ = self.get_topbot_elevs_at_reaches(add_to_reaches=True)
         dis = model.dis
         sfr = model.sfr
         if dem is None:

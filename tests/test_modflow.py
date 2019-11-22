@@ -863,14 +863,14 @@ def test_set_elevations(n2d, tmpdir_factory):
     _ = flopy.modflow.ModflowRch(m, ipakcb=52, rech=0.01)
     nm = swn.MfSfrNetwork(n2d, m)
     # fix elevations
-    _ = nm.set_topbot_elevs_at_reaches()
+    _ = nm.get_topbot_elevs_at_reaches()
     seg_data = nm.set_segment_data(return_dict=True)
     reach_data = nm.get_reach_data()
     _ = flopy.modflow.mfsfr2.ModflowSfr2(
         model=m, reach_data=reach_data, segment_data=seg_data)
     nm.plot_reaches_above(m, 'all', plot_bottom=True)
     plt.close()
-    _ = nm.fix_segment_elevs(min_incise=0.2, min_slope=1.e-4)
+    nm.fix_segment_elevs(min_incise=0.2, min_slope=1.e-4)
     _ = nm.reconcile_reach_strtop()
     seg_data = nm.set_segment_data(return_dict=True)
     reach_data = nm.get_reach_data()
@@ -880,7 +880,7 @@ def test_set_elevations(n2d, tmpdir_factory):
     plt.close()
     nm.plot_reaches_above(m, 1)
     plt.close()
-    _ = nm.set_topbot_elevs_at_reaches()
+    _ = nm.get_topbot_elevs_at_reaches()
     nm.fix_reach_elevs()
     seg_data = nm.set_segment_data(return_dict=True)
     reach_data = nm.get_reach_data()
@@ -1178,7 +1178,7 @@ def test_coastal_elevations(coastal_swn, coastal_flow_m, tmpdir_factory):
         check=False)
     m.model_ws = str(outdir)
     nm = swn.MfSfrNetwork(coastal_swn, m, inflow=coastal_flow_m)
-    _ = nm.set_topbot_elevs_at_reaches()
+    _ = nm.get_topbot_elevs_at_reaches()
     seg_data = nm.set_segment_data(return_dict=True)
     reach_data = nm.get_reach_data()
     flopy.modflow.mfsfr2.ModflowSfr2(
@@ -1186,14 +1186,12 @@ def test_coastal_elevations(coastal_swn, coastal_flow_m, tmpdir_factory):
     nm.plot_reaches_above(m, 'all', plot_bottom=False)
     plt.close()
     # handy to set a max elevation that a stream can be
-    _ = nm.get_seg_ijk()
     tops = nm.get_top_elevs_at_segs().top_up
     max_str_z = tops.describe()['75%']
     for seg in nm.segment_data.index[nm.segment_data.index.isin([1, 18])]:
         nm.plot_reaches_above(m, seg)
         plt.close()
-    _ = nm.fix_segment_elevs(min_incise=0.2, min_slope=1.e-4,
-                             max_str_z=max_str_z)
+    nm.fix_segment_elevs(min_incise=0.2, min_slope=1.e-4, max_str_z=max_str_z)
     _ = nm.reconcile_reach_strtop()
     seg_data = nm.set_segment_data(return_dict=True)
     reach_data = nm.get_reach_data()
@@ -1204,7 +1202,7 @@ def test_coastal_elevations(coastal_swn, coastal_flow_m, tmpdir_factory):
     for seg in nm.segment_data.index[nm.segment_data.index.isin([1, 18])]:
         nm.plot_reaches_above(m, seg)
         plt.close()
-    _ = nm.set_topbot_elevs_at_reaches()
+    _ = nm.get_topbot_elevs_at_reaches()
     nm.fix_reach_elevs()
     seg_data = nm.set_segment_data(return_dict=True)
     reach_data = nm.get_reach_data()
