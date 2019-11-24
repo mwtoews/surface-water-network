@@ -597,35 +597,37 @@ class MfSfrNetwork(object):
             # workaround needed for reaches.to_file()
             self.reaches.geometry.geom_type = self.reaches.geom_type
         # Build segment_data for Data Set 6
-        self.segment_data = self.reaches[['iseg', 'segnum']]\
-            .drop_duplicates().rename(columns={'iseg': 'nseg'})
-        # index changes from 'reachID', to 'segnum', to finally 'nseg'
-        segnum2nseg_d = self.segment_data.set_index('segnum')['nseg'].to_dict()
+        reach_data = self.reaches.rename(columns={'iseg': 'nseg'})
+        reach_data_gb = reach_data.groupby('nseg')
+        self.segment_data = reach_data[['nseg', 'segnum']].drop_duplicates()
         self.segment_data['icalc'] = 1  # assumption for all streams
+        segnum2nseg_d = self.segment_data.set_index('segnum')['nseg'].to_dict()
         self.segment_data['outseg'] = self.segment_data['segnum'].map(
             lambda x: segnum2nseg_d.get(self.segments.loc[x, 'to_segnum'], 0))
+        self.segment_data.set_index('nseg', inplace=True)
         self.segment_data['iupseg'] = 0  # handle diversions next
         self.segment_data['iprior'] = 0
+        self.segment_data['seglen'] = reach_data_gb['rchlen'].sum()
         self.segment_data['flow'] = 0.0
         self.segment_data['runoff'] = 0.0
         self.segment_data['etsw'] = 0.0
         self.segment_data['pptsw'] = 0.0
         # keep first and last reachID, copy strtop values to elevup and elevdn
-        self.segment_data['reachID1'] = self.segment_data.index.values
-        self.segment_data['reachIDN'] = \
-            self.reaches.groupby(['iseg']).ireach.idxmax().values
+        self.segment_data['reachID1'] = reach_data_gb['ireach'].idxmin()
+        self.segment_data['reachIDN'] = reach_data_gb['ireach'].idxmax()
         self.segment_data['elevup'] = \
             self.reaches.loc[
                 self.segment_data['reachID1'].values, 'strtop'].values
         self.segment_data['elevdn'] = \
             self.reaches.loc[
                 self.segment_data['reachIDN'].values, 'strtop'].values
+        self.segment_data.reset_index(drop=False, inplace=True)
         self.segment_data.set_index('segnum', drop=False, inplace=True)
         # copy several columns over (except 'elevup' and 'elevdn', for now)
         segment_cols.remove('elevup')
         segment_cols.remove('elevdn')
         self.segment_data[segment_cols] = self.segments[segment_cols]
-        # now use nseg as primary index, not reachID or segnum
+        # now use nseg as primary index
         self.segment_data.set_index('nseg', inplace=True)
         self.segment_data.sort_index(inplace=True)
         # Add diversions (i.e. SW takes)
@@ -668,6 +670,7 @@ class MfSfrNetwork(object):
                     'reachIDN': reachID,
                     'iupseg': iupseg,
                     'iprior': 0,  # normal behaviour for SW takes
+                    'seglen': rchlen,
                     'flow': 0.0,  # abstraction assigned later
                     'runoff': 0.0,
                     'etsw': 0.0,
@@ -1279,6 +1282,7 @@ class MfSfrNetwork(object):
         :return:
         """
         # extract segment length for calculating minimun drop later
+        self.logger.critical('get_segment_length() might be removed')
         reaches = self.reaches[['geometry', 'iseg', 'rchlen']].copy()
         seglen = reaches.groupby('iseg')['rchlen'].sum()
         self.segment_data.loc[seglen.index, 'seglen'] = seglen
@@ -1428,7 +1432,7 @@ class MfSfrNetwork(object):
         # get the elevations of downstream segments
         _ = self.get_outseg_elev()
         # get segment length from reach lengths
-        _ = self.get_segment_length()
+        # _ = self.get_segment_length()
         # ensure downstream ends are below upstream ends
         # and reconcile upstream elevation of downstream segments
         self.set_forward_segs(min_slope=min_slope)

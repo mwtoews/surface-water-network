@@ -229,6 +229,10 @@ def test_process_flopy_n3d_defaults(n3d, tmpdir_factory):
     _ = flopy.modflow.ModflowLpf(m, ipakcb=52, laytyp=0, hk=1e-2)
     _ = flopy.modflow.ModflowRch(m, ipakcb=52, rech=1e-4)
     nm = swn.MfSfrNetwork(n3d, m)
+    # Check data only part of nm.segment_data
+    np.testing.assert_array_almost_equal(
+        nm.segment_data['seglen'], [36.055513, 31.622777, 20.0])
+    # Configure flopy sfr object
     m.sfr.ipakcb = 52
     m.sfr.istcb2 = -53
     m.add_output_file(53, extension='sfo', binflag=True)
@@ -567,6 +571,10 @@ def test_process_flopy_n3d_vars(tmpdir_factory):
         n3d, m, min_slope=0.03, hyd_cond1=2, thickness1=2.0,
         inflow={3: 9.6, 4: 9.7}, flow={1: 18.4},
         runoff={1: 5}, pptsw={2: 1.8}, etsw={0: 0.01, 1: 0.02, 2: 0.03})
+    # Check data only part of nm.segment_data
+    np.testing.assert_array_almost_equal(
+        nm.segment_data['seglen'], [36.055513, 31.622777, 20.0])
+    # Configure flopy sfr object
     m.sfr.ipakcb = 52
     m.sfr.istcb2 = -53
     m.add_output_file(53, extension='sfo', binflag=True)
@@ -667,6 +675,10 @@ def test_process_flopy_n2d_defaults(n2d, tmpdir_factory):
     _ = flopy.modflow.ModflowLpf(m, ipakcb=52, laytyp=0, hk=1.0)
     _ = flopy.modflow.ModflowRch(m, ipakcb=52, rech=0.01)
     nm = swn.MfSfrNetwork(n2d, m)
+    # Check data only part of nm.segment_data
+    np.testing.assert_array_almost_equal(
+        nm.segment_data['seglen'], [36.055513, 31.622777, 20.0])
+    # Configure flopy sfr object
     m.sfr.ipakcb = 52
     m.sfr.istcb2 = -53
     m.add_output_file(53, extension='sfo', binflag=True)
@@ -730,6 +742,10 @@ def test_process_flopy_n2d_min_slope(n2d, tmpdir_factory):
     _ = flopy.modflow.ModflowLpf(m, ipakcb=52, laytyp=0, hk=1.0)
     _ = flopy.modflow.ModflowRch(m, ipakcb=52, rech=0.01)
     nm = swn.MfSfrNetwork(n2d, m, min_slope=0.03)
+    # Check data only part of nm.segment_data
+    np.testing.assert_array_almost_equal(
+        nm.segment_data['seglen'], [36.055513, 31.622777, 20.0])
+    # Configure flopy sfr object
     m.sfr.ipakcb = 52
     m.sfr.istcb2 = -53
     # Data set 2
@@ -784,6 +800,10 @@ def test_process_flopy_interp_2d_to_3d(tmpdir_factory):
     n = swn.SurfaceWaterNetwork(interp_2d_to_3d(n3d_lines, top, gt))
     n.adjust_elevation_profile()
     nm = swn.MfSfrNetwork(n, m)
+    # Check data only part of nm.segment_data
+    np.testing.assert_array_almost_equal(
+        nm.segment_data['seglen'], [36.055513, 31.622777, 20.0])
+    # Configure flopy sfr object
     m.sfr.ipakcb = 52
     m.sfr.istcb2 = -53
     m.add_output_file(53, extension='sfo', binflag=True)
@@ -1005,6 +1025,13 @@ def test_coastal_process_flopy(tmpdir_factory,
     n = swn.SurfaceWaterNetwork(coastal_lines_gdf.geometry)
     n.adjust_elevation_profile()
     nm = swn.MfSfrNetwork(n, m, inflow=coastal_flow_m)
+    # Check data only part of nm.segment_data
+    sl = nm.segment_data['seglen']
+    assert sl.shape == (184,)
+    np.testing.assert_array_almost_equal(
+        [sl.min(), sl.max(), sl.sum()],
+        [30.00765132458, 5678.969042833772, 160549.38050084078])
+    # Configure flopy sfr object
     m.sfr.unit_number = [24]  # WARNING: unit 17 of package SFR already in use
     m.sfr.ipakcb = 50
     m.sfr.istcb2 = -51
@@ -1132,6 +1159,13 @@ def test_coastal_process_flopy_diversions(
                             index=coastal_points_gdf.index).to_dict()
     n.adjust_elevation_profile()
     nm = swn.MfSfrNetwork(n, m, inflow=coastal_flow_m, abstraction=abstraction)
+    # Check data only part of nm.segment_data
+    sl = nm.segment_data['seglen']
+    assert sl.shape == (201,)
+    np.testing.assert_array_almost_equal(
+        [sl.min(), sl.max(), sl.sum()],
+        [1.0, 5678.969042833772, 160566.38050084075])
+    # Configure flopy sfr object
     m.sfr.unit_number = [24]  # WARNING: unit 17 of package SFR already in use
     m.sfr.ipakcb = 50
     m.sfr.istcb2 = -51
@@ -1239,6 +1273,13 @@ def test_coastal_reduced_process_flopy(
         'h.nam', version='mfnwt', exe_name='mfnwt', model_ws=datadir,
         check=False)
     nm = swn.MfSfrNetwork(n, m, inflow=coastal_flow_m)
+    # Check data only part of nm.segment_data
+    sl = nm.segment_data['seglen']
+    print([sl.min(), sl.max(), sl.sum()])
+    assert sl.shape == (94,)
+    np.testing.assert_array_almost_equal(
+        [sl.min(), sl.max(), sl.sum()],
+        [30.00765132458165, 5678.969042833772, 82357.70499020736])
     # These should be split between two cells
     reach_geoms = nm.reaches.loc[
         nm.reaches['segnum'] == 3047750, 'geometry']
@@ -1354,6 +1395,11 @@ def test_coastal_process_flopy_ibound_modify(coastal_swn, coastal_flow_m,
                           inflow=coastal_flow_m)
     assert len(nm.segments) == 304
     assert nm.segments['in_model'].sum() == 304
+    # Check data only part of nm.segment_data
+    sl = nm.segment_data['seglen']
+    np.testing.assert_array_almost_equal(
+        [sl.min(), sl.max(), sl.sum()],
+        [30.00765132458165, 5678.969042833772, 255211.73724206514])
     # Check a remaining reach added that is outside model domain
     reach_geom = nm.reaches.loc[
         nm.reaches['segnum'] == 3048565, 'geometry'].iloc[0]
@@ -1507,6 +1553,13 @@ def test_process_flopy_diversion(tmpdir_factory):
 
     # With zero specified flow for all terms
     nm = swn.MfSfrNetwork(n, m, hyd_cond1=0.0)
+    # Check data only part of nm.segment_data
+    np.testing.assert_array_equal(
+        nm.segment_data['segnum'], [1, 2, 0, 0, 1, 2, 3])
+    np.testing.assert_array_almost_equal(
+        nm.segment_data['seglen'],
+        [36.055513, 31.622777, 20.0, 1.0, 1.0, 1.0, 1.0])
+    # Configure flopy sfr object
     m.sfr.ipakcb = 52
     m.sfr.istcb2 = 54
     m.add_output_file(54, extension='sfl', binflag=False)
@@ -1530,8 +1583,6 @@ def test_process_flopy_diversion(tmpdir_factory):
         m.sfr.reach_data.slope,
         [0.02861207, 0.02861207, 0.02861207, 0.001, 0.001, 0.04841886,
          0.04841886, 0.0, 0.0, 0.0, 0.0])
-    np.testing.assert_array_equal(
-        nm.segment_data['segnum'], [1, 2, 0, 0, 1, 2, 3])
     sd = m.sfr.segment_data[0]
     np.testing.assert_array_equal(sd.nseg, nm.segment_data.index)
     np.testing.assert_array_equal(sd.nseg, [1, 2, 3, 4, 5, 6, 7])
@@ -1646,6 +1697,14 @@ def test_process_flopy_named_diversion(tmpdir_factory):
         lambda x: 'SW{}'.format(x + 101))
     n.set_diversions(diversions=diversions)
     nm = swn.MfSfrNetwork(n, m, flow={1: 2, 2: 3}, abstraction={'SW102': 1})
+    # Check data only part of nm.segment_data
+    np.testing.assert_array_equal(
+        nm.segment_data['segnum'],
+        np.array([1, 2, 0, 'SW101', 'SW102', 'SW103', 'SW104'], dtype=object))
+    np.testing.assert_array_almost_equal(
+        nm.segment_data['seglen'],
+        [36.055513, 31.622777, 20.0, 1.0, 1.0, 1.0, 1.0])
+    # Configure flopy sfr object
     # Write some files
     nm.reaches.to_file(str(outdir.join('reaches.shp')))
     nm.grid_cells.to_file(str(outdir.join('grid_cells.shp')))
@@ -1653,9 +1712,6 @@ def test_process_flopy_named_diversion(tmpdir_factory):
     m.write_input()
     assert abs(m.sfr.nstrm) == 11
     assert m.sfr.nss == 7
-    np.testing.assert_array_equal(
-        nm.segment_data['segnum'],
-        np.array([1, 2, 0, 'SW101', 'SW102', 'SW103', 'SW104'], dtype=object))
     sd = m.sfr.segment_data[0]
     np.testing.assert_array_equal(sd.nseg, nm.segment_data.index)
     np.testing.assert_array_equal(sd.nseg, [1, 2, 3, 4, 5, 6, 7])
