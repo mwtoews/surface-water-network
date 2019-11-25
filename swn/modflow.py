@@ -4,6 +4,7 @@
 import geopandas
 import numpy as np
 import pandas as pd
+from collections.abc import Iterable
 from itertools import combinations
 from matplotlib import pyplot as plt
 from matplotlib import colors, cm
@@ -138,6 +139,17 @@ class MfSfrNetwork(object):
         self.swn = swn
         self.model = model
         self.segments = swn.segments.copy()
+        self._tsvar = set()
+        # Build stress period DataFrame from modflow model
+        dis = self.model.dis
+        stress_df = pd.DataFrame({'perlen': dis.perlen.array})
+        modeltime = self.model.modeltime
+        stress_df['duration'] = pd.TimedeltaIndex(
+                stress_df['perlen'].cumsum(), modeltime.time_units)
+        stress_df['start'] = pd.to_datetime(modeltime.start_datetime)
+        stress_df['end'] = stress_df['duration'] + stress_df.at[0, 'start']
+        stress_df.loc[1:, 'start'] = stress_df['end'].iloc[:-1].values
+        self.stress_df = stress_df
         # Make sure model CRS and segments CRS are the same (if defined)
         crs = None
         segments_crs = getattr(self.segments.geometry, 'crs', None)
@@ -162,7 +174,6 @@ class MfSfrNetwork(object):
         if model_bbox.disjoint(segments_bbox):
             raise ValueError('modelgrid extent does not cover segments extent')
         # More careful check of overlap of lines with grid polygons
-        dis = model.dis
         cols, rows = np.meshgrid(np.arange(dis.ncol), np.arange(dis.nrow))
         ibound = model.bas6.ibound[0].array.copy()
         ibound_modified = 0
@@ -875,20 +886,12 @@ class MfSfrNetwork(object):
         reach_data = pd.DataFrame(self.reaches[reach_data_names])
         return reach_data.to_records(index=True)
 
+        """
     def set_segment_data(self, abstraction={}, inflow={}, flow={}, runoff={},
                          etsw={}, pptsw={}, return_dict=False):
-        """Set timeseries data in segment_data required for flopy's ModflowSfr2
 
-        This method does two things:
-
-            1. Updates sfr.segment_data, which is a dict of rec.array
-               for each stress period.
-            2. Updates summary statistics in segment_data if there are more
-               than one stress period, otherwise values are kept for one
-               stress period.
-
-        Other stationary data members that are part of segment_data
-        (e.g. hcond1, elevup, etc.) are not modified.
+        and return Returns DataFrame with index along nper and columns for
+        either segnum (for segments) or divid (for diversions)
 
         Parameters
         ----------
@@ -922,92 +925,193 @@ class MfSfrNetwork(object):
         -------
         None or dict (if return_dict is True)
         """
-        from flopy.modflow.mfsfr2 import ModflowSfr2
-        # Build stress period DataFrame from modflow model
-        dis = self.model.dis
-        stress_df = pd.DataFrame({'perlen': dis.perlen.array})
-        modeltime = self.model.modeltime
-        stress_df['duration'] = pd.TimedeltaIndex(
-                stress_df['perlen'].cumsum(), modeltime.time_units)
-        stress_df['start'] = pd.to_datetime(modeltime.start_datetime)
-        stress_df['end'] = stress_df['duration'] + stress_df.at[0, 'start']
-        stress_df.loc[1:, 'start'] = stress_df['end'].iloc[:-1].values
-        # Consider all IDs from segments/diversions
-        segments_segnums = set(self.segments.index)
-        has_diversions = self.diversions is not None
-        if has_diversions:
-            diversions_divids = set(self.diversions.index)
-        else:
-            diversions_divids = set()
 
-        def check_ts(data, name):
-            """Returns DataFrame with index along nper and columns for
-            either segnum or divid (checked later)"""
-            if isinstance(data, dict):
-                data = pd.DataFrame(data, index=stress_df['start'])
-            elif not isinstance(data, pd.DataFrame):
-                raise ValueError(
-                    '{0} must be a dict or DataFrame'.format(name))
-            data.index.name = name  # handy for debugging
-            if len(data) != dis.nper:
-                raise ValueError(
-                    'length of {0} ({1}) is different than nper ({2})'
-                    .format(name, len(data), dis.nper))
-            if dis.nper > 1:  # check DatetimeIndex
-                if not isinstance(data.index, pd.DatetimeIndex):
-                    raise ValueError(
-                        '{0}.index must be a pandas.DatetimeIndex'
-                        .format(name))
-                elif not (data.index == stress_df['start']).all():
-                    try:
-                        t = stress_df['start'].to_string(
-                                index=False, max_rows=5).replace('\n', ', ')
-                    except TypeError:
-                        t = abbr_str(list(stress_df['start']))
-                    raise ValueError(
-                        '{0}.index does not match expected ({1})'
-                        .format(name, t))
-            # Also do basic check of column IDs against diversions/segments
-            if name == 'abstraction':
-                if not has_diversions:
-                    if len(data.columns) > 0:
-                        self.logger.error(
-                            'abstraction provided, but diversions are not '
-                            'defined for the surface water network')
-                        data.drop(data.columns, axis=1, inplace=True)
-                    return data
-                parent = self.diversions
-                parent_name = 'diversions'
-                parent_s = diversions_divids
+    def set_segment_data(self, data, name):
+        """Check segment data and evaluate it as time-varying to be stored
+        as a stationary series in the segment_data DataFrame or
+        as a separate DataFrame with columns for nseg and index along nper.
+
+        Parameters
+        ----------
+        data : int, float, dict, pd.Series or pd.DataFrame
+            If int or float, treat this as a constant value for all
+            segment_data.
+            If dict, keys are nseg, and values are either singular constant
+            value, or a series of values for each stress period.
+            If Series, values are constant values, with index for nseg.
+            If DataFrames, the row index must be a pandas.DatetimeIndex with
+            length nper, and columns are for nseg.
+        name : str
+            A lowercase identifier for data set 6, except 'nseg'.
+        """
+        from flopy.modflow.mfsfr2 import ModflowSfr2
+        seg_dtype = ModflowSfr2.get_default_segment_dtype()
+        valid_names = seg_dtype.names[1:]
+        if name == 'nseg':
+            raise ValueError("'nseg' can't be changed with set_segment_data()")
+        elif name not in valid_names:
+            raise ValueError(
+                'data name {!r} not recognized for segment_data; use one of {}'
+                .format(name, ', '.join(list(valid_names))))
+        was_tsvar = name in name in self._tsvar
+
+        def set_stationary_from_series(series):
+            if was_tsvar:
+                self.logger.debug(
+                    'set_segment_data(): converting %s from tsvar to '
+                    'stationary values %s', name, abbr_str(list(series)))
+            elif name in self.segment_data.columns:
+                self.logger.debug(
+                    'set_segment_data(): rewriting %s with '
+                    'stationary values %s', name, abbr_str(list(series)))
             else:
-                parent = self.segments
-                parent_name = 'segments'
-                parent_s = segments_segnums
-            try:
-                data.columns = data.columns.astype(parent.index.dtype)
-            except (ValueError, TypeError):
+                self.logger.debug(
+                    'set_segment_data(): appending %s with '
+                    'stationary values %s', name, abbr_str(list(series)))
+            self.segment_data[name] = series
+            # Make sure there are no missing values
+            series_na = self.segment_data[name].isna()
+            if series_na.any():
+                self.logger.warning(
+                    'set_segment_data(): filling %d missing values with zero',
+                    series_na.sum())
+                self.segment_data[name].fillna(0, inplace=True)
+            if was_tsvar:
+                setattr(self.segment_data, name, None)
+                self._tsvar.remove(name)
+            return
+
+        def set_tsvar_from_df(df):
+            if was_tsvar:
+                self.logger.debug(
+                    'set_segment_data(): rewriting %s with tsvar DataFrame'
+                    'stationary values', name)
+            elif name in self.segment_data.columns:
+                self.logger.debug(
+                    'set_segment_data(): converting %s from stationary values '
+                    'to tsvar DataFrame', name)
+                self.segment_data.drop(name, axis=1, inplace=True)
+            else:
+                self.logger.debug(
+                    'set_segment_data(): adding %s with tsvar DataFrame',
+                    name)
+            # Make sure there are no missing values
+            df_na = df.isna()
+            if df_na.any():
+                self.logger.warning(
+                    'set_segment_data(): filling %d missing values with zero',
+                    df_na.sum())
+                df.fillna(0, inplace=True)
+            self._tsvar.add(name)
+            setattr(self.segment_data, name, df)
+            return
+
+        if isinstance(data, (int, float)):
+            return set_stationary_from_series(pd.Series(data))
+        elif isinstance(data, dict):
+            if data == {}:
+                # Infer default dtype
+                dtype = np.dtype(dict(seg_dtype.descr).get(name, np.float32))
+                if np.issubdtype(dtype, np.floating):
+                    dtype = float
+                elif np.issubdtype(dtype, np.integer):
+                    dtype = int
+                else:
+                    raise ValueError('unsupported dtype {!s}'.format(dtype))
+                return set_stationary_from_series(pd.Series(0, dtype=dtype))
+            is_tvar = any(isinstance(k, Iterable) for k in data.values())
+            if is_tvar:
+                data = pd.DataFrame(data, index=self.stress_df['start'])
+                data.index.name = name  # handy for debugging
+            else:
+                data = pd.Series(data)
+        elif isinstance(data, pd.DataFrame):
+            # Make a Series if there is only one row
+            if len(data) == 0:
+                raise ValueError('DataFrame has no rows')
+            elif len(data) == 1:
+                is_tvar = False
+                data = data.iloc[0]  # convert to Series
+            else:
+                assert len(data) > 1
+                is_tvar = True
+        raise ValueError(
+            '{0} must be a dict, Series or DataFrame'.format(name))
+        dis = self.model.dis
+        if 
+        if len(data) != dis.nper:
+            raise ValueError(
+                'length of {0} ({1}) is different than nper ({2})'
+                .format(name, len(data), dis.nper))
+        if dis.nper > 1:  # check DatetimeIndex
+            if not isinstance(data.index, pd.DatetimeIndex):
                 raise ValueError(
-                    '{0}.columns.dtype must be same as {1}.index.dtype'
-                    .format(name, parent_name))
-            data_id_s = set(data.columns)
-            if len(data_id_s) > 0:
-                if data_id_s.isdisjoint(parent_s):
-                    msg = '{0}.columns (or keys) not found in {1}.index: {2}'\
-                        .format(name, parent_name, abbr_str(data_id_s))
-                    if name == 'inflow':
-                        self.logger.warning(msg)
-                    else:
-                        raise ValueError(msg)
-                if name != 'inflow':  # some segnums accumulate outside flow
-                    not_found = data_id_s.difference(parent_s)
-                    if not data_id_s.issubset(parent_s):
-                        self.logger.warning(
-                            'dropping %s of %s %s.columns, which are '
-                            'not found in %s.index: %s',
-                            len(not_found), len(data_id_s), name,
-                            parent_name, abbr_str(data_id_s))
-                        data.drop(not_found, axis=1, inplace=True)
-            return data
+                    '{0}.index must be a pandas.DatetimeIndex'
+                    .format(name))
+            elif not (data.index == self.stress_df['start']).all():
+                try:
+                    t = self.stress_df['start'].to_string(
+                            index=False, max_rows=5).replace('\n', ', ')
+                except TypeError:
+                    t = abbr_str(list(self.stress_df['start']))
+                raise ValueError(
+                    '{0}.index does not match expected ({1})'
+                    .format(name, t))
+        # Also do basic check of column IDs against diversions/segments
+        if name == 'abstraction':
+            if self.diversions is None:
+                if len(data.columns) > 0:
+                    self.logger.error(
+                        'abstraction provided, but diversions are not '
+                        'defined for the surface water network')
+                    data.drop(data.columns, axis=1, inplace=True)
+                return data
+            parent = self.diversions
+            parent_name = 'diversions'
+            parent_s = set(self.diversions.index)
+        else:
+            parent = self.segments
+            parent_name = 'segments'
+            parent_s = set(self.segments.index)
+        try:
+            data.columns = data.columns.astype(parent.index.dtype)
+        except (ValueError, TypeError):
+            raise ValueError(
+                '{0}.columns.dtype must be same as {1}.index.dtype'
+                .format(name, parent_name))
+        data_id_s = set(data.columns)
+        if len(data_id_s) > 0:
+            if data_id_s.isdisjoint(parent_s):
+                msg = '{0}.columns (or keys) not found in {1}.index: {2}'\
+                    .format(name, parent_name, abbr_str(data_id_s))
+                if name == 'inflow':
+                    self.logger.warning(msg)
+                else:
+                    raise ValueError(msg)
+            if name != 'inflow':  # some segnums accumulate outside flow
+                not_found = data_id_s.difference(parent_s)
+                if not data_id_s.issubset(parent_s):
+                    self.logger.warning(
+                        'dropping %s of %s %s.columns, which are '
+                        'not found in %s.index: %s',
+                        len(not_found), len(data_id_s), name,
+                        parent_name, abbr_str(data_id_s))
+                    data.drop(not_found, axis=1, inplace=True)
+        return data
+
+    def rewrite_flow(self, flow={}):
+        """Trigger regeneration of flow term timeseries data in segment_data
+        which combines inflow term for segments.
+
+        Parameters
+        ----------
+        flow : dict or pandas.DataFrame, optional
+            Flow to the top of each segment. This is added to any inflow,
+            which is handled separately. This can be negative for withdrawls.
+            Default is {} (zero).
+        """
+
+        from flopy.modflow.mfsfr2 import ModflowSfr2
 
         self.logger.debug('checking timeseries data against modflow model')
         abstraction = check_ts(abstraction, 'abstraction')
