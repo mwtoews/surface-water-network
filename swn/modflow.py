@@ -1638,6 +1638,7 @@ class MfSfrNetwork(object):
         p._add_plotlayer(dem, label="Elevation (m)")
         p._add_sfr(sfrar, cat_cmap=False, colorbar=True,
                    cbar_label=label)
+        return p
 
     def plot_reaches_above(self, model, seg, dem=None,
                            plot_bottom=False, points2=None):
@@ -1665,8 +1666,8 @@ class MfSfrNetwork(object):
             (self.reaches[segsel]['top'] -
              self.reaches[segsel]['strtop']).tolist()
         # .mask = np.ones(sfrar.shape)
-        self.sfr_plot(model, sfrar, dem, points=points, points2=points2,
-                      label="str below top (m)")
+        vtop = self.sfr_plot(model, sfrar, dem, points=points, points2=points2,
+                             label="str below top (m)")
         if seg != 'all':
             sfr.plot_path(seg)
         if plot_bottom:
@@ -1679,8 +1680,11 @@ class MfSfrNetwork(object):
                 (self.reaches[segsel]['strtop'] -
                  self.reaches[segsel]['bot']).tolist()
             # .mask = np.ones(sfrar.shape)
-            self.sfr_plot(model, sfrarbot, dembot, points=points,
-                          points2=points2, label="str above bottom (m)")
+            vbot = self.sfr_plot(model, sfrarbot, dembot, points=points,
+                                 points2=points2, label="str above bottom (m)")
+        else:
+            vbot = None
+        return vtop, vbot
 
 
 class ModelPlot(object):
