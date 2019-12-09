@@ -4,6 +4,14 @@
 import geopandas
 import os
 import pandas as pd
+
+try:
+    import matplotlib
+    import matplotlib.pyplot as plt
+except ImportError:
+    matplotlib = False
+    plt = None
+
 import pytest
 
 # Import this local package for tests

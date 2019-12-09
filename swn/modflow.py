@@ -5,12 +5,15 @@ import geopandas
 import numpy as np
 import pandas as pd
 from itertools import combinations
-from matplotlib import pyplot as plt
-from matplotlib import colors, cm
 from shapely import wkt
 from shapely.geometry import LineString, Point, Polygon, box
 from shapely.ops import linemerge
 from textwrap import dedent
+
+try:
+    import matplotlib
+except ImportError:
+    matplotlib = False
 
 from swn.base import SurfaceWaterNetwork
 from swn.logger import get_logger
@@ -1703,6 +1706,8 @@ class ModelPlot(object):
                                     [long-left , long-right, lat-up, lat-dn])
         """
         import pyproj
+        from matplotlib import pyplot as plt
+
         self.model = model
         # Use model projection, if defined by either proj4 or epsg attrs
         proj_str = model.modelgrid.proj4
@@ -1859,6 +1864,8 @@ class ModelPlot(object):
         :param zorder: mpl overlay order
         :param alpha: mpl transparency
         """
+        from matplotlib import pyplot as plt
+
         if get_range:
             vmin, vmax = self._get_range(k)
         else:
@@ -1884,6 +1891,9 @@ class ModelPlot(object):
         :param zorder: mpl overlay order
         """
         import seaborn as sns
+        from matplotlib import pyplot as plt
+        from matplotlib import colors, cm
+
         vmin = x.min()
         vmax = x.max()
         if cat_cmap:
@@ -1926,17 +1936,18 @@ class ModelPlot(object):
                 cbar1.set_ticklabels(np.sort(vals).astype(int))
 
 
-class MidpointNormalize(colors.Normalize):
-    def __init__(self, vmin=None, vmax=None, midpoint=None, clip=False):
-        self.midpoint = midpoint
-        colors.Normalize.__init__(self, vmin, vmax, clip)
+if matplotlib:
+    class MidpointNormalize(matplotlib.colors.Normalize):
+        def __init__(self, vmin=None, vmax=None, midpoint=None, clip=False):
+            self.midpoint = midpoint
+            matplotlib.colors.Normalize.__init__(self, vmin, vmax, clip)
 
-    def __call__(self, value, clip=None):
-        # I'm ignoring masked values and all kinds of edge cases to make a
-        # simple example...
-        x, y = [self.vmin, self.midpoint, self.vmax], [0, 0.5, 1]
-        mask = np.ma.getmask(value)
-        return np.ma.masked_array(np.interp(value, x, y), mask=mask)
+        def __call__(self, value, clip=None):
+            # I'm ignoring masked values and all kinds of edge cases to make a
+            # simple example...
+            x, y = [self.vmin, self.midpoint, self.vmax], [0, 0.5, 1]
+            mask = np.ma.getmask(value)
+            return np.ma.masked_array(np.interp(value, x, y), mask=mask)
 
 
 def sfr_rec_to_df(sfr):
