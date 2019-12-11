@@ -10,6 +10,7 @@ Python 3.5+ is required.
 ### Required
 
  - `geopandas` - process spatial data similar to pandas
+ - `rtree` - spatial index support
 
 ### Optional
 
