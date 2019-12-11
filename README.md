@@ -1,6 +1,6 @@
 # Surface water network
 
-Creates surface water network to be used for MODFLOW's SFR.
+Creates surface water network, which can be used to create MODFLOW's SFR.
 
 
 ## Python packages
@@ -99,3 +99,7 @@ m.sfr.write_file('file.sfr')
 nm.grid_cells.to_file('grid_cells.shp')
 nm.reaches.to_file('reaches.shp')
 ```
+
+## Citation
+
+Toews, M. W.; Hemmings, B. 2019. A surface water network method for generalising streams and rapid groundwater model development. In: New Zealand Hydrological Society Conference, Rotorua, 3-6 December, 2019. p. 166-169.
