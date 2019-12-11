@@ -1,4 +1,5 @@
 # Surface water network
+[![Travis Status](https://api.travis-ci.org/mwtoews/surface-water-network.svg?branch=master)](https://travis-ci.org/mwtoews/surface-water-network)
 
 Creates surface water network, which can be used to create MODFLOW's SFR.
 
