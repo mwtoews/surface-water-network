@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 import geopandas
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pytest
@@ -8,6 +7,7 @@ from shapely import wkt
 from shapely.geometry import LineString, Point
 from textwrap import dedent
 
+from .conftest import matplotlib, plt
 
 import swn
 from swn.spatial import force_2d, round_coords, wkt_to_geoseries
@@ -87,8 +87,9 @@ def test_init_defaults(valid_n):
           2 headwater: [1, 2]
           1 outlets: [0]
           no diversions />''')
-    _ = n.plot()
-    plt.close()
+    if matplotlib:
+        _ = n.plot()
+        plt.close()
 
 
 def test_init_2D_geom():
@@ -116,8 +117,9 @@ def test_init_2D_geom():
           2 headwater: [1, 2]
           1 outlets: [0]
           no diversions />''')
-    _ = n.plot()
-    plt.close()
+    if matplotlib:
+        _ = n.plot()
+        plt.close()
 
 
 def test_init_mismatch_3D():
@@ -142,8 +144,9 @@ def test_init_mismatch_3D():
           2 headwater: [0, 2]
           1 outlets: [1]
           no diversions />''')
-    _ = n.plot()
-    plt.close()
+    if matplotlib:
+        _ = n.plot()
+        plt.close()
 
 
 def test_init_reversed_lines():
@@ -180,8 +183,9 @@ def test_init_reversed_lines():
           2 headwater: [0, 2]
           2 outlets: [1, 2]
           no diversions />''')
-    _ = n.plot()
-    plt.close()
+    if matplotlib:
+        _ = n.plot()
+        plt.close()
 
 
 def test_init_all_converge():
@@ -222,8 +226,9 @@ def test_init_all_converge():
           3 headwater: [0, 1, 2]
           3 outlets: [0, 1, 2]
           no diversions />''')
-    _ = n.plot()
-    plt.close()
+    if matplotlib:
+        _ = n.plot()
+        plt.close()
 
 
 def test_init_all_diverge():
@@ -264,8 +269,9 @@ def test_init_all_diverge():
           3 headwater: [0, 1, 2]
           3 outlets: [0, 1, 2]
           no diversions />''')
-    _ = n.plot()
-    plt.close()
+    if matplotlib:
+        _ = n.plot()
+        plt.close()
 
 
 def test_init_line_connects_to_middle():
@@ -299,8 +305,9 @@ def test_init_line_connects_to_middle():
           2 headwater: [0, 1]
           2 outlets: [0, 1]
           no diversions />''')
-    _ = n.plot()
-    plt.close()
+    if matplotlib:
+        _ = n.plot()
+        plt.close()
 
 
 def test_init_geoseries():
@@ -369,8 +376,9 @@ def test_init_polygons():
           2 headwater: [1, 2]
           1 outlets: [0]
           no diversions />''')
-    _ = n.plot()
-    plt.close()
+    if matplotlib:
+        _ = n.plot()
+        plt.close()
     # check error
     with pytest.raises(
             ValueError,
@@ -396,8 +404,9 @@ def test_catchments_property():
           2 headwater: [1, 2]
           1 outlets: [0]
           no diversions />''')
-    _ = n.plot()
-    plt.close()
+    if matplotlib:
+        _ = n.plot()
+        plt.close()
     # unset property
     n.catchments = None
     assert n.catchments is None
@@ -479,8 +488,9 @@ def test_set_diversions_geodataframe():
           2 headwater: [1, 2]
           1 outlets: [0]
           2 diversions (as GeoDataFrame): [0, 1] />''')
-    _ = n.plot()
-    plt.close()
+    if matplotlib:
+        _ = n.plot()
+        plt.close()
 
 
 def test_set_diversions_dataframe():
@@ -514,8 +524,9 @@ def test_set_diversions_dataframe():
           2 headwater: [1, 2]
           1 outlets: [0]
           2 diversions (as DataFrame): [0, 1] />''')
-    _ = n.plot()
-    plt.close()
+    if matplotlib:
+        _ = n.plot()
+        plt.close()
     # Unset
     n.set_diversions(None)
     assert n.diversions is None
@@ -859,8 +870,9 @@ def test_fluss_n(fluss_n):
           10 headwater: [0, 1, ..., 15, 17]
           1 outlets: [18]
           no diversions />''')
-    _ = n.plot()
-    plt.close()
+    if matplotlib:
+        _ = n.plot()
+        plt.close()
 
 
 def test_fluss_n_query_upstream(fluss_n):

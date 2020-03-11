@@ -5,12 +5,15 @@ import geopandas
 import numpy as np
 import pandas as pd
 from itertools import combinations
-from matplotlib import pyplot as plt
-from matplotlib import colors, cm
 from shapely import wkt
 from shapely.geometry import LineString, Point, Polygon, box
 from shapely.ops import linemerge
 from textwrap import dedent
+
+try:
+    import matplotlib
+except ImportError:
+    matplotlib = False
 
 from swn.base import SurfaceWaterNetwork
 from swn.logger import get_logger
@@ -505,12 +508,13 @@ class MfSfrNetwork(object):
             if col in self.segments.columns:
                 del self.segments[col]
         # Combine pairs of series for each segment
-        self.segments = pd.concat([
-            self.segments,
+        more_segment_columns = pd.concat([
             swn._pair_segment_values(hyd_cond1, hyd_cond_out, 'hcond'),
             swn._pair_segment_values(thickness1, thickness_out, 'thickm'),
             swn._pair_segment_values(width1, width_out, name='width')
         ], axis=1, copy=False)
+        for name, series in more_segment_columns.iteritems():
+            self.segments[name] = series
         self.segments['roughch'] = swn._segment_series(roughch)
         # Mark segments that are not used
         self.segments['in_model'] = True
@@ -1640,6 +1644,7 @@ class MfSfrNetwork(object):
         p._add_plotlayer(dem, label="Elevation (m)")
         p._add_sfr(sfrar, cat_cmap=False, colorbar=True,
                    cbar_label=label)
+        return p
 
     def plot_reaches_above(self, model, seg, dem=None,
                            plot_bottom=False, points2=None):
@@ -1667,8 +1672,8 @@ class MfSfrNetwork(object):
             (self.reaches[segsel]['top'] -
              self.reaches[segsel]['strtop']).tolist()
         # .mask = np.ones(sfrar.shape)
-        self.sfr_plot(model, sfrar, dem, points=points, points2=points2,
-                      label="str below top (m)")
+        vtop = self.sfr_plot(model, sfrar, dem, points=points, points2=points2,
+                             label="str below top (m)")
         if seg != 'all':
             sfr.plot_path(seg)
         if plot_bottom:
@@ -1681,8 +1686,11 @@ class MfSfrNetwork(object):
                 (self.reaches[segsel]['strtop'] -
                  self.reaches[segsel]['bot']).tolist()
             # .mask = np.ones(sfrar.shape)
-            self.sfr_plot(model, sfrarbot, dembot, points=points,
-                          points2=points2, label="str above bottom (m)")
+            vbot = self.sfr_plot(model, sfrarbot, dembot, points=points,
+                                 points2=points2, label="str above bottom (m)")
+        else:
+            vbot = None
+        return vtop, vbot
 
 
 class ModelPlot(object):
@@ -1701,6 +1709,8 @@ class ModelPlot(object):
                                     [long-left , long-right, lat-up, lat-dn])
         """
         import pyproj
+        from matplotlib import pyplot as plt
+
         self.model = model
         # Use model projection, if defined by either proj4 or epsg attrs
         proj_str = model.modelgrid.proj4
@@ -1857,6 +1867,8 @@ class ModelPlot(object):
         :param zorder: mpl overlay order
         :param alpha: mpl transparency
         """
+        from matplotlib import pyplot as plt
+
         if get_range:
             vmin, vmax = self._get_range(k)
         else:
@@ -1882,6 +1894,9 @@ class ModelPlot(object):
         :param zorder: mpl overlay order
         """
         import seaborn as sns
+        from matplotlib import pyplot as plt
+        from matplotlib import colors, cm
+
         vmin = x.min()
         vmax = x.max()
         if cat_cmap:
@@ -1924,17 +1939,18 @@ class ModelPlot(object):
                 cbar1.set_ticklabels(np.sort(vals).astype(int))
 
 
-class MidpointNormalize(colors.Normalize):
-    def __init__(self, vmin=None, vmax=None, midpoint=None, clip=False):
-        self.midpoint = midpoint
-        colors.Normalize.__init__(self, vmin, vmax, clip)
+if matplotlib:
+    class MidpointNormalize(matplotlib.colors.Normalize):
+        def __init__(self, vmin=None, vmax=None, midpoint=None, clip=False):
+            self.midpoint = midpoint
+            matplotlib.colors.Normalize.__init__(self, vmin, vmax, clip)
 
-    def __call__(self, value, clip=None):
-        # I'm ignoring masked values and all kinds of edge cases to make a
-        # simple example...
-        x, y = [self.vmin, self.midpoint, self.vmax], [0, 0.5, 1]
-        mask = np.ma.getmask(value)
-        return np.ma.masked_array(np.interp(value, x, y), mask=mask)
+        def __call__(self, value, clip=None):
+            # I'm ignoring masked values and all kinds of edge cases to make a
+            # simple example...
+            x, y = [self.vmin, self.midpoint, self.vmax], [0, 0.5, 1]
+            mask = np.ma.getmask(value)
+            return np.ma.masked_array(np.interp(value, x, y), mask=mask)
 
 
 def sfr_rec_to_df(sfr):

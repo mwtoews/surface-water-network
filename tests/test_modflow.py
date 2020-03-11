@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 import geopandas
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from hashlib import md5
@@ -9,7 +8,8 @@ from shapely.geometry import Point
 from textwrap import dedent
 
 import pytest
-from .conftest import datadir
+
+from .conftest import datadir, matplotlib, plt
 
 try:
     import flopy
@@ -283,8 +283,9 @@ def test_process_flopy_n3d_defaults(n3d, tmpdir_factory):
             3 from segments: [1, 2, 0]
             no diversions
           1 stress period with perlen: [1.0] />''')
-    _ = nm.plot()
-    plt.close()
+    if matplotlib:
+        _ = nm.plot()
+        plt.close()
     # Run model and read outputs
     m.model_ws = str(outdir)
     m.write_input()
@@ -366,8 +367,9 @@ def test_set_segment_data():
             3 from segments: [1, 2, 0]
             no diversions
           1 stress period with perlen: [1.0] />''')
-    _ = nm.plot()
-    plt.close()
+    if matplotlib:
+        _ = nm.plot()
+        plt.close()
 
     # Re-write segment_data without arguments
     nm.set_segment_data()
@@ -401,8 +403,9 @@ def test_set_segment_data():
             3 from segments: [1, 2, 0]
             no diversions
           1 stress period with perlen: [1.0] />''')
-    _ = nm.plot()
-    plt.close()
+    if matplotlib:
+        _ = nm.plot()
+        plt.close()
 
     # Re-write segment_data with arguments
     # note that this network does not have diversions, so abstraction term will
@@ -495,8 +498,9 @@ def test_set_segment_data():
             3 from segments: [1, 2, 0]
             no diversions
           4 stress periods with perlen: [1.0, 1.0, 1.0, 1.0] />''')
-    _ = nm.plot()
-    plt.close()
+    if matplotlib:
+        _ = nm.plot()
+        plt.close()
 
     # Check errors
     with pytest.raises(ValueError, match='flow must be a dict or DataFrame'):
@@ -611,8 +615,9 @@ def test_process_flopy_n3d_vars(tmpdir_factory):
             3 from segments: [1, 2, 0]
             no diversions
           1 stress period with perlen: [1.0] />''')
-    _ = nm.plot()
-    plt.close()
+    if matplotlib:
+        _ = nm.plot()
+        plt.close()
     # Run model and read outputs
     m.model_ws = str(outdir)
     m.write_input()
@@ -696,8 +701,9 @@ def test_process_flopy_n2d_defaults(n2d, tmpdir_factory):
             3 from segments: [1, 2, 0]
             no diversions
           1 stress period with perlen: [1.0] />''')
-    _ = nm.plot()
-    plt.close()
+    if matplotlib:
+        _ = nm.plot()
+        plt.close()
     # Run model
     m.model_ws = str(outdir)
     m.write_input()
@@ -868,26 +874,29 @@ def test_set_elevations(n2d, tmpdir_factory):
     reach_data = nm.get_reach_data()
     _ = flopy.modflow.mfsfr2.ModflowSfr2(
         model=m, reach_data=reach_data, segment_data=seg_data)
-    nm.plot_reaches_above(m, 'all', plot_bottom=True)
-    plt.close()
+    if matplotlib:
+        nm.plot_reaches_above(m, 'all', plot_bottom=True)
+        plt.close()
     _ = nm.fix_segment_elevs(min_incise=0.2, min_slope=1.e-4)
     _ = nm.reconcile_reach_strtop()
     seg_data = nm.set_segment_data(return_dict=True)
     reach_data = nm.get_reach_data()
     _ = flopy.modflow.mfsfr2.ModflowSfr2(
         model=m, reach_data=reach_data, segment_data=seg_data)
-    nm.plot_reaches_above(m, 'all', plot_bottom=True)
-    plt.close()
-    nm.plot_reaches_above(m, 1)
-    plt.close()
+    if matplotlib:
+        nm.plot_reaches_above(m, 'all', plot_bottom=True)
+        plt.close()
+        nm.plot_reaches_above(m, 1)
+        plt.close()
     _ = nm.set_topbot_elevs_at_reaches()
     nm.fix_reach_elevs()
     seg_data = nm.set_segment_data(return_dict=True)
     reach_data = nm.get_reach_data()
     _ = flopy.modflow.mfsfr2.ModflowSfr2(
         model=m, reach_data=reach_data, segment_data=seg_data)
-    nm.plot_reaches_above(m, 'all', plot_bottom=True)
-    plt.close()
+    if matplotlib:
+        nm.plot_reaches_above(m, 'all', plot_bottom=True)
+        plt.close()
     m.sfr.ipakcb = 52
     m.sfr.istcb2 = -53
     m.add_output_file(53, extension='sfo', binflag=True)
@@ -978,8 +987,9 @@ def test_reach_barely_outside_ibound():
             1 from segments: [0]
             no diversions
           1 stress period with perlen: [1.0] />''')
-    _ = nm.plot()
-    plt.close()
+    if matplotlib:
+        _ = nm.plot()
+        plt.close()
 
 
 def check_number_sum_hex(a, n, h):
@@ -1109,8 +1119,9 @@ def test_coastal_process_flopy(tmpdir_factory,
         184 from segments (61% used): [3049818, 3049819, ..., 3046952, 3046736]
         no diversions
       1 stress period with perlen: [1.0] />''')
-    _ = nm.plot()
-    plt.close()
+    if matplotlib:
+        _ = nm.plot()
+        plt.close()
     # Write output files
     nm.grid_cells.to_file(str(outdir.join('grid_cells.shp')))
     nm.reaches.to_file(str(outdir.join('reaches.shp')))
@@ -1130,15 +1141,17 @@ def test_coastal_elevations(coastal_swn, coastal_flow_m, tmpdir_factory):
     reach_data = nm.get_reach_data()
     flopy.modflow.mfsfr2.ModflowSfr2(
         model=m, reach_data=reach_data, segment_data=seg_data)
-    nm.plot_reaches_above(m, 'all', plot_bottom=False)
-    plt.close()
+    if matplotlib:
+        nm.plot_reaches_above(m, 'all', plot_bottom=False)
+        plt.close()
     # handy to set a max elevation that a stream can be
     _ = nm.get_seg_ijk()
     tops = nm.get_top_elevs_at_segs().top_up
     max_str_z = tops.describe()['75%']
-    for seg in nm.segment_data.index[nm.segment_data.index.isin([1, 18])]:
-        nm.plot_reaches_above(m, seg)
-        plt.close()
+    if matplotlib:
+        for seg in nm.segment_data.index[nm.segment_data.index.isin([1, 18])]:
+            nm.plot_reaches_above(m, seg)
+            plt.close()
     _ = nm.fix_segment_elevs(min_incise=0.2, min_slope=1.e-4,
                              max_str_z=max_str_z)
     _ = nm.reconcile_reach_strtop()
@@ -1146,22 +1159,24 @@ def test_coastal_elevations(coastal_swn, coastal_flow_m, tmpdir_factory):
     reach_data = nm.get_reach_data()
     flopy.modflow.mfsfr2.ModflowSfr2(
         model=m, reach_data=reach_data, segment_data=seg_data)
-    nm.plot_reaches_above(m, 'all', plot_bottom=False)
-    plt.close()
-    for seg in nm.segment_data.index[nm.segment_data.index.isin([1, 18])]:
-        nm.plot_reaches_above(m, seg)
+    if matplotlib:
+        nm.plot_reaches_above(m, 'all', plot_bottom=False)
         plt.close()
+        for seg in nm.segment_data.index[nm.segment_data.index.isin([1, 18])]:
+            nm.plot_reaches_above(m, seg)
+            plt.close()
     _ = nm.set_topbot_elevs_at_reaches()
     nm.fix_reach_elevs()
     seg_data = nm.set_segment_data(return_dict=True)
     reach_data = nm.get_reach_data()
     flopy.modflow.mfsfr2.ModflowSfr2(
         model=m, reach_data=reach_data, segment_data=seg_data)
-    nm.plot_reaches_above(m, 'all', plot_bottom=False)
-    plt.close()
-    for seg in nm.segment_data.index[nm.segment_data.index.isin([1, 18])]:
-        nm.plot_reaches_above(m, seg)
+    if matplotlib:
+        nm.plot_reaches_above(m, 'all', plot_bottom=False)
         plt.close()
+        for seg in nm.segment_data.index[nm.segment_data.index.isin([1, 18])]:
+            nm.plot_reaches_above(m, seg)
+            plt.close()
     m.sfr.unit_number = [24]
     m.sfr.ipakcb = 50
     m.sfr.istcb2 = -51
@@ -1274,8 +1289,9 @@ def test_coastal_reduced_process_flopy(
         94 from segments (72% used): [3049802, 3049683, ..., 3046952, 3046736]
         no diversions
       1 stress period with perlen: [1.0] />''')
-    _ = nm.plot()
-    plt.close()
+    if matplotlib:
+        _ = nm.plot()
+        plt.close()
     # Run model and read outputs
     m.model_ws = str(outdir)
     m.sfr.unit_number = [24]
@@ -1389,8 +1405,9 @@ def test_coastal_process_flopy_ibound_modify(coastal_swn, coastal_flow_m,
             304 from segments: [3050413, 3050418, ..., 3046952, 3046736]
             no diversions
           1 stress period with perlen: [1.0] />''')
-    _ = nm.plot()
-    plt.close()
+    if matplotlib:
+        _ = nm.plot()
+        plt.close()
     # Run model and read outputs
     m.model_ws = str(outdir)
     m.sfr.unit_number = [24]
@@ -1422,8 +1439,9 @@ def test_process_flopy_lines_on_boundaries():
     ])
     n = swn.SurfaceWaterNetwork(lines)
     nm = swn.MfSfrNetwork(n, m)
-    _ = nm.plot()
-    plt.close()
+    if matplotlib:
+        _ = nm.plot()
+        plt.close()
     assert m.sfr.nss == 5
     # TODO: code needs to be improved for this type of case
     assert abs(m.sfr.nstrm) == 8
@@ -1488,8 +1506,9 @@ def test_process_flopy_diversion(tmpdir_factory):
             3 from segments: [1, 2, 0]
             4 from diversions[0, 1, 2, 3]
           1 stress period with perlen: [1.0] />''')
-    _ = nm.plot()
-    plt.close()
+    if matplotlib:
+        _ = nm.plot()
+        plt.close()
 
     # Run model and read outputs
     m.model_ws = str(outdir)

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """Surface water network"""
-__version__ = '0.2'
+__version__ = '0.3'
 __license__ = 'BSD'
 __author__ = 'Mike Taves'
 __email__ = 'mwtoews@gmail.com'
