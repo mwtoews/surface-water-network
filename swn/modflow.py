@@ -1713,21 +1713,36 @@ class ModelPlot(object):
 
         self.model = model
         # Use model projection, if defined by either proj4 or epsg attrs
-        proj_str = model.modelgrid.proj4
         epsg = model.modelgrid.epsg
+        proj4_str = model.modelgrid.proj4
         self.pprj = None
-        try:
-            if proj_str:
-                self.pprj = pyproj.Proj(proj_str)
-            elif epsg:
-                self.pprj = pyproj.Proj('epsg:' + str(epsg))
-        except RuntimeError:
-            pass
+        pyproj_ver = None
+        if hasattr(pyproj, 'CRS'):  # new in version 2.0.0
+            pyproj_ver = 2
+            if epsg:
+                self.pprj = pyproj.CRS.from_epsg(epsg)
+            elif proj4_str and hasattr(pyproj.CRS, 'from_proj4'):  # 2.2.0
+                self.pprj = pyproj.CRS.from_proj4(proj4_str)
+        else:
+            pyproj_ver = 1
+            if epsg:
+                self.pprj = pyproj.Proj(init='epsg:' + str(epsg))
+            if self.pprj is None and proj4_str:
+                self.pprj = pyproj.Proj(proj4_str)
         if domain_extent is None and self.pprj is not None:
             xmin, xmax, ymin, ymax = self.model.modelgrid.extent
-            assert not self.pprj.is_latlong()
-            lonmin, latmin = self.pprj(xmin, ymin, inverse=True)
-            lonmax, latmax = self.pprj(xmax, ymax, inverse=True)
+            if pyproj_ver == 1:
+                assert not self.pprj.is_latlong(), self.pprj
+                # axis order: lon, lat
+                lonmin, latmin = self.pprj(xmin, ymin, inverse=True)
+                lonmax, latmax = self.pprj(xmax, ymax, inverse=True)
+            else:
+                assert pyproj_ver == 2
+                assert self.pprj.is_projected, self.pprj
+                latlon = pyproj.CRS.from_epsg(4326)  # axis order: lat, lon
+                tfm = pyproj.Transformer.from_crs(self.pprj, latlon)
+                latmin, lonmin = tfm.transform(xmin, ymin)
+                latmax, lonmax = tfm.transform(xmax, ymax)
             self.domain_extent = [lonmin, lonmax, latmin, latmax]
         else:
             self.domain_extent = domain_extent
