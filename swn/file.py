@@ -27,9 +27,13 @@ def topnet2ts(nc_path, varname, log_level=logging.INFO):
         Where columns is rchid and index is DatetimeIndex.
     """
     try:
-        from netCDF4 import Dataset, num2date
+        from netCDF4 import Dataset
     except ImportError:
-        raise ImportError('this function requires netCDF4')
+        raise ImportError('function requires netCDF4')
+    try:
+        from cftime import num2pydate as n2d
+    except ImportError:
+        from cftime import num2date as n2d
     logger = get_logger('topnet2ts', log_level)
     logger.info('reading file:%s', nc_path)
     with Dataset(nc_path, 'r') as nc:
@@ -40,7 +44,7 @@ def topnet2ts(nc_path, varname, log_level=logging.INFO):
         df = pd.DataFrame(var[:, :, 0])
         df.columns = nc.variables['rchid']
         time_v = nc.variables['time']
-        df.index = pd.DatetimeIndex(num2date(time_v[:], time_v.units))
+        df.index = pd.DatetimeIndex(n2d(time_v[:], time_v.units))
     logger.info('data successfully read')
     return df
 
