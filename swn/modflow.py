@@ -1447,6 +1447,24 @@ class MfSfrNetwork(object):
 
         :return:
         """
+        def _check_reach_v_laybot(r, botms, buffer=1.0, rbed_elev=None):
+            if rbed_elev is None:
+                rbed_elev = r.strtop - r.strthick
+            if (rbed_elev - buffer) < r.bot:
+                # if new strtop is below layer one
+                # drop bottom of layer one to accomodate stream
+                # (top, bed thickness and buffer)
+                new_elev = rbed_elev - buffer
+                print('seg {} reach {} @ {} '
+                      'is below layer 1 bottom @ {}'
+                      .format(seg, r.ireach, rbed_elev,
+                              r.bot))
+                print('    dropping layer 1 bottom to {} '
+                      'to accommodate stream @ i = {}, j = {}'
+                      .format(new_elev, r.i, r.j))
+                botms[0, r.i, r.j] = new_elev
+            return botms
+
         buffer = 1.0  # 1 m (buffer to leave at the base of layer 1 -
         # also helps with precision issues)
         # make sure elevations are up-to-date
@@ -1455,6 +1473,7 @@ class MfSfrNetwork(object):
         _ = self.set_topbot_elevs_at_reaches()
         # top read from dis as float32 so comparison need to be with like
         reachsel = self.reaches['top'] <= self.reaches['strtop']
+        reach_ij = tuple(self.reaches[['i', 'j']].values.T)
         print('{} segments with reaches above model top'.format(
             self.reaches[reachsel]['iseg'].unique().shape[0]))
         # get segments with reaches above the top surface
@@ -1474,20 +1493,11 @@ class MfSfrNetwork(object):
             rsel = self.reaches['iseg'] == seg
             segsel = self.segment_data.index == seg
 
-            if seg in segsabove:
+            if seg in segsabove.index:
                 # check top and bottom reaches are above layer 1 bottom
                 # (not adjusting elevations of reaches)
                 for reach in self.reaches[rsel].iloc[[0, -1]].itertuples():
-                    if reach.strtop - reach.strthick < reach.bot + buffer:
-                        # drop bottom of layer one to accomodate stream
-                        new_elev = reach.strtop - reach.strthick - buffer
-                        print('seg {} reach {} is below layer 1 bottom'
-                              .format(seg, reach.ireach))
-                        print(
-                            'dropping layer 1 bottom to {} to accomodate '
-                            'stream @ i = {}, j = {}'
-                            .format(new_elev, reach.i, reach.j))
-                        layerbots[0, reach.i, reach.j] = new_elev
+                    layerbots = _check_reach_v_laybot(reach, layerbots, buffer)
                 # apparent optimised incision based
                 # on the incision gradient for the segment
                 self.reaches.loc[rsel, 'strtop_incopt'] = \
@@ -1593,16 +1603,8 @@ class MfSfrNetwork(object):
                     # check if new stream top is above layer 1 with a buffer
                     # (allowing for bed thickness)
                     reachbed_elev = upreach_strtop - reach.strthick
-                    if (reachbed_elev - buffer) < reach.bot:
-                        # if new strtop is below layer one
-                        # drop bottom of layer one to accomodate stream
-                        # (top, bed thickness and buffer)
-                        new_elev = reachbed_elev - buffer
-                        print('    dropping layer 1 bottom from {} to {} '
-                              'to accommodate stream @ i = {}, j = {}'
-                              .format(reachbed_elev, new_elev,
-                                      reach.i, reach.j))
-                        layerbots[0, reach.i, reach.j] = new_elev
+                    layerbots = _check_reach_v_laybot(reach, layerbots, buffer,
+                                                      reachbed_elev)
                     upreach_cmid = reach.cmids
                     # upreach_slope=reach.slope
             else:
@@ -1612,19 +1614,12 @@ class MfSfrNetwork(object):
                       .format(seg))
                 for reach in self.reaches[rsel].itertuples():
                     reachbed_elev = reach.strtop - reach.strthick
-                    if (reachbed_elev - buffer) < reach.bot:
-                        # strtop is below layer one
-                        # drop bottom of layer one to accommodate stream
-                        # (top, bed thickness and buffer)
-                        new_elev = reachbed_elev - buffer
-                        print('seg {} reach {} @ {} '
-                              'is below layer 1 bottom @ {}'
-                              .format(seg, reach.ireach, reachbed_elev,
-                                      reach.bot))
-                        print('    dropping layer 1 bottom to {} '
-                              'to accommodate stream @ i = {}, j = {}'
-                              .format(new_elev, reach.i, reach.j))
-                        layerbots[0, reach.i, reach.j] = new_elev
+                    layerbots = _check_reach_v_laybot(reach, layerbots, buffer,
+                                                      reachbed_elev)
+            # OH CRAP need to update dis bottoms in reach df!
+            # self.reaches['top'] = layerbots[
+            #     tuple(self.reaches[['i', 'j']].values.T)]
+            self.reaches['bot'] = layerbots[0][reach_ij]
         if fix_dis:
             # fix dis for incised reaches
             for lay in range(self.model.dis.nlay - 1):
