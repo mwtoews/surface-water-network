@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Interface for flopy's implementation for MODFLOW
+"""Interface for flopy's implementation for MODFLOW."""
 
 import geopandas
 import numpy as np
@@ -22,7 +22,7 @@ from swn.util import abbr_str
 
 
 class MfSfrNetwork(object):
-    """MODFLOW SFR network
+    """MODFLOW SFR network class.
 
     Attributes
     ----------
@@ -46,6 +46,7 @@ class MfSfrNetwork(object):
         abstraction/diversion identifiers, where iupseg != 0.
     logger : logging.Logger
         Logger to show messages.
+
     """
 
     def __init__(self, swn, model, ibound_action='freeze',
@@ -56,7 +57,7 @@ class MfSfrNetwork(object):
                  abstraction={}, inflow={},
                  flow={}, runoff={}, etsw={}, pptsw={},
                  logger=None):
-        """Create a MODFLOW SFR structure from a surface water network
+        """Create a MODFLOW SFR structure from a surface water network.
 
         Parameters
         ----------
@@ -119,6 +120,7 @@ class MfSfrNetwork(object):
             See generate_segment_data. Default is {} (zero).
         logger : logging.Logger, optional
             Logger to show messages.
+
         """
         if logger is None:
             logger = get_logger(self.__class__.__name__)
@@ -748,6 +750,7 @@ class MfSfrNetwork(object):
             model=model, reach_data=reach_data, segment_data=segment_data)
 
     def __repr__(self):
+        """Return string representation of MfSfrNetwork object."""
         is_diversion = self.segment_data['iupseg'] != 0
         segnum_l = list(self.segment_data.loc[~is_diversion, 'segnum'])
         segments_line = str(len(segnum_l)) + ' from segments'
@@ -785,7 +788,7 @@ class MfSfrNetwork(object):
     def plot(self, column='iseg',
              cmap='viridis_r', legend=False):
         """
-        Shows map of reaches with inflow segments in royalblue
+        Show map of reaches with inflow segments in royalblue.
 
         Parameters
         ----------
@@ -800,6 +803,7 @@ class MfSfrNetwork(object):
         Returns
         -------
         AxesSubplot
+
         """
         import matplotlib.pyplot as plt
 
@@ -830,7 +834,7 @@ class MfSfrNetwork(object):
         return ax
 
     def get_reach_data(self):
-        """Returns numpy.recarray for flopy's ModflowSfr2 reach_data
+        """Return numpy.recarray for flopy's ModflowSfr2 reach_data.
 
         Parameters
         ----------
@@ -839,6 +843,7 @@ class MfSfrNetwork(object):
         Returns
         -------
         numpy.recarray
+
         """
         from flopy.modflow.mfsfr2 import ModflowSfr2
         # Build reach_data for Data Set 2
@@ -851,7 +856,8 @@ class MfSfrNetwork(object):
 
     def set_segment_data(self, abstraction={}, inflow={}, flow={}, runoff={},
                          etsw={}, pptsw={}, return_dict=False):
-        """Set timeseries data in segment_data required for flopy's ModflowSfr2
+        """
+        Set timeseries data in segment_data required for flopy's ModflowSfr2.
 
         This method does two things:
 
@@ -895,6 +901,7 @@ class MfSfrNetwork(object):
         Returns
         -------
         None or dict (if return_dict is True)
+
         """
         from flopy.modflow.mfsfr2 import ModflowSfr2
         # Build stress period DataFrame from modflow model
@@ -915,8 +922,10 @@ class MfSfrNetwork(object):
             diversions_divids = set()
 
         def check_ts(data, name):
-            """Returns DataFrame with index along nper and columns for
-            either segnum or divid (checked later)"""
+            """Return DataFrame with index along nper.
+
+            Columns are either segnum or divid (checked later).
+            """
             if isinstance(data, dict):
                 data = pd.DataFrame(data, index=stress_df['start'])
             elif not isinstance(data, pd.DataFrame):
@@ -1147,9 +1156,7 @@ class MfSfrNetwork(object):
             self.model.sfr.segment_data = segment_data
 
     def get_seg_ijk(self):
-        """
-        This will just get the upstream and downstream segment k,i,j
-        """
+        """Get the upstream and downstream segment k,i,j."""
         topidx = self.reaches['ireach'] == 1
         kij_df = self.reaches[topidx][['iseg', 'k', 'i', 'j']].sort_values(
             'iseg')
@@ -1176,6 +1183,7 @@ class MfSfrNetwork(object):
     def get_top_elevs_at_segs(self, m=None):
         """
         Get topsurface elevations associated with segment up and dn elevations.
+
         Adds elevation of model top at
         upstream and downstream ends of each segment
         :param m: modeflow model with active dis package
@@ -1192,7 +1200,8 @@ class MfSfrNetwork(object):
 
     def get_segment_incision(self):
         """
-        Calculates the upstream and downstream incision of the segment
+        Calculate the upstream and downstream incision of the segment.
+
         :return:
         """
         self.segment_data['diff_up'] = (self.segment_data['top_up'] -
@@ -1203,8 +1212,8 @@ class MfSfrNetwork(object):
 
     def set_seg_minincise(self, minincise=0.2, max_str_z=None):
         """
-        Set segment elevation so that they have the minumum incision
-        from the top surface
+        Set segment elevation to have the minumum incision from the top.
+
         :param minincise: Desired minimum incision
         :param max_str_z: Optional parameter to prevent streams at
         high elevations (forces incision to max_str_z)
@@ -1227,7 +1236,8 @@ class MfSfrNetwork(object):
 
     def get_segment_length(self):
         """
-        Get segment length from accumulated reach lengths
+        Get segment length from accumulated reach lengths.
+
         :return:
         """
         # extract segment length for calculating minimun drop later
@@ -1237,16 +1247,16 @@ class MfSfrNetwork(object):
         return seglen
 
     def get_outseg_elev(self):
-        """Get the maximum elevup associated with all downstream segments
-        for each segment"""
+        """Get the max elevup from all downstream segments for each segment."""
         self.segment_data['outseg_elevup'] = self.segment_data.outseg.apply(
             lambda x: self.segment_data.loc[
                 self.segment_data.index == x].elevup).max(axis=1)
         return self.segment_data['outseg_elevup']
 
     def set_outseg_elev_for_seg(self, seg):
-        """
-        gets all the defined outseg_elevup associated with a specific segment
+        """Set outseg elevation for segment.
+
+        Gets all the defined outseg_elevup associated with a specific segment
         (multiple upstream segements route to one segment)
         Returns a df with all the calculated outseg elevups for each segment.
         .min(axis=1) is a good way to collapse to a series
@@ -1264,6 +1274,7 @@ class MfSfrNetwork(object):
     def minslope_seg(self, seg, *args):
         """
         Force segment to have minumim slope (check for backward flowing segs).
+
         Moves downstream end down (vertically, more incision)
         to acheive minimum slope.
         :param seg: Pandas Series containing one row of seg_data dataframe
@@ -1311,7 +1322,8 @@ class MfSfrNetwork(object):
                           'outseg_elevup': outseg_up})
 
     def set_forward_segs(self, min_slope=1.e-4):
-        """
+        """Set minimum slope in forwards direction.
+
         Ensure slope of all segment is at least min_slope
         in the downstream direction.
         Moves down the network correcting downstream elevations if necessary
@@ -1352,7 +1364,8 @@ class MfSfrNetwork(object):
     def fix_segment_elevs(self, min_incise=0.2, min_slope=1.e-4,
                           max_str_z=None):
         """
-        Wrapper function for calculating SFR segment elevations.
+        Provide wrapper function for calculating SFR segment elevations.
+
         Calls series of functions to process and move sfr segment elevations,
         to try to ensure:
             0. Segments are below the model top
@@ -1390,11 +1403,13 @@ class MfSfrNetwork(object):
 
     def reconcile_reach_strtop(self):
         """
-        recalculate reach strtop elevations after moving segment elevations
+        Recalculate reach strtop elevations after moving segment elevations.
+
         :return: None
         """
         def reach_elevs(seg):
-            """
+            """Return reach properties.
+
             Calculate reach elevation from segment slope and
             reach length along segment.
             :param seg: one row of reach data dataframe grouped by segment
@@ -1424,7 +1439,8 @@ class MfSfrNetwork(object):
 
     def set_topbot_elevs_at_reaches(self, m=None):
         """
-        get top and bottom elevation of the cell containing a reach
+        Get top and bottom elevation of the cell containing a reach.
+
         :param m: Modflow model
         :return: dataframe with reach cell top and bottom elevations
         """
@@ -1437,8 +1453,9 @@ class MfSfrNetwork(object):
         return self.reaches[['top', 'bot']]
 
     def fix_reach_elevs(self, minslope=0.0001, fix_dis=True, minthick=0.5):
-        """
-        need to ensure reach elevation is:
+        """Fix reach elevations.
+
+        Need to ensure reach elevation is:
             0. below the top
             1. below the upstream reach
             2. above the minimum slope to the bottom reach elevation
@@ -1635,6 +1652,7 @@ class MfSfrNetwork(object):
 
     def sfr_plot(self, model, sfrar, dem, points=None, points2=None,
                  label=None):
+        """Plot sfr."""
         p = ModelPlot(model)
         p._add_plotlayer(dem, label="Elevation (m)")
         p._add_sfr(sfrar, cat_cmap=False, colorbar=True,
@@ -1643,6 +1661,7 @@ class MfSfrNetwork(object):
 
     def plot_reaches_above(self, model, seg, dem=None,
                            plot_bottom=False, points2=None):
+        """Plot sfr reaches above."""
         # ensure reach elevations are up-to-date
         _ = self.set_topbot_elevs_at_reaches()
         dis = model.dis
@@ -1689,14 +1708,13 @@ class MfSfrNetwork(object):
 
 
 class ModelPlot(object):
-    """
-    Object for plotting array style results
-    """
+    """Object for plotting array style results."""
 
     def __init__(self, model, domain_extent=None, fig=None, ax=None,
                  figsize=None):
         """
-        Container to help with results plotting functions
+        Container to help with results plotting functions.
+
         :param model: flopy modflow model object
         :param fig: matplotlib figure handle
         :param ax: Cartopy GeoAxes with .projection attribute
@@ -1825,7 +1843,8 @@ class ModelPlot(object):
         return vmin, vmax
 
     def _get_cbar_props(self):
-        """
+        """Get colorbar properties.
+
         Get properties for next colorbar and its label based on the number of
         axis already in plot
 
@@ -1849,15 +1868,14 @@ class ModelPlot(object):
         return divider_props, props
 
     def _set_divider(self):
-        """
-        initiate a mpl divider for the colorbar location
-        """
+        """Initiate a mpl divider for the colorbar location."""
         from mpl_toolkits.axes_grid1 import make_axes_locatable
         self.divider = make_axes_locatable(self.ax)
 
     def _add_ibound_mask(self, lay, zorder=20, alpha=0.5):
         """
-        Add the ibound to plot
+        Add the ibound to plot.
+
         :param lay: layer for selecting model ibound
         :param zorder: mpl plotting overlay order
         :param alpha: mpl transparency
@@ -1872,7 +1890,8 @@ class ModelPlot(object):
     def _add_plotlayer(self, k, zorder=10, alpha=0.8, label=None,
                        get_range=False):
         """
-        Add image for head
+        Add image for head.
+
         :param k: 2D numpy array
         :param zorder: mpl overlay order
         :param alpha: mpl transparency
@@ -1899,7 +1918,8 @@ class ModelPlot(object):
                  cbar_label=None, cmap_txt='bwr_r',
                  points=None, points2=None):
         """
-        Plot the array of surface water exchange (with SFR)
+        Plot the array of surface water exchange (with SFR).
+
         :param x: 2D numpy array
         :param zorder: mpl overlay order
         """
@@ -1951,11 +1971,15 @@ class ModelPlot(object):
 
 if matplotlib:
     class MidpointNormalize(matplotlib.colors.Normalize):
+        """Mid-point normalize class."""
+
         def __init__(self, vmin=None, vmax=None, midpoint=None, clip=False):
+            """Initialize method."""
             self.midpoint = midpoint
             matplotlib.colors.Normalize.__init__(self, vmin, vmax, clip)
 
         def __call__(self, value, clip=None):
+            """Call method."""
             # I'm ignoring masked values and all kinds of edge cases to make a
             # simple example...
             x, y = [self.vmin, self.midpoint, self.vmax], [0, 0.5, 1]
@@ -1964,9 +1988,7 @@ if matplotlib:
 
 
 def sfr_rec_to_df(sfr):
-    """
-    Convert flopy rec arrays for ds2 and ds6 to pandas dataframes
-    """
+    """Convert flopy rec arrays for ds2 and ds6 to pandas dataframes."""
     d = sfr.segment_data
     # multi index
     reform = {(i, j): d[i][j] for i in d.keys() for j in d[i].dtype.names}
@@ -1978,7 +2000,8 @@ def sfr_rec_to_df(sfr):
 
 def sfr_dfs_to_rec(model, segdatadf, reachdatadf, set_outreaches=False,
                    get_slopes=True, minslope=None):
-    """
+    """Convert sfr ds6 and ds2 to model sfr rec.
+
     Function to convert sfr ds6 (seg data) and ds2 (reach data) to model.sfr
     rec arrays option to update slopes from reachdata dataframes
     """
@@ -2008,7 +2031,7 @@ def sfr_dfs_to_rec(model, segdatadf, reachdatadf, set_outreaches=False,
 
 
 def geotransform_from_flopy(m):
-    """Returns GDAL-style geotransform from flopy model"""
+    """Return GDAL-style geotransform from flopy model."""
     try:
         import flopy
     except ImportError:

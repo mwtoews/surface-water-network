@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Surface water network"""
+"""Surface water network."""
 __version__ = '0.3'
 __license__ = 'BSD'
 __author__ = 'Mike Taves'

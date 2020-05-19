@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# File reading/writing helpers
+"""File reading/writing helpers."""
 
 import geopandas
 import pandas as pd
@@ -8,7 +8,7 @@ from swn.logger import logging, get_logger
 
 
 def topnet2ts(nc_path, varname, log_level=logging.INFO):
-    """Read TopNet data from a netCDF file into a pandas.DataFrame timeseries
+    """Read TopNet data from a netCDF file into a pandas.DataFrame timeseries.
 
     User may need to multiply DataFrame to convert units.
 
@@ -25,6 +25,7 @@ def topnet2ts(nc_path, varname, log_level=logging.INFO):
     -------
     pandas.DataFrame
         Where columns is rchid and index is DatetimeIndex.
+
     """
     try:
         from netCDF4 import Dataset
@@ -50,7 +51,7 @@ def topnet2ts(nc_path, varname, log_level=logging.INFO):
 
 
 def gdf_to_shapefile(gdf, shp_fname, **kwargs):
-    """Write any GeoDataFrame to a shapefile
+    """Write any GeoDataFrame to a shapefile.
 
     This is a workaround to the to_file method, which cannot save
     GeoDataFrame objects with other data types, such as set.
@@ -67,6 +68,7 @@ def gdf_to_shapefile(gdf, shp_fname, **kwargs):
     Returns
     -------
     None
+
     """
     if not isinstance(gdf, geopandas.GeoDataFrame):
         raise ValueError('expected gdf to be a GeoDataFrame')

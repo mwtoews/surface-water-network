@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Common code for testing
-"""
+"""Common code for testing."""
 import geopandas
 import os
 import pandas as pd

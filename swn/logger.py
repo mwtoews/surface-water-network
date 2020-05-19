@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+"""Module logger."""
 import logging
 
 _module_logger_name = __name__
@@ -19,7 +20,7 @@ if _module_logger_name not in [_.name for _ in module_logger.handlers]:
 
 
 def get_logger(name, level=None):
-    """Returns a named module logger"""
+    """Return a named module logger."""
     logger = logging.getLogger(_module_logger_name)
     logger.name = name
     if level is None:
