@@ -9,10 +9,6 @@ except ImportError:
     sjoin = False
 
 try:
-    from osgeo import gdal
-except ImportError:
-    gdal = False
-try:
     import rtree
     from rtree.index import Index
 except ImportError:

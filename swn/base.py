@@ -8,7 +8,7 @@ from shapely.ops import cascaded_union, linemerge
 from textwrap import dedent
 
 from swn.logger import get_logger
-from swn.spatial import get_sindex, gdal
+from swn.spatial import get_sindex
 from swn.util import abbr_str
 
 
@@ -382,47 +382,6 @@ class SurfaceWaterNetwork(object):
                     ax=ax, label='diversion lines',
                     linestyle='--', color='deepskyblue')
         return ax
-
-    @classmethod
-    def init_from_gdal(cls, lines_srs, elevation_srs=None):
-        """
-        Initialise SurfaceWaterNetwork from GDAL source datasets
-
-        Parameters
-        ----------
-        lines_srs : str
-            Path to open vector GDAL dataset of stream network lines.
-        elevation_srs : str, optional
-            Path to open raster GDAL dataset of elevation. If not provided,
-            then Z dimension from lines used. Not implemented yet.
-        """
-        if not gdal:
-            raise ImportError('this method requires GDAL')
-        lines_ds = gdal.Open(lines_srs, gdal.GA_ReadOnly)
-        if lines_ds is None:
-            raise IOError('cannot open lines: {}'.format(lines_srs))
-        logger = get_logger(cls.__class__.__name__)
-        logger.info('reading lines from: %s', lines_srs)
-        projection = lines_ds.GetProjection()
-        if elevation_srs is None:
-            elevation_ds = None
-        else:
-            logger.info('reading elevation from: %s', elevation_srs)
-            elevation_ds = gdal.Open(elevation_srs, gdal.GA_ReadOnly)
-            if elevation_ds is None:
-                raise IOError('cannot open elevation: {}'.format(elevation_ds))
-            elif elevation_ds.RasterCount != 1:
-                logger.warning(
-                    'expected 1 raster band for elevation, found %s',
-                    elevation_ds.RasterCount)
-            band = elevation_ds.GetRasterBand(1)
-            elevation = np.ma.array(band.ReadAsArray(), np.float64, copy=True)
-            nodata = band.GetNoDataValue()
-            elevation_ds = band = None  # close raster
-            if nodata is not None:
-                elevation.mask = elevation == nodata
-            raise NotImplementedError('nothing done with elevation yet')
-        return cls(projection=projection, logger=logger)
 
     @property
     def catchments(self):
