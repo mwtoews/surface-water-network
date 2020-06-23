@@ -18,6 +18,7 @@ except ImportError:
 from swn.base import SurfaceWaterNetwork
 from swn.logger import get_logger
 from swn.spatial import get_sindex
+from swn.spatial import compare_crs
 from swn.util import abbr_str
 
 
@@ -148,11 +149,15 @@ class MfSfrNetwork(object):
         segments_crs = getattr(self.segments.geometry, 'crs', None)
         modelgrid_crs = None
         modelgrid = model.modelgrid
-        if modelgrid.proj4 is not None:
-            from fiona import crs as fiona_crs
-            modelgrid_crs = fiona_crs.from_string(modelgrid.proj4)
+        epsg = modelgrid.epsg
+        proj4_str = modelgrid.proj4
+        if epsg is not None:
+            segments_crs, modelgrid_crs, same = compare_crs(segments_crs, epsg)
+        else:
+            segments_crs, modelgrid_crs, same = compare_crs(segments_crs,
+                                                            proj4_str)
         if (segments_crs is not None and modelgrid_crs is not None and
-                segments_crs != modelgrid_crs):
+                not same):
             self.logger.warning(
                 'CRS for segments and modelgrid are different: {0} vs. {1}'
                 .format(segments_crs, modelgrid_crs))

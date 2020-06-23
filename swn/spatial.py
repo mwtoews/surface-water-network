@@ -4,6 +4,7 @@ import geopandas
 import numpy as np
 import pandas as pd
 from shapely import wkt
+import pyproj
 try:
     from geopandas.tools import sjoin
 except ImportError:
@@ -135,3 +136,43 @@ def round_coords(gs, rounding_precision=3):
     """Round coordinate precision of a GeoSeries."""
     return wkt_to_geoseries(
             gs.apply(wkt.dumps, rounding_precision=rounding_precision))
+
+
+def compare_crs(sr1, sr2):
+    """Compare two crs, flexible on crs type"""
+    crs1 = _get_crs(sr1)
+    crs2 = _get_crs(sr2)
+    try:
+        are_eq = crs1.equals(crs2)
+    except AttributeError:
+        are_eq = crs1 == crs2
+        pass
+    return crs1, crs2, are_eq
+
+
+def _get_crs(s):
+    """get crs from unknown string type"""
+    try:
+        s = s['init']
+    except TypeError:
+        pass
+    if hasattr(pyproj, 'CRS'):  # new in version 2.0.0
+        try:
+            s = int(s)
+        except ValueError:
+            pass
+        if isinstance(s, int):
+            crs = pyproj.CRS.from_epsg(s)
+        elif "init" not in s:
+            crs = pyproj.CRS.from_string(s)
+        elif hasattr(pyproj.CRS, 'from_proj4'):  # 2.2.0
+            crs = pyproj.CRS.from_proj4(s)
+    else:
+        pyproj_ver = 1
+        if isinstance(s, int):
+            crs = pyproj.Proj(init='epsg:' + str(s))
+        elif "init" not in s:
+            crs = pyproj.Proj(init=s)
+        else:
+            crs = pyproj.Proj(s)
+    return crs
