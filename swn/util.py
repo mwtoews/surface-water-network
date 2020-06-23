@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
-# Miscellaneous utility functions that don't fit anywhere else
+"""Miscellaneous utility functions that don't fit anywhere else."""
 
 
 def abbr_str(lst, limit=15):
-    """Returns str of list that is abbreviated (if necessary)"""
+    """Return str of list that is abbreviated (if necessary)."""
     if isinstance(lst, list):
         is_set = False
     elif isinstance(lst, set):

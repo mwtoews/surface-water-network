@@ -16,7 +16,6 @@ Python 3.5+ is required.
 ### Optional
 
  - `flopy` - read/write MODFLOW models
- - `gdal` - import from different geospatial formats
  - `netCDF4` - used to read TopNet files
 
 ## Testing

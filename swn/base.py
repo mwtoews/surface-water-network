@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+"""Base functionality of surface water network package."""
 import geopandas
 import numpy as np
 import pandas as pd
@@ -8,12 +9,12 @@ from shapely.ops import cascaded_union, linemerge
 from textwrap import dedent
 
 from swn.logger import get_logger
-from swn.spatial import get_sindex, gdal
+from swn.spatial import get_sindex
 from swn.util import abbr_str
 
 
 class SurfaceWaterNetwork(object):
-    """Surface water network
+    """Surface water network class.
 
     Attributes
     ----------
@@ -45,7 +46,9 @@ class SurfaceWaterNetwork(object):
         List of warning messages.
     errors : list
         List of error messages.
+
     """
+
     END_SEGNUM = None
     segments = None
     logger = None
@@ -53,11 +56,12 @@ class SurfaceWaterNetwork(object):
     errors = None
 
     def __len__(self):
+        """Return number of segments."""
         return len(self.segments.index)
 
     def __init__(self, lines, polygons=None, logger=None):
         """
-        Initialise SurfaceWaterNetwork and evaluate segments
+        Initialise SurfaceWaterNetwork and evaluate segments.
 
         Parameters
         ----------
@@ -70,6 +74,7 @@ class SurfaceWaterNetwork(object):
             'POLYGON'. Index must be the same as segment.index.
         logger : logging.Logger, optional
             Logger to show messages.
+
         """
         if logger is None:
             self.logger = get_logger(self.__class__.__name__)
@@ -277,6 +282,7 @@ class SurfaceWaterNetwork(object):
             self.catchments = polygons.copy()
 
     def __repr__(self):
+        """Return string representation of surface water network."""
         modifiers = []
         if self.has_z:
             modifiers.append('Z coordinates')
@@ -312,7 +318,8 @@ class SurfaceWaterNetwork(object):
 
     def plot(self, column='stream_order', sort_column='sequence',
              cmap='viridis_r', legend=False):
-        """
+        """Plot map of surface water network.
+
         Shows map of surface water network lines, with points showing,
         headwater (green dots), outlets (navy dots), and if present, diversion
         locations with a blue dashed line to the diversion location at the
@@ -333,6 +340,7 @@ class SurfaceWaterNetwork(object):
         Returns
         -------
         AxesSubplot
+
         """
         import matplotlib.pyplot as plt
 
@@ -383,50 +391,9 @@ class SurfaceWaterNetwork(object):
                     linestyle='--', color='deepskyblue')
         return ax
 
-    @classmethod
-    def init_from_gdal(cls, lines_srs, elevation_srs=None):
-        """
-        Initialise SurfaceWaterNetwork from GDAL source datasets
-
-        Parameters
-        ----------
-        lines_srs : str
-            Path to open vector GDAL dataset of stream network lines.
-        elevation_srs : str, optional
-            Path to open raster GDAL dataset of elevation. If not provided,
-            then Z dimension from lines used. Not implemented yet.
-        """
-        if not gdal:
-            raise ImportError('this method requires GDAL')
-        lines_ds = gdal.Open(lines_srs, gdal.GA_ReadOnly)
-        if lines_ds is None:
-            raise IOError('cannot open lines: {}'.format(lines_srs))
-        logger = get_logger(cls.__class__.__name__)
-        logger.info('reading lines from: %s', lines_srs)
-        projection = lines_ds.GetProjection()
-        if elevation_srs is None:
-            elevation_ds = None
-        else:
-            logger.info('reading elevation from: %s', elevation_srs)
-            elevation_ds = gdal.Open(elevation_srs, gdal.GA_ReadOnly)
-            if elevation_ds is None:
-                raise IOError('cannot open elevation: {}'.format(elevation_ds))
-            elif elevation_ds.RasterCount != 1:
-                logger.warning(
-                    'expected 1 raster band for elevation, found %s',
-                    elevation_ds.RasterCount)
-            band = elevation_ds.GetRasterBand(1)
-            elevation = np.ma.array(band.ReadAsArray(), np.float64, copy=True)
-            nodata = band.GetNoDataValue()
-            elevation_ds = band = None  # close raster
-            if nodata is not None:
-                elevation.mask = elevation == nodata
-            raise NotImplementedError('nothing done with elevation yet')
-        return cls(projection=projection, logger=logger)
-
     @property
     def catchments(self):
-        """Returns Polygon GeoSeries of surface water catchments or None"""
+        """Return Polygon GeoSeries of surface water catchments or None."""
         return getattr(self, '_catchments', None)
 
     @catchments.setter
@@ -451,7 +418,7 @@ class SurfaceWaterNetwork(object):
 
     @property
     def diversions(self):
-        """Returns [Geo]DataFrame of surface water diversions or None"""
+        """Return [Geo]DataFrame of surface water diversions or None."""
         return getattr(self, '_diversions', None)
 
     @diversions.setter
@@ -459,7 +426,7 @@ class SurfaceWaterNetwork(object):
         raise AttributeError("use 'set_diversions()' method")
 
     def set_diversions(self, diversions, min_stream_order=None):
-        """Set surface water diversion locations
+        """Set surface water diversion locations.
 
         This method checks or assigns a segment number to divert surface water
         flow from, and adds other columns to the diversions and segments data
@@ -480,6 +447,7 @@ class SurfaceWaterNetwork(object):
             'diversions' property. Use None to unset this property.
         min_stream_order : int, optional
             Finds stream segments with a minimum stream order. Default None.
+
         """
         if diversions is None:
             self._diversions = None
@@ -571,30 +539,30 @@ class SurfaceWaterNetwork(object):
 
     @property
     def has_z(self):
-        """Returns True if all segment lines have Z dimension"""
+        """Return True if all segment lines have Z dimension."""
         return bool(self.segments.geometry.apply(lambda x: x.has_z).all())
 
     @property
     def headwater(self):
-        """Returns index of headwater segments"""
+        """Return index of headwater segments."""
         return self.segments.index[
                 ~self.segments.index.isin(self.segments['to_segnum'])]
 
     @property
     def outlets(self):
-        """Returns index of outlets"""
+        """Return index of outlets."""
         return self.segments.index[
                 self.segments['to_segnum'] == self.END_SEGNUM]
 
     @property
     def to_segnums(self):
-        """Returns Series of segnum to connect downstream"""
+        """Return Series of segnum to connect downstream."""
         return self.segments.loc[
             self.segments['to_segnum'] != self.END_SEGNUM, 'to_segnum']
 
     @property
     def from_segnums(self):
-        """Returns dict of a set of segnums to connect upstream"""
+        """Return dict of a set of segnums to connect upstream."""
         to_segnums = self.to_segnums
         from_segnums = {}
         for k, v in to_segnums.items():
@@ -603,7 +571,7 @@ class SurfaceWaterNetwork(object):
 
     def query(self, upstream=[], downstream=[], barrier=[],
               gather_upstream=False):
-        """Returns segnums upstream (inclusive) and downstream (exclusive)
+        """Return segnums upstream (inclusive) and downstream (exclusive).
 
         Parameters
         ----------
@@ -617,6 +585,7 @@ class SurfaceWaterNetwork(object):
         Returns
         -------
         list
+
         """
         segments_index = self.segments.index
         segments_set = set(segments_index)
@@ -672,7 +641,7 @@ class SurfaceWaterNetwork(object):
         return segnums
 
     def aggregate(self, segnums, follow_up='upstream_length'):
-        """Aggregate segments (and catchments) to a coarser network of segnums
+        """Aggregate segments (and catchments) to a coarser network of segnums.
 
         Parameters
         ----------
@@ -692,6 +661,7 @@ class SurfaceWaterNetwork(object):
             to the aggregated object. Column 'agg_unpath' lists other
             segnums that flow into 'agg_path'. Also 'from_segnums' is updated
             to reflect the uppermost segment.
+
         """
         if (isinstance(follow_up, str) and follow_up in self.segments.columns):
             pass
@@ -858,7 +828,7 @@ class SurfaceWaterNetwork(object):
         return na
 
     def accumulate_values(self, values):
-        """Accumulate values down the stream network
+        """Accumulate values down the stream network.
 
         For example, calculate cumulative upstream catchment area for each
         segment.
@@ -872,6 +842,7 @@ class SurfaceWaterNetwork(object):
         -------
         pandas.core.series.Series
             Accumulated values.
+
         """
         if not isinstance(values, pd.Series):
             raise ValueError('values must be a pandas Series')
@@ -893,13 +864,13 @@ class SurfaceWaterNetwork(object):
         return accum
 
     def evaluate_upstream_length(self):
-        """Evaluates upstream length of segments, adds to segments"""
+        """Evaluate upstream length of segments, adds to segments."""
         self.logger.debug('evaluating upstream length')
         self.segments['upstream_length'] = \
             self.accumulate_values(self.segments.length)
 
     def evaluate_upstream_area(self):
-        """Evaluates upstream area from catchments, adds to segments"""
+        """Evaluate upstream area from catchments, adds to segments."""
         self.logger.debug('evaluating upstream area')
         if self.catchments is None:
             raise ValueError("can't evaluate upstream area without catchments")
@@ -907,7 +878,7 @@ class SurfaceWaterNetwork(object):
             self.accumulate_values(self.catchments.area)
 
     def estimate_width(self, a=1.42, b=0.52, upstream_area='upstream_area'):
-        """Estimate stream width based on upstream area and fitting parameters
+        """Estimate stream width based on upstream area and fitting parameters.
 
         The column 'upstream_area' (in m^2) must exist in segments, as
         automatically calculated if provided catchments (polygons), or
@@ -928,6 +899,7 @@ class SurfaceWaterNetwork(object):
         Returns
         -------
         None
+
         """
         self.logger.debug('evaluating width')
         if isinstance(upstream_area, pd.Series):
@@ -946,7 +918,7 @@ class SurfaceWaterNetwork(object):
         self.segments['width'] = a + upstream_area_km2 ** b
 
     def _segment_series(self, value, name=None):
-        """Returns a pandas.Series along the segment index
+        """Return a pandas.Series along the segment index.
 
         Parameters
         ----------
@@ -959,6 +931,7 @@ class SurfaceWaterNetwork(object):
         Returns
         -------
         pandas.Series
+
         """
         segments_index = self.segments.index
         if not isinstance(value, pd.Series):
@@ -971,7 +944,7 @@ class SurfaceWaterNetwork(object):
         return value
 
     def _outlet_series(self, value):
-        """Returns a pandas.Series along the outlet index
+        """Return a pandas.Series along the outlet index.
 
         Parameters
         ----------
@@ -982,6 +955,7 @@ class SurfaceWaterNetwork(object):
         Returns
         -------
         pandas.Series
+
         """
         outlets_index = self.outlets
         if not isinstance(value, pd.Series):
@@ -992,7 +966,7 @@ class SurfaceWaterNetwork(object):
         return value
 
     def _pair_segment_values(self, value1, outlet_value=None, name=None):
-        """Returns a pair of values that connect the segments
+        """Return a pair of values that connect the segments.
 
         The first value applies to the top of each segment, and the bottom
         value is determined from the top of the value it connects to. Special
@@ -1014,6 +988,7 @@ class SurfaceWaterNetwork(object):
         pandas.DataFrame
             Resulting DataFrame has two columns for top (1) and bottom (2) of
             each segment.
+
         """
         value1 = self._segment_series(value1, name=name)
         df = pd.concat([value1, value1], axis=1)
@@ -1030,7 +1005,7 @@ class SurfaceWaterNetwork(object):
         return df
 
     def adjust_elevation_profile(self, min_slope=1./1000):
-        """Check and adjust (if necessary) Z coordinates of elevation profiles
+        """Check and adjust (if necessary) Z coordinates of elevation profiles.
 
         Parameters
         ----------
@@ -1038,6 +1013,7 @@ class SurfaceWaterNetwork(object):
             Minimum downwards slope imposed on segments. If float, then this is
             a global value, otherwise it is per-segment with a Series.
             Default 1./1000 (or 0.001).
+
         """
         min_slope = self._segment_series(min_slope)
         if (min_slope <= 0.0).any():
@@ -1145,7 +1121,7 @@ class SurfaceWaterNetwork(object):
                 profiles, index=self.segments.index)
 
     def remove(self, condition=False, segnums=[]):
-        """Remove segments (and catchments)
+        """Remove segments (and catchments).
 
         Parameters
         ----------
@@ -1158,6 +1134,7 @@ class SurfaceWaterNetwork(object):
         Returns
         -------
         None
+
         """
         condition = self._segment_series(condition, 'condition').astype(bool)
         if condition.any():

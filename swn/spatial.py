@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+"""Spatial methods."""
 import geopandas
 import numpy as np
 import pandas as pd
@@ -8,10 +9,6 @@ try:
 except ImportError:
     sjoin = False
 
-try:
-    from osgeo import gdal
-except ImportError:
-    gdal = False
 try:
     import rtree
     from rtree.index import Index
@@ -23,7 +20,7 @@ rtree_threshold = 100
 
 
 def get_sindex(gdf):
-    """Helper function to get or build a spatial index
+    """Get or build a spatial index.
 
     Particularly useful for geopandas<0.2.0
     """
@@ -43,7 +40,7 @@ def get_sindex(gdf):
 
 
 def interp_2d_to_3d(gs, grid, gt):
-    """Interpolate 2D vector to a 3D grid using a georeferenced grid
+    """Interpolate 2D vector to a 3D grid using a georeferenced grid.
 
     Parameters
     ----------
@@ -58,8 +55,8 @@ def interp_2d_to_3d(gs, grid, gt):
     -------
     geopandas.GeoSeries
         With 3rd dimension values interpolated from grid.
-    """
 
+    """
     assert gt[1] > 0, gt[1]
     assert gt[2] == 0, gt[2]
     assert gt[4] == 0, gt[4]
@@ -109,17 +106,20 @@ def interp_2d_to_3d(gs, grid, gt):
 
 
 def wkt_to_dataframe(wkt_list, geom_name='geometry'):
+    """Convert list of WKT strings to a DataFrame."""
     df = pd.DataFrame({'wkt': wkt_list})
     df[geom_name] = df['wkt'].apply(wkt.loads)
     return df
 
 
 def wkt_to_geodataframe(wkt_list, geom_name='geometry'):
+    """Convert list of WKT strings to a GeoDataFrame."""
     return geopandas.GeoDataFrame(
             wkt_to_dataframe(wkt_list, geom_name), geometry=geom_name)
 
 
 def wkt_to_geoseries(wkt_list, geom_name=None):
+    """Convert list of WKT strings to a GeoSeries."""
     geom = geopandas.GeoSeries([wkt.loads(x) for x in wkt_list])
     if geom_name is not None:
         geom.name = geom_name
@@ -127,9 +127,11 @@ def wkt_to_geoseries(wkt_list, geom_name=None):
 
 
 def force_2d(gs):
+    """Force any geometry GeoSeries as 2D geometries."""
     return wkt_to_geoseries(gs.apply(wkt.dumps, output_dimension=2))
 
 
 def round_coords(gs, rounding_precision=3):
+    """Round coordinate precision of a GeoSeries."""
     return wkt_to_geoseries(
             gs.apply(wkt.dumps, rounding_precision=rounding_precision))
