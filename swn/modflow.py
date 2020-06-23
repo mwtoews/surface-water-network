@@ -1637,8 +1637,8 @@ class MfSfrNetwork(object):
                  label=None):
         p = ModelPlot(model)
         p._add_plotlayer(dem, label="Elevation (m)")
-        p._add_sfr(sfrar, cat_cmap=False, colorbar=True,
-                   cbar_label=label)
+        p._add_sfr(sfrar, cat_cmap=False, cbar=True,
+                   label=label)
         return p
 
     def plot_reaches_above(self, model, seg, dem=None,
@@ -1756,16 +1756,19 @@ class ModelPlot(object):
                 try:
                     import cartopy.crs as ccrs
                     self.mprj = ccrs.epsg(epsg)
+                    # empty figure container cartopy geoaxes
+                    self.fig, self.ax = plt.subplots(figsize=figsize,
+                                                     subplot_kw=dict(
+                                                         projection=self.mprj))
                 except ImportError:
-                    pass
-            # empty figure container cartopy geoaxes
-            self.fig, self.ax = plt.subplots(figsize=figsize,
-                                             subplot_kw=dict(
-                                                 projection=self.mprj))
+                    self.fig, self.ax = plt.subplots(figsize=figsize)
         else:
             self.fig = fig
             self.ax = ax
-            self.mprj = self.ax.projection  # map projection
+            try:
+                self.mprj = self.ax.projection  # map projection
+            except NameError:
+                self.mprj = None
         # self._get_base_ax()
         self._set_divider()
 
@@ -1869,34 +1872,51 @@ class ModelPlot(object):
             array, extent=self.extent, transform=self.mprj, cmap="Greys_r",
             origin="upper", zorder=zorder, alpha=alpha)
 
-    def _add_plotlayer(self, k, zorder=10, alpha=0.8, label=None,
-                       get_range=False):
+    def _add_plotlayer(self, ar, vmin=None, vmax=None, norm=None, cmap=None,
+                       zorder=10, alpha=0.8, cbar=True, label=None):
         """
-        Add image for head
-        :param k: 2D numpy array
+        Add image for layer array
+
+        :param ar: 2D numpy array to plot
+        :param vmin: minimum value to clip
+        :param vmax: maximum value to clip
+        :param norm: mpl normalizer (default is None)
+        :param cmap: mpl colormap (default is 'plasma')
         :param zorder: mpl overlay order
         :param alpha: mpl transparency
+        :param cbar: flag to plot with colorbar for layer
+        :param label: label for colorbar
         """
-        from matplotlib import pyplot as plt
 
-        if get_range:
-            vmin, vmax = self._get_range(k)
+        from matplotlib import pyplot as plt
+        from matplotlib import cm
+        if cmap is None:
+            cmap = cm.get_cmap('viridis')
+        if self.mprj is None:
+            transform = self.ax.transData
         else:
-            vmin, vmax = [None, None]
+            transform = self.mprj
         if label is None:
             print("No label passed for colour bar")
             label = ""
-        hax = self.ax.imshow(
-            k, zorder=zorder, extent=self.extent, origin="upper",
-            transform=self.mprj, alpha=alpha, vmin=vmin, vmax=vmax)
-        divider_props, props = self._get_cbar_props()
-        cax = self.divider.append_axes(
-            "right", size="5%", axes_class=plt.Axes, **divider_props)
-        cbar1 = self.fig.colorbar(hax, cax=cax)
-        cbar1.set_label(label, **props)
+        hax = self.ax.imshow(ar, zorder=zorder, vmin=vmin, vmax=vmax,
+                             extent=self.extent, origin="upper",
+                             transform=transform, norm=norm,
+                             alpha=alpha, cmap=cmap)
+        if cbar:
+            if label is None:
+                print("No label passed for colour bar")
+                label = ""
+            divider_props, props = self._get_cbar_props()
+            cax = self.divider.append_axes("right", size="5%",
+                                           axes_class=plt.Axes,
+                                           **divider_props)
+            cbar1 = self.fig.colorbar(hax, cax=cax)
+            cbar1.set_label(label, **props)
+        return hax
 
-    def _add_sfr(self, x, zorder=11, colorbar=True, cat_cmap=False,
-                 cbar_label=None, cmap_txt='bwr_r',
+    def _add_sfr(self, x, zorder=11, cbar=True, cat_cmap=False,
+                 label=None, cmap_txt='bwr_r',
                  points=None, points2=None):
         """
         Plot the array of surface water exchange (with SFR)
@@ -1919,9 +1939,8 @@ class ModelPlot(object):
         else:
             cmap = cm.get_cmap(cmap_txt)
             norm = MidpointNormalize(vmin=vmin, vmax=vmax, midpoint=0)
-        imx = self.ax.imshow(x, extent=self.extent, transform=self.mprj,
-                             cmap=cmap, norm=norm, vmin=vmin, vmax=vmax,
-                             zorder=zorder, origin='upper')
+        imx = self._add_plotlayer(x, cmap=cmap, norm=norm, zorder=zorder, alpha=1,
+                                  label=label, cbar=cbar)
         if points is not None:
             self.ax.scatter(self.model.modelgrid.xcellcenters[
                                 points.i, points.j],
@@ -1936,17 +1955,11 @@ class ModelPlot(object):
                                 points2.i, points2.j],
                             marker='o', zorder=15, facecolors='none',
                             edgecolors='b')
-        if colorbar:
-            divider_props, props = self._get_cbar_props()
-            cax = self.divider.append_axes("right", size="5%",
-                                           axes_class=plt.Axes,
-                                           **divider_props)
-            cbar1 = self.fig.colorbar(imx, cax=cax)
-            cbar1.set_label(cbar_label, **props)
+        if cbar:
             if cat_cmap:
-                # imsfr.set_clim(1, n + 1)
-                cbar1.set_ticks(bounds[:-1] + np.diff(bounds) / 2)
-                cbar1.set_ticklabels(np.sort(vals).astype(int))
+                last_cbar = self.fig.get_axes()[-1]
+                last_cbar.set_yticks(bounds[:-1] + np.diff(bounds) / 2)
+                last_cbar.set_yticklabels(np.sort(vals).astype(int))
 
 
 if matplotlib:
