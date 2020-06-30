@@ -6,7 +6,7 @@ Creates surface water network, which can be used to create MODFLOW's SFR.
 
 ## Python packages
 
-Python 3.5+ is required.
+Python 3.6+ is required.
 
 ### Required
 
