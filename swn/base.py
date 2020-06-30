@@ -508,19 +508,33 @@ class SurfaceWaterNetwork(object):
                 seg_lines = self.segments.loc[sel, 'geometry']
             else:
                 seg_lines = self.segments.geometry
+            seg_lines_sindex = get_sindex(seg_lines)
             seg_ends = seg_lines.apply(lambda g: Point(g.coords[-1]))
             # a point that is 0.1 m upstream from end
             seg_near_ends = seg_lines.interpolate(-0.1, False)
             for idx, geom in self._diversions.geometry.iteritems():
                 # build table of distances to nearest lines and end points
-                sel = list(seg_lines.sindex.nearest(geom.coords[0],
-                                                    num_results=8))
-                dists = pd.DataFrame({
-                    'dist_end': seg_ends.iloc[sel].distance(geom),
-                    'dist_line': seg_lines.iloc[sel].distance(geom),
-                    'seg_near_ends': seg_near_ends.iloc[sel].distance(geom),
-                }, index=seg_lines.iloc[sel].index).sort_values(
-                    ['dist_end', 'dist_line', 'seg_near_ends'])
+
+                if seg_lines_sindex:
+                    sel = list(seg_lines_sindex.nearest(
+                                geom.coords[0], num_results=8))
+                    dists = pd.DataFrame({
+                        'dist_end': seg_ends.iloc[sel].distance(geom),
+                        'dist_line': seg_lines.iloc[sel].distance(geom),
+                        'seg_near_ends':
+                            seg_near_ends.iloc[sel].distance(geom),
+                        },
+                        index=seg_lines.iloc[sel].index).sort_values(
+                            ['dist_end', 'dist_line', 'seg_near_ends'])
+                else:  # slower processing with of all seg_lines
+                    dists = pd.DataFrame({
+                        'dist_end': seg_ends.distance(geom),
+                        'dist_line': seg_lines.distance(geom),
+                        'seg_near_ends': seg_near_ends.distance(geom),
+                        },
+                        index=seg_lines.index).sort_values(
+                            ['dist_end', 'dist_line', 'seg_near_ends'])
+
                 # assign closest segnum
                 self._diversions.loc[
                     idx, ['from_segnum', 'dist_end', 'dist_line']] = \
