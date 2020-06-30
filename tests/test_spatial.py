@@ -5,7 +5,19 @@ from shapely.geometry import Point
 
 import pytest
 
-from swn.spatial import interp_2d_to_3d
+from swn.spatial import get_sindex, rtree, rtree_threshold, interp_2d_to_3d
+
+
+def test_get_sindex():
+    xy = geopandas.GeoDataFrame(geometry=geopandas.points_from_xy([0], [1]))
+    assert get_sindex(xy) is None
+    assert get_sindex(xy.geometry) is None
+    xy = geopandas.GeoDataFrame(
+        geometry=geopandas.points_from_xy(
+            range(rtree_threshold), range(rtree_threshold)))
+    if rtree:
+        assert get_sindex(xy) is not None
+        assert get_sindex(xy.geometry) is not None
 
 
 def test_interp_2d_to_3d():

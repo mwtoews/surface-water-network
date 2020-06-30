@@ -21,22 +21,30 @@ rtree_threshold = 100
 
 
 def get_sindex(gdf):
-    """Get or build a spatial index.
+    """Get or build an R-Tree spatial index.
 
-    Particularly useful for geopandas<0.2.0
+    Particularly useful for geopandas<0.2.0;>0.7.0
     """
-    assert isinstance(gdf, geopandas.GeoDataFrame)
-    has_sindex = hasattr(gdf, 'sindex')
-    if has_sindex:
+    sindex = None
+    if (isinstance(gdf, geopandas.GeoDataFrame) and
+            hasattr(gdf.geometry, 'sindex')):
         sindex = gdf.geometry.sindex
-    elif rtree and len(gdf) >= rtree_threshold:
+    elif isinstance(gdf, geopandas.GeoSeries) and hasattr(gdf, 'sindex'):
+        sindex = gdf.sindex
+    if sindex is not None:
+        if hasattr(sindex, 'nearest'):
+            # probably rtree.index.Index or future PyGEOSSTRTreeIndex method
+            return sindex
+        else:
+            # probably PyGEOSSTRTreeIndex from geopandas>=0.7.0
+            # but unfortunately, 'nearest' is required
+            sindex = None
+    if rtree and len(gdf) >= rtree_threshold:
         # Manually populate a 2D spatial index for speed
         sindex = Index()
         # slow, but reliable
         for idx, (segnum, row) in enumerate(gdf.bounds.iterrows()):
             sindex.add(idx, tuple(row))
-    else:
-        sindex = None
     return sindex
 
 
