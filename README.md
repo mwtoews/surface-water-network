@@ -1,4 +1,5 @@
 # Surface water network
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/420bcd8896c14f18b2077dd987c78849)](https://app.codacy.com/manual/mwtoews/surface-water-network?utm_source=github.com&utm_medium=referral&utm_content=mwtoews/surface-water-network&utm_campaign=Badge_Grade_Dashboard)
 [![Travis Status](https://api.travis-ci.org/mwtoews/surface-water-network.svg?branch=master)](https://travis-ci.org/mwtoews/surface-water-network)
 
 Creates surface water network, which can be used to create MODFLOW's SFR.
