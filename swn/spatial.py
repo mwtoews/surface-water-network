@@ -16,6 +16,12 @@ try:
 except ImportError:
     rtree = False
 
+pyproj_CRS = getattr(pyproj, 'CRS', None)
+if pyproj_CRS is None:
+    pyproj_ver = 1
+else:
+    pyproj_ver = 2
+
 # default threshold size of geometries when Rtree index is built
 rtree_threshold = 100
 
@@ -147,36 +153,43 @@ def round_coords(gs, rounding_precision=3):
 
 
 def compare_crs(sr1, sr2):
-    """Compare two crs, flexible on crs type"""
-    crs1 = _get_crs(sr1)
-    crs2 = _get_crs(sr2)
+    """Compare two crs, flexible on crs type."""
+    crs1 = get_crs(sr1)
+    crs2 = get_crs(sr2)
     try:
         are_eq = crs1.equals(crs2)
     except AttributeError:
         are_eq = crs1 == crs2
-        pass
     return crs1, crs2, are_eq
 
 
-def _get_crs(s):
-    """get crs from unknown string type"""
+def get_crs(s):
+    """Get crs from variable argument type.
+
+    Returns pyproj CRS instance (for pyproj>=2.0) or Proj instance for older.
+    """
+    if s is None:
+        return None
+    elif pyproj_CRS is not None and isinstance(s, pyproj_CRS):
+        return s
     try:
         s = s['init']
     except TypeError:
         pass
-    if hasattr(pyproj, 'CRS'):  # new in version 2.0.0
+    if pyproj_ver >= 2:
         try:
             s = int(s)
         except ValueError:
             pass
         if isinstance(s, int):
-            crs = pyproj.CRS.from_epsg(s)
-        elif "init" not in s:
-            crs = pyproj.CRS.from_string(s)
-        elif hasattr(pyproj.CRS, 'from_proj4'):  # 2.2.0
-            crs = pyproj.CRS.from_proj4(s)
+            return pyproj.CRS.from_epsg(s)
+        if s.startswith("+init="):
+            s = s[6:]
+        if s.startswith('+') and hasattr(pyproj.CRS, 'from_proj4'):
+            return pyproj.CRS.from_proj4(s)
+        else:
+            return pyproj.CRS.from_string(s)
     else:
-        pyproj_ver = 1
         if isinstance(s, int):
             crs = pyproj.Proj(init='epsg:' + str(s))
         elif "init" not in s:

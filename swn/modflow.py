@@ -17,8 +17,7 @@ except ImportError:
 
 from swn.base import SurfaceWaterNetwork
 from swn.logger import get_logger
-from swn.spatial import get_sindex
-from swn.spatial import compare_crs
+from swn.spatial import get_crs, get_sindex, compare_crs, pyproj_ver
 from swn.util import abbr_str
 
 
@@ -1730,23 +1729,11 @@ class ModelPlot(object):
         from matplotlib import pyplot as plt
 
         self.model = model
-        # Use model projection, if defined by either proj4 or epsg attrs
+        # Use model projection, if defined by either epsg or proj4 attrs
         epsg = model.modelgrid.epsg
-        proj4_str = model.modelgrid.proj4
-        self.pprj = None
-        pyproj_ver = None
-        if hasattr(pyproj, 'CRS'):  # new in version 2.0.0
-            pyproj_ver = 2
-            if epsg:
-                self.pprj = pyproj.CRS.from_epsg(epsg)
-            elif proj4_str and hasattr(pyproj.CRS, 'from_proj4'):  # 2.2.0
-                self.pprj = pyproj.CRS.from_proj4(proj4_str)
-        else:
-            pyproj_ver = 1
-            if epsg:
-                self.pprj = pyproj.Proj(init='epsg:' + str(epsg))
-            if self.pprj is None and proj4_str:
-                self.pprj = pyproj.Proj(proj4_str)
+        self.pprj = get_crs(epsg)
+        if self.pprj is None:
+            self.pprj = get_crs(model.modelgrid.proj4)
         if domain_extent is None and self.pprj is not None:
             xmin, xmax, ymin, ymax = self.model.modelgrid.extent
             if pyproj_ver == 1:
@@ -1755,7 +1742,7 @@ class ModelPlot(object):
                 lonmin, latmin = self.pprj(xmin, ymin, inverse=True)
                 lonmax, latmax = self.pprj(xmax, ymax, inverse=True)
             else:
-                assert pyproj_ver == 2
+                assert pyproj_ver >= 2
                 assert self.pprj.is_projected, self.pprj
                 latlon = pyproj.CRS.from_epsg(4326)  # axis order: lat, lon
                 tfm = pyproj.Transformer.from_crs(self.pprj, latlon)
