@@ -699,15 +699,17 @@ class MfSfrNetwork(object):
                         bbox_match = sorted(
                             grid_sindex.nearest(divn.geometry.bounds))
                         # more than one nearest can exist! just take one...
+                        num_found = len(bbox_match)
                         grid_cell = grid_cells.iloc[bbox_match[0]]
-                        if len(bbox_match) > 1:
-                            self.logger.warning(
-                                '%d grid cells are nearest to diversion %r, '
-                                'but only taking the first %s',
-                                len(bbox_match), divid, grid_cell)
                     else:  # slow scan of all cells
-                        raise NotImplementedError(
-                            'expected a grid spatial index')
+                        sel = grid_cells.intersects(divn.geometry)
+                        num_found = sel.sum()
+                        grid_cell = grid_cells.loc[sel].iloc[0]
+                    if num_found > 1:
+                        self.logger.warning(
+                            '%d grid cells are nearest to diversion %r, '
+                            'but only taking the first %s',
+                            num_found, divid, grid_cell)
                     row, col = grid_cell.name
                     strtop = dis.top[row, col]
                     reach_d.update({
