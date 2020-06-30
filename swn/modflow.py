@@ -1729,6 +1729,8 @@ class ModelPlot(object):
         from matplotlib import pyplot as plt
 
         self.model = model
+        self.fig = fig
+        self.ax = ax
         # Use model projection, if defined by either epsg or proj4 attrs
         epsg = model.modelgrid.epsg
         self.pprj = get_crs(epsg)
@@ -1773,14 +1775,13 @@ class ModelPlot(object):
                 except ImportError:
                     self.fig, self.ax = plt.subplots(figsize=figsize)
         else:
-            self.fig = fig
-            self.ax = ax
             try:
                 self.mprj = self.ax.projection  # map projection
             except NameError:
                 self.mprj = None
         # self._get_base_ax()
-        self._set_divider()
+        if self.ax is not None:
+            self._set_divider()
 
     # def _get_base_ax(self):
     #     """
@@ -1897,6 +1898,9 @@ class ModelPlot(object):
         :param cbar: flag to plot with colorbar for layer
         :param label: label for colorbar
         """
+
+        if self.ax is None:
+            return
 
         from matplotlib import pyplot as plt
         from matplotlib import cm
