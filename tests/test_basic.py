@@ -1092,5 +1092,3 @@ def test_adjust_elevation_profile_use_min_slope():
     expected_profiles = wkt_to_geoseries(
             ['LINESTRING (0 8, 1 5, 2 4.8, 3 4.6)'])
     assert (n.profiles == expected_profiles).all()
-
-

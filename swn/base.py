@@ -518,19 +518,21 @@ class SurfaceWaterNetwork(object):
                 if seg_lines_sindex:
                     sel = list(seg_lines_sindex.nearest(
                                 geom.coords[0], num_results=8))
-                    dists = pd.DataFrame({
-                        'dist_end': seg_ends.iloc[sel].distance(geom),
-                        'dist_line': seg_lines.iloc[sel].distance(geom),
-                        'seg_near_ends':
-                            seg_near_ends.iloc[sel].distance(geom),
+                    dists = pd.DataFrame(
+                        {
+                            'dist_end': seg_ends.iloc[sel].distance(geom),
+                            'dist_line': seg_lines.iloc[sel].distance(geom),
+                            'seg_near_ends':
+                                seg_near_ends.iloc[sel].distance(geom),
                         },
                         index=seg_lines.iloc[sel].index).sort_values(
                             ['dist_end', 'dist_line', 'seg_near_ends'])
                 else:  # slower processing with of all seg_lines
-                    dists = pd.DataFrame({
-                        'dist_end': seg_ends.distance(geom),
-                        'dist_line': seg_lines.distance(geom),
-                        'seg_near_ends': seg_near_ends.distance(geom),
+                    dists = pd.DataFrame(
+                        {
+                            'dist_end': seg_ends.distance(geom),
+                            'dist_line': seg_lines.distance(geom),
+                            'seg_near_ends': seg_near_ends.distance(geom),
                         },
                         index=seg_lines.index).sort_values(
                             ['dist_end', 'dist_line', 'seg_near_ends'])

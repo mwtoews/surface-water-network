@@ -769,7 +769,7 @@ class MfSfrNetwork(object):
             diversions_line = str(len(divid_l)) + ' from diversions'
             if set(divid_l) != set(self.diversions.index):
                 diversions_line += ' ({:.0%} used)'.format(
-                    len(divid_l), len(divid_l) / float(len(self.diversions)))
+                    len(divid_l) / float(len(self.diversions)))
             diversions_line += abbr_str(divid_l, 4)
         else:
             diversions_line = 'no diversions'
@@ -1956,8 +1956,8 @@ class ModelPlot(object):
         else:
             cmap = cm.get_cmap(cmap_txt)
             norm = MidpointNormalize(vmin=vmin, vmax=vmax, midpoint=0)
-        imx = self._add_plotlayer(x, cmap=cmap, norm=norm, zorder=zorder, alpha=1,
-                                  label=label, cbar=cbar)
+        imx = self._add_plotlayer(x, cmap=cmap, norm=norm, zorder=zorder,
+                                  alpha=1, label=label, cbar=cbar)
         if points is not None:
             self.ax.scatter(self.model.modelgrid.xcellcenters[
                                 points.i, points.j],
