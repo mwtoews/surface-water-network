@@ -89,6 +89,11 @@ class SurfaceWaterNetwork(object):
         self.logger.info('creating network with %d segments', len(self))
         if not (polygons is None or isinstance(polygons, geopandas.GeoSeries)):
             raise ValueError('polygons must be a GeoSeries or None')
+        if polygons is not None:
+            if (len(polygons.index) != len(lines.index) or
+                    not (polygons.index == lines.index).all()):
+                raise ValueError(
+                    'polygons.index is different than lines.index')
         segments_sindex = get_sindex(self.segments)
         if self.segments.index.min() > 0:
             self.END_SEGNUM = 0
