@@ -1,11 +1,13 @@
 # -*- coding: utf-8 -*-
 import geopandas
 import numpy as np
+from shapely import wkt
 from shapely.geometry import Point
 
 import pytest
 
 import swn.spatial as spatial
+from swn import SurfaceWaterNetwork
 
 
 def test_get_sindex():
@@ -75,3 +77,66 @@ def test_compare_crs():
     assert spatial.compare_crs(2193, None)[2] is False
     assert spatial.compare_crs(2193, 'EPSG:2193')[2] is True
     assert spatial.compare_crs(2193, {'init': 'EPSG:2193'})[2] is True
+
+
+def test_find_segnum_in_swn_only_lines(coastal_swn):
+    n = coastal_swn
+    # querey tuple
+    r = spatial.find_segnum_in_swn(n, (1811503.1, 5874071.2))
+    assert len(r) == 1
+    assert r.index[0] == 0
+    assert r.segnum[0] == 3047364
+    assert round(r.dist_to_segnum[0], 1) == 80.3
+    # querey list of tuples
+    geom = [
+        (1806234.3, 5869114.8),
+        (1804222, 5870087),
+        (1802814, 5867160)]
+    r = spatial.find_segnum_in_swn(n, geom)
+    assert len(r) == 3
+    assert list(r.segnum) == [3048663, 3048249, 3049113]
+    assert list(r.dist_to_segnum.round(1)) == [315.5, 364.7, 586.1]
+    # query GeoSeries
+    poylgon = wkt.loads('''\
+    POLYGON ((1815228 5869053, 1815267 5869021, 1815120 5868936,
+              1815228 5869053))''')
+    gs = geopandas.GeoSeries(
+        [poylgon, Point(1814271, 5869525)], index=[101, 102])
+    r = spatial.find_segnum_in_swn(n, gs)
+    assert len(r) == 2
+    assert list(r.segnum) == [3048690, 3048372]
+    assert list(r.dist_to_segnum.round(1)) == [73.4, 333.8]
+
+
+def test_find_segnum_in_swn_with_catchments(
+        coastal_lines_gdf, coastal_polygons_gdf):
+    n = SurfaceWaterNetwork(
+        coastal_lines_gdf.geometry, coastal_polygons_gdf.geometry)
+    # querey tuple
+    r = spatial.find_segnum_in_swn(n, (1811503.1, 5874071.2))
+    assert len(r) == 1
+    assert r.index[0] == 0
+    assert r.segnum[0] == 3046952
+    assert round(r.dist_to_segnum[0], 1) == 169.2
+    assert r.is_within_catchment[0]
+    # querey list of tuples
+    geom = [
+        (1806234.3, 5869114.8),
+        (1804222, 5870087),
+        (1802814, 5867160)]
+    r = spatial.find_segnum_in_swn(n, geom)
+    assert len(r) == 3
+    assert list(r.segnum) == [3048504, 3048249, 3049113]
+    assert list(r.dist_to_segnum.round(1)) == [496.7, 364.7, 586.1]
+    assert list(r.is_within_catchment) == [True, False, False]
+    # query GeoSeries
+    poylgon = wkt.loads('''\
+    POLYGON ((1815228 5869053, 1815267 5869021, 1815120 5868936,
+              1815228 5869053))''')
+    gs = geopandas.GeoSeries(
+        [poylgon, Point(1814271, 5869525)], index=[101, 102])
+    r = spatial.find_segnum_in_swn(n, gs)
+    assert len(r) == 2
+    assert list(r.segnum) == [3048690, 3048482]
+    assert list(r.dist_to_segnum.round(1)) == [73.4, 989.2]
+    assert list(r.is_within_catchment) == [True, True]

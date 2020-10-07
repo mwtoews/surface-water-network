@@ -4,6 +4,7 @@ import geopandas
 import numpy as np
 import pandas as pd
 from shapely import wkt
+from shapely.geometry import Point
 import pyproj
 try:
     from geopandas.tools import sjoin
@@ -32,6 +33,8 @@ def get_sindex(gdf):
     Particularly useful for geopandas<0.2.0;>0.7.0
     """
     sindex = None
+    if (hasattr(gdf, '_rtree_sindex')):
+        return getattr(gdf, '_rtree_sindex')
     if (isinstance(gdf, geopandas.GeoDataFrame) and
             hasattr(gdf.geometry, 'sindex')):
         sindex = gdf.geometry.sindex
@@ -51,6 +54,8 @@ def get_sindex(gdf):
         # slow, but reliable
         for idx, (segnum, row) in enumerate(gdf.bounds.iterrows()):
             sindex.add(idx, tuple(row))
+        # cache the index for later
+        setattr(gdf, '_rtree_sindex', sindex)
     return sindex
 
 
@@ -197,3 +202,98 @@ def get_crs(s):
         else:
             crs = pyproj.Proj(s)
     return crs
+
+
+def find_segnum_in_swn(n, geom):
+    """Return segnum within a catchment or nearest a segment to a geometry.
+
+    If a catchment polygon is provided, this is used to find if the point
+    is contained in the catchment, otherwise the closest segment is found.
+
+    Parameters
+    ----------
+    n : SurfaceWaterNetwork
+        A surface water network to evaluate.
+    geom : various
+        A geometry input, one of:
+            - GeoSeries
+            - tuple of coordinates (x, y)
+            - list of coordinate tuples
+
+    Returns
+    -------
+    pandas.DataFrame
+        Resulting DataFrame has columns segnum, dist_to_segnum, and
+        (if catchments are found) is_within_catchment.
+
+    """
+    from swn.base import SurfaceWaterNetwork
+
+    if not isinstance(n, SurfaceWaterNetwork):
+        raise TypeError('expected an instance of SurfaceWaterNetwork')
+    elif isinstance(geom, geopandas.GeoSeries):
+        pass
+    elif isinstance(geom, tuple):
+        geom = geopandas.GeoSeries([Point(geom)])
+    elif isinstance(geom, list):
+        geom = geopandas.GeoSeries([Point(v) for v in geom])
+
+    has_catchments = n.catchments is not None
+    if has_catchments:
+        catchments_sindex = get_sindex(n.catchments)
+    segments_sindex = False  # get this, only if needed
+
+    # test disabling sindex:
+    # segments_sindex = None
+    # catchments_sindex = None
+
+    num_results = 9
+    segnums = []
+    is_within_catchments = []
+    dist_to_segnums = []
+    for _, g in geom.iteritems():
+        segnum = None
+        if has_catchments:
+            if catchments_sindex:
+                subsel = sorted(catchments_sindex.intersection(g.bounds))
+                contains = [n.catchments.index[idx] for idx in subsel
+                            if n.catchments.iloc[idx].contains(g)]
+            else:
+                contains = [idx for (idx, p) in n.catchments.iteritems()
+                            if p.contains(g)]
+            if len(contains) == 0:
+                n.logger.debug('geom %s not contained any catchment', g.wkt)
+                is_within_catchment = False
+            elif len(contains) > 1:
+                n.logger.warning('geom %s contained in more than one of %s',
+                                 g.wkt, contains)
+                segnum = contains[0]  # take the first
+                is_within_catchment = True
+            else:
+                segnum = contains[0]
+                is_within_catchment = True
+            is_within_catchments.append(is_within_catchment)
+        if segnum is None:
+            # Find nearest segment
+            if segments_sindex is False:
+                segments_sindex = get_sindex(n.segments)
+            if segments_sindex:
+                nearest = n.segments.iloc[
+                    sorted(segments_sindex.nearest(g.bounds, num_results))]\
+                    .distance(g).sort_values()
+            else:
+                nearest = n.segments.distance(g).sort_values()[:num_results]
+            nearest_sel = nearest.iloc[0] == nearest
+            segnum = nearest[nearest_sel].index[0]  # take the first
+            if nearest_sel.sum() > 1:
+                n.logger.warning('geom %s is nearest to more than one of %s',
+                                 g.wkt, nearest[nearest_sel].index.to_list())
+        segnums.append(segnum)
+        dist_to_segnums.append(g.distance(n.segments.loc[segnum, "geometry"]))
+
+    # Assemble results
+    ret = pd.DataFrame({'segnum': segnums}, index=geom.index)
+    ret['dist_to_segnum'] = dist_to_segnums
+    if has_catchments:
+        ret['is_within_catchment'] = is_within_catchments
+    return ret
