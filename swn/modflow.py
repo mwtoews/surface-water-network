@@ -26,8 +26,6 @@ class MfSfrNetwork(object):
 
     Attributes
     ----------
-    swn : swn.SurfaceWaterNetwork
-        Instance of a SurfaceWaterNetwork
     model : flopy.modflow.mf.Modflow
         Instance of a flopy MODFLOW model
     segments : geopandas.GeoDataFrame
@@ -49,14 +47,38 @@ class MfSfrNetwork(object):
 
     """
 
-    def __init__(self, swn, model, ibound_action='freeze',
-                 reach_include_fraction=0.2, min_slope=1./1000,
-                 hyd_cond1=1., hyd_cond_out=None,
-                 thickness1=1., thickness_out=None,
-                 width1=10., width_out=None, roughch=0.024,
-                 abstraction={}, inflow={},
-                 flow={}, runoff={}, etsw={}, pptsw={},
-                 logger=None):
+    def __init__(self, model, logger=None):
+        """Initialise MfSfrNetwork.
+
+        Parameters
+        ----------
+        model : flopy.modflow.mf.Modflow
+            Instance of a flopy MODFLOW model with DIS and BAS6 packages.
+        logger : logging.Logger, optional
+            Logger to show messages.
+        """
+        if logger is None:
+            self.logger = get_logger(self.__class__.__name__)
+        else:
+            self.logger = logger
+        self.logger.info('creating new %s object', self.__class__.__name__)
+        try:
+            import flopy
+        except ImportError:
+            raise ImportError('this class requires flopy')
+        if not isinstance(model, flopy.modflow.mf.Modflow):
+            raise ValueError('model must be a flopy Modflow object')
+        self.model = model
+        # all other properties added afterwards
+
+    @classmethod
+    def from_swn_flopy(
+            cls, swn, model, ibound_action='freeze',
+            reach_include_fraction=0.2, min_slope=1./1000,
+            hyd_cond1=1., hyd_cond_out=None, thickness1=1., thickness_out=None,
+            width1=10., width_out=None, roughch=0.024,
+            abstraction={}, inflow={}, flow={}, runoff={}, etsw={}, pptsw={},
+            logger=None):
         """Create a MODFLOW SFR structure from a surface water network.
 
         Parameters
@@ -123,8 +145,7 @@ class MfSfrNetwork(object):
 
         """
         if logger is None:
-            logger = get_logger(self.__class__.__name__)
-        self.logger = logger
+            logger = get_logger(cls.__class__.__name__)
         try:
             import flopy
         except ImportError:
@@ -132,22 +153,21 @@ class MfSfrNetwork(object):
         if not isinstance(swn, SurfaceWaterNetwork):
             raise ValueError('swn must be a SurfaceWaterNetwork object')
         elif not isinstance(model, flopy.modflow.mf.Modflow):
-            raise ValueError('model must be a flopy.modflow.mf.Modflow object')
+            raise ValueError('model must be a flopy Modflow object')
         elif ibound_action not in ('freeze', 'modify'):
             raise ValueError('ibound_action must be one of freeze or modify')
         elif not model.has_package('DIS'):
             raise ValueError('DIS package required')
         elif not model.has_package('BAS6'):
             raise ValueError('BAS6 package required')
-        self.logger.debug('building model grid cell geometries')
-        self.swn = swn
-        self.model = model
-        self.segments = swn.segments.copy()
+        obj = cls(model=model, logger=logger)
+        del model, logger  # dereference local copies
+        obj.segments = swn.segments.copy()
         # Make sure model CRS and segments CRS are the same (if defined)
         crs = None
-        segments_crs = getattr(self.segments.geometry, 'crs', None)
+        segments_crs = getattr(obj.segments.geometry, 'crs', None)
         modelgrid_crs = None
-        modelgrid = model.modelgrid
+        modelgrid = obj.model.modelgrid
         epsg = modelgrid.epsg
         proj4_str = modelgrid.proj4
         if epsg is not None:
@@ -157,23 +177,24 @@ class MfSfrNetwork(object):
                                                             proj4_str)
         if (segments_crs is not None and modelgrid_crs is not None and
                 not same):
-            self.logger.warning(
+            obj.logger.warning(
                 'CRS for segments and modelgrid are different: {0} vs. {1}'
                 .format(segments_crs, modelgrid_crs))
         crs = segments_crs or modelgrid_crs
         # Make sure their extents overlap
         minx, maxx, miny, maxy = modelgrid.extent
         model_bbox = box(minx, miny, maxx, maxy)
-        rstats = self.segments.bounds.describe()
+        rstats = obj.segments.bounds.describe()
         segments_bbox = box(
                 rstats.loc['min', 'minx'], rstats.loc['min', 'miny'],
                 rstats.loc['max', 'maxx'], rstats.loc['max', 'maxy'])
         if model_bbox.disjoint(segments_bbox):
             raise ValueError('modelgrid extent does not cover segments extent')
         # More careful check of overlap of lines with grid polygons
-        dis = model.dis
+        obj.logger.debug('building model grid cell geometries')
+        dis = obj.model.dis
         cols, rows = np.meshgrid(np.arange(dis.ncol), np.arange(dis.nrow))
-        ibound = model.bas6.ibound[0].array.copy()
+        ibound = obj.model.bas6.ibound[0].array.copy()
         ibound_modified = 0
         grid_df = pd.DataFrame({'row': rows.flatten(), 'col': cols.flatten()})
         grid_df.set_index(['row', 'col'], inplace=True)
@@ -184,11 +205,11 @@ class MfSfrNetwork(object):
         # Determine grid cell size
         col_size = np.median(dis.delr.array)
         if dis.delr.array.min() != dis.delr.array.max():
-            self.logger.warning(
+            obj.logger.warning(
                 'assuming constant column spacing %s', col_size)
         row_size = np.median(dis.delc.array)
         if dis.delc.array.min() != dis.delc.array.max():
-            self.logger.warning(
+            obj.logger.warning(
                 'assuming constant row spacing %s', row_size)
         cell_size = (row_size + col_size) / 2.0
         # Note: modelgrid.get_cell_vertices(row, col) is slow!
@@ -202,19 +223,20 @@ class MfSfrNetwork(object):
             zip(xv[r + 1, c + 1], yv[r + 1, c + 1]),
             zip(xv[r + 1, c], yv[r + 1, c])
         )
-        self.grid_cells = grid_cells = geopandas.GeoDataFrame(
+        obj.grid_cells = grid_cells = geopandas.GeoDataFrame(
             grid_df, geometry=[Polygon(r) for r in cell_verts], crs=crs)
-        self.logger.debug('evaluating reach data on model grid')
+        obj.logger.debug('evaluating reach data on model grid')
         grid_sindex = get_sindex(grid_cells)
         reach_include = swn._segment_series(reach_include_fraction) * cell_size
         # Make an empty DataFrame for reaches
-        self.reaches = pd.DataFrame(columns=['geometry'])
-        self.reaches.insert(1, column='row', value=pd.Series(dtype=int))
-        self.reaches.insert(2, column='col', value=pd.Series(dtype=int))
-        empty_reach_df = self.reaches.copy()  # take this before more added
-        self.reaches.insert(1, column='segnum',
-                            value=pd.Series(dtype=self.segments.index.dtype))
-        self.reaches.insert(2, column='dist', value=pd.Series(dtype=float))
+        obj.reaches = pd.DataFrame(columns=['geometry'])
+        obj.reaches.insert(1, column='row', value=pd.Series(dtype=int))
+        obj.reaches.insert(2, column='col', value=pd.Series(dtype=int))
+        empty_reach_df = obj.reaches.copy()  # take this before more added
+        obj.reaches.insert(
+            1, column='segnum',
+            value=pd.Series(dtype=obj.segments.index.dtype))
+        obj.reaches.insert(2, column='dist', value=pd.Series(dtype=float))
         empty_reach_df.insert(3, column='length', value=pd.Series(dtype=float))
         empty_reach_df.insert(4, column='moved', value=pd.Series(dtype=bool))
 
@@ -279,7 +301,7 @@ class MfSfrNetwork(object):
             elif len(matches) == 2:
                 assert grid_points.geom_type == 'MultiPoint', grid_points.wkt
                 if len(grid_points) != 2:
-                    self.logger.critical(
+                    obj.logger.critical(
                         'expected 2 points, found %s', len(grid_points))
                 # Build a tiny DataFrame of coordinates for this reach
                 reach_c = pd.DataFrame({
@@ -321,15 +343,15 @@ class MfSfrNetwork(object):
                 #   'split and moved short segment of %s from %s to %s and %s',
                 #   segnum, this_row_col, (row1, col1), (row2, col2))
             else:
-                self.logger.critical('unhandled assign_short_reach case with '
-                                     '%d matches: %s\n%s\n%s', len(matches),
-                                     matches, reach, grid_points.wkt)
+                obj.logger.critical(
+                    'unhandled assign_short_reach case with %d matches: %s\n'
+                    '%s\n%s', len(matches), matches, reach, grid_points.wkt)
 
         def assign_remaining_reach(reach_df, segnum, rem):
             if rem.geom_type == 'LineString':
                 threshold = cell_size * 2.0
                 if rem.length > threshold:
-                    self.logger.debug(
+                    obj.logger.debug(
                         'remaining line segment from %s too long to merge '
                         '(%.1f > %.1f)', segnum, rem.length, threshold)
                     return
@@ -356,7 +378,7 @@ class MfSfrNetwork(object):
                     mdist = rem_c['pt'].apply(
                                     lambda p: grid_geom.distance(p)).max()
                     if mdist > threshold:
-                        self.logger.debug(
+                        obj.logger.debug(
                             'remaining line segment from %s too far away to '
                             'merge (%.1f > %.1f)', segnum, mdist, threshold)
                         return
@@ -379,7 +401,7 @@ class MfSfrNetwork(object):
                     rem_c['dm'] = rem_c[['d1', 'd2']].min(1)
                     mdist = rem_c['dm'].max()
                     if mdist > threshold:
-                        self.logger.debug(
+                        obj.logger.debug(
                             'remaining line segment from %s too far away to '
                             'merge (%.1f > %.1f)', segnum, mdist, threshold)
                         return
@@ -398,7 +420,7 @@ class MfSfrNetwork(object):
                     rem2 = LineString(rem.coords[cidx:])
                     append_reach_df(reach_df, row, col, rem2, moved=True)
                 else:
-                    self.logger.critical(
+                    obj.logger.critical(
                         'how does this happen? Segments from %d touching %d '
                         'grid cells', segnum, len(matches))
             elif rem.geom_type.startswith('Multi'):
@@ -407,7 +429,7 @@ class MfSfrNetwork(object):
             else:
                 raise NotImplementedError(rem.geom_type)
 
-        for segnum, line in self.segments.geometry.iteritems():
+        for segnum, line in obj.segments.geometry.iteritems():
             remaining_line = line
             if grid_sindex:
                 bbox_match = sorted(grid_sindex.intersection(line.bounds))
@@ -447,13 +469,13 @@ class MfSfrNetwork(object):
                         sel = ((reach_df['row'] == row) &
                                (reach_df['col'] == col))
                         drop_reach_ids += list(sel.index[sel])
-                        self.logger.debug(
+                        obj.logger.debug(
                             'merging %d reaches for segnum %s at %s',
                             sel.sum(), segnum, row_col)
                         append_reach_df(reach_df, row, col, geom)
                     elif any(a.distance(b) < 1e-6
                              for a, b in combinations(geoms, 2)):
-                        self.logger.warning(
+                        obj.logger.warning(
                             'failed to merge segnum %s at %s: %s',
                             segnum, row_col, geom.wkt)
                     # else: this is probably a meandering MultiLineString
@@ -477,32 +499,32 @@ class MfSfrNetwork(object):
                     'row': row,
                     'col': col,
                 }
-                self.reaches.loc[len(self.reaches.index)] = reach_record
+                obj.reaches.loc[len(obj.reaches.index)] = reach_record
                 if ibound_action == 'modify' and ibound[row, col] == 0:
                     ibound_modified += 1
                     ibound[row, col] = 1
 
         if ibound_action == 'modify':
             if ibound_modified:
-                self.logger.debug(
+                obj.logger.debug(
                     'updating %d cells from IBOUND array for top layer',
                     ibound_modified)
-                model.bas6.ibound[0] = ibound
-                self.reaches = self.reaches.merge(
+                obj.model.bas6.ibound[0] = ibound
+                obj.reaches = obj.reaches.merge(
                     grid_df[['ibound']],
                     left_on=['row', 'col'], right_index=True)
-                self.reaches.rename(
+                obj.reaches.rename(
                         columns={'ibound': 'prev_ibound'}, inplace=True)
             else:
-                self.reaches['prev_ibound'] = 1
+                obj.reaches['prev_ibound'] = 1
 
         # Now convert from DataFrame to GeoDataFrame
-        self.reaches = geopandas.GeoDataFrame(
-                self.reaches, geometry='geometry', crs=crs)
+        obj.reaches = geopandas.GeoDataFrame(
+                obj.reaches, geometry='geometry', crs=crs)
 
         # Assign segment data
-        self.segments['min_slope'] = swn._segment_series(min_slope)
-        if (self.segments['min_slope'] < 0.0).any():
+        obj.segments['min_slope'] = swn._segment_series(min_slope)
+        if (obj.segments['min_slope'] < 0.0).any():
             raise ValueError('min_slope must be greater than zero')
         # Column names common to segments and segment_data
         segment_cols = [
@@ -511,8 +533,8 @@ class MfSfrNetwork(object):
             'hcond2', 'thickm2', 'elevdn', 'width2']
         # Tidy any previous attempts
         for col in segment_cols:
-            if col in self.segments.columns:
-                del self.segments[col]
+            if col in obj.segments.columns:
+                del obj.segments[col]
         # Combine pairs of series for each segment
         more_segment_columns = pd.concat([
             swn._pair_segment_values(hyd_cond1, hyd_cond_out, 'hcond'),
@@ -520,62 +542,62 @@ class MfSfrNetwork(object):
             swn._pair_segment_values(width1, width_out, name='width')
         ], axis=1, copy=False)
         for name, series in more_segment_columns.iteritems():
-            self.segments[name] = series
-        self.segments['roughch'] = swn._segment_series(roughch)
+            obj.segments[name] = series
+        obj.segments['roughch'] = swn._segment_series(roughch)
         # Mark segments that are not used
-        self.segments['in_model'] = True
+        obj.segments['in_model'] = True
         outside_model = \
-            set(swn.segments.index).difference(self.reaches['segnum'])
-        self.segments.loc[list(outside_model), 'in_model'] = False
+            set(swn.segments.index).difference(obj.reaches['segnum'])
+        obj.segments.loc[list(outside_model), 'in_model'] = False
         # Add information from segments
-        self.reaches = self.reaches.merge(
-            self.segments[['sequence', 'min_slope']], 'left',
+        obj.reaches = obj.reaches.merge(
+            obj.segments[['sequence', 'min_slope']], 'left',
             left_on='segnum', right_index=True)
-        self.reaches.sort_values(['sequence', 'dist'], inplace=True)
+        obj.reaches.sort_values(['sequence', 'dist'], inplace=True)
         # Interpolate segment properties to each reach
-        self.reaches['strthick'] = 0.0
-        self.reaches['strhc1'] = 0.0
-        for segnum, seg in self.segments.iterrows():
-            sel = self.reaches['segnum'] == segnum
+        obj.reaches['strthick'] = 0.0
+        obj.reaches['strhc1'] = 0.0
+        for segnum, seg in obj.segments.iterrows():
+            sel = obj.reaches['segnum'] == segnum
             if seg['thickm1'] == seg['thickm2']:
                 val = seg['thickm1']
             else:  # linear interpolate to mid points
                 tk1 = seg['thickm1']
                 tk2 = seg['thickm2']
                 dtk = tk2 - tk1
-                val = dtk * self.reaches.loc[sel, 'dist'] + tk1
-            self.reaches.loc[sel, 'strthick'] = val
+                val = dtk * obj.reaches.loc[sel, 'dist'] + tk1
+            obj.reaches.loc[sel, 'strthick'] = val
             if seg['hcond1'] == seg['hcond2']:
                 val = seg['hcond1']
             else:  # linear interpolate to mid points in log-10 space
                 lhc1 = np.log10(seg['hcond1'])
                 lhc2 = np.log10(seg['hcond2'])
                 dlhc = lhc2 - lhc1
-                val = 10 ** (dlhc * self.reaches.loc[sel, 'dist'] + lhc1)
-            self.reaches.loc[sel, 'strhc1'] = val
-        del self.reaches['sequence']
-        del self.reaches['dist']
+                val = 10 ** (dlhc * obj.reaches.loc[sel, 'dist'] + lhc1)
+            obj.reaches.loc[sel, 'strhc1'] = val
+        del obj.reaches['sequence']
+        del obj.reaches['dist']
         # Use MODFLOW SFR dataset 2 terms ISEG and IREACH, counting from 1
-        self.reaches['iseg'] = 0
-        self.reaches['ireach'] = 0
+        obj.reaches['iseg'] = 0
+        obj.reaches['ireach'] = 0
         iseg = ireach = 0
         prev_segnum = None
-        for idx, segnum in self.reaches['segnum'].iteritems():
+        for idx, segnum in obj.reaches['segnum'].iteritems():
             if segnum != prev_segnum:
                 iseg += 1
                 ireach = 0
             ireach += 1
-            self.reaches.at[idx, 'iseg'] = iseg
-            self.reaches.at[idx, 'ireach'] = ireach
+            obj.reaches.at[idx, 'iseg'] = iseg
+            obj.reaches.at[idx, 'ireach'] = ireach
             prev_segnum = segnum
-        self.reaches.reset_index(inplace=True, drop=True)
-        self.reaches.index += 1  # flopy series starts at one
-        self.reaches.index.name = 'reachID'
-        self.reaches['rchlen'] = self.reaches.geometry.length
-        self.reaches['strtop'] = 0.0
-        self.reaches['slope'] = 0.0
+        obj.reaches.reset_index(inplace=True, drop=True)
+        obj.reaches.index += 1  # flopy series starts at one
+        obj.reaches.index.name = 'reachID'
+        obj.reaches['rchlen'] = obj.reaches.geometry.length
+        obj.reaches['strtop'] = 0.0
+        obj.reaches['slope'] = 0.0
         if swn.has_z:
-            for reachID, item in self.reaches.iterrows():
+            for reachID, item in obj.reaches.iterrows():
                 geom = item.geometry
                 # Get Z from each end
                 z0 = geom.coords[0][2]
@@ -583,87 +605,88 @@ class MfSfrNetwork(object):
                 dz = z0 - z1
                 dx = geom.length
                 slope = dz / dx
-                self.reaches.at[reachID, 'slope'] = slope
+                obj.reaches.at[reachID, 'slope'] = slope
                 # Get strtop from LineString mid-point Z
                 zm = geom.interpolate(0.5, normalized=True).z
-                self.reaches.at[reachID, 'strtop'] = zm
+                obj.reaches.at[reachID, 'strtop'] = zm
         else:
-            r = self.reaches['row'].values
-            c = self.reaches['col'].values
+            r = obj.reaches['row'].values
+            c = obj.reaches['col'].values
             # Estimate slope from top and grid spacing
             px, py = np.gradient(dis.top.array, col_size, row_size)
             grid_slope = np.sqrt(px ** 2 + py ** 2)
-            self.reaches['slope'] = grid_slope[r, c]
+            obj.reaches['slope'] = grid_slope[r, c]
             # Get stream values from top of model
-            self.reaches['strtop'] = dis.top.array[r, c]
+            obj.reaches['strtop'] = dis.top.array[r, c]
         # Enforce min_slope
-        sel = self.reaches['slope'] < self.reaches['min_slope']
+        sel = obj.reaches['slope'] < obj.reaches['min_slope']
         if sel.any():
-            self.logger.warning('enforcing min_slope for %d reaches (%.2f%%)',
-                                sel.sum(), 100.0 * sel.sum() / len(sel))
-            self.reaches.loc[sel, 'slope'] = self.reaches.loc[sel, 'min_slope']
-        if not hasattr(self.reaches.geometry, 'geom_type'):
+            obj.logger.warning(
+                'enforcing min_slope for %d reaches (%.2f%%)',
+                sel.sum(), 100.0 * sel.sum() / len(sel))
+            obj.reaches.loc[sel, 'slope'] = obj.reaches.loc[sel, 'min_slope']
+        if not hasattr(obj.reaches.geometry, 'geom_type'):
             # workaround needed for reaches.to_file()
-            self.reaches.geometry.geom_type = self.reaches.geom_type
+            obj.reaches.geometry.geom_type = obj.reaches.geom_type
         # Build segment_data for Data Set 6
-        self.segment_data = self.reaches[['iseg', 'segnum']]\
+        obj.segment_data = obj.reaches[['iseg', 'segnum']]\
             .drop_duplicates().rename(columns={'iseg': 'nseg'})
         # index changes from 'reachID', to 'segnum', to finally 'nseg'
-        segnum2nseg_d = self.segment_data.set_index('segnum')['nseg'].to_dict()
-        self.segment_data['icalc'] = 1  # assumption for all streams
-        self.segment_data['outseg'] = self.segment_data['segnum'].map(
-            lambda x: segnum2nseg_d.get(self.segments.loc[x, 'to_segnum'], 0))
-        self.segment_data['iupseg'] = 0  # handle diversions next
-        self.segment_data['iprior'] = 0
-        self.segment_data['flow'] = 0.0
-        self.segment_data['runoff'] = 0.0
-        self.segment_data['etsw'] = 0.0
-        self.segment_data['pptsw'] = 0.0
+        segnum2nseg_d = obj.segment_data.set_index('segnum')['nseg'].to_dict()
+        obj.segment_data['icalc'] = 1  # assumption for all streams
+        obj.segment_data['outseg'] = obj.segment_data['segnum'].map(
+            lambda x: segnum2nseg_d.get(obj.segments.loc[x, 'to_segnum'], 0))
+        obj.segment_data['iupseg'] = 0  # handle diversions next
+        obj.segment_data['iprior'] = 0
+        obj.segment_data['flow'] = 0.0
+        obj.segment_data['runoff'] = 0.0
+        obj.segment_data['etsw'] = 0.0
+        obj.segment_data['pptsw'] = 0.0
         # upper elevation from the first and last reachID items from reaches
-        self.segment_data['elevup'] = \
-            self.reaches.loc[self.segment_data.index, 'strtop']
-        self.segment_data['elevdn'] = self.reaches.loc[
-            self.reaches.groupby(['iseg']).ireach.idxmax().values,
+        obj.segment_data['elevup'] = \
+            obj.reaches.loc[obj.segment_data.index, 'strtop']
+        obj.segment_data['elevdn'] = obj.reaches.loc[
+            obj.reaches.groupby(['iseg']).ireach.idxmax().values,
             'strtop'].values
-        self.segment_data.set_index('segnum', drop=False, inplace=True)
+        obj.segment_data.set_index('segnum', drop=False, inplace=True)
         # copy several columns over (except 'elevup' and 'elevdn', for now)
         segment_cols.remove('elevup')
         segment_cols.remove('elevdn')
-        self.segment_data[segment_cols] = self.segments[segment_cols]
+        obj.segment_data[segment_cols] = obj.segments[segment_cols]
         # now use nseg as primary index, not reachID or segnum
-        self.segment_data.set_index('nseg', inplace=True)
-        self.segment_data.sort_index(inplace=True)
+        obj.segment_data.set_index('nseg', inplace=True)
+        obj.segment_data.sort_index(inplace=True)
         # Add diversions (i.e. SW takes)
         if swn.diversions is not None:
-            self.diversions = swn.diversions.copy()
+            obj.diversions = swn.diversions.copy()
             # Mark diversions that are not used / outside model
-            self.diversions['in_model'] = True
+            obj.diversions['in_model'] = True
             outside_model = []
             # Add columns for ICALC=0
-            self.segment_data['depth1'] = 0.0
-            self.segment_data['depth2'] = 0.0
+            obj.segment_data['depth1'] = 0.0
+            obj.segment_data['depth2'] = 0.0
             # workaround for coercion issue
-            self.segment_data['foo'] = ''
+            obj.segment_data['foo'] = ''
             is_spatial = (
-                isinstance(self.diversions, geopandas.GeoDataFrame) and
-                'geometry' in self.diversions.columns and
-                (~self.diversions.is_empty).all())
+                isinstance(obj.diversions, geopandas.GeoDataFrame) and
+                'geometry' in obj.diversions.columns and
+                (~obj.diversions.is_empty).all())
             if swn.has_z:
                 empty_geom = wkt.loads('linestring z empty')
             else:
                 empty_geom = wkt.loads('linestring empty')
-            for divid, divn in self.diversions.iterrows():
+            for divid, divn in obj.diversions.iterrows():
                 if divn.from_segnum not in segnum2nseg_d:
                     # segnum does not exist -- segment is outside model
                     outside_model.append(divid)
                     continue
                 iupseg = segnum2nseg_d[divn.from_segnum]
                 assert iupseg != 0, iupseg
-                nseg = len(self.segment_data) + 1
+                nseg = len(obj.segment_data) + 1
                 rchlen = 1.0  # length required
                 thickm = 1.0  # thickness required
                 hcond = 0.0  # don't allow GW exchange
-                seg_d = dict(self.segment_data.loc[iupseg])
+                seg_d = dict(obj.segment_data.loc[iupseg])
                 seg_d.update({  # index is nseg
                     'segnum': divid,
                     'icalc': 0,  # stream depth is specified
@@ -680,8 +703,8 @@ class MfSfrNetwork(object):
                     'width1': 0.0, 'width2': 0.0,  # not used
                 })
                 # Use the last reach as a template to modify for new reach
-                reach_d = dict(self.reaches.loc[
-                    self.reaches.iseg == iupseg].iloc[-1])
+                reach_d = dict(obj.reaches.loc[
+                    obj.reaches.iseg == iupseg].iloc[-1])
                 reach_d.update({
                     'segnum': divid,
                     'iseg': nseg,
@@ -706,7 +729,7 @@ class MfSfrNetwork(object):
                         num_found = sel.sum()
                         grid_cell = grid_cells.loc[sel].iloc[0]
                     if num_found > 1:
-                        self.logger.warning(
+                        obj.logger.warning(
                             '%d grid cells are nearest to diversion %r, '
                             'but only taking the first %s',
                             num_found, divid, grid_cell)
@@ -728,32 +751,33 @@ class MfSfrNetwork(object):
                     })
                 depth = strtop + thickm
                 seg_d.update({'depth1': depth, 'depth2': depth})
-                self.reaches.loc[len(self.reaches) + 1] = reach_d
-                self.segment_data.loc[nseg] = seg_d
+                obj.reaches.loc[len(obj.reaches) + 1] = reach_d
+                obj.segment_data.loc[nseg] = seg_d
             if outside_model:
-                self.diversions.loc[list(outside_model), 'in_model'] = False
-                self.logger.debug(
+                obj.diversions.loc[list(outside_model), 'in_model'] = False
+                obj.logger.debug(
                     'added %d diversions, ignoring %d that did not connect to '
                     'existing segments',
-                    self.diversions['in_model'].sum(), len(outside_model))
+                    obj.diversions['in_model'].sum(), len(outside_model))
             else:
-                self.logger.debug(
-                    'added all %d diversions', len(self.diversions))
+                obj.logger.debug(
+                    'added all %d diversions', len(obj.diversions))
             # end of coercion workaround
-            self.segment_data.drop('foo', axis=1, inplace=True)
+            obj.segment_data.drop('foo', axis=1, inplace=True)
         else:
-            self.diversions = None
+            obj.diversions = None
         # Finally, add/rename a few columns to align with reach_data
-        self.reaches.insert(2, column='k', value=0)
-        self.reaches.insert(3, column='outreach', value=pd.Series(dtype=int))
-        self.reaches.rename(columns={'row': 'i', 'col': 'j'}, inplace=True)
+        obj.reaches.insert(2, column='k', value=0)
+        obj.reaches.insert(3, column='outreach', value=pd.Series(dtype=int))
+        obj.reaches.rename(columns={'row': 'i', 'col': 'j'}, inplace=True)
         # Create flopy Sfr2 package
-        segment_data = self.set_segment_data(
+        segment_data = obj.set_segment_data(
             abstraction=abstraction, inflow=inflow,
             flow=flow, runoff=runoff, etsw=etsw, pptsw=pptsw, return_dict=True)
-        reach_data = self.get_reach_data()
+        reach_data = obj.get_reach_data()
         flopy.modflow.mfsfr2.ModflowSfr2(
-            model=model, reach_data=reach_data, segment_data=segment_data)
+            model=obj.model, reach_data=reach_data, segment_data=segment_data)
+        return obj
 
     def __repr__(self):
         """Return string representation of MfSfrNetwork object."""

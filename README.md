@@ -96,7 +96,7 @@ Process a MODFLOW/flopy model:
 import flopy
 
 m = flopy.modflow.Modflow.load('h.nam', model_ws='tests/data', check=False)
-nm = swn.MfSfrNetwork(n, m, inflow=flow_m)
+nm = swn.MfSfrNetwork.from_swn_flopy(n, m, inflow=flow_m)
 m.sfr.write_file('file.sfr')
 nm.grid_cells.to_file('grid_cells.shp')
 nm.reaches.to_file('reaches.shp')
