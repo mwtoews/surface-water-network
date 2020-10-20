@@ -3,6 +3,7 @@
 import geopandas
 import numpy as np
 import pandas as pd
+import pickle
 from math import sqrt
 from shapely.geometry import LineString, Point
 from shapely.ops import cascaded_union, linemerge
@@ -134,7 +135,7 @@ class SurfaceWaterNetwork(object):
         else:
             END_SEGNUM = segments.index.min() - 1
         segments['to_segnum'] = END_SEGNUM
-        obj = cls(segments, END_SEGNUM=END_SEGNUM, logger=logger)
+        obj = cls(segments=segments, END_SEGNUM=END_SEGNUM, logger=logger)
         del segments, END_SEGNUM, logger  # dereference local copies
         obj.errors = []
         obj.warnings = []
@@ -356,6 +357,24 @@ class SurfaceWaterNetwork(object):
             len(hw_l), abbr_str(hw_l, 4),
             len(out_l), abbr_str(out_l, 4),
             diversions_line))
+
+    def __eq__(self, other):
+        """Return true if objects are equal."""
+        if self.__class__.__name__ != other.__class__.__name__:
+            return False
+        if self.END_SEGNUM != other.END_SEGNUM:
+            return False
+        try:
+            pd.testing.assert_frame_equal(self.segments, other.segments)
+            if self.catchments is not None or other.catchments is not None:
+                pd.testing.assert_series_equal(
+                    self.catchments, other.catchments)
+            if self.diversions is not None or other.diversions is not None:
+                pd.testing.assert_frame_equal(
+                    self.diversions, other.diversions)
+        except AssertionError:
+            return False
+        return True
 
     def plot(self, column='stream_order', sort_column='sequence',
              cmap='viridis_r', legend=False):
@@ -1226,3 +1245,44 @@ class SurfaceWaterNetwork(object):
             if self.catchments is not None:
                 self.catchments = self.catchments.loc[~sel]
         return
+
+    def to_pickle(self, path, protocol=pickle.HIGHEST_PROTOCOL):
+        """Pickle (serialize) object to file.
+
+        Parameters
+        ----------
+        path : str
+            File path where the pickled object will be stored.
+        protocol : int
+            Default is pickle.HIGHEST_PROTOCOL.
+
+        """
+        data = {
+            "segments": self.segments,
+            "END_SEGNUM": self.END_SEGNUM,
+            "catchments": self.catchments,
+            "diversions": self.diversions,
+        }
+        with open(path, "wb") as f:
+            pickle.dump(data, f, protocol=protocol)
+
+    @classmethod
+    def from_pickle(cls, path):
+        """Read a pickled format from a file.
+
+        Parameters
+        ----------
+        path : str
+            File path where the pickled object will be stored.
+
+        """
+        with open(path, "rb") as f:
+            data = pickle.load(f)
+        obj = cls(segments=data["segments"], END_SEGNUM=data["END_SEGNUM"])
+        catchments = data["catchments"]
+        if catchments is not None:
+            obj.catchments = catchments
+        diversions = data["diversions"]
+        if diversions is not None:
+            obj.set_diversions(diversions)
+        return obj
