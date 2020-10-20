@@ -31,12 +31,12 @@ n3d_lines = wkt_to_geoseries([
 
 @pytest.fixture
 def n3d():
-    return swn.SurfaceWaterNetwork(n3d_lines)
+    return swn.SurfaceWaterNetwork.from_lines(n3d_lines)
 
 
 @pytest.fixture
 def n2d():
-    return swn.SurfaceWaterNetwork(force_2d(n3d_lines))
+    return swn.SurfaceWaterNetwork.from_lines(force_2d(n3d_lines))
 
 
 def read_head(hed_fname, reaches=None):
@@ -322,7 +322,7 @@ def test_process_flopy_n3d_defaults(n3d, tmpdir_factory):
 def test_set_segment_data():
     # Note that set_segment_data is used both internally and externally
     # Create a local swn object to modify
-    n3d = swn.SurfaceWaterNetwork(n3d_lines)
+    n3d = swn.SurfaceWaterNetwork.from_lines(n3d_lines)
     # manually add outside flow from extra segnums, referenced with inflow
     n3d.segments.at[1, 'from_segnums'] = {3, 4}
     # Create a simple MODFLOW model object (don't write/run)
@@ -552,7 +552,7 @@ def test_process_flopy_n3d_vars(tmpdir_factory):
     # Repeat, but with min_slope enforced, and other options
     outdir = tmpdir_factory.mktemp('n3d')
     # Create a local swn object to modify
-    n3d = swn.SurfaceWaterNetwork(n3d_lines)
+    n3d = swn.SurfaceWaterNetwork.from_lines(n3d_lines)
     # manually add outside flow from extra segnums, referenced with inflow
     n3d.segments.at[1, 'from_segnums'] = {3, 4}
     # Create a simple MODFLOW model
@@ -787,7 +787,7 @@ def test_process_flopy_interp_2d_to_3d(tmpdir_factory):
     _ = flopy.modflow.ModflowLpf(m, ipakcb=52, laytyp=0, hk=1.0)
     _ = flopy.modflow.ModflowRch(m, ipakcb=52, rech=0.01)
     gt = swn.modflow.geotransform_from_flopy(m)
-    n = swn.SurfaceWaterNetwork(interp_2d_to_3d(n3d_lines, top, gt))
+    n = swn.SurfaceWaterNetwork.from_lines(interp_2d_to_3d(n3d_lines, top, gt))
     n.adjust_elevation_profile()
     nm = swn.MfSfrNetwork(n, m)
     m.sfr.ipakcb = 52
@@ -954,7 +954,7 @@ def test_set_elevations(n2d, tmpdir_factory):
 
 
 def test_reach_barely_outside_ibound():
-    n = swn.SurfaceWaterNetwork(wkt_to_geoseries([
+    n = swn.SurfaceWaterNetwork.from_lines(wkt_to_geoseries([
         'LINESTRING (15 125, 70 90, 120 120, 130 90, '
         '150 110, 180 90, 190 110, 290 80)'
     ]))
@@ -1012,7 +1012,7 @@ def test_coastal_process_flopy(tmpdir_factory,
     success, buff = m.run_model()
     assert success
     # Create a SWN with adjusted elevation profiles
-    n = swn.SurfaceWaterNetwork(coastal_lines_gdf.geometry)
+    n = swn.SurfaceWaterNetwork.from_lines(coastal_lines_gdf.geometry)
     n.adjust_elevation_profile()
     nm = swn.MfSfrNetwork(n, m, inflow=coastal_flow_m)
     m.sfr.unit_number = [24]  # WARNING: unit 17 of package SFR already in use
@@ -1191,7 +1191,7 @@ def test_coastal_elevations(coastal_swn, coastal_flow_m, tmpdir_factory):
 def test_coastal_reduced_process_flopy(
         coastal_lines_gdf, coastal_flow_m, tmpdir_factory):
     outdir = tmpdir_factory.mktemp('coastal')
-    n = swn.SurfaceWaterNetwork(coastal_lines_gdf.geometry)
+    n = swn.SurfaceWaterNetwork.from_lines(coastal_lines_gdf.geometry)
     assert len(n) == 304
     # Modify swn object
     n.remove(
@@ -1437,7 +1437,7 @@ def test_process_flopy_lines_on_boundaries():
         'LINESTRING (250 250, 150 150, 150 100)',
         'LINESTRING (150 100, 200   0, 300   0)',
     ])
-    n = swn.SurfaceWaterNetwork(lines)
+    n = swn.SurfaceWaterNetwork.from_lines(lines)
     nm = swn.MfSfrNetwork(n, m)
     if matplotlib:
         _ = nm.plot()
@@ -1466,7 +1466,7 @@ def test_process_flopy_diversion(tmpdir_factory):
     _ = flopy.modflow.ModflowDe4(m)
     _ = flopy.modflow.ModflowLpf(m, ipakcb=52, laytyp=0)
     gt = swn.modflow.geotransform_from_flopy(m)
-    n = swn.SurfaceWaterNetwork(interp_2d_to_3d(n3d_lines, top, gt))
+    n = swn.SurfaceWaterNetwork.from_lines(interp_2d_to_3d(n3d_lines, top, gt))
     n.adjust_elevation_profile()
     diversions = geopandas.GeoDataFrame(geometry=[
         Point(58, 97), Point(62, 97), Point(61, 89), Point(59, 89)])

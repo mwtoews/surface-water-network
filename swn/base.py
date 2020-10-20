@@ -30,8 +30,8 @@ class SurfaceWaterNetwork(object):
         (if available) for a surface water abstraction location, and the
         connected segment number from where the diversion occurs.
     END_SEGNUM : int
-        Special segment number that indicates a line end, default is usually 0.
-        This number is not part of segment.index.
+        Special segment number that indicates a line end, default is
+        usually 0. This number is not part of segments.index.
     has_z : bool
         Property that indicates all segment lines have Z dimension coordinates.
     headwater : pandas.core.index.Int64Index
@@ -59,9 +59,42 @@ class SurfaceWaterNetwork(object):
         """Return number of segments."""
         return len(self.segments.index)
 
-    def __init__(self, lines, polygons=None, logger=None):
+    def __init__(self, segments, END_SEGNUM=0, logger=None):
         """
-        Initialise SurfaceWaterNetwork and evaluate segments.
+        Initialise SurfaceWaterNetwork.
+
+        Parameters
+        ----------
+        segments : geopandas.GeoDataFrame
+            Primary GeoDataFrame for stream segments. Index is treated as a
+            segment number or ID.
+        END_SEGNUM : int
+            Special segment number that indicates a line end, default is
+            0. This number is not part of segments.index.
+        logger : logging.Logger, optional
+            Logger to show messages.
+
+        """
+        if logger is None:
+            self.logger = get_logger(self.__class__.__name__)
+        else:
+            self.logger = logger
+        self.logger.info('creating new %s object', self.__class__.__name__)
+        if not isinstance(segments, geopandas.GeoDataFrame):
+            raise ValueError(
+                'segments must be a GeoDataFrame; found {!r}'
+                .format(type(segments)))
+        self.segments = segments
+        self.END_SEGNUM = END_SEGNUM
+        if self.END_SEGNUM in self.segments.index:
+            self.logger.error('END_SEGNUM %r found in segments.index',
+                              self.END_SEGNUM)
+        # all other properties added afterwards
+
+    @classmethod
+    def from_lines(cls, lines, polygons=None, logger=None):
+        """
+        Create and evaluate a new SurfaceWaterNetwork from lines for segments.
 
         Parameters
         ----------
@@ -70,23 +103,24 @@ class SurfaceWaterNetwork(object):
             'LINESTRING' or 'LINESTRING Z'. Index is used for segment numbers.
             The geometry is copied to the segments property.
         polygons : geopandas.GeoSeries, optional
-            Input polygons of surface water catchments. Geometries must be
-            'POLYGON'. Index must be the same as segment.index.
+            Optional input polygons of surface water catchments. Geometries
+            must be 'POLYGON'. Index must be the same as segments.index.
         logger : logging.Logger, optional
             Logger to show messages.
 
         """
         if logger is None:
-            self.logger = get_logger(self.__class__.__name__)
+            logger = get_logger(cls.__class__.__name__)
         if not isinstance(lines, geopandas.GeoSeries):
             raise ValueError('lines must be a GeoSeries')
         elif len(lines) == 0:
             raise ValueError('one or more lines are required')
         elif not (lines.geom_type == 'LineString').all():
             raise ValueError('lines must all be LineString types')
+        logger.info('creating %s with %d lines',
+                    cls.__class__.__name__, len(lines))
         # Create a new GeoDataFrame with a copy of line's geometry
-        self.segments = geopandas.GeoDataFrame(geometry=lines)
-        self.logger.info('creating network with %d segments', len(self))
+        segments = geopandas.GeoDataFrame(geometry=lines)
         if not (polygons is None or isinstance(polygons, geopandas.GeoSeries)):
             raise ValueError('polygons must be a GeoSeries or None')
         if polygons is not None:
@@ -94,25 +128,27 @@ class SurfaceWaterNetwork(object):
                     not (polygons.index == lines.index).all()):
                 raise ValueError(
                     'polygons.index is different than lines.index')
-        segments_sindex = get_sindex(self.segments)
-        if self.segments.index.min() > 0:
-            self.END_SEGNUM = 0
+        segments_sindex = get_sindex(segments)
+        if segments.index.min() > 0:
+            END_SEGNUM = 0
         else:
-            self.END_SEGNUM = self.segments.index.min() - 1
-        self.segments['to_segnum'] = self.END_SEGNUM
-        self.errors = []
-        self.warnings = []
+            END_SEGNUM = segments.index.min() - 1
+        segments['to_segnum'] = END_SEGNUM
+        obj = cls(segments, END_SEGNUM=END_SEGNUM, logger=logger)
+        del segments, END_SEGNUM, logger  # dereference local copies
+        obj.errors = []
+        obj.warnings = []
         # Cartesian join of segments to find where ends connect to
-        self.logger.debug('finding connections between pairs of segment lines')
-        for segnum1, geom1 in self.segments.geometry.iteritems():
+        obj.logger.debug('finding connections between pairs of segment lines')
+        for segnum1, geom1 in obj.segments.geometry.iteritems():
             end1_coord = geom1.coords[-1]  # downstream end
             end1_coord2d = end1_coord[0:2]
             end1_pt = Point(*end1_coord)
             if segments_sindex:
                 subsel = segments_sindex.intersection(end1_coord2d)
-                sub = self.segments.iloc[sorted(subsel)]
+                sub = obj.segments.iloc[sorted(subsel)]
             else:  # slow scan of all segments
-                sub = self.segments
+                sub = obj.segments
             to_segnums = []
             for segnum2, geom2 in sub.geometry.iteritems():
                 if segnum1 == segnum2:
@@ -125,63 +161,62 @@ class SurfaceWaterNetwork(object):
                     to_segnums.append(segnum2)
                     m = ('end of segment %s matches start of segment %s in '
                          '2D, but not in Z dimension', segnum1, segnum2)
-                    self.logger.warning(*m)
-                    self.warnings.append(m[0] % m[1:])
+                    obj.logger.warning(*m)
+                    obj.warnings.append(m[0] % m[1:])
                 elif (geom2.distance(end1_pt) < 1e-6 and
                       Point(*end2_coord).distance(end1_pt) > 1e-6):
                     m = ('segment %s connects to the middle of segment %s',
                          segnum1, segnum2)
-                    self.logger.error(*m)
-                    self.errors.append(m[0] % m[1:])
+                    obj.logger.error(*m)
+                    obj.errors.append(m[0] % m[1:])
             if len(to_segnums) > 1:
                 m = ('segment %s has more than one downstream segments: %s',
                      segnum1, str(to_segnums))
-                self.logger.error(*m)
-                self.errors.append(m[0] % m[1:])
+                obj.logger.error(*m)
+                obj.errors.append(m[0] % m[1:])
             if len(to_segnums) > 0:
                 # do not diverge flow; only flow to one downstream segment
-                self.segments.at[segnum1, 'to_segnum'] = to_segnums[0]
+                obj.segments.at[segnum1, 'to_segnum'] = to_segnums[0]
         # Store from_segnums list to segments GeoDataFrame
-        self.segments['from_segnums'] = None
-        from_segnums = self.from_segnums
+        obj.segments['from_segnums'] = None
+        from_segnums = obj.from_segnums
         for k, v in from_segnums.items():
-            self.segments.at[k, 'from_segnums'] = v
-        outlets = self.outlets
-        self.logger.debug('evaluating segments upstream from %d outlet%s',
-                          len(outlets), 's' if len(outlets) != 1 else '')
-        self.segments['cat_group'] = self.END_SEGNUM
-        self.segments['num_to_outlet'] = 0
-        self.segments['dist_to_outlet'] = 0.0
+            obj.segments.at[k, 'from_segnums'] = v
+        outlets = obj.outlets
+        obj.logger.debug('evaluating segments upstream from %d outlet%s',
+                         len(outlets), 's' if len(outlets) != 1 else '')
+        obj.segments['cat_group'] = obj.END_SEGNUM
+        obj.segments['num_to_outlet'] = 0
+        obj.segments['dist_to_outlet'] = 0.0
 
         # Recursive function that accumulates information upstream
         def resurse_upstream(segnum, cat_group, num, dist):
-            self.segments.at[segnum, 'cat_group'] = cat_group
+            obj.segments.at[segnum, 'cat_group'] = cat_group
             num += 1
-            self.segments.at[segnum, 'num_to_outlet'] = num
-            dist += self.segments.geometry[segnum].length
-            self.segments.at[segnum, 'dist_to_outlet'] = dist
+            obj.segments.at[segnum, 'num_to_outlet'] = num
+            dist += obj.segments.geometry[segnum].length
+            obj.segments.at[segnum, 'dist_to_outlet'] = dist
             # Branch to zero or more upstream segments
             for from_segnum in from_segnums.get(segnum, []):
                 resurse_upstream(from_segnum, cat_group, num, dist)
 
-        for segnum in self.segments.loc[outlets].index:
+        for segnum in obj.segments.loc[outlets].index:
             resurse_upstream(segnum, segnum, 0, 0.0)
 
         # Check to see if headwater and outlets have common locations
-        headwater = self.headwater
-        self.logger.debug(
+        headwater = obj.headwater
+        obj.logger.debug(
             'checking %d headwater segments and %d outlet segments',
             len(headwater), len(outlets))
         start_coords = {}  # key: 2D coord, value: list of segment numbers
-        for segnum1, geom1 in self.\
-                segments.loc[headwater].geometry.iteritems():
+        for segnum1, geom1 in obj.segments.loc[headwater].geometry.iteritems():
             start1_coord = geom1.coords[0]
             start1_coord2d = start1_coord[0:2]
             if segments_sindex:
                 subsel = segments_sindex.intersection(start1_coord2d)
-                sub = self.segments.iloc[sorted(subsel)]
+                sub = obj.segments.iloc[sorted(subsel)]
             else:  # slow scan of all segments
-                sub = self.segments
+                sub = obj.segments
             for segnum2, geom2 in sub.geometry.iteritems():
                 if segnum1 == segnum2:
                     continue
@@ -193,8 +228,8 @@ class SurfaceWaterNetwork(object):
                     match = True
                     m = ('starting segment %s matches start of segment %s in '
                          '2D, but not in Z dimension', segnum1, segnum2)
-                    self.logger.warning(*m)
-                    self.warnings.append(m[0] % m[1:])
+                    obj.logger.warning(*m)
+                    obj.warnings.append(m[0] % m[1:])
                 if match:
                     if start1_coord2d in start_coords:
                         start_coords[start1_coord2d].add(segnum2)
@@ -204,18 +239,18 @@ class SurfaceWaterNetwork(object):
             v = start_coords[key]
             m = ('starting coordinate %s matches start segment%s: %s',
                  key, 's' if len(v) != 1 else '', v)
-            self.logger.error(*m)
-            self.errors.append(m[0] % m[1:])
+            obj.logger.error(*m)
+            obj.errors.append(m[0] % m[1:])
 
         end_coords = {}  # key: 2D coord, value: list of segment numbers
-        for segnum1, geom1 in self.segments.loc[outlets].geometry.iteritems():
+        for segnum1, geom1 in obj.segments.loc[outlets].geometry.iteritems():
             end1_coord = geom1.coords[-1]
             end1_coord2d = end1_coord[0:2]
             if segments_sindex:
                 subsel = segments_sindex.intersection(end1_coord2d)
-                sub = self.segments.iloc[sorted(subsel)]
+                sub = obj.segments.iloc[sorted(subsel)]
             else:  # slow scan of all segments
-                sub = self.segments
+                sub = obj.segments
             for segnum2, geom2 in sub.geometry.iteritems():
                 if segnum1 == segnum2:
                     continue
@@ -227,8 +262,8 @@ class SurfaceWaterNetwork(object):
                     match = True
                     m = ('ending segment %s matches end of segment %s in 2D, '
                          'but not in Z dimension', segnum1, segnum2)
-                    self.logger.warning(*m)
-                    self.warnings.append(m[0] % m[1:])
+                    obj.logger.warning(*m)
+                    obj.warnings.append(m[0] % m[1:])
                 if match:
                     if end1_coord2d in end_coords:
                         end_coords[end1_coord2d].add(segnum2)
@@ -238,53 +273,54 @@ class SurfaceWaterNetwork(object):
             v = end_coords[key]
             m = ('ending coordinate %s matches end segment%s: %s',
                  key, 's' if len(v) != 1 else '', v)
-            self.logger.warning(*m)
-            self.warnings.append(m[0] % m[1:])
+            obj.logger.warning(*m)
+            obj.warnings.append(m[0] % m[1:])
 
-        self.logger.debug('evaluating downstream sequence')
-        self.segments['sequence'] = 0
-        self.segments['stream_order'] = 0
-        # self.segments['numiter'] = 0  # should be same as stream_order
+        obj.logger.debug('evaluating downstream sequence')
+        obj.segments['sequence'] = 0
+        obj.segments['stream_order'] = 0
+        # obj.segments['numiter'] = 0  # should be same as stream_order
         # Sort headwater segments from the furthest from outlet to closest
         search_order = ['num_to_outlet', 'dist_to_outlet']
-        furthest_upstream = self.segments.loc[headwater]\
+        furthest_upstream = obj.segments.loc[headwater]\
             .sort_values(search_order, ascending=False).index
         sequence = pd.Series(
             np.arange(len(furthest_upstream)) + 1, index=furthest_upstream)
-        self.segments.loc[sequence.index, 'sequence'] = sequence
-        self.segments.loc[sequence.index, 'stream_order'] = 1
+        obj.segments.loc[sequence.index, 'sequence'] = sequence
+        obj.segments.loc[sequence.index, 'stream_order'] = 1
         completed = set(headwater)
         sequence = int(sequence.max())
-        for numiter in range(1, self.segments['num_to_outlet'].max() + 1):
+        for numiter in range(1, obj.segments['num_to_outlet'].max() + 1):
             # Gather segments downstream from completed upstream set
             downstream = set(
-                self.segments.loc[completed, 'to_segnum'])\
-                .difference(completed.union([self.END_SEGNUM]))
+                obj.segments.loc[completed, 'to_segnum'])\
+                .difference(completed.union([obj.END_SEGNUM]))
             # Sort them to evaluate the furthest first
-            downstream_sorted = self.segments.loc[downstream]\
+            downstream_sorted = obj.segments.loc[downstream]\
                 .sort_values(search_order, ascending=False).index
             for segnum in downstream_sorted:
                 if from_segnums[segnum].issubset(completed):
                     sequence += 1
-                    self.segments.at[segnum, 'sequence'] = sequence
+                    obj.segments.at[segnum, 'sequence'] = sequence
                     # self.segments.at[segnum, 'numiter'] = numiter
                     # See Strahler stream order definition
                     up_ord = list(
-                        self.segments.loc[
+                        obj.segments.loc[
                             list(from_segnums[segnum]), 'stream_order'])
                     max_ord = max(up_ord)
                     if up_ord.count(max_ord) > 1:
-                        self.segments.at[segnum, 'stream_order'] = max_ord + 1
+                        obj.segments.at[segnum, 'stream_order'] = max_ord + 1
                     else:
-                        self.segments.at[segnum, 'stream_order'] = max_ord
+                        obj.segments.at[segnum, 'stream_order'] = max_ord
                     completed.add(segnum)
-            if self.segments['sequence'].min() > 0:
+            if obj.segments['sequence'].min() > 0:
                 break
-        self.logger.debug('sequence evaluated with %d iterations', numiter)
+        obj.logger.debug('sequence evaluated with %d iterations', numiter)
         # Don't do this: self.segments.sort_values('sequence', inplace=True)
-        self.evaluate_upstream_length()
+        obj.evaluate_upstream_length()
         if polygons is not None:
-            self.catchments = polygons.copy()
+            obj.catchments = polygons.copy()
+        return obj
 
     def __repr__(self):
         """Return string representation of surface water network."""
@@ -404,11 +440,13 @@ class SurfaceWaterNetwork(object):
     @catchments.setter
     def catchments(self, value):
         if value is None:
-            delattr(self, '_catchments')
+            if hasattr(self, '_catchments'):
+                delattr(self, '_catchments')
             return
         elif not isinstance(value, geopandas.GeoSeries):
             raise ValueError(
-                'catchments must be a GeoSeries or None')
+                'catchments must be a GeoSeries or None; found {!r}'
+                .format(type(value)))
         segments_index = self.segments.index
         if (len(value.index) != len(segments_index) or
                 not (value.index == segments_index).all()):
@@ -842,7 +880,7 @@ class SurfaceWaterNetwork(object):
             txt = ''
         self.logger.debug('aggregated %d lines%s', len(junctions), txt)
 
-        na = SurfaceWaterNetwork(lines, polygons)
+        na = SurfaceWaterNetwork.from_lines(lines, polygons)
         na.segments['agg_patch'] = agg_patch
         na.segments['agg_path'] = agg_path
         na.segments['agg_unpath'] = agg_unpath

@@ -52,7 +52,7 @@ lines.set_index('nzsegment', inplace=True, verify_integrity=True)  # optional
 
 Initialise and create network:
 ```python
-n = swn.SurfaceWaterNetwork(lines.geometry)
+n = swn.SurfaceWaterNetwork.from_lines(lines.geometry)
 print(n)
 # <SurfaceWaterNetwork: with Z coordinates
 #   304 segments: [3046409, 3046455, ..., 3050338, 3050418]

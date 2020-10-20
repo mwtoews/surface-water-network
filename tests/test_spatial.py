@@ -110,7 +110,7 @@ def test_find_segnum_in_swn_only_lines(coastal_swn):
 
 def test_find_segnum_in_swn_with_catchments(
         coastal_lines_gdf, coastal_polygons_gdf):
-    n = SurfaceWaterNetwork(
+    n = SurfaceWaterNetwork.from_lines(
         coastal_lines_gdf.geometry, coastal_polygons_gdf.geometry)
     # querey tuple
     r = spatial.find_segnum_in_swn(n, (1811503.1, 5874071.2))

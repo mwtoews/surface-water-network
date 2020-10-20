@@ -33,16 +33,23 @@ valid_polygons = wkt_to_geoseries([
 
 @pytest.fixture
 def valid_n():
-    return swn.SurfaceWaterNetwork(valid_lines)
+    return swn.SurfaceWaterNetwork.from_lines(valid_lines)
 
 
 def test_init_errors():
-    with pytest.raises(ValueError, match='lines must be a GeoSeries'):
+    with pytest.raises(ValueError, match='segments must be a GeoDataFrame'):
         swn.SurfaceWaterNetwork(object())
-    with pytest.raises(ValueError, match='lines must be a GeoSeries'):
+    with pytest.raises(ValueError, match='segments must be a GeoDataFrame'):
         swn.SurfaceWaterNetwork(valid_df)
+
+
+def test_from_lines_errors():
+    with pytest.raises(ValueError, match='lines must be a GeoSeries'):
+        swn.SurfaceWaterNetwork.from_lines(object())
+    with pytest.raises(ValueError, match='lines must be a GeoSeries'):
+        swn.SurfaceWaterNetwork.from_lines(valid_df)
     with pytest.raises(ValueError, match='one or more lines are required'):
-        swn.SurfaceWaterNetwork(valid_lines[0:0])
+        swn.SurfaceWaterNetwork.from_lines(valid_lines[0:0])
 
 
 def test_init_geom_type():
@@ -50,7 +57,7 @@ def test_init_geom_type():
     wkt_list[1] = 'MULTILINESTRING Z ((70 130 15, 60 100 14))'
     lines = wkt_to_geoseries(wkt_list)
     with pytest.raises(ValueError, match='lines must all be LineString types'):
-        swn.SurfaceWaterNetwork(lines)
+        swn.SurfaceWaterNetwork.from_lines(lines)
 
 
 def test_init_defaults(valid_n):
@@ -94,7 +101,7 @@ def test_init_defaults(valid_n):
 
 def test_init_2D_geom():
     lines = force_2d(valid_lines)
-    n = swn.SurfaceWaterNetwork(lines)
+    n = swn.SurfaceWaterNetwork.from_lines(lines)
     assert len(n.warnings) == 0
     assert len(n.errors) == 0
     assert len(n) == 3
@@ -129,7 +136,7 @@ def test_init_mismatch_3D():
         'LINESTRING Z (60 100 14, 60  80 12)',
         'LINESTRING Z (40 130 15, 60 100 13)',
     ])
-    n = swn.SurfaceWaterNetwork(lines)
+    n = swn.SurfaceWaterNetwork.from_lines(lines)
     assert len(n.warnings) == 1
     assert n.warnings[0] == \
         'end of segment 2 matches start of segment 1 in 2D, but not in '\
@@ -152,7 +159,7 @@ def test_init_mismatch_3D():
 def test_init_reversed_lines():
     # same as the working lines, but reversed in the opposite direction
     lines = valid_lines.geometry.apply(lambda x: LineString(x.coords[::-1]))
-    n = swn.SurfaceWaterNetwork(lines)
+    n = swn.SurfaceWaterNetwork.from_lines(lines)
     assert len(n.warnings) == 0
     assert len(n.errors) == 2
     assert n.errors[0] == \
@@ -195,7 +202,7 @@ def test_init_all_converge():
         'LINESTRING Z (70 130 14, 60 100 14)',
         'LINESTRING Z (60  80 12, 60 100 14)',
     ])
-    n = swn.SurfaceWaterNetwork(lines)
+    n = swn.SurfaceWaterNetwork.from_lines(lines)
     assert len(n.warnings) == 5
     assert n.warnings[0] == \
         'ending segment 0 matches end of segment 1 '\
@@ -238,7 +245,7 @@ def test_init_all_diverge():
         'LINESTRING Z (60 100 16, 70 130 14)',
         'LINESTRING Z (60 100 15, 60  80 12)',
     ])
-    n = swn.SurfaceWaterNetwork(lines)
+    n = swn.SurfaceWaterNetwork.from_lines(lines)
     assert len(n.warnings) == 4
     assert n.warnings[0] == \
         'starting segment 0 matches start of segment 1 in 2D, '\
@@ -279,7 +286,7 @@ def test_init_line_connects_to_middle():
         'LINESTRING Z (40 130 15, 60 100 14, 60 80 12)',
         'LINESTRING Z (70 130 15, 60 100 14)',
     ])
-    n = swn.SurfaceWaterNetwork(lines)
+    n = swn.SurfaceWaterNetwork.from_lines(lines)
     assert len(n.warnings) == 0
     assert len(n.errors) == 1
     assert n.errors[0] == 'segment 1 connects to the middle of segment 0'
@@ -312,7 +319,7 @@ def test_init_line_connects_to_middle():
 
 def test_init_geoseries():
     gs = wkt_to_geoseries(valid_lines_list, geom_name='foo')
-    n = swn.SurfaceWaterNetwork(gs)
+    n = swn.SurfaceWaterNetwork.from_lines(gs)
     assert len(n.warnings) == 0
     assert len(n.errors) == 0
     assert len(n) == 3
@@ -352,7 +359,7 @@ def test_init_polygons():
     expected_upstream_area = [2200.0, 875.0, 525.0]
     expected_upstream_width = [1.4615, 1.4457, 1.4397]
     # from GeoSeries
-    n = swn.SurfaceWaterNetwork(valid_lines, valid_polygons)
+    n = swn.SurfaceWaterNetwork.from_lines(valid_lines, valid_polygons)
     assert n.catchments is not None
     np.testing.assert_array_almost_equal(n.catchments.area, expected_area)
     np.testing.assert_array_almost_equal(
@@ -360,7 +367,7 @@ def test_init_polygons():
     np.testing.assert_array_almost_equal(
             n.segments['width'], expected_upstream_width, 4)
     # from GeoDataFrame
-    n = swn.SurfaceWaterNetwork(valid_lines, valid_polygons)
+    n = swn.SurfaceWaterNetwork.from_lines(valid_lines, valid_polygons)
     assert n.catchments is not None
     np.testing.assert_array_almost_equal(n.catchments.area, expected_area)
     np.testing.assert_array_almost_equal(
@@ -383,12 +390,12 @@ def test_init_polygons():
     with pytest.raises(
             ValueError,
             match='polygons must be a GeoSeries or None'):
-        swn.SurfaceWaterNetwork(valid_lines, 1.0)
+        swn.SurfaceWaterNetwork.from_lines(valid_lines, 1.0)
 
 
 def test_catchments_property():
     # also vary previous test with 2D lines
-    n = swn.SurfaceWaterNetwork(force_2d(valid_lines))
+    n = swn.SurfaceWaterNetwork.from_lines(force_2d(valid_lines))
     assert n.catchments is None
     n.catchments = valid_polygons
     assert n.catchments is not None
@@ -422,7 +429,7 @@ def test_catchments_property():
 
 
 def test_set_diversions_geodataframe():
-    n = swn.SurfaceWaterNetwork(valid_lines)
+    n = swn.SurfaceWaterNetwork.from_lines(valid_lines)
     diversions = geopandas.GeoDataFrame(geometry=[
         Point(58, 97), Point(62, 97), Point(61, 89), Point(59, 89)])
     # check errors
@@ -494,7 +501,7 @@ def test_set_diversions_geodataframe():
 
 
 def test_set_diversions_dataframe():
-    n = swn.SurfaceWaterNetwork(valid_lines)
+    n = swn.SurfaceWaterNetwork.from_lines(valid_lines)
     diversions = pd.DataFrame({'from_segnum': [0, 2]})
     # check errors
     with pytest.raises(
@@ -534,7 +541,7 @@ def test_set_diversions_dataframe():
 
 
 def test_estimate_width():
-    n = swn.SurfaceWaterNetwork(valid_lines, valid_polygons)
+    n = swn.SurfaceWaterNetwork.from_lines(valid_lines, valid_polygons)
     # defaults
     np.testing.assert_array_almost_equal(
             n.segments['width'], [1.4615, 1.4457, 1.4397], 4)
@@ -559,7 +566,7 @@ def test_estimate_width():
     np.testing.assert_array_almost_equal(
             n.segments['width'], [1.4615, 1.4457, 1.4397], 4)
     # based on a column, where upstream_area is not available
-    n2 = swn.SurfaceWaterNetwork(valid_lines)
+    n2 = swn.SurfaceWaterNetwork.from_lines(valid_lines)
     assert 'width' not in n2.segments.columns
     assert 'upstream_area' not in n2.segments.columns
     n2.segments['foo_upstream'] = n2.segments['upstream_length'] * 25
@@ -623,7 +630,7 @@ def test_segment_series(valid_n):
 
 def test_outlet_series():
     # make a network with outlet on index 2
-    n = swn.SurfaceWaterNetwork(wkt_to_geoseries([
+    n = swn.SurfaceWaterNetwork.from_lines(wkt_to_geoseries([
         'LINESTRING Z (40 130 15, 60 100 14)',
         'LINESTRING Z (70 130 15, 60 100 14)',
         'LINESTRING Z (60 100 14, 60  80 12)',
@@ -752,7 +759,7 @@ def test_pair_segment_values(valid_n):
 
 
 def test_remove_condition():
-    n = swn.SurfaceWaterNetwork(valid_lines, valid_polygons)
+    n = swn.SurfaceWaterNetwork.from_lines(valid_lines, valid_polygons)
     assert len(n) == 3
     # manually copy these, to compare later
     n.segments['orig_upstream_length'] = n.segments['upstream_length']
@@ -789,7 +796,7 @@ def test_remove_condition():
 
 
 def test_remove_segnums():
-    n = swn.SurfaceWaterNetwork(valid_lines)
+    n = swn.SurfaceWaterNetwork.from_lines(valid_lines)
     assert len(n) == 3
     n.remove(segnums=[1])
     assert len(n) == 2
@@ -797,7 +804,7 @@ def test_remove_segnums():
     assert list(n.segments.index) == [0, 2]
     assert n.segments.at[0, 'from_segnums'] == set([1, 2])
     # repeats are ok
-    n = swn.SurfaceWaterNetwork(valid_lines)
+    n = swn.SurfaceWaterNetwork.from_lines(valid_lines)
     n.remove(segnums=[1, 2, 1])
     assert len(n) == 1
     assert len(n.segments) == 1
@@ -837,7 +844,7 @@ MULTILINESTRING(
 
 @pytest.fixture
 def fluss_n():
-    return swn.SurfaceWaterNetwork(fluss_gs)
+    return swn.SurfaceWaterNetwork.from_lines(fluss_gs)
 
 
 def test_fluss_n(fluss_n):
@@ -1022,7 +1029,7 @@ def test_adjust_elevation_profile_errors(valid_n):
             match='min_slope must be greater than zero'):
         valid_n.adjust_elevation_profile(0.0)
 
-    n2d = swn.SurfaceWaterNetwork(force_2d(valid_lines))
+    n2d = swn.SurfaceWaterNetwork.from_lines(force_2d(valid_lines))
     with pytest.raises(
             AttributeError,
             match='line geometry does not have Z dimension'):
@@ -1047,7 +1054,7 @@ def test_adjust_elevation_profile_min_slope_series(valid_n):
 
 def test_adjust_elevation_profile_no_change():
     lines = wkt_to_geoseries(['LINESTRING Z (0 0 8, 1 0 7, 2 0 6)'])
-    n = swn.SurfaceWaterNetwork(lines)
+    n = swn.SurfaceWaterNetwork.from_lines(lines)
     n.adjust_elevation_profile()
     assert len(n.messages) == 0
     assert (lines == n.segments.geometry).all()
@@ -1057,7 +1064,7 @@ def test_adjust_elevation_profile_no_change():
 
 def test_adjust_elevation_profile_use_min_slope():
     lines = wkt_to_geoseries(['LINESTRING Z (0 0 8, 1 0 9)'])
-    n = swn.SurfaceWaterNetwork(lines)
+    n = swn.SurfaceWaterNetwork.from_lines(lines)
     n.adjust_elevation_profile()
     n.profiles = round_coords(n.profiles)
     n.segments.geometry = round_coords(n.segments.geometry)
@@ -1070,7 +1077,7 @@ def test_adjust_elevation_profile_use_min_slope():
     assert (n.profiles == expected_profiles).all()
 
     lines = wkt_to_geoseries(['LINESTRING Z (0 0 8, 1 0 9, 2 0 6)'])
-    n = swn.SurfaceWaterNetwork(lines)
+    n = swn.SurfaceWaterNetwork.from_lines(lines)
     n.adjust_elevation_profile(0.1)
     assert len(n.messages) == 1
     assert n.messages[0] == \
@@ -1081,7 +1088,7 @@ def test_adjust_elevation_profile_use_min_slope():
     assert (n.profiles == expected_profiles).all()
 
     lines = wkt_to_geoseries(['LINESTRING Z (0 0 8, 1 0 5, 2 0 6, 3 0 5)'])
-    n = swn.SurfaceWaterNetwork(lines)
+    n = swn.SurfaceWaterNetwork.from_lines(lines)
     n.adjust_elevation_profile(0.2)
     assert len(n.messages) == 1
     assert n.messages[0] == \
