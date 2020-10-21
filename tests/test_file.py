@@ -3,6 +3,7 @@ import geopandas
 import numpy as np
 import os
 import pandas as pd
+import pickle
 from shapely.geometry import Point
 
 import pytest
@@ -50,10 +51,12 @@ def test_topnet2ts(coastal_flow_ts):
 
 
 def test_pickle(tmp_path):
+    # use pickle dumps / loads methods
     n1 = swn.SurfaceWaterNetwork.from_lines(n3d_lines)
-    n1.to_pickle(tmp_path / "n2.pickle")
-    n2 = swn.SurfaceWaterNetwork.from_pickle(tmp_path / "n2.pickle")
+    data = pickle.dumps(n1)
+    n2 = pickle.loads(data)
     assert n1 == n2
+    # use to_pickle / from_pickle methods
     n3 = swn.SurfaceWaterNetwork.from_lines(n3d_lines, valid_polygons)
     n3.to_pickle(tmp_path / "n4.pickle")
     n4 = swn.SurfaceWaterNetwork.from_pickle(tmp_path / "n4.pickle")

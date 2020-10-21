@@ -4,12 +4,12 @@ import geopandas
 import numpy as np
 import pandas as pd
 import pickle
+from itertools import zip_longest
 from math import sqrt
 from shapely.geometry import LineString, Point
 from shapely.ops import cascaded_union, linemerge
 from textwrap import dedent
 
-from swn.logger import get_logger
 from swn.spatial import get_sindex
 from swn.util import abbr_str
 
@@ -76,10 +76,14 @@ class SurfaceWaterNetwork(object):
             Logger to show messages.
 
         """
+        from swn.logger import get_logger, logging
         if logger is None:
             self.logger = get_logger(self.__class__.__name__)
-        else:
+        elif isinstance(logger, logging.Logger):
             self.logger = logger
+        else:
+            raise ValueError(
+                "expected 'logger' to be Logger; found " + str(type(logger)))
         self.logger.info('creating new %s object', self.__class__.__name__)
         if not isinstance(segments, geopandas.GeoDataFrame):
             raise ValueError(
@@ -93,7 +97,7 @@ class SurfaceWaterNetwork(object):
         # all other properties added afterwards
 
     @classmethod
-    def from_lines(cls, lines, polygons=None, logger=None):
+    def from_lines(cls, lines, polygons=None):
         """
         Create and evaluate a new SurfaceWaterNetwork from lines for segments.
 
@@ -106,20 +110,14 @@ class SurfaceWaterNetwork(object):
         polygons : geopandas.GeoSeries, optional
             Optional input polygons of surface water catchments. Geometries
             must be 'POLYGON'. Index must be the same as segments.index.
-        logger : logging.Logger, optional
-            Logger to show messages.
 
         """
-        if logger is None:
-            logger = get_logger(cls.__class__.__name__)
         if not isinstance(lines, geopandas.GeoSeries):
             raise ValueError('lines must be a GeoSeries')
         elif len(lines) == 0:
             raise ValueError('one or more lines are required')
         elif not (lines.geom_type == 'LineString').all():
             raise ValueError('lines must all be LineString types')
-        logger.info('creating %s with %d lines',
-                    cls.__class__.__name__, len(lines))
         # Create a new GeoDataFrame with a copy of line's geometry
         segments = geopandas.GeoDataFrame(geometry=lines)
         if not (polygons is None or isinstance(polygons, geopandas.GeoSeries)):
@@ -135,8 +133,8 @@ class SurfaceWaterNetwork(object):
         else:
             END_SEGNUM = segments.index.min() - 1
         segments['to_segnum'] = END_SEGNUM
-        obj = cls(segments=segments, END_SEGNUM=END_SEGNUM, logger=logger)
-        del segments, END_SEGNUM, logger  # dereference local copies
+        obj = cls(segments=segments, END_SEGNUM=END_SEGNUM)
+        del segments, END_SEGNUM  # dereference local copies
         obj.errors = []
         obj.warnings = []
         # Cartesian join of segments to find where ends connect to
@@ -360,21 +358,55 @@ class SurfaceWaterNetwork(object):
 
     def __eq__(self, other):
         """Return true if objects are equal."""
-        if self.__class__.__name__ != other.__class__.__name__:
-            return False
-        if self.END_SEGNUM != other.END_SEGNUM:
-            return False
         try:
-            pd.testing.assert_frame_equal(self.segments, other.segments)
-            if self.catchments is not None or other.catchments is not None:
-                pd.testing.assert_series_equal(
-                    self.catchments, other.catchments)
-            if self.diversions is not None or other.diversions is not None:
-                pd.testing.assert_frame_equal(
-                    self.diversions, other.diversions)
-        except AssertionError:
+            for (ak, av), (bk, bv) in zip_longest(iter(self), iter(other)):
+                if ak != bk:
+                    return False
+                is_none = (av is None, bv is None)
+                if all(is_none):
+                    continue
+                elif any(is_none):
+                    return False
+                elif type(av) != type(bv):
+                    return False
+                elif isinstance(av, pd.DataFrame):
+                    pd.testing.assert_frame_equal(av, bv)
+                elif isinstance(av, pd.Series):
+                    pd.testing.assert_series_equal(av, bv)
+                else:
+                    assert av == bv
+            return True
+        except (AssertionError, TypeError, ValueError):
             return False
-        return True
+
+    def __iter__(self):
+        """Return object datasets with an iterator."""
+        yield "class", self.__class__.__name__
+        yield "segments", self.segments
+        yield "END_SEGNUM", self.END_SEGNUM
+        yield "catchments", self.catchments
+        yield "diversions", self.diversions
+
+    def __getstate__(self):
+        """Serialize object attributes for pickle dumps."""
+        return dict(self)
+
+    def __setstate__(self, state):
+        """Set object attributes from pickle loads."""
+        if not isinstance(state, dict):
+            raise ValueError("expected 'dict'; found {!r}".format(type(state)))
+        elif "class" not in state:
+            raise KeyError("state does not have 'class' key")
+        elif state["class"] != self.__class__.__name__:
+            raise ValueError("expected state class {!r}; found {!r}"
+                             .format(state["class"], self.__class__.__name__))
+        self.__init__(state["segments"], state["END_SEGNUM"])
+        catchments = state["catchments"]
+        if catchments is not None:
+            self.catchments = catchments
+        diversions = state["diversions"]
+        if diversions is not None:
+            self.set_diversions(diversions)
 
     def plot(self, column='stream_order', sort_column='sequence',
              cmap='viridis_r', legend=False):
@@ -1257,14 +1289,8 @@ class SurfaceWaterNetwork(object):
             Default is pickle.HIGHEST_PROTOCOL.
 
         """
-        data = {
-            "segments": self.segments,
-            "END_SEGNUM": self.END_SEGNUM,
-            "catchments": self.catchments,
-            "diversions": self.diversions,
-        }
         with open(path, "wb") as f:
-            pickle.dump(data, f, protocol=protocol)
+            pickle.dump(self, f, protocol=protocol)
 
     @classmethod
     def from_pickle(cls, path):
@@ -1277,12 +1303,5 @@ class SurfaceWaterNetwork(object):
 
         """
         with open(path, "rb") as f:
-            data = pickle.load(f)
-        obj = cls(segments=data["segments"], END_SEGNUM=data["END_SEGNUM"])
-        catchments = data["catchments"]
-        if catchments is not None:
-            obj.catchments = catchments
-        diversions = data["diversions"]
-        if diversions is not None:
-            obj.set_diversions(diversions)
+            obj = pickle.load(f)
         return obj
