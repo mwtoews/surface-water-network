@@ -4,7 +4,8 @@
 import geopandas
 import numpy as np
 import pandas as pd
-from itertools import combinations
+import pickle
+from itertools import combinations, zip_longest
 from shapely import wkt
 from shapely.geometry import LineString, Point, Polygon, box
 from shapely.ops import linemerge
@@ -16,7 +17,6 @@ except ImportError:
     matplotlib = False
 
 from swn.base import SurfaceWaterNetwork
-from swn.logger import get_logger
 from swn.spatial import get_crs, get_sindex, compare_crs, pyproj_ver
 from swn.util import abbr_str
 
@@ -30,45 +30,48 @@ class MfSfrNetwork(object):
         Instance of a flopy MODFLOW model
     segments : geopandas.GeoDataFrame
         Copied from swn.segments, but with additional columns added
-    diversions :  geopandas.GeoDataFrame, pd.DataFrame or None
-        Copied from swn.diversions, if set/defined.
-    reaches : geopandas.GeoDataFrame
-        Similar to structure in model.sfr.reach_data with index 'reachID',
-        ordered and starting from 1. Contains geometry and other columns
-        not used by flopy. Use get_reach_data() for use with flopy.
     segment_data : pandas.DataFrame
         Simialr to structure in model.sfr.segment_data, but for one stress
         period. Transient data (where applicable) will show summary statistics.
         The index is 'nseg', ordered and starting from 1. An additional column
         'segnum' is used to identify segments, and if defined,
         abstraction/diversion identifiers, where iupseg != 0.
+    reaches : geopandas.GeoDataFrame
+        Similar to structure in model.sfr.reach_data with index 'reachID',
+        ordered and starting from 1. Contains geometry and other columns
+        not used by flopy. Use get_reach_data() for use with flopy.
+    diversions :  geopandas.GeoDataFrame, pd.DataFrame or None
+        Copied from swn.diversions, if set/defined.
     logger : logging.Logger
         Logger to show messages.
 
     """
 
-    def __init__(self, model, logger=None):
+    def __init__(self, logger=None):
         """Initialise MfSfrNetwork.
 
         Parameters
         ----------
-        model : flopy.modflow.mf.Modflow
-            Instance of a flopy MODFLOW model with DIS and BAS6 packages.
         logger : logging.Logger, optional
             Logger to show messages.
         """
+        from swn.logger import get_logger, logging
+        from importlib.util import find_spec
         if logger is None:
             self.logger = get_logger(self.__class__.__name__)
-        else:
+        elif isinstance(logger, logging.Logger):
             self.logger = logger
+        else:
+            raise ValueError(
+                "expected 'logger' to be Logger; found " + str(type(logger)))
         self.logger.info('creating new %s object', self.__class__.__name__)
-        try:
-            import flopy
-        except ImportError:
-            raise ImportError('this class requires flopy')
-        if not isinstance(model, flopy.modflow.mf.Modflow):
-            raise ValueError('model must be a flopy Modflow object')
-        self.model = model
+        if not find_spec('flopy'):
+            raise ImportError(self.__class__.__name__ + ' requires flopy')
+        self.model = None
+        self.segments = None
+        self.segment_data = None
+        self.reaches = None
+        self.diversions = None
         # all other properties added afterwards
 
     @classmethod
@@ -77,8 +80,7 @@ class MfSfrNetwork(object):
             reach_include_fraction=0.2, min_slope=1./1000,
             hyd_cond1=1., hyd_cond_out=None, thickness1=1., thickness_out=None,
             width1=10., width_out=None, roughch=0.024,
-            abstraction={}, inflow={}, flow={}, runoff={}, etsw={}, pptsw={},
-            logger=None):
+            abstraction={}, inflow={}, flow={}, runoff={}, etsw={}, pptsw={}):
         """Create a MODFLOW SFR structure from a surface water network.
 
         Parameters
@@ -144,12 +146,8 @@ class MfSfrNetwork(object):
             Logger to show messages.
 
         """
-        if logger is None:
-            logger = get_logger(cls.__class__.__name__)
-        try:
-            import flopy
-        except ImportError:
-            raise ImportError('this class requires flopy')
+        obj = cls()
+        import flopy
         if not isinstance(swn, SurfaceWaterNetwork):
             raise ValueError('swn must be a SurfaceWaterNetwork object')
         elif not isinstance(model, flopy.modflow.mf.Modflow):
@@ -160,8 +158,7 @@ class MfSfrNetwork(object):
             raise ValueError('DIS package required')
         elif not model.has_package('BAS6'):
             raise ValueError('BAS6 package required')
-        obj = cls(model=model, logger=logger)
-        del model, logger  # dereference local copies
+        obj.model = model
         obj.segments = swn.segments.copy()
         # Make sure model CRS and segments CRS are the same (if defined)
         crs = None
@@ -814,6 +811,62 @@ class MfSfrNetwork(object):
             diversions_line,
             nper, '' if nper == 1 else 's',
             abbr_str(list(self.model.dis.perlen), 4)))
+
+    def __eq__(self, other):
+        """Return true if objects are equal."""
+        import flopy
+        try:
+            for (ak, av), (bk, bv) in zip_longest(iter(self), iter(other)):
+                if ak != bk:
+                    return False
+                is_none = (av is None, bv is None)
+                if all(is_none):
+                    continue
+                elif any(is_none):
+                    return False
+                elif type(av) != type(bv):
+                    return False
+                elif isinstance(av, pd.DataFrame):
+                    pd.testing.assert_frame_equal(av, bv)
+                elif isinstance(av, pd.Series):
+                    pd.testing.assert_series_equal(av, bv)
+                elif isinstance(av, flopy.modflow.mf.Modflow):
+                    # basic test
+                    assert str(av) == str(bv)
+                else:
+                    assert av == bv
+            return True
+        except (AssertionError, TypeError, ValueError):
+            return False
+
+    def __iter__(self):
+        """Return object datasets with an iterator."""
+        yield "class", self.__class__.__name__
+        yield "segments", self.segments
+        yield "segment_data", self.segment_data
+        yield "reaches", self.reaches
+        yield "diversions", self.diversions
+        yield "model", self.model
+
+    def __getstate__(self):
+        """Serialize object attributes for pickle dumps."""
+        return dict(self)
+
+    def __setstate__(self, state):
+        """Set object attributes from pickle loads."""
+        if not isinstance(state, dict):
+            raise ValueError("expected 'dict'; found {!r}".format(type(state)))
+        elif "class" not in state:
+            raise KeyError("state does not have 'class' key")
+        elif state["class"] != self.__class__.__name__:
+            raise ValueError("expected state class {!r}; found {!r}"
+                             .format(state["class"], self.__class__.__name__))
+        self.__init__()
+        self.segments = state["segments"]
+        self.segment_data = state["segment_data"]
+        self.reaches = state["reaches"]
+        self.diversions = state["diversions"]
+        # Note: model must be set outsie of this method
 
     def plot(self, column='iseg',
              cmap='viridis_r', legend=False):
@@ -1735,6 +1788,40 @@ class MfSfrNetwork(object):
         else:
             vbot = None
         return vtop, vbot
+
+    def to_pickle(self, path, protocol=pickle.HIGHEST_PROTOCOL):
+        """Pickle (serialize) non-flopy object data to file.
+
+        Parameters
+        ----------
+        path : str
+            File path where the pickled object will be stored.
+        protocol : int
+            Default is pickle.HIGHEST_PROTOCOL.
+
+        """
+        with open(path, "wb") as f:
+            pickle.dump(self, f, protocol=protocol)
+
+    @classmethod
+    def from_pickle(cls, path, model):
+        """Read a pickled format from a file.
+
+        Parameters
+        ----------
+        path : str
+            File path where the pickled object will be stored.
+        model : flopy.modflow.mf.Modflow
+            Instance of a flopy MODFLOW model.
+
+        """
+        with open(path, "rb") as f:
+            obj = pickle.load(f)
+        import flopy
+        if not isinstance(model, flopy.modflow.mf.Modflow):
+            raise ValueError('model must be a flopy Modflow object')
+        obj.model = model
+        return obj
 
 
 class ModelPlot(object):

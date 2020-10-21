@@ -29,6 +29,7 @@ For faster multi-core `pytest -v -n 2` (with `pytest-xdist`)
 
 ```python
 import geopandas
+import pandas as pd
 import swn
 ```
 
@@ -61,11 +62,14 @@ print(n)
 #   no diversions />
 ```
 
-Plot the network, write a Shapefile:
+Plot the network, write a Shapefile, write and read a SurfaceWaterNetwork file:
 ```python
 n.plot()
 
 swn.file.gdf_to_shapefile(n.segments, 'segments.shp')
+
+n.to_pickle('network.pkl')
+n = swn.SurfaceWaterNetwork.from_pickle('network.pkl')
 ```
 
 Remove segments that meet a condition (stream order), or that are
@@ -77,8 +81,8 @@ n.remove(n.segments.stream_order == 1, segnums=n.query(upstream=3047927))
 Read flow data from a TopNet netCDF file:
 ```python
 
-nc_fname = 'streamq_20170115_20170128_topnet_03046727_strahler1.nc'
-flow = swn.file.topnet2ts(os.path.join(datadir, nc_fname), 'mod_flow')
+nc_path = 'tests/data/streamq_20170115_20170128_topnet_03046727_strahler1.nc'
+flow = swn.file.topnet2ts(nc_path, 'mod_flow')
 # convert from m3/s to m3/day
 flow *= 24 * 60 * 60
 # remove time and truncate to closest day
@@ -97,6 +101,8 @@ import flopy
 
 m = flopy.modflow.Modflow.load('h.nam', model_ws='tests/data', check=False)
 nm = swn.MfSfrNetwork.from_swn_flopy(n, m, inflow=flow_m)
+nm.to_pickle('sfr_network.pkl')
+nm = swn.MfSfrNetwork.from_pickle('sfr_network.pkl', m)
 m.sfr.write_file('file.sfr')
 nm.grid_cells.to_file('grid_cells.shp')
 nm.reaches.to_file('reaches.shp')

@@ -2,6 +2,7 @@
 import geopandas
 import numpy as np
 import pandas as pd
+import pickle
 from hashlib import md5
 from shapely import wkt
 from shapely.geometry import Point
@@ -109,7 +110,7 @@ def read_sfl(sfl_fname, reaches=None):
 
 
 def test_init_errors():
-    with pytest.raises(ValueError, match='must be a flopy Modflow object'):
+    with pytest.raises(ValueError, match="expected 'logger' to be Logger"):
         swn.MfSfrNetwork(object())
 
 
@@ -1596,3 +1597,42 @@ def test_process_flopy_diversion(tmpdir_factory):
     assert (sfl['Qovr'] == 0.0).all()
     assert (sfl['Qprecip'] == 0.0).all()
     assert (sfl['Qet'] == 0.0).all()
+
+
+def test_pickle(tmp_path):
+    # Create a simple MODFLOW model
+    m = flopy.modflow.Modflow(version='mf2005', exe_name='mf2005')
+    top = np.array([
+        [16.0, 15.0],
+        [15.0, 15.0],
+        [14.0, 14.0],
+    ])
+    _ = flopy.modflow.ModflowDis(
+        m, nlay=1, nrow=3, ncol=2, delr=20.0, delc=20.0, top=top, botm=10.0,
+        xul=30.0, yul=130.0)
+    _ = flopy.modflow.ModflowOc(
+        m, stress_period_data={
+            (0, 0): ['print head', 'save head', 'save budget']})
+    _ = flopy.modflow.ModflowBas(m, strt=15.0, stoper=5.0)
+    _ = flopy.modflow.ModflowSip(m)
+    _ = flopy.modflow.ModflowLpf(m, ipakcb=52, laytyp=0, hk=1e-2)
+    _ = flopy.modflow.ModflowRch(m, ipakcb=52, rech=1e-4)
+    gt = swn.modflow.geotransform_from_flopy(m)
+    n = swn.SurfaceWaterNetwork.from_lines(interp_2d_to_3d(n3d_lines, top, gt))
+    n.adjust_elevation_profile()
+    nm1 = swn.MfSfrNetwork.from_swn_flopy(n, m)
+    # use pickle dumps / loads methods
+    data = pickle.dumps(nm1)
+    nm2 = pickle.loads(data)
+    assert nm1 != nm2
+    assert nm2.model is None
+    nm2.model = m
+    assert nm1 == nm2
+    # use to_pickle / from_pickle methods
+    diversions = geopandas.GeoDataFrame(geometry=[
+        Point(58, 97), Point(62, 97), Point(61, 89), Point(59, 89)])
+    n.set_diversions(diversions=diversions)
+    nm3 = swn.MfSfrNetwork.from_swn_flopy(n, m, hyd_cond1=0.0)
+    nm3.to_pickle(tmp_path / "nm4.pickle")
+    nm4 = swn.MfSfrNetwork.from_pickle(tmp_path / "nm4.pickle", m)
+    assert nm3 == nm4
