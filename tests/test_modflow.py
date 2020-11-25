@@ -6,6 +6,7 @@ import pickle
 from hashlib import md5
 from shapely import wkt
 from shapely.geometry import Point
+from shutil import which
 from textwrap import dedent
 
 import pytest
@@ -21,6 +22,15 @@ import swn
 import swn.modflow
 from swn.file import gdf_to_shapefile
 from swn.spatial import interp_2d_to_3d, force_2d, wkt_to_geoseries
+
+mfnwt_exe = which('mfnwt')
+mf2005_exe = which('mf2005')
+requires_mfnwt = pytest.mark.skipif(not mfnwt_exe, reason='requires mfnwt')
+requires_mf2005 = pytest.mark.skipif(not mf2005_exe, reason='requires mf2005')
+if mfnwt_exe is None:
+    mfnwt_exe = 'mfnwt'
+if mf2005_exe is None:
+    mf2005_exe = 'mf2005'
 
 # same valid network used in test_basic
 n3d_lines = wkt_to_geoseries([
@@ -117,25 +127,14 @@ def test_init_errors():
 def test_from_swn_flopy_errors(n3d):
     n = n3d
     n.segments = n.segments.copy()
-    m = flopy.modflow.Modflow(version='mf2005', exe_name='mf2005')
+    m = flopy.modflow.Modflow(version='mf2005', exe_name=mf2005_exe)
+    _ = flopy.modflow.ModflowDis(
+        m, nlay=1, nrow=3, ncol=2, nper=4, delr=20.0, delc=20.0)
 
     with pytest.raises(
             ValueError,
             match='swn must be a SurfaceWaterNetwork object'):
         swn.MfSfrNetwork.from_swn_flopy(object(), m)
-
-    with pytest.raises(
-            ValueError,
-            match=r'model must be a flopy Modflow object'):
-        swn.MfSfrNetwork.from_swn_flopy(n, object())
-
-    with pytest.raises(ValueError, match='DIS package required'):
-        swn.MfSfrNetwork.from_swn_flopy(n, m)
-
-    flopy.modflow.ModflowDis(
-        m, nlay=1, nrow=3, ncol=2, nper=4, delr=20.0, delc=20.0)
-    with pytest.raises(ValueError, match='BAS6 package required'):
-        swn.MfSfrNetwork.from_swn_flopy(n, m)
 
     flopy.modflow.ModflowBas(m)
 
@@ -209,6 +208,7 @@ def test_from_swn_flopy_errors(n3d):
                 pd.TimedeltaIndex(range(4), 'days')))
 
 
+@requires_mf2005
 def test_process_flopy_n3d_defaults(n3d, tmpdir_factory):
     r"""
         .___.___.
@@ -224,7 +224,7 @@ def test_process_flopy_n3d_defaults(n3d, tmpdir_factory):
     """
     outdir = tmpdir_factory.mktemp('n3d')
     # Create a simple MODFLOW model
-    m = flopy.modflow.Modflow(version='mf2005', exe_name='mf2005')
+    m = flopy.modflow.Modflow(version='mf2005', exe_name=mf2005_exe)
     _ = flopy.modflow.ModflowDis(
         m, nlay=1, nrow=3, ncol=2, delr=20.0, delc=20.0, top=15.0, botm=10.0,
         xul=30.0, yul=130.0)
@@ -326,6 +326,40 @@ def test_process_flopy_n3d_defaults(n3d, tmpdir_factory):
                   0.12359641, 0.24412636], np.float32))
 
 
+def test_model_property(n3d):
+    nm = swn.MfSfrNetwork()
+    with pytest.raises(
+            ValueError, match="'model' must be a flopy Modflow object"):
+        nm.model = None
+
+    m = flopy.modflow.Modflow()
+    with pytest.raises(ValueError, match='DIS package required'):
+        nm.model = m
+
+    _ = flopy.modflow.ModflowDis(
+        m, nlay=1, nrow=3, ncol=2, delr=20.0, delc=20.0, top=15.0, botm=10.0,
+        xul=30.0, yul=130.0, start_datetime='2001-02-03')
+
+    with pytest.raises(ValueError, match='BAS6 package required'):
+        nm.model = m
+
+    _ = flopy.modflow.ModflowBas(m, strt=15.0, stoper=5.0)
+
+    # Success!
+    nm.model = m
+
+    pd.testing.assert_index_equal(
+        nm.time_index,
+        pd.DatetimeIndex(['2001-02-03'], dtype='datetime64[ns]'))
+
+    # Swap model with same and with another
+    nm.model = m
+    m2 = flopy.modflow.Modflow()
+    _ = flopy.modflow.ModflowDis(m2)
+    _ = flopy.modflow.ModflowBas(m2)
+    nm.model = m2
+
+
 def test_set_segment_data():
     # Note that set_segment_data is used both internally and externally
     # Create a local swn object to modify
@@ -333,7 +367,7 @@ def test_set_segment_data():
     # manually add outside flow from extra segnums, referenced with inflow
     n3d.segments.at[1, 'from_segnums'] = {3, 4}
     # Create a simple MODFLOW model object (don't write/run)
-    m = flopy.modflow.Modflow(version='mf2005', exe_name='mf2005')
+    m = flopy.modflow.Modflow(version='mf2005', exe_name=mf2005_exe)
     _ = flopy.modflow.ModflowDis(
         m, nlay=1, nrow=3, ncol=2, delr=20.0, delc=20.0, top=15.0, botm=10.0,
         xul=30.0, yul=130.0)
@@ -445,7 +479,7 @@ def test_set_segment_data():
     np.testing.assert_array_almost_equal(sd.width2, [10.0, 10.0, 10.0])
 
     # Use another model with multiple stress periods
-    m = flopy.modflow.Modflow(version='mf2005', exe_name='mf2005')
+    m = flopy.modflow.Modflow(version='mf2005', exe_name=mf2005_exe)
     _ = flopy.modflow.ModflowDis(
         m, nlay=1, nrow=3, ncol=2, nper=4, delr=20.0, delc=20.0,
         top=15.0, botm=10.0, xul=30.0, yul=130.0)
@@ -555,6 +589,7 @@ def test_set_segment_data():
                 pd.TimedeltaIndex(range(4), 'days')))
 
 
+@requires_mf2005
 def test_process_flopy_n3d_vars(tmpdir_factory):
     # Repeat, but with min_slope enforced, and other options
     outdir = tmpdir_factory.mktemp('n3d')
@@ -563,7 +598,7 @@ def test_process_flopy_n3d_vars(tmpdir_factory):
     # manually add outside flow from extra segnums, referenced with inflow
     n3d.segments.at[1, 'from_segnums'] = {3, 4}
     # Create a simple MODFLOW model
-    m = flopy.modflow.Modflow(version='mf2005', exe_name='mf2005')
+    m = flopy.modflow.Modflow(version='mf2005', exe_name=mf2005_exe)
     _ = flopy.modflow.ModflowDis(
         m, nlay=1, nrow=3, ncol=2, delr=20.0, delc=20.0, top=15.0, botm=10.0,
         xul=30.0, yul=130.0)
@@ -658,6 +693,7 @@ def test_process_flopy_n3d_vars(tmpdir_factory):
                   602.95654, 617.21216], np.float32))
 
 
+@requires_mf2005
 def test_process_flopy_n2d_defaults(n2d, tmpdir_factory):
     # similar to 3D version, but getting information from model
     outdir = tmpdir_factory.mktemp('n2d')
@@ -667,7 +703,7 @@ def test_process_flopy_n2d_defaults(n2d, tmpdir_factory):
         [15.0, 15.0],
         [14.0, 14.0],
     ])
-    m = flopy.modflow.Modflow(version='mf2005', exe_name='mf2005')
+    m = flopy.modflow.Modflow(version='mf2005', exe_name=mf2005_exe)
     flopy.modflow.ModflowDis(
         m, nlay=1, nrow=3, ncol=2, delr=20.0, delc=20.0, top=top, botm=10.0,
         xul=30.0, yul=130.0)
@@ -723,6 +759,7 @@ def test_process_flopy_n2d_defaults(n2d, tmpdir_factory):
     gdf_to_shapefile(nm.segments, outdir.join('segments.shp'))
 
 
+@requires_mf2005
 def test_process_flopy_n2d_min_slope(n2d, tmpdir_factory):
     outdir = tmpdir_factory.mktemp('n2d')
     # Create a simple MODFLOW model
@@ -731,7 +768,7 @@ def test_process_flopy_n2d_min_slope(n2d, tmpdir_factory):
         [15.0, 15.0],
         [14.0, 14.0],
     ])
-    m = flopy.modflow.Modflow(version='mf2005', exe_name='mf2005')
+    m = flopy.modflow.Modflow(version='mf2005', exe_name=mf2005_exe)
     _ = flopy.modflow.ModflowDis(
         m, nlay=1, nrow=3, ncol=2, delr=20.0, delc=20.0, top=top, botm=10.0,
         xul=30.0, yul=130.0)
@@ -773,6 +810,7 @@ def test_process_flopy_n2d_min_slope(n2d, tmpdir_factory):
     gdf_to_shapefile(nm.segments, outdir.join('segments.shp'))
 
 
+@requires_mf2005
 def test_process_flopy_interp_2d_to_3d(tmpdir_factory):
     # similar to 3D version, but getting information from model
     outdir = tmpdir_factory.mktemp('interp_2d_to_3d')
@@ -782,7 +820,7 @@ def test_process_flopy_interp_2d_to_3d(tmpdir_factory):
         [15.0, 15.0],
         [14.0, 14.0],
     ])
-    m = flopy.modflow.Modflow(version='mf2005', exe_name='mf2005')
+    m = flopy.modflow.Modflow(version='mf2005', exe_name=mf2005_exe)
     flopy.modflow.ModflowDis(
         m, nlay=1, nrow=3, ncol=2, delr=20.0, delc=20.0, top=top, botm=10.0,
         xul=30.0, yul=130.0)
@@ -854,6 +892,7 @@ def test_process_flopy_interp_2d_to_3d(tmpdir_factory):
                   14.501283, 24.000378], np.float32))
 
 
+@requires_mf2005
 def test_set_elevations(n2d, tmpdir_factory):
     # similar to 3D version, but getting information from model
     outdir = tmpdir_factory.mktemp('n2d')
@@ -863,7 +902,7 @@ def test_set_elevations(n2d, tmpdir_factory):
         [15.0, 15.0],
         [14.0, 14.0],
     ])
-    m = flopy.modflow.Modflow(version='mf2005', exe_name='mf2005')
+    m = flopy.modflow.Modflow(version='mf2005', exe_name=mf2005_exe)
     _ = flopy.modflow.ModflowDis(
         m, nlay=1, nrow=3, ncol=2, delr=20.0, delc=20.0, top=top, botm=10.0,
         xul=30.0, yul=130.0)
@@ -965,7 +1004,7 @@ def test_reach_barely_outside_ibound():
         'LINESTRING (15 125, 70 90, 120 120, 130 90, '
         '150 110, 180 90, 190 110, 290 80)'
     ]))
-    m = flopy.modflow.Modflow(version='mf2005', exe_name='mf2005')
+    m = flopy.modflow.Modflow(version='mf2005', exe_name=mf2005_exe)
     flopy.modflow.ModflowDis(
         m, nrow=2, ncol=3, delr=100.0, delc=100.0, xul=0.0, yul=200.0)
     flopy.modflow.ModflowBas(m, ibound=np.array([[1, 1, 1], [0, 0, 0]]))
@@ -1006,12 +1045,13 @@ def check_number_sum_hex(a, n, h):
     assert ah.startswith(h), '{0} does not start with {1}'.format(ah, h)
 
 
+@requires_mfnwt
 def test_coastal_process_flopy(tmpdir_factory,
                                coastal_lines_gdf, coastal_flow_m):
     outdir = tmpdir_factory.mktemp('coastal')
     # Load a MODFLOW model
     m = flopy.modflow.Modflow.load(
-        'h.nam', version='mfnwt', exe_name='mfnwt', model_ws=datadir,
+        'h.nam', version='mfnwt', exe_name=mfnwt_exe, model_ws=datadir,
         check=False)
     m.model_ws = str(outdir)
     # this model works without SFR
@@ -1135,11 +1175,12 @@ def test_coastal_process_flopy(tmpdir_factory,
     gdf_to_shapefile(nm.segments, outdir.join('segments.shp'))
 
 
+@requires_mfnwt
 def test_coastal_elevations(coastal_swn, coastal_flow_m, tmpdir_factory):
     outdir = tmpdir_factory.mktemp('coastal')
     # Load a MODFLOW model
     m = flopy.modflow.Modflow.load(
-        'h.nam', version='mfnwt', exe_name='mfnwt', model_ws=datadir,
+        'h.nam', version='mfnwt', exe_name=mfnwt_exe, model_ws=datadir,
         check=False)
     m.model_ws = str(outdir)
     nm = swn.MfSfrNetwork.from_swn_flopy(coastal_swn, m, inflow=coastal_flow_m)
@@ -1195,6 +1236,7 @@ def test_coastal_elevations(coastal_swn, coastal_flow_m, tmpdir_factory):
     assert success
 
 
+@requires_mfnwt
 def test_coastal_reduced_process_flopy(
         coastal_lines_gdf, coastal_flow_m, tmpdir_factory):
     outdir = tmpdir_factory.mktemp('coastal')
@@ -1207,7 +1249,7 @@ def test_coastal_reduced_process_flopy(
     assert len(n) == 130
     # Load a MODFLOW model
     m = flopy.modflow.Modflow.load(
-        'h.nam', version='mfnwt', exe_name='mfnwt', model_ws=datadir,
+        'h.nam', version='mfnwt', exe_name=mfnwt_exe, model_ws=datadir,
         check=False)
     nm = swn.MfSfrNetwork.from_swn_flopy(n, m, inflow=coastal_flow_m)
     # These should be split between two cells
@@ -1315,12 +1357,13 @@ def test_coastal_reduced_process_flopy(
     gdf_to_shapefile(nm.segments, outdir.join('segments.shp'))
 
 
+@requires_mfnwt
 def test_coastal_process_flopy_ibound_modify(coastal_swn, coastal_flow_m,
                                              tmpdir_factory):
     outdir = tmpdir_factory.mktemp('coastal')
     # Load a MODFLOW model
     m = flopy.modflow.Modflow.load(
-        'h.nam', version='mfnwt', exe_name='mfnwt', model_ws=datadir,
+        'h.nam', version='mfnwt', exe_name=mfnwt_exe, model_ws=datadir,
         check=False)
     nm = swn.MfSfrNetwork.from_swn_flopy(
         coastal_swn, m, ibound_action='modify', inflow=coastal_flow_m)
@@ -1433,7 +1476,7 @@ def test_coastal_process_flopy_ibound_modify(coastal_swn, coastal_flow_m,
 
 @pytest.mark.xfail
 def test_process_flopy_lines_on_boundaries():
-    m = flopy.modflow.Modflow(version='mf2005', exe_name='mf2005')
+    m = flopy.modflow.Modflow(version='mf2005', exe_name=mf2005_exe)
     flopy.modflow.ModflowDis(
         m, nrow=3, ncol=3, delr=100, delc=100, xul=0, yul=300)
     flopy.modflow.ModflowBas(m)
@@ -1454,10 +1497,11 @@ def test_process_flopy_lines_on_boundaries():
     assert abs(m.sfr.nstrm) == 8
 
 
+@requires_mf2005
 def test_process_flopy_diversion(tmpdir_factory):
     outdir = tmpdir_factory.mktemp('diversion')
     # Create a simple MODFLOW model
-    m = flopy.modflow.Modflow(version='mf2005', exe_name='mf2005')
+    m = flopy.modflow.Modflow(version='mf2005', exe_name=mf2005_exe)
     top = np.array([
         [16.0, 15.0],
         [15.0, 15.0],
@@ -1601,7 +1645,7 @@ def test_process_flopy_diversion(tmpdir_factory):
 
 def test_pickle(tmp_path):
     # Create a simple MODFLOW model
-    m = flopy.modflow.Modflow(version='mf2005', exe_name='mf2005')
+    m = flopy.modflow.Modflow(version='mf2005', exe_name=mf2005_exe)
     top = np.array([
         [16.0, 15.0],
         [15.0, 15.0],

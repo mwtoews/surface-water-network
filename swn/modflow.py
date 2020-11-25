@@ -67,7 +67,6 @@ class MfSfrNetwork(object):
         self.logger.info('creating new %s object', self.__class__.__name__)
         if not find_spec('flopy'):
             raise ImportError(self.__class__.__name__ + ' requires flopy')
-        self.model = None
         self.segments = None
         self.segment_data = None
         self.reaches = None
@@ -150,14 +149,8 @@ class MfSfrNetwork(object):
         import flopy
         if not isinstance(swn, SurfaceWaterNetwork):
             raise ValueError('swn must be a SurfaceWaterNetwork object')
-        elif not isinstance(model, flopy.modflow.mf.Modflow):
-            raise ValueError('model must be a flopy Modflow object')
         elif ibound_action not in ('freeze', 'modify'):
             raise ValueError('ibound_action must be one of freeze or modify')
-        elif not model.has_package('DIS'):
-            raise ValueError('DIS package required')
-        elif not model.has_package('BAS6'):
-            raise ValueError('BAS6 package required')
         obj.model = model
         obj.segments = swn.segments.copy()
         # Make sure model CRS and segments CRS are the same (if defined)
@@ -867,6 +860,41 @@ class MfSfrNetwork(object):
         self.reaches = state["reaches"]
         self.diversions = state["diversions"]
         # Note: model must be set outsie of this method
+
+    @property
+    def model(self):
+        """Return flopy model object."""
+        try:
+            return getattr(self, '_model')
+        except AttributeError:
+            self.logger.error("'model' property not set")
+
+    @model.setter
+    def model(self, model):
+        import flopy
+        if not isinstance(model, flopy.modflow.mf.Modflow):
+            raise ValueError(
+                "'model' must be a flopy Modflow object; found "
+                + str(type(model)))
+        elif not model.has_package('DIS'):
+            raise ValueError('DIS package required')
+        elif not model.has_package('BAS6'):
+            raise ValueError('BAS6 package required')
+        if getattr(self, '_model', None) is not model:
+            self.logger.info("swapping 'model' object")
+        self._model = model
+        # Build stress period DataFrame from modflow model
+        stress_df = pd.DataFrame({'perlen': self.model.dis.perlen.array})
+        modeltime = self.model.modeltime
+        stress_df['duration'] = pd.TimedeltaIndex(
+            stress_df['perlen'].cumsum(), modeltime.time_units)
+        stress_df['start'] = pd.to_datetime(modeltime.start_datetime)
+        stress_df['end'] = stress_df['duration'] + stress_df.at[0, 'start']
+        stress_df.loc[1:, 'start'] = stress_df['end'].iloc[:-1].values
+        self._stress_df = stress_df  # keep this for debugging
+        self.time_index = pd.DatetimeIndex(stress_df['start']).copy()
+        self.time_index.name = None
+
 
     def plot(self, column='iseg',
              cmap='viridis_r', legend=False):
@@ -1817,9 +1845,6 @@ class MfSfrNetwork(object):
         """
         with open(path, "rb") as f:
             obj = pickle.load(f)
-        import flopy
-        if not isinstance(model, flopy.modflow.mf.Modflow):
-            raise ValueError('model must be a flopy Modflow object')
         obj.model = model
         return obj
 
@@ -2051,13 +2076,13 @@ class ModelPlot(object):
         :param x: 2D numpy array
         :param zorder: mpl overlay order
         """
-        import seaborn as sns
         from matplotlib import pyplot as plt
         from matplotlib import colors, cm
 
         vmin = x.min()
         vmax = x.max()
         if cat_cmap:
+            import seaborn as sns
             vals = np.ma.unique(x).compressed()
             bounds = np.append(np.sort(vals), vals.max() + 1)
             n = len(vals)
