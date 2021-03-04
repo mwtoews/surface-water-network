@@ -318,7 +318,7 @@ class SurfaceWaterNetwork(object):
         # Don't do this: self.segments.sort_values('sequence', inplace=True)
         obj.evaluate_upstream_length()
         if polygons is not None:
-            obj.catchments = polygons.copy()
+            obj.catchments = polygons
         return obj
 
     def __repr__(self):
@@ -887,10 +887,10 @@ class SurfaceWaterNetwork(object):
         agg_path = pd.Series(dtype=object)
         agg_unpath = pd.Series(dtype=object)
         if self.catchments is not None:
-            polygons = geopandas.GeoSeries()
+            polygons = pd.Series(dtype=object)
         else:
             polygons = None
-        lines = geopandas.GeoSeries()
+        lines = pd.Series(dtype=object)
 
         for segnum in junctions:
             catchment_segnums = list(up_patch_segnums(segnum))
@@ -920,12 +920,12 @@ class SurfaceWaterNetwork(object):
             lines.at[segnum] = linemerge(list(
                     self.segments.loc[reversed(agg_path_l), 'geometry']))
 
-        # copy a few other properties
+        # Create GeoSeries and copy a few other properties
+        lines = geopandas.GeoSeries(lines, crs=self.segments.crs)
         lines.index.name = self.segments.index.name
-        lines.crs = self.segments.crs
         if polygons is not None:
+            polygons = geopandas.GeoSeries(polygons, crs=self.catchments.crs)
             polygons.index.name = self.catchments.index.name
-            polygons.crs = self.catchments.crs
             txt = ' and polygons'
         else:
             txt = ''

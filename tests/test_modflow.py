@@ -1041,7 +1041,7 @@ def test_reach_barely_outside_ibound():
 def check_number_sum_hex(a, n, h):
     a = np.ceil(a).astype(np.int64)
     assert a.sum() == n
-    ah = md5(a.tostring()).hexdigest()
+    ah = md5(a.tobytes()).hexdigest()
     assert ah.startswith(h), '{0} does not start with {1}'.format(ah, h)
 
 

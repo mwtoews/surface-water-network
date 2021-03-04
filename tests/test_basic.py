@@ -317,6 +317,49 @@ def test_init_line_connects_to_middle():
         plt.close()
 
 
+def test_dict(valid_n):
+    # via __iter__
+    d = dict(valid_n)
+    assert list(d.keys()) == \
+        ['class', 'segments', 'END_SEGNUM', 'catchments', 'diversions']
+    assert d['class'] == 'SurfaceWaterNetwork'
+    assert isinstance(d['segments'], geopandas.GeoDataFrame)
+    assert list(d['segments'].index) == [0, 1, 2]
+    assert list(d['segments'].columns) == \
+        ['geometry', 'to_segnum', 'from_segnums', 'cat_group', 'num_to_outlet',
+         'dist_to_outlet', 'sequence', 'stream_order', 'upstream_length']
+    assert d['END_SEGNUM'] == -1
+    assert d['catchments'] is None
+    assert d['diversions'] is None
+
+
+def test_copy_lines(valid_n):
+    n1 = valid_n
+    n2 = swn.SurfaceWaterNetwork(valid_n.segments, valid_n.END_SEGNUM)
+    assert n1 is not n2
+
+
+def test_copy_lines_polygons(valid_n):
+    n1 = valid_n
+    n2 = swn.SurfaceWaterNetwork(valid_n.segments, valid_n.END_SEGNUM)
+    assert n1 is not n2
+
+
+def test_eq_lines(valid_n):
+    n1 = valid_n
+    n2 = swn.SurfaceWaterNetwork(valid_n.segments, valid_n.END_SEGNUM)
+    assert len(n1) == len(n2) == 3
+    assert n1 == n2
+
+
+def test_ne_lines(valid_n):
+    n1 = valid_n
+    n2 = swn.SurfaceWaterNetwork(valid_n.segments, valid_n.END_SEGNUM)
+    n2.remove(segnums=[1])
+    assert len(n1) != len(n2)
+    assert n1 != n2
+
+
 def test_init_geoseries():
     gs = wkt_to_geoseries(valid_lines_list, geom_name='foo')
     n = swn.SurfaceWaterNetwork.from_lines(gs)

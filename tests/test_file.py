@@ -50,20 +50,32 @@ def test_topnet2ts(coastal_flow_ts):
     np.testing.assert_array_almost_equal(flow, coastal_flow_ts, 2)
 
 
-def test_pickle(tmp_path):
-    # use pickle dumps / loads methods
+def test_pickle_lines():
     n1 = swn.SurfaceWaterNetwork.from_lines(n3d_lines)
     data = pickle.dumps(n1)
     n2 = pickle.loads(data)
     assert n1 == n2
-    # use to_pickle / from_pickle methods
-    n3 = swn.SurfaceWaterNetwork.from_lines(n3d_lines, valid_polygons)
-    n3.to_pickle(tmp_path / "n4.pickle")
-    n4 = swn.SurfaceWaterNetwork.from_pickle(tmp_path / "n4.pickle")
-    assert n3 == n4
-    assert n2 != n4
+
+
+def test_pickle_lines_polygons():
+    n1 = swn.SurfaceWaterNetwork.from_lines(n3d_lines, valid_polygons)
+    data = pickle.dumps(n1)
+    n2 = pickle.loads(data)
+    assert n1 == n2
+
+
+def test_pickle_lines_diversions():
+    n1 = swn.SurfaceWaterNetwork.from_lines(n3d_lines)
     n1.set_diversions(diversions)
-    n1.to_pickle(tmp_path / "n5.pickle")
-    n5 = swn.SurfaceWaterNetwork.from_pickle(tmp_path / "n5.pickle")
-    assert n1 != n2
-    assert n1 == n5
+    data = pickle.dumps(n1)
+    n2 = pickle.loads(data)
+    assert n1 == n2
+
+
+def test_pickle_file_methods(tmp_path):
+    # use to_pickle / from_pickle methods
+    n1 = swn.SurfaceWaterNetwork.from_lines(n3d_lines, valid_polygons)
+    n1.set_diversions(diversions)
+    n1.to_pickle(tmp_path / "n2.pickle")
+    n2 = swn.SurfaceWaterNetwork.from_pickle(tmp_path / "n2.pickle")
+    assert n1 == n2
