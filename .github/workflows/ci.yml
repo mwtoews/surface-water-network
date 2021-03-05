@@ -1,0 +1,47 @@
+name: Tests (Linux)
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-16.04
+    strategy:
+      matrix:
+        python-version: [3.6, 3.8]
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Cache pip packages and local install
+        uses: actions/cache@v2
+        with:
+          key: ${{ matrix.python-version }}
+          path: |
+            ~/.cache/pip
+            ~/.local/bin
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          sudo apt-get install gcc gfortran libspatialindex-dev
+          python -m pip install pip --upgrade --disable-pip-version-check
+          pip install -r ci/requirements.txt
+          pip install -e .
+          export INSTALL_PREFIX=$HOME/.local
+          ./ci/mf2005/install.sh
+          ./ci/mfnwt/install.sh
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Linting
+        run: |
+          flake8 --exit-zero
+
+      - name: Test with pytest
+        run: |
+          echo "PATH=$PATH"
+          python -m pytest -v
