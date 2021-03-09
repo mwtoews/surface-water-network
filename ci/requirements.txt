@@ -1,5 +1,0 @@
-geopandas
-rtree==0.8.3
-flopy
-pytest
-flake8
