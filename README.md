@@ -12,6 +12,7 @@ Python 3.6+ is required.
 ### Required
 
  - `geopandas` - process spatial data similar to pandas
+ - `pyproj>=2` - spatial projection support
  - `rtree` - spatial index support
 
 ### Optional

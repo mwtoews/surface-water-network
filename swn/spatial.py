@@ -3,9 +3,11 @@
 import geopandas
 import numpy as np
 import pandas as pd
+import pyproj
+
 from shapely import wkt
 from shapely.geometry import Point
-import pyproj
+
 try:
     from geopandas.tools import sjoin
 except ImportError:
@@ -16,12 +18,6 @@ try:
     from rtree.index import Index
 except ImportError:
     rtree = False
-
-pyproj_CRS = getattr(pyproj, 'CRS', None)
-if pyproj_CRS is None:
-    pyproj_ver = 1
-else:
-    pyproj_ver = 2
 
 # default threshold size of geometries when Rtree index is built
 rtree_threshold = 100
@@ -171,37 +167,20 @@ def compare_crs(sr1, sr2):
 def get_crs(s):
     """Get crs from variable argument type.
 
-    Returns pyproj CRS instance (for pyproj>=2.0) or Proj instance for older.
+    Returns pyproj CRS instance.
     """
     if s is None:
         return None
-    elif pyproj_CRS is not None and isinstance(s, pyproj_CRS):
+    if isinstance(s, pyproj.CRS):
         return s
-    try:
-        s = s['init']
-    except TypeError:
-        pass
-    if pyproj_ver >= 2:
-        try:
-            s = int(s)
-        except ValueError:
-            pass
-        if isinstance(s, int):
-            return pyproj.CRS.from_epsg(s)
-        if s.startswith("+init="):
-            s = s[6:]
-        if s.startswith('+') and hasattr(pyproj.CRS, 'from_proj4'):
-            return pyproj.CRS.from_proj4(s)
-        else:
-            return pyproj.CRS.from_string(s)
-    else:
-        if isinstance(s, int):
-            crs = pyproj.Proj(init='epsg:' + str(s))
-        elif "init" not in s:
-            crs = pyproj.Proj(init=s)
-        else:
-            crs = pyproj.Proj(s)
-    return crs
+    if isinstance(s, int):
+        return pyproj.CRS.from_epsg(s)
+    # Remove +init
+    if isinstance(s, str) and s.startswith("+init="):
+        s = s[6:]
+    elif isinstance(s, dict) and "init" in s.keys() and len(s) == 1:
+        s = s["init"]
+    return pyproj.CRS(s)
 
 
 def find_segnum_in_swn(n, geom):
