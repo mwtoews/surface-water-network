@@ -22,7 +22,7 @@ setup(
     license='BSD',
     packages=['swn'],
     package_data={'': ['tests/data/*']},
-    python_requires='>=3.7',
+    python_requires='>=3.6',
     install_requires=['geopandas', 'pyproj>=2.2', 'rtree', 'shapely'],
     classifiers=[
         'Development Status :: 4 - Beta',

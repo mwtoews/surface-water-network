@@ -99,7 +99,7 @@ def test_accumulate_values(coastal_swn, coastal_lines_gdf):
 def test_catchment_polygons(coastal_lines_gdf, coastal_polygons_gdf):
     lines = coastal_lines_gdf.geometry
     polygons = coastal_polygons_gdf.geometry
-    n = swn.SurfaceWaterNetwork(lines, polygons)
+    n = swn.SurfaceWaterNetwork.from_lines(lines, polygons)
     cat_areas = n.catchments.area
     # only consider areas where polygons existed (some were filled in)
     nonzero = coastal_polygons_gdf['Area'] != 0.0
