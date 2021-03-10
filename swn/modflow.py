@@ -17,7 +17,7 @@ except ImportError:
     matplotlib = False
 
 from swn.base import SurfaceWaterNetwork
-from swn.spatial import get_crs, get_sindex, compare_crs, pyproj_ver
+from swn.spatial import get_crs, get_sindex, compare_crs
 from swn.util import abbr_str
 
 
@@ -1876,18 +1876,11 @@ class ModelPlot(object):
             self.pprj = get_crs(model.modelgrid.proj4)
         if domain_extent is None and self.pprj is not None:
             xmin, xmax, ymin, ymax = self.model.modelgrid.extent
-            if pyproj_ver == 1:
-                assert not self.pprj.is_latlong(), self.pprj
-                # axis order: lon, lat
-                lonmin, latmin = self.pprj(xmin, ymin, inverse=True)
-                lonmax, latmax = self.pprj(xmax, ymax, inverse=True)
-            else:
-                assert pyproj_ver >= 2
-                assert self.pprj.is_projected, self.pprj
-                latlon = pyproj.CRS.from_epsg(4326)  # axis order: lat, lon
-                tfm = pyproj.Transformer.from_crs(self.pprj, latlon)
-                latmin, lonmin = tfm.transform(xmin, ymin)
-                latmax, lonmax = tfm.transform(xmax, ymax)
+            assert self.pprj.is_projected, self.pprj
+            latlon = pyproj.CRS.from_epsg(4326)  # axis order: lat, lon
+            tfm = pyproj.Transformer.from_crs(self.pprj, latlon)
+            latmin, lonmin = tfm.transform(xmin, ymin)
+            latmax, lonmax = tfm.transform(xmax, ymax)
             self.domain_extent = [lonmin, lonmax, latmin, latmax]
         else:
             self.domain_extent = domain_extent

@@ -66,10 +66,14 @@ def test_interp_2d_to_3d():
 def test_get_crs():
     assert spatial.get_crs(None) is None
     assert spatial.get_crs(2193) is not None
-    assert spatial.get_crs('2193') is not None
     assert spatial.get_crs('EPSG:2193') is not None
     assert spatial.get_crs('+init=EPSG:2193') is not None
     assert spatial.get_crs({'init': 'EPSG:2193'}) is not None
+    assert spatial.get_crs({'init': 'EPSG:2193'}) is not None
+    assert spatial.get_crs(
+        {'proj': 'tmerc', 'lat_0': 0, 'lon_0': 173, 'k': 0.9996,
+         'x_0': 1600000, 'y_0': 10000000, 'ellps': 'GRS80', 'units': 'm',
+         'no_defs': None, 'type': 'crs'}) is not None
 
 
 def test_compare_crs():

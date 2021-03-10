@@ -1,6 +1,6 @@
 # Surface water network
 [![Codacy Badge](https://api.codacy.com/project/badge/Grade/420bcd8896c14f18b2077dd987c78849)](https://app.codacy.com/manual/mwtoews/surface-water-network?utm_source=github.com&utm_medium=referral&utm_content=mwtoews/surface-water-network&utm_campaign=Badge_Grade_Dashboard)
-[![Travis Status](https://api.travis-ci.org/mwtoews/surface-water-network.svg?branch=master)](https://travis-ci.org/mwtoews/surface-water-network)
+[![CI](https://github.com/mwtoews/surface-water-network/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/mwtoews/surface-water-network/actions/workflows/ci.yml)
 
 Creates surface water network, which can be used to create MODFLOW's SFR.
 
@@ -12,6 +12,7 @@ Python 3.6+ is required.
 ### Required
 
  - `geopandas` - process spatial data similar to pandas
+ - `pyproj>=2.2` - spatial projection support
  - `rtree` - spatial index support
 
 ### Optional

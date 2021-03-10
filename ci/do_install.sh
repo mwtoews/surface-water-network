@@ -2,26 +2,43 @@
 set -e
 
 # This script is called from another install.sh script
-if [ -z ${URL+x} ]; then
+if [ -z ${URL+x} ] || [ -z ${ZIP+x} ] || [ -z ${ZIP_DIR+x} ] || [ -z ${BIN+x} ]; then
    echo "This script cannot be called directly" 1>&2
    exit 1
+elif [ -z "${INSTALL_PREFIX}" ]; then
+    echo "INSTALL_PREFIX must be set"
+    exit 1
 fi
 
-REPODIR=$(pwd)
-PREFIX=$HOME/.local
+NPROC=2
+UNAME="$(uname)" || UNAME=""
+case ${UNAME} in
+    Linux)
+        NPROC=$(nproc) ;;
+    Darwin)
+        NPROC=$(sysctl -n hw.ncpu) ;;
+esac
+export MAKEFLAGS="-j ${NPROC}"
 
-if [ -d "$PREFIX/bin/$BIN" ]; then
-    echo "Using cached install $PREFIX/bin/$BIN"
+REPO_DIR=$(pwd)
+INSTALLED_BIN=${INSTALL_PREFIX}/bin/${BIN}
+
+if [ -d "${INSTALLED_BIN}" ]; then
+    echo "Using cached install ${INSTALLED_BIN}"
 else
-    echo "Building $PREFIX/bin/$BIN"
-    wget -nv --show-progress $URL -O $ZIP
-    unzip -q $ZIP
-    cd $ZIPDIR
-    cp $REPODIR/ci/$BIN/CMakeLists.txt .
+    echo "Building ${INSTALLED_BIN}"
+    echo "Downloading ${URL}"
+    wget -nv ${URL} -O ${ZIP}
+    echo "Extracting ${ZIP}"
+    unzip -q ${ZIP}
+    cd ${ZIP_DIR}
+    cp ${REPO_DIR}/ci/${BIN}/CMakeLists.txt .
     mkdir build
     cd build
-    cmake -DCMAKE_INSTALL_PREFIX=$PREFIX -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_MODULE_PATH=$REPODIR/ci/cmake ..
-    make -j2
+    cmake -D CMAKE_BUILD_TYPE=Release \
+          -D CMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} \
+          -D CMAKE_MODULE_PATH=${REPO_DIR}/ci/cmake \
+          ..
+    make
     make install
 fi
