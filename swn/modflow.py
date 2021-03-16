@@ -16,7 +16,7 @@ try:
 except ImportError:
     matplotlib = False
 
-from swn.base import SurfaceWaterNetwork
+from swn.core import SurfaceWaterNetwork
 from swn.spatial import get_crs, get_sindex, compare_crs
 from swn.util import abbr_str
 

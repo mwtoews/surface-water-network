@@ -206,7 +206,7 @@ def find_segnum_in_swn(n, geom):
         (if catchments are found) is_within_catchment.
 
     """
-    from swn.base import SurfaceWaterNetwork
+    from swn.core import SurfaceWaterNetwork
 
     if not isinstance(n, SurfaceWaterNetwork):
         raise TypeError('expected an instance of SurfaceWaterNetwork')

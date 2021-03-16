@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Base functionality of surface water network package."""
+"""Core functionality of surface water network package."""
 import geopandas
 import numpy as np
 import pandas as pd
