@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
 """Core functionality of surface water network package."""
+
+__all__ = ["SurfaceWaterNetwork"]
+
 import geopandas
 import numpy as np
 import pandas as pd

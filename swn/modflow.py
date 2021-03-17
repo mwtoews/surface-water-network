@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 """Interface for flopy's implementation for MODFLOW."""
 
+__all__ = ["MfSfrNetwork", "geotransform_from_flopy"]
+
 import geopandas
 import numpy as np
 import pandas as pd

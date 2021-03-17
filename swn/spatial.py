@@ -1,5 +1,13 @@
 # -*- coding: utf-8 -*-
 """Spatial methods."""
+
+__all__ = [
+    "get_sindex", "interp_2d_to_3d",
+    "wkt_to_dataframe", "wkt_to_geodataframe", "wkt_to_geoseries",
+    "force_2d", "round_coords", "compare_crs", "get_crs",
+    "find_segnum_in_swn"
+]
+
 import geopandas
 import numpy as np
 import pandas as pd

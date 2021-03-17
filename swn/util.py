@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 """Miscellaneous utility functions that don't fit anywhere else."""
 
+__all__ = ["abbr_str"]
+
 
 def abbr_str(lst, limit=15):
     """Return str of list that is abbreviated (if necessary)."""
