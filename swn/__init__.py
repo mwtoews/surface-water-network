@@ -6,7 +6,7 @@ __author__ = 'Mike Taves'
 __email__ = 'mwtoews@gmail.com'
 __credits__ = ['Brioch Hemmings']
 
-from swn import file, logger, modflow, spatial, util  # noqa: F401
+__all__ = ["SurfaceWaterNetwork", "MfSfrNetwork"]
 
-from swn.core import SurfaceWaterNetwork  # noqa: F401
-from swn.modflow import MfSfrNetwork  # noqa: F401
+from swn.core import SurfaceWaterNetwork
+from swn.modflow import MfSfrNetwork
