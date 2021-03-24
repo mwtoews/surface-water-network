@@ -25,8 +25,10 @@ from swn.spatial import interp_2d_to_3d, force_2d, wkt_to_geoseries
 
 mfnwt_exe = which('mfnwt')
 mf2005_exe = which('mf2005')
+mf6_exe = which('mf6')
 requires_mfnwt = pytest.mark.skipif(not mfnwt_exe, reason='requires mfnwt')
 requires_mf2005 = pytest.mark.skipif(not mf2005_exe, reason='requires mf2005')
+requires_mf6 = pytest.mark.skipif(not mf6_exe, reason='requires mf6')
 if mfnwt_exe is None:
     mfnwt_exe = 'mfnwt'
 if mf2005_exe is None:
@@ -1680,3 +1682,131 @@ def test_pickle(tmp_path):
     nm3.to_pickle(tmp_path / "nm4.pickle")
     nm4 = swn.MfSfrNetwork.from_pickle(tmp_path / "nm4.pickle", m)
     assert nm3 == nm4
+
+
+@requires_mf6
+def test_mf6(tmpdir_factory, coastal_lines_gdf, coastal_flow_m):
+    outdir = tmpdir_factory.mktemp('coastal')
+    # Load a MODFLOW model
+    sim = flopy.mf6.MFSimulation.load("mfsim.nam", sim_ws=datadir, exe_name='mf6')
+    m = sim.get_model("mf6h")
+    sim.set_sim_path("{}".format(outdir))
+    # this model works without SFR -- Actually doesn't! (mfnwt lies)
+    sim.write_simulation()
+    success, buff = sim.run_simulation()
+    # assert success
+    # Create a SWN with adjusted elevation profiles
+    n = swn.SurfaceWaterNetwork.from_lines(coastal_lines_gdf.geometry)
+    n.adjust_elevation_profile()
+    nm = swn.SwnMf6.other_from_swn_flopy(n, m)
+    # m.sfr.unit_number = [24]  # WARNING: unit 17 of package SFR already in use
+    # m.sfr.ipakcb = 50
+    # m.sfr.istcb2 = -51
+    # m.add_output_file(51, extension='sfo', binflag=True)
+    # and breaks with default SFR due to elevation errors
+    sim.write_simulation()
+    success, buff = sim.run_simulation()
+    assert not success
+    # Check dataframes
+    assert len(nm.segments) == 304
+    assert nm.segments['in_model'].sum() == 184
+    # Check remaining reaches added that are inside model domain
+    reach_geom = nm.reaches.loc[
+        nm.reaches['segnum'] == 3047735, 'geometry'].iloc[0]
+    np.testing.assert_almost_equal(reach_geom.length, 980.5448069140768)
+    # These should be split between two cells
+    reach_geoms = nm.reaches.loc[
+        nm.reaches['segnum'] == 3047750, 'geometry']
+    assert len(reach_geoms) == 2
+    np.testing.assert_almost_equal(reach_geoms.iloc[0].length, 204.90164560019)
+    np.testing.assert_almost_equal(reach_geoms.iloc[1].length, 789.59872070638)
+    # This reach should not be extended, the remainder is too far away
+    reach_geom = nm.reaches.loc[
+        nm.reaches['segnum'] == 3047762, 'geometry'].iloc[0]
+    np.testing.assert_almost_equal(reach_geom.length, 261.4644731621629)
+    # This reach should not be extended, the remainder is too long
+    reach_geom = nm.reaches.loc[
+        nm.reaches['segnum'] == 3047926, 'geometry'].iloc[0]
+    np.testing.assert_almost_equal(reach_geom.length, 237.72893664132727)
+    # Data set 1c
+    assert abs(m.sfr.nstrm) == 296
+    assert m.sfr.nss == 184
+    # Data set 2
+    # check_number_sum_hex(
+    #    m.sfr.reach_data.node, 49998, '29eb6a019a744893ceb5a09294f62638')
+    # check_number_sum_hex(
+    #    m.sfr.reach_data.k, 0, '213581ea1c4e2fa86e66227673da9542')
+    # check_number_sum_hex(
+    #    m.sfr.reach_data.i, 2690, 'be41f95d2eb64b956cc855304f6e5e1d')
+    # check_number_sum_hex(
+    #    m.sfr.reach_data.j, 4268, '4142617f1cbd589891e9c4033efb0243')
+    # check_number_sum_hex(
+    #    m.sfr.reach_data.reachID, 68635, '2a512563b164c76dfc605a91b10adae1')
+    # check_number_sum_hex(
+    #    m.sfr.reach_data.iseg, 34415, '48c4129d78c344d2e8086cd6971c16f7')
+    # check_number_sum_hex(
+    #    m.sfr.reach_data.ireach, 687, '233b71e88260cddb374e28ed197dfab0')
+    # check_number_sum_hex(
+    #    m.sfr.reach_data.rchlen, 159871, '776ed1ced406c7de9cfe502181dc8e97')
+    # check_number_sum_hex(
+    #    m.sfr.reach_data.strtop, 4266, '572a5ef53cd2c69f5d467f1056ee7579')
+    # check_number_sum_hex(
+    #   m.sfr.reach_data.slope * 999, 2945, '91c54e646fec7af346c0979167789316')
+    # check_number_sum_hex(
+    #    m.sfr.reach_data.strthick, 370, '09fd95bcbfe7c6309694157904acac68')
+    # check_number_sum_hex(
+    #    m.sfr.reach_data.strhc1, 370, '09fd95bcbfe7c6309694157904acac68')
+    # Data set 6
+    assert len(m.sfr.segment_data) == 1
+    sd = m.sfr.segment_data[0]
+    assert sd.flow.sum() > 0.0
+    assert sd.pptsw.sum() == 0.0
+    # check_number_sum_hex(
+    #    sd.nseg, 17020, '55968016ecfb4e995fb5591bce55fea0')
+    # check_number_sum_hex(
+    #    sd.icalc, 184, '1e57e4eaa6f22ada05f4d8cd719e7876')
+    # check_number_sum_hex(
+    #    sd.outseg, 24372, '46730406d031de87aad40c2d13921f6a')
+    # check_number_sum_hex(
+    #    sd.iupseg, 0, 'f7e23bb7abe5b9603e8212ad467155bd')
+    # check_number_sum_hex(
+    #    sd.iprior, 0, 'f7e23bb7abe5b9603e8212ad467155bd')
+    # check_number_sum_hex(
+    #    sd.flow, 4009, '49b48704587dc36d5d6f6295569eabd6')
+    # check_number_sum_hex(
+    #    sd.runoff, 0, 'f7e23bb7abe5b9603e8212ad467155bd')
+    # check_number_sum_hex(
+    #    sd.etsw, 0, 'f7e23bb7abe5b9603e8212ad467155bd')
+    # check_number_sum_hex(
+    #    sd.pptsw, 0, 'f7e23bb7abe5b9603e8212ad467155bd')
+    # check_number_sum_hex(
+    #    sd.roughch * 1000, 4416, 'a1a620fac8f5a6cbed3cc49aa2b90467')
+    # check_number_sum_hex(
+    #    sd.hcond1, 184, '1e57e4eaa6f22ada05f4d8cd719e7876')
+    # check_number_sum_hex(
+    #    sd.thickm1, 184, '1e57e4eaa6f22ada05f4d8cd719e7876')
+    # check_number_sum_hex(
+    #    sd.width1, 1840, '5749f425818b3b18e395b2a432520a4e')
+    # check_number_sum_hex(
+    #    sd.hcond2, 184, '1e57e4eaa6f22ada05f4d8cd719e7876')
+    # check_number_sum_hex(
+    #    sd.thickm2, 184, '1e57e4eaa6f22ada05f4d8cd719e7876')
+    # check_number_sum_hex(
+    #    sd.width2, 1840, '5749f425818b3b18e395b2a432520a4e')
+    # Check other packages
+    check_number_sum_hex(
+        m.bas6.ibound.array, 509, 'c4135a084b2593e0b69c148136a3ad6d')
+    assert repr(nm) == dedent('''\
+    <MfSfrNetwork: flopy mfnwt 'h'
+      296 in reaches (reachID): [1, 2, ..., 295, 296]
+      184 in segment_data (nseg): [1, 2, ..., 183, 184]
+        184 from segments (61% used): [3049818, 3049819, ..., 3046952, 3046736]
+        no diversions
+      1 stress period with perlen: [1.0] />''')
+    if matplotlib:
+        _ = nm.plot()
+        plt.close()
+    # Write output files
+    nm.grid_cells.to_file(str(outdir.join('grid_cells.shp')))
+    nm.reaches.to_file(str(outdir.join('reaches.shp')))
+    gdf_to_shapefile(nm.segments, outdir.join('segments.shp'))

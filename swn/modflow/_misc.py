@@ -4,6 +4,7 @@
 __all__ = ["geotransform_from_flopy"]
 
 import pandas as pd
+import numpy as np
 
 
 def sfr_rec_to_df(sfr):
@@ -72,3 +73,36 @@ def geotransform_from_flopy(m):
     f = mg.yoffset - e * mg.nrow
     # GDAL order of affine transformation coefficients
     return c, a, b, f, d, e
+
+
+def set_outreaches(reach_data, seg_data):
+    """
+    Determine the outreach for each SFR reach (requires a reachID
+    column in reach_data). Uses the segment routing specified in segdata?!? TODO?.
+    """
+    rd = reach_data.sort_values(["iseg", "ireach"])
+    # ensure that each segment starts with reach 1
+    # reach_data = reset_reaches(reach_data)
+    # ensure that all outsegs are segments, outlets, or negative (lakes)
+    # seg_data = repair_outsegs(seg_data)
+    # rd = reach_data
+    outseg = seg_data.set_index('nseg').outseg.to_dict()  # make_graph(seg_data)  # TODO
+    reach1IDs = dict(
+        zip(rd[rd.ireach == 1].iseg, rd[rd.ireach == 1].index)
+    )
+    outreach = []
+    for i in range(len(rd)):
+        # if at the end of reach data or current segment
+        if i + 1 == len(rd) or rd.ireach.values[i + 1] == 1:
+            nextseg = outseg[rd.iseg.values[i]]  # get next segment
+            if nextseg > 0:  # current reach is not an outlet
+                nextrchid = reach1IDs[
+                    nextseg
+                ]  # get reach 1 of next segment
+            else:
+                nextrchid = 0
+        else:  # otherwise, it's the next reachID
+            nextrchid = rd.index[i + 1]
+        outreach.append(nextrchid)
+    rd["outreach"] = outreach
+    return rd

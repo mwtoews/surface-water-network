@@ -1,0 +1,15 @@
+# DRN6 input file, prepared by MF5to6 on 3/24/2021 at 11:30:49.
+
+BEGIN Options
+  PRINT_INPUT
+  PRINT_FLOWS
+  SAVE_FLOWS
+END Options
+
+BEGIN Dimensions
+  MAXBOUND  1
+END Dimensions
+
+BEGIN PERIOD 1
+  1  3  10    1.0000000        1000.0000
+END PERIOD

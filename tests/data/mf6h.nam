@@ -1,0 +1,15 @@
+#xll:1802000; yll:5861000; rotation:0; proj4_str:epsg:2193; units:meters; lenuni:2; start_datetime:01-01-2000
+BEGIN Options
+  LIST       mf6h.lst
+  NEWTON
+END Options
+
+BEGIN Packages
+  DIS6       mf6h.dis
+  IC6        mf6h.ic
+  NPF6       mf6h.npf
+  OC6        mf6h.oc
+  RCH6       mf6h.rch
+  DRN6       mf6h.drn
+END Packages
+

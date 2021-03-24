@@ -9,4 +9,4 @@ __credits__ = ['Brioch Hemmings']
 __all__ = ["SurfaceWaterNetwork", "MfSfrNetwork"]
 
 from swn.core import SurfaceWaterNetwork
-from swn.modflow import MfSfrNetwork
+from swn.modflow import MfSfrNetwork, SwnMf6
