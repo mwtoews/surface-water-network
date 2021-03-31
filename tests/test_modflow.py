@@ -1685,6 +1685,7 @@ def test_pickle(tmp_path):
 
 
 @requires_mf6
+@pytest.mark.xfail
 def test_mf6(tmpdir_factory, coastal_lines_gdf, coastal_flow_m):
     outdir = tmpdir_factory.mktemp('coastal')
     # Load a MODFLOW model
