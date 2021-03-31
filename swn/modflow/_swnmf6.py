@@ -68,7 +68,7 @@ class SwnMf6(_SwnModflow):
 
     @classmethod
     def other_from_swn_flopy(
-            cls, swn, model, ibound_action='freeze',
+            cls, swn, model, idomain_action='freeze',
             reach_include_fraction=0.2, min_slope=1./1000,
             hyd_cond1=1., hyd_cond_out=None, thickness1=1., thickness_out=None,
             width1=10., width_out=None, roughch=0.024,
@@ -82,10 +82,10 @@ class SwnMf6(_SwnModflow):
             Instance of a SurfaceWaterNetwork.
         model : flopy.mf6.ModflowGwf
             Instance of a flopy MODFLOW 6 groundwater flow model.
-        ibound_action : str, optional
-            Action to handle IBOUND:
-                - ``freeze`` : Freeze IBOUND, but clip streams to fit bounds.
-                - ``modify`` : Modify IBOUND to fit streams, where possible.
+        idomain_action : str, optional
+            Action to handle IDOMAIN:
+                - ``freeze`` : Freeze IDOMAIN, but clip streams to fit bounds.
+                - ``modify`` : Modify IDOMAIN to fit streams, where possible.
         reach_include_fraction : float or pandas.Series, optional
             Fraction of cell size used as a threshold distance to determine if
             reaches outside the active grid should be included to a cell.
@@ -101,8 +101,8 @@ class SwnMf6(_SwnModflow):
         import flopy
         if not isinstance(swn, SurfaceWaterNetwork):
             raise ValueError('swn must be a SurfaceWaterNetwork object')
-        elif ibound_action not in ('freeze', 'modify'):
-            raise ValueError('ibound_action must be one of freeze or modify')
+        elif idomain_action not in ('freeze', 'modify'):
+            raise ValueError('idomain_action must be one of freeze or modify')
         obj.model = model
         obj.segments = swn.segments.copy()
         # Make sure model CRS and segments CRS are the same (if defined)
@@ -137,14 +137,14 @@ class SwnMf6(_SwnModflow):
         dis = obj.model.dis
         cols, rows = np.meshgrid(np.arange(dis.ncol.data),
                                  np.arange(dis.nrow.data))
-        ibound = dis.idomain[0].array.copy()
-        ibound_modified = 0
+        idomain = dis.idomain[0].array.copy()
+        idomain_modified = 0
         grid_df = pd.DataFrame({'row': rows.flatten(), 'col': cols.flatten()})
         grid_df.set_index(['row', 'col'], inplace=True)
-        grid_df['ibound'] = ibound.flatten()
-        if ibound_action == 'freeze' and (ibound == 0).any():
+        grid_df['idomain'] = idomain.flatten()
+        if idomain_action == 'freeze' and (idomain == 0).any():
             # Remove any inactive grid cells from analysis
-            grid_df = grid_df.loc[grid_df['ibound'] != 0]
+            grid_df = grid_df.loc[grid_df['idomain'] != 0]
         # Determine grid cell size
         col_size = np.median(dis.delr.array)
         if dis.delr.array.min() != dis.delr.array.max():
@@ -443,23 +443,23 @@ class SwnMf6(_SwnModflow):
                     'col': col,
                 }
                 obj.reaches.loc[len(obj.reaches.index)] = reach_record
-                if ibound_action == 'modify' and ibound[row, col] == 0:
-                    ibound_modified += 1
-                    ibound[row, col] = 1
+                if idomain_action == 'modify' and idomain[row, col] == 0:
+                    idomain_modified += 1
+                    idomain[row, col] = 1
 
-        if ibound_action == 'modify':
-            if ibound_modified:
+        if idomain_action == 'modify':
+            if idomain_modified:
                 obj.logger.debug(
-                    'updating %d cells from IBOUND array for top layer',
-                    ibound_modified)
-                obj.model.dis.idomain[0] = ibound
+                    'updating %d cells from IDOMAIN array for top layer',
+                    idomain_modified)
+                obj.model.dis.idomain.set_data(idomain, layer=0)
                 obj.reaches = obj.reaches.merge(
-                    grid_df[['ibound']],
+                    grid_df[['idomain']],
                     left_on=['row', 'col'], right_index=True)
                 obj.reaches.rename(
-                        columns={'ibound': 'prev_ibound'}, inplace=True)
+                        columns={'idomain': 'prev_idomain'}, inplace=True)
             else:
-                obj.reaches['prev_ibound'] = 1
+                obj.reaches['prev_idomain'] = 1
 
         # Now convert from DataFrame to GeoDataFrame
         obj.reaches = geopandas.GeoDataFrame(
@@ -1839,7 +1839,7 @@ class SwnMf6(_SwnModflow):
         sfr = model.sfr
         if dem is None:
             dem = np.ma.array(
-                dis.top.array, mask=model.bas6.ibound.array[0] == 0)
+                dis.top.array, mask=model.dis.idomain.array[0] == 0)
         sfrar = np.ma.zeros(dis.top.array.shape, 'f')
         sfrar.mask = np.ones(sfrar.shape)
         lay1reaches = self.reaches.loc[
@@ -1863,7 +1863,7 @@ class SwnMf6(_SwnModflow):
             sfr.plot_path(seg)
         if plot_bottom:
             dembot = np.ma.array(dis.botm.array[0],
-                                 mask=model.bas6.ibound.array[0] == 0)
+                                 mask=model.dis.idomain.array[0] == 0)
             sfrarbot = np.ma.zeros(dis.botm.array[0].shape, 'f')
             sfrarbot.mask = np.ones(sfrarbot.shape)
             sfrarbot[tuple((self.reaches[segsel][['i', 'j']]
