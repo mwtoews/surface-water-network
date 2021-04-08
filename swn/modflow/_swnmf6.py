@@ -69,11 +69,7 @@ class SwnMf6(_SwnModflow):
     @classmethod
     def other_from_swn_flopy(
             cls, swn, model, idomain_action='freeze',
-            reach_include_fraction=0.2, min_slope=1./1000,
-            hyd_cond1=1., hyd_cond_out=None, thickness1=1., thickness_out=None,
-            width1=10., width_out=None, roughch=0.024,
-            abstraction={}, inflow={}, flow={}, runoff={}, etsw={}, pptsw={}
-    ):
+            reach_include_fraction=0.2):
         """Create a MODFLOW 6 SFR structure from a surface water network.
 
         Parameters
@@ -91,20 +87,15 @@ class SwnMf6(_SwnModflow):
             reaches outside the active grid should be included to a cell.
             Based on the furthest distance of the line and cell geometries.
             Default 0.2 (e.g. for a 100 m grid cell, this is 20 m).
-        min_slope : float or pandas.Series, optional
-            Minimum downwards slope imposed on segments. If float, then this is
-            a global value, otherwise it is per-segment with a Series.
-            Default 1./1000 (or 0.001).
-
         """
         obj = cls()
-        import flopy
         if not isinstance(swn, SurfaceWaterNetwork):
             raise ValueError('swn must be a SurfaceWaterNetwork object')
         elif idomain_action not in ('freeze', 'modify'):
             raise ValueError('idomain_action must be one of freeze or modify')
         obj.model = model
         obj.segments = swn.segments.copy()
+        obj._swn = swn
         # Make sure model CRS and segments CRS are the same (if defined)
         crs = None
         segments_crs = getattr(obj.segments.geometry, 'crs', None)
@@ -464,12 +455,38 @@ class SwnMf6(_SwnModflow):
         # Now convert from DataFrame to GeoDataFrame
         obj.reaches = geopandas.GeoDataFrame(
                 obj.reaches, geometry='geometry', crs=crs)
+        return obj
 
+    def set_sfr_data(
+            self, min_slope=1./1000,
+            hyd_cond1=1., hyd_cond_out=None, thickness1=1., thickness_out=None,
+            width1=10., width_out=None, roughch=0.024,
+            abstraction={}, inflow={}, flow={}, runoff={}, etsw={}, pptsw={}):
+        """Set MODFLOW 6 SFR data from segments.
+
+        Parameters
+        ----------
+        min_slope : float or pandas.Series, optional
+            Minimum downwards slope imposed on segments. If float, then this is
+            a global value, otherwise it is per-segment with a Series.
+            Default 1./1000 (or 0.001).
+        ...
+
+        TODO
+        ----
+         * Consider use the info from 'swn.segments' if this is available with
+           the expected names width1, width2
+         * Perhapps move move more logic up wo the classmethod??
+        """
+        import flopy
+        swn = self._swn
+        model = self.model
+        dis = model.dis
         # Assign segment data
         # FOR MF6 dont really need this segment info garbage
         # -- but we are using it to help fill in packagedata (reach-based)
-        obj.segments['min_slope'] = swn._segment_series(min_slope)
-        if (obj.segments['min_slope'] < 0.0).any():
+        self.segments['min_slope'] = swn._segment_series(min_slope)
+        if (self.segments['min_slope'] < 0.0).any():
             raise ValueError('min_slope must be greater than zero')
         # Column names common to segments and segment_data
         segment_cols = [
@@ -478,8 +495,8 @@ class SwnMf6(_SwnModflow):
             'hcond2', 'thickm2', 'elevdn', 'width2']
         # Tidy any previous attempts
         for col in segment_cols:
-            if col in obj.segments.columns:
-                del obj.segments[col]
+            if col in self.segments.columns:
+                del self.segments[col]
         # Combine pairs of series for each segment
         more_segment_columns = pd.concat([
             swn._pair_segment_values(hyd_cond1, hyd_cond_out, 'hcond'),
@@ -487,72 +504,72 @@ class SwnMf6(_SwnModflow):
             swn._pair_segment_values(width1, width_out, name='width')
         ], axis=1, copy=False)
         for name, series in more_segment_columns.iteritems():
-            obj.segments[name] = series
-        obj.segments['roughch'] = swn._segment_series(roughch)
+            self.segments[name] = series
+        self.segments['roughch'] = swn._segment_series(roughch)
         # Mark segments that are not used
-        obj.segments['in_model'] = True
+        self.segments['in_model'] = True
         outside_model = \
-            set(swn.segments.index).difference(obj.reaches['segnum'])
-        obj.segments.loc[list(outside_model), 'in_model'] = False
+            set(swn.segments.index).difference(self.reaches['segnum'])
+        self.segments.loc[list(outside_model), 'in_model'] = False
 
         # Add information to reaches from segments
-        obj.reaches = obj.reaches.merge(
-            obj.segments[['sequence', 'min_slope']], 'left',
+        self.reaches = self.reaches.merge(
+            self.segments[['sequence', 'min_slope']], 'left',
             left_on='segnum', right_index=True)
-        obj.reaches.sort_values(['sequence', 'dist'], inplace=True)
+        self.reaches.sort_values(['sequence', 'dist'], inplace=True)
         # Interpolate segment properties to each reach
-        obj.reaches['rbth'] = 0.0
-        obj.reaches['rhk'] = 0.0
-        for segnum, seg in obj.segments.iterrows():
-            sel = obj.reaches['segnum'] == segnum
+        self.reaches['rbth'] = 0.0
+        self.reaches['rhk'] = 0.0
+        for segnum, seg in self.segments.iterrows():
+            sel = self.reaches['segnum'] == segnum
             if seg['thickm1'] == seg['thickm2']:
                 val = seg['thickm1']
             else:  # linear interpolate to mid points
                 tk1 = seg['thickm1']
                 tk2 = seg['thickm2']
                 dtk = tk2 - tk1
-                val = dtk * obj.reaches.loc[sel, 'dist'] + tk1
-            obj.reaches.loc[sel, 'rbth'] = val
+                val = dtk * self.reaches.loc[sel, 'dist'] + tk1
+            self.reaches.loc[sel, 'rbth'] = val
             if seg['hcond1'] == seg['hcond2']:
                 val = seg['hcond1']
             else:  # linear interpolate to mid points in log-10 space
                 lhc1 = np.log10(seg['hcond1'])
                 lhc2 = np.log10(seg['hcond2'])
                 dlhc = lhc2 - lhc1
-                val = 10 ** (dlhc * obj.reaches.loc[sel, 'dist'] + lhc1)
-            obj.reaches.loc[sel, 'rhk'] = val
+                val = 10 ** (dlhc * self.reaches.loc[sel, 'dist'] + lhc1)
+            self.reaches.loc[sel, 'rhk'] = val
             if seg['width1'] == seg['width2']:
                 val = seg['width1']
             else:  # linear interpolate to mid points in log-10 space
                 lhc1 = np.log10(seg['width1'])
                 lhc2 = np.log10(seg['width2'])
                 dlhc = lhc2 - lhc1
-                val = 10 ** (dlhc * obj.reaches.loc[sel, 'dist'] + lhc1)
-            obj.reaches.loc[sel, 'rwid'] = val
-            obj.reaches.loc[sel, 'man'] = seg['roughch']
-        del obj.reaches['sequence']
-        del obj.reaches['dist']
+                val = 10 ** (dlhc * self.reaches.loc[sel, 'dist'] + lhc1)
+            self.reaches.loc[sel, 'rwid'] = val
+            self.reaches.loc[sel, 'man'] = seg['roughch']
+        # del self.reaches['sequence']
+        # del self.reaches['dist']
         # Use MODFLOW SFR dataset 2 terms ISEG and IREACH, counting from 1
-        obj.reaches['iseg'] = 0
-        obj.reaches['ireach'] = 0
+        self.reaches['iseg'] = 0
+        self.reaches['ireach'] = 0
         iseg = ireach = 0
         prev_segnum = None
-        for idx, segnum in obj.reaches['segnum'].iteritems():
+        for idx, segnum in self.reaches['segnum'].iteritems():
             if segnum != prev_segnum:
                 iseg += 1
                 ireach = 0
             ireach += 1
-            obj.reaches.at[idx, 'iseg'] = iseg
-            obj.reaches.at[idx, 'ireach'] = ireach
+            self.reaches.at[idx, 'iseg'] = iseg
+            self.reaches.at[idx, 'ireach'] = ireach
             prev_segnum = segnum
-        obj.reaches.reset_index(inplace=True, drop=True)
-        obj.reaches.index += 1  # flopy series starts at one
-        obj.reaches.index.name = 'reachID'
-        obj.reaches['rlen'] = obj.reaches.geometry.length
-        obj.reaches['rtp'] = 0.0
-        obj.reaches['rgrd'] = 0.0
+        self.reaches.reset_index(inplace=True, drop=True)
+        self.reaches.index += 1  # flopy series starts at one
+        self.reaches.index.name = 'reachID'
+        self.reaches['rlen'] = self.reaches.geometry.length
+        self.reaches['rtp'] = 0.0
+        self.reaches['rgrd'] = 0.0
         if swn.has_z:
-            for reachID, item in obj.reaches.iterrows():
+            for reachID, item in self.reaches.iterrows():
                 geom = item.geometry
                 # Get Z from each end
                 z0 = geom.coords[0][2]
@@ -560,42 +577,42 @@ class SwnMf6(_SwnModflow):
                 dz = z0 - z1
                 dx = geom.length
                 slope = dz / dx
-                obj.reaches.at[reachID, 'rgrd'] = slope
+                self.reaches.at[reachID, 'rgrd'] = slope
                 # Get strtop from LineString mid-point Z
                 zm = geom.interpolate(0.5, normalized=True).z
-                obj.reaches.at[reachID, 'rtp'] = zm
+                self.reaches.at[reachID, 'rtp'] = zm
         else:
-            r = obj.reaches['row'].values
-            c = obj.reaches['col'].values
+            r = self.reaches['row'].values
+            c = self.reaches['col'].values
             # Estimate slope from top and grid spacing
+            col_size = np.median(dis.delr.array)
+            row_size = np.median(dis.delc.array)
             px, py = np.gradient(dis.top.array, col_size, row_size)
             grid_slope = np.sqrt(px ** 2 + py ** 2)
-            obj.reaches['rgrd'] = grid_slope[r, c]
+            self.reaches['rgrd'] = grid_slope[r, c]
             # Get stream values from top of model
-            obj.reaches['rtp'] = dis.top.array[r, c]
+            self.reaches['rtp'] = dis.top.array[r, c]
         # Enforce min_slope
-        sel = obj.reaches['rgrd'] < obj.reaches['min_slope']
+        sel = self.reaches['rgrd'] < self.reaches['min_slope']
         if sel.any():
-            obj.logger.warning(
+            self.logger.warning(
                 'enforcing min_slope for %d reaches (%.2f%%)',
                 sel.sum(), 100.0 * sel.sum() / len(sel))
-            obj.reaches.loc[sel, 'slope'] = obj.reaches.loc[sel, 'min_slope']
-        if not hasattr(obj.reaches.geometry, 'geom_type'):
+            self.reaches.loc[sel, 'slope'] = self.reaches.loc[sel, 'min_slope']
+        if not hasattr(self.reaches.geometry, 'geom_type'):
             # workaround needed for reaches.to_file()
-            obj.reaches.geometry.geom_type = obj.reaches.geom_type
+            self.reaches.geometry.geom_type = self.reaches.geom_type
         # Finally, add/rename a few columns to align with reach_data
-        obj.reaches.insert(2, column='k', value=0)
-        obj.reaches.insert(3, column='outreach', value=pd.Series(dtype=int))
-        obj.reaches.rename(columns={'row': 'i', 'col': 'j'}, inplace=True)
-        obj.reaches['rno'] = obj.reaches.index
+        self.reaches.insert(2, column='k', value=0)
+        self.reaches.insert(3, column='outreach', value=pd.Series(dtype=int))
+        self.reaches.rename(columns={'row': 'i', 'col': 'j'}, inplace=True)
+        self.reaches['rno'] = self.reaches.index
         # Build mf6 packagedata from reach info
         # get default columns for mf6 package data
-        pkd_defcols = flopy.mf6.ModflowGwfsfr.packagedata.empty(model).dtype.descr
-        defcols_names = []
-        defcols_dtypes = []
-        for n, t in pkd_defcols:
-            defcols_names.append(n)
-            defcols_dtypes.append(t)
+        names, dtypes = \
+            zip(*flopy.mf6.ModflowGwfsfr.packagedata.empty(model).dtype.descr)
+        defcols_names = list(names)
+        defcols_dtypes = list(dtypes)
         # use kij unstead of cellid
         if 'cellid' in defcols_names:
             i = defcols_names.index('cellid')
@@ -603,108 +620,108 @@ class SwnMf6(_SwnModflow):
             defcols_dtypes[i:i + 1] = '<i8', '<i8', '<i8'
         # Add missing data cols
         for n, t in zip(defcols_names, defcols_dtypes):
-            if n not in obj.reaches.columns:
-                obj.reaches[n] = pd.Series(index=obj.reaches.index, dtype=t)
-            # obj.reaches.loc[:, defcols_names]
+            if n not in self.reaches.columns:
+                self.reaches[n] = pd.Series(index=self.reaches.index, dtype=t)
+            # self.reaches.loc[:, defcols_names]
 
         # Build some old style Data Set 6 segment data
         # -- again dont need this for mf6 but we can us it to fill in the
         # reach-based data sets.  # TODO would benefit from a tidy
-        obj.segment_data = obj.reaches[['iseg', 'segnum']]\
+        self.segment_data = self.reaches[['iseg', 'segnum']]\
             .drop_duplicates().rename(columns={'iseg': 'nseg'})
         # index changes from 'reachID', to 'segnum', to finally 'nseg'
-        segnum2nseg_d = obj.segment_data.set_index('segnum')['nseg'].to_dict()
-        # obj.segment_data[' icalc'] = 1  # assumption for all streams
-        obj.segment_data['outseg'] = obj.segment_data['segnum'].map(
-            lambda x: segnum2nseg_d.get(obj.segments.loc[x, 'to_segnum'], 0))
+        segnum2nseg_d = self.segment_data.set_index('segnum')['nseg'].to_dict()
+        # self.segment_data[' icalc'] = 1  # assumption for all streams
+        self.segment_data['outseg'] = self.segment_data['segnum'].map(
+            lambda x: segnum2nseg_d.get(self.segments.loc[x, 'to_segnum'], 0))
 
         # at this point we could try and build packagedata
-        obj.reaches = set_outreaches(obj.reaches, obj.segment_data)
-        outreach_dict = obj.reaches.outreach.to_dict()
+        self.reaches = set_outreaches(self.reaches, self.segment_data)
+        outreach_dict = self.reaches.outreach.to_dict()
         # get number of connections # TODO is this different if there are diversions/multiple downstream?
-        obj.reaches['ncon'] = obj.reaches.rno.apply(
+        self.reaches['ncon'] = self.reaches.rno.apply(
             lambda x: (outreach_dict[x] != 0) +
-                      (obj.reaches.outreach == x).sum()
+                      (self.reaches.outreach == x).sum()
         )
         # add more cols... for package data
-        obj.reaches['ustrf'] = 1.  # upstream flow fraction  (check manual for this...)
+        self.reaches['ustrf'] = 1.  # upstream flow fraction  (check manual for this...)
         # TODO: diversions
-        obj.reaches['ndv'] = 0  # number of diversions - needs to be int
+        self.reaches['ndv'] = 0  # number of diversions - needs to be int
 
         # Package DATA
-        obj.packagedata = obj.reaches.loc[:, defcols_names].sort_index()
-        obj.packagedata.loc[:, ['k', 'i', 'j']] = obj.packagedata.loc[:, ['k', 'i', 'j']] + 1
+        self.packagedata = self.reaches.loc[:, defcols_names].sort_index()
+        self.packagedata.loc[:, ['k', 'i', 'j']] = self.packagedata.loc[:, ['k', 'i', 'j']] + 1
         # save to external
         pkd_fname = 'hpm_sfr_pkgdata.txt'
-        obj.packagedata.to_csv(os.path.join(model.model_ws, pkd_fname),
+        self.packagedata.to_csv(os.path.join(model.model_ws, pkd_fname),
                                header=False, index=False, sep=' ')
 
         # Build mf6 sfr connections data from outreaches
-        obj.connections = obj.packagedata.rno.apply(
+        self.connections = self.packagedata.rno.apply(
             lambda x:
-            obj.reaches.loc[obj.reaches.outreach == x].index.to_list() +
+            self.reaches.loc[self.reaches.outreach == x].index.to_list() +
             [-outreach_dict[x]]
             if outreach_dict[x] != 0
-            else obj.reaches.loc[obj.reaches.outreach == x].index.to_list()
+            else self.reaches.loc[self.reaches.outreach == x].index.to_list()
         )
         # save to external
         conn_fname = 'hpm_sfr_connections.txt'
         with open(os.path.join(model.model_ws, conn_fname), 'w') as fp:
-            for reach, conn in obj.connections.items():
+            for reach, conn in self.connections.items():
                 fp.write(f"{reach} " + ' '.join([str(c) for c in conn]) + '\n')
 
 
-        # obj.segment_data['iupseg'] = 0  # handle diversions next
-        # obj.segment_data['iprior'] = 0
-        # obj.segment_data['flow'] = 0.0
-        # obj.segment_data['runoff'] = 0.0
-        # obj.segment_data['etsw'] = 0.0
-        # obj.segment_data['pptsw'] = 0.0
+        # self.segment_data['iupseg'] = 0  # handle diversions next
+        # self.segment_data['iprior'] = 0
+        # self.segment_data['flow'] = 0.0
+        # self.segment_data['runoff'] = 0.0
+        # self.segment_data['etsw'] = 0.0
+        # self.segment_data['pptsw'] = 0.0
         # upper elevation from the first and last reachID items from reaches
-        # obj.segment_data['elevup'] = \
-        #     obj.reaches.loc[obj.segment_data.index, 'rtop']
-        # obj.segment_data['elevdn'] = obj.reaches.loc[
-        #     obj.reaches.groupby(['iseg']).ireach.idxmax().values,
+        # self.segment_data['elevup'] = \
+        #     self.reaches.loc[self.segment_data.index, 'rtop']
+        # self.segment_data['elevdn'] = self.reaches.loc[
+        #     self.reaches.groupby(['iseg']).ireach.idxmax().values,
         #     'rtop'].values
-        # obj.segment_data.set_index('segnum', drop=False, inplace=True)
+        # self.segment_data.set_index('segnum', drop=False, inplace=True)
         # copy several columns over (except 'elevup' and 'elevdn', for now)
         # segment_cols.remove('elevup')
         # segment_cols.remove('elevdn')
-        # obj.segment_data[segment_cols] = obj.segments[segment_cols]
+        # self.segment_data[segment_cols] = self.segments[segment_cols]
         # now use nseg as primary index, not reachID or segnum
-        # obj.segment_data.set_index('nseg', inplace=True)
-        # obj.segment_data.sort_index(inplace=True)
+        # self.segment_data.set_index('nseg', inplace=True)
+        # self.segment_data.sort_index(inplace=True)
         # Add diversions (i.e. SW takes) # TODO bring diversions back for mf6
         # if swn.diversions is not None:
-        #     obj.diversions = swn.diversions.copy()
+        #     self.diversions = swn.diversions.copy()
         #     # Mark diversions that are not used / outside model
-        #     obj.diversions['in_model'] = True
+        #     self.diversions['in_model'] = True
         #     outside_model = []
         #     # Add columns for ICALC=0
-        #     obj.segment_data['depth1'] = 0.0
-        #     obj.segment_data['depth2'] = 0.0
+        #     self.segment_data['depth1'] = 0.0
+        #     self.segment_data['depth2'] = 0.0
         #     # workaround for coercion issue
-        #     obj.segment_data['foo'] = ''
+        #     self.segment_data['foo'] = ''
         #     is_spatial = (
-        #         isinstance(obj.diversions, geopandas.GeoDataFrame) and
-        #         'geometry' in obj.diversions.columns and
-        #         (~obj.diversions.is_empty).all())
+        #         isinstance(self.diversions, geopandas.GeoDataFrame) and
+        #         'geometry' in self.diversions.columns and
+        #         (~self.diversions.is_empty).all())
         #     if swn.has_z:
         #         empty_geom = wkt.loads('linestring z empty')
         #     else:
         #         empty_geom = wkt.loads('linestring empty')
-        #     for divid, divn in obj.diversions.iterrows():
+        #     for divid, divn in self.diversions.iterrows():
         #         if divn.from_segnum not in segnum2nseg_d:
         #             # segnum does not exist -- segment is outside model
         #             outside_model.append(divid)
         #             continue
         #         iupseg = segnum2nseg_d[divn.from_segnum]
         #         assert iupseg != 0, iupseg
-        #         nseg = len(obj.segment_data) + 1
+        #         nseg = len(self.segment_data) + 1
         #         rchlen = 1.0  # length required
         #         thickm = 1.0  # thickness required
         #         hcond = 0.0  # don't allow GW exchange
-        #         seg_d = dict(obj.segment_data.loc[iupseg])
+        #         seg_d = dict(self.segment_data.loc[iupseg])
         #         seg_d.update({  # index is nseg
         #             'segnum': divid,
         #             'icalc': 0,  # stream depth is specified
@@ -721,8 +738,8 @@ class SwnMf6(_SwnModflow):
         #             'width1': 0.0, 'width2': 0.0,  # not used
         #         })
         #         # Use the last reach as a template to modify for new reach
-        #         reach_d = dict(obj.reaches.loc[
-        #             obj.reaches.iseg == iupseg].iloc[-1])
+        #         reach_d = dict(self.reaches.loc[
+        #             self.reaches.iseg == iupseg].iloc[-1])
         #         reach_d.update({
         #             'segnum': divid,
         #             'iseg': nseg,
@@ -747,7 +764,7 @@ class SwnMf6(_SwnModflow):
         #                 num_found = sel.sum()
         #                 grid_cell = grid_cells.loc[sel].iloc[0]
         #             if num_found > 1:
-        #                 obj.logger.warning(
+        #                 self.logger.warning(
         #                     '%d grid cells are nearest to diversion %r, '
         #                     'but only taking the first %s',
         #                     num_found, divid, grid_cell)
@@ -769,21 +786,21 @@ class SwnMf6(_SwnModflow):
         #             })
         #         depth = strtop + thickm
         #         seg_d.update({'depth1': depth, 'depth2': depth})
-        #         obj.reaches.loc[len(obj.reaches) + 1] = reach_d
-        #         obj.segment_data.loc[nseg] = seg_d
+        #         self.reaches.loc[len(self.reaches) + 1] = reach_d
+        #         self.segment_data.loc[nseg] = seg_d
         #     if outside_model:
-        #         obj.diversions.loc[list(outside_model), 'in_model'] = False
-        #         obj.logger.debug(
+        #         self.diversions.loc[list(outside_model), 'in_model'] = False
+        #         self.logger.debug(
         #             'added %d diversions, ignoring %d that did not connect to '
         #             'existing segments',
-        #             obj.diversions['in_model'].sum(), len(outside_model))
+        #             self.diversions['in_model'].sum(), len(outside_model))
         #     else:
-        #         obj.logger.debug(
-        #             'added all %d diversions', len(obj.diversions))
+        #         self.logger.debug(
+        #             'added all %d diversions', len(self.diversions))
         #     # end of coercion workaround
-        #     obj.segment_data.drop('foo', axis=1, inplace=True)
+        #     self.segment_data.drop('foo', axis=1, inplace=True)
         # else:
-        #     obj.diversions = None
+        #     self.diversions = None
         # Build stressperiod data
         sfr_spd = {}  # TODO this only works if flows etc are
                       #  expressed as segment (segnum) based.
@@ -795,50 +812,115 @@ class SwnMf6(_SwnModflow):
                 persfr = pd.DataFrame()
                 tdf = flow[t]
                 withflow = tdf[tdf['flow'] != 0]
-                persfr['rno'] = [obj.reaches.loc[
-                                     (obj.reaches.iseg == seg.segnum) &
-                                     (obj.reaches.ireach == 1)].index.values[0]
+                persfr['rno'] = [self.reaches.loc[
+                                     (self.reaches.iseg == seg.segnum) &
+                                     (self.reaches.ireach == 1)].index.values[0]
                                  for seg in withflow]
                 persfr['settingtype'] = 'inflow'
                 persfr['settingvalue'] = withflow.flow
             # if t in runoff.keys():  # TODO how is runoff to be divided up?
             #     tdf = runoff[t]
             #     withro = tdf[tdf['flow'] != 0]
-            #     persfr['rno'] = [obj.reaches.loc[
-            #                          (obj.reaches.iseg == seg.segnum) &
-            #                          (obj.reaches.ireach == 1)].index.values[0]
+            #     persfr['rno'] = [self.reaches.loc[
+            #                          (self.reaches.iseg == seg.segnum) &
+            #                          (self.reaches.ireach == 1)].index.values[0]
             #                      for seg in withro]
             #     persfr['settingtype'] = 'runoff'
             #     persfr['settingvalue'] = withro.flow
                 sfr_spd[t] = persfr
-        obj.spd = sfr_spd
+        self.spd = sfr_spd
 
             # persfr.to_csv(os.path.join(gwf.model_ws, fname),
             #               index=False, header=False, sep=' ')
             # sfr_spd[t] = {'filename': fname, 'data': None}
         # Create flopy Sfr2 package
-        # segment_data = obj.set_segment_data(
+        # segment_data = self.set_segment_data(
         #     abstraction=abstraction, inflow=inflow,
         #     flow=flow, runoff=runoff, etsw=etsw, pptsw=pptsw, return_dict=True)
-        # reach_data = obj.get_reach_data()
+        # reach_data = self.get_reach_data()
         # flopy.modflow.mfsfr2.ModflowSfr2(
-        #     model=obj.model, reach_data=reach_data, segment_data=segment_data)
+        #     model=self.model, reach_data=reach_data, segment_data=segment_data)
         flopy.mf6.ModflowGwfsfr(
-            model,
+            self.model,
             save_flows=True,
             maximum_iterations=100,
             maximum_picard_iterations=10,
-            nreaches=len(obj.packagedata),
+            nreaches=len(self.packagedata),
             packagedata={'filename': pkd_fname, 'data': None},
             connectiondata={'filename': conn_fname, 'data': None},
-            perioddata=obj.spd,
+            perioddata=self.spd,
         )
 
-        return obj
+    @property
+    def packagedata_wip(self):
+        """Return DataFrame of PACKAGEDATA for MODFLOW 6 SFR data.
+
+        Columns
+        -------
+        rno : int
+            Reach ID, greater than zero.
+        cellid: str, tuple
+            NONE (where IDOMAIN<1) or ...
+        rlen: float
+            Reach length, greater than zero.
+        rwid: float
+            Reach width, greater than zero.
+        rgrd: float
+            Stream gradient (slope) across the reach, greater than zero.
+        rtp: float
+            Top elevation of the reach streambed.
+        rbth: float
+            Thickness of the reach streambed, greater than zero (unless CELLID
+            is NONE).
+        rhk: float
+            Hydraulic conductivity of the reach streambed, greater than zero
+            (unless CELLID is NONE).
+        man: float
+            Manning's roughness coefficient for the reach, greater than zero.
+            Can be defined in a timeseries.
+        ncon: int
+            Number of reaches connected to the reach.
+        ustrf: float
+            Fraction of upstream flow from each upstream reach that is applied
+            as upstream inflow to the reach. The sum of all USTRF values for
+            all reaches connected to the same upstream reach must be equal to
+            one and USTRF must be greater than or equal to zero.
+            Can be defined in a timeseries.
+        ndv: int
+            Number of downstream diversions for the reach
+        aux: float, optional
+            Values of the auxiliary variables for each stream reach.
+            Can be defined in a timeseries.
+        boundname: str, optional
+            Name of the stream reach cell. BOUNDNAME is an ASCII character
+            variable that can contain as many as 40 characters. If BOUNDNAME
+            contains spaces in it, then the entire name must be enclosed
+            within single quotes.
+        """
+        from flopy.mf6 import ModflowGwfsfr as Mf6Sfr
+        defcols_names = list(Mf6Sfr.packagedata.empty(self.model).dtype.names)
+        # use kij unstead of cellid
+        if 'cellid' in defcols_names:
+            idx = defcols_names.index('cellid')
+            defcols_names[idx:idx + 1] = ['k', 'i', 'j']
+        dat = self.reaches.loc[:, defcols_names]
+        try:
+            pd.testing.assert_series_equal(
+                dat.index.to_series(), dat.rno, check_names=False)
+        except AssertionError as e:
+            raise ValueError(e)
+        # convert from zero-based to one-based notation
+        dat.loc[:, ['k', 'i', 'j']] += 1
+        return dat.set_index("rno")
+
+    def set_reach_data(self, name, value, value_out):
+        """Set reach data based on scalars or per-segment."""
+        raise NotImplementedError("Not done yet")
 
     def __repr__(self):
         """Return string representation of SwnModflow object."""
-        is_diversion = self.segment_data['iupseg'] != 0
+        # is_diversion = self.segment_data['iupseg'] != 0
+        is_diversion = np.array([False] * len(self.segment_data))
         segnum_l = list(self.segment_data.loc[~is_diversion, 'segnum'])
         segments_line = str(len(segnum_l)) + ' from segments'
         if set(segnum_l) != set(self.segments.index):

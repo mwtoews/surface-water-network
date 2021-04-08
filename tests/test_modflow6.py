@@ -1614,6 +1614,7 @@ def test_mf6(tmpdir_factory, coastal_lines_gdf, coastal_flow_m):
     n = swn.SurfaceWaterNetwork.from_lines(coastal_lines_gdf.geometry)
     n.adjust_elevation_profile()
     nm = swn.SwnMf6.other_from_swn_flopy(n, m)
+    nm.set_sfr_data()
     # m.sfr.unit_number = [24]  # WARNING: unit 17 of package SFR already in use
     # m.sfr.ipakcb = 50
     # m.sfr.istcb2 = -51
