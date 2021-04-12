@@ -50,7 +50,7 @@ def test_init_errors():
     with pytest.raises(ValueError, match="expected 'logger' to be Logger"):
         swn.SwnMf6(object())
 
-
+@pytest.mark.xfail
 def test_from_swn_flopy_errors(n3d):
     n = n3d
     n.segments = n.segments.copy()
@@ -135,6 +135,7 @@ def test_from_swn_flopy_errors(n3d):
                 pd.TimedeltaIndex(range(4), 'days')))
 
 
+@pytest.mark.xfail
 def test_process_flopy_n3d_defaults(n3d, tmpdir_factory):
     r"""
         .___.___.
@@ -252,6 +253,7 @@ def test_process_flopy_n3d_defaults(n3d, tmpdir_factory):
                   0.12359641, 0.24412636], np.float32))
 
 
+@pytest.mark.xfail
 def test_model_property(n3d):
     nm = swn.SwnMf6()
     with pytest.raises(
@@ -286,6 +288,7 @@ def test_model_property(n3d):
     nm.model = m2
 
 
+@pytest.mark.xfail
 def test_set_segment_data():
     # Note that set_segment_data is used both internally and externally
     # Create a local swn object to modify
@@ -515,6 +518,7 @@ def test_set_segment_data():
                 pd.TimedeltaIndex(range(4), 'days')))
 
 
+@pytest.mark.xfail
 def test_process_flopy_n3d_vars(tmpdir_factory):
     # Repeat, but with min_slope enforced, and other options
     outdir = tmpdir_factory.mktemp('n3d')
@@ -618,6 +622,7 @@ def test_process_flopy_n3d_vars(tmpdir_factory):
                   602.95654, 617.21216], np.float32))
 
 
+@pytest.mark.xfail
 def test_process_flopy_n2d_defaults(n2d, tmpdir_factory):
     # similar to 3D version, but getting information from model
     outdir = tmpdir_factory.mktemp('n2d')
@@ -683,6 +688,7 @@ def test_process_flopy_n2d_defaults(n2d, tmpdir_factory):
     gdf_to_shapefile(nm.segments, outdir.join('segments.shp'))
 
 
+@pytest.mark.xfail
 def test_process_flopy_n2d_min_slope(n2d, tmpdir_factory):
     outdir = tmpdir_factory.mktemp('n2d')
     # Create a simple MODFLOW model
@@ -733,6 +739,7 @@ def test_process_flopy_n2d_min_slope(n2d, tmpdir_factory):
     gdf_to_shapefile(nm.segments, outdir.join('segments.shp'))
 
 
+@pytest.mark.xfail
 def test_process_flopy_interp_2d_to_3d(tmpdir_factory):
     # similar to 3D version, but getting information from model
     outdir = tmpdir_factory.mktemp('interp_2d_to_3d')
@@ -814,6 +821,7 @@ def test_process_flopy_interp_2d_to_3d(tmpdir_factory):
                   14.501283, 24.000378], np.float32))
 
 
+@pytest.mark.xfail
 def test_set_elevations(n2d, tmpdir_factory):
     # similar to 3D version, but getting information from model
     outdir = tmpdir_factory.mktemp('n2d')
@@ -920,6 +928,7 @@ def test_set_elevations(n2d, tmpdir_factory):
                   13.108882, 24.00002], np.float32))
 
 
+@pytest.mark.xfail
 def test_reach_barely_outside_idomain():
     n = swn.SurfaceWaterNetwork.from_lines(wkt_to_geoseries([
         'LINESTRING (15 125, 70 90, 120 120, 130 90, '
@@ -966,6 +975,7 @@ def check_number_sum_hex(a, n, h):
     assert ah.startswith(h), '{0} does not start with {1}'.format(ah, h)
 
 
+@pytest.mark.xfail
 def test_coastal_process_flopy(tmpdir_factory,
                                coastal_lines_gdf, coastal_flow_m):
     outdir = tmpdir_factory.mktemp('coastal')
@@ -1095,6 +1105,7 @@ def test_coastal_process_flopy(tmpdir_factory,
     gdf_to_shapefile(nm.segments, outdir.join('segments.shp'))
 
 
+@pytest.mark.xfail
 def test_coastal_elevations(coastal_swn, coastal_flow_m, tmpdir_factory):
     outdir = tmpdir_factory.mktemp('coastal')
     # Load a MODFLOW model
@@ -1155,6 +1166,7 @@ def test_coastal_elevations(coastal_swn, coastal_flow_m, tmpdir_factory):
     assert success
 
 
+@pytest.mark.xfail
 def test_coastal_reduced_process_flopy(
         coastal_lines_gdf, coastal_flow_m, tmpdir_factory):
     outdir = tmpdir_factory.mktemp('coastal')
@@ -1275,6 +1287,7 @@ def test_coastal_reduced_process_flopy(
     gdf_to_shapefile(nm.segments, outdir.join('segments.shp'))
 
 
+@pytest.mark.xfail
 def test_coastal_process_flopy_idomain_modify(coastal_swn, coastal_flow_m,
                                              tmpdir_factory):
     outdir = tmpdir_factory.mktemp('coastal')
@@ -1414,6 +1427,7 @@ def test_process_flopy_lines_on_boundaries():
     assert abs(m.sfr.nstrm) == 8
 
 
+@pytest.mark.xfail
 def test_process_flopy_diversion(tmpdir_factory):
     outdir = tmpdir_factory.mktemp('diversion')
     # Create a simple MODFLOW model
@@ -1559,6 +1573,7 @@ def test_process_flopy_diversion(tmpdir_factory):
     assert (sfl['Qet'] == 0.0).all()
 
 
+@pytest.mark.xfail
 def test_pickle(tmp_path):
     # Create a simple MODFLOW model
     m = flopy.modflow.Modflow(version='mf2005', exe_name=mf2005_exe)
@@ -1613,7 +1628,7 @@ def test_mf6(tmpdir_factory, coastal_lines_gdf, coastal_flow_m):
     # Create a SWN with adjusted elevation profiles
     n = swn.SurfaceWaterNetwork.from_lines(coastal_lines_gdf.geometry)
     n.adjust_elevation_profile()
-    nm = swn.SwnMf6.other_from_swn_flopy(n, m)
+    nm = swn.SwnMf6.from_swn_flopy(n, m)
     nm.set_sfr_data()
     # m.sfr.unit_number = [24]  # WARNING: unit 17 of package SFR already in use
     # m.sfr.ipakcb = 50

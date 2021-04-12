@@ -67,7 +67,7 @@ class SwnMf6(_SwnModflow):
         # all other properties added afterwards
 
     @classmethod
-    def other_from_swn_flopy(
+    def from_swn_flopy(
             cls, swn, model, idomain_action='freeze',
             reach_include_fraction=0.2):
         """Create a MODFLOW 6 SFR structure from a surface water network.
@@ -170,7 +170,7 @@ class SwnMf6(_SwnModflow):
         obj.reaches.insert(
             1, column='segnum',
             value=pd.Series(dtype=obj.segments.index.dtype))
-        obj.reaches.insert(2, column='dist', value=pd.Series(dtype=float))
+        obj.reaches.insert(2, column='segndist', value=pd.Series(dtype=float))
         empty_reach_df.insert(3, column='length', value=pd.Series(dtype=float))
         empty_reach_df.insert(4, column='moved', value=pd.Series(dtype=bool))
 
@@ -429,7 +429,7 @@ class SwnMf6(_SwnModflow):
                 reach_record = {
                     'geometry': reach_geom,
                     'segnum': segnum,
-                    'dist': line.project(reach_mid_pt, normalized=True),
+                    'segndist': line.project(reach_mid_pt, normalized=True),
                     'row': row,
                     'col': col,
                 }
@@ -455,6 +455,151 @@ class SwnMf6(_SwnModflow):
         # Now convert from DataFrame to GeoDataFrame
         obj.reaches = geopandas.GeoDataFrame(
                 obj.reaches, geometry='geometry', crs=crs)
+
+        # Assign segment data to help reach data for MF6
+        # Mark segments that are not used
+        obj.segments['in_model'] = True
+        outside_model = \
+            set(swn.segments.index).difference(obj.reaches['segnum'])
+        obj.segments.loc[list(outside_model), 'in_model'] = False
+
+        # Add information to reaches from segments
+        obj.reaches = obj.reaches.merge(
+            obj.segments[['sequence']], 'left',
+            left_on='segnum', right_index=True)
+        obj.reaches.sort_values(['sequence', 'segndist'], inplace=True)
+        del obj.reaches['sequence']  # segment sequence not used anymore
+        # keep 'segndist' for interpolation from segment data
+        obj.reaches.reset_index(drop=True, inplace=True)
+        obj.reaches.index += 1
+        obj.reaches.index.name = 'rno'
+
+        # TODO
+        return obj
+
+        # Evaluate connections
+        # Assume only converging network
+        obj.reaches['to_rno'] = 0
+        # obj.reaches['div_rno'] = 0
+        to_segnums_d = swn.to_segnums.to_dict()
+        segnum_iter = obj.reaches['segnum'].iteritems()
+        prev_rno, prev_segnum = next(segnum_iter)
+        for rno, segnum in segnum_iter:
+            if segnum == prev_segnum:
+                to_rno = prev_rno
+            else:
+                sel = obj.reaches.loc[:, 'segnum'] == segnum
+                to_rno = to_segnums_d[obj.reaches[sel].index[0]]
+            obj.reaches.at[rno, 'to_rno'] = to_rno
+        return obj
+
+        prev_segnum = None
+        for idx, segnum in self.reaches['segnum'].iteritems():
+            if segnum != prev_segnum:
+                iseg += 1
+                ireach = 0
+            ireach += 1
+            self.reaches.at[idx, 'iseg'] = iseg
+            self.reaches.at[idx, 'ireach'] = ireach
+            prev_segnum = segnum
+    
+        # Use MODFLOW SFR dataset 2 terms ISEG and IREACH, counting from 1
+        self.reaches['iseg'] = 0
+        self.reaches['ireach'] = 0
+        iseg = ireach = 0
+        prev_segnum = None
+        for idx, segnum in self.reaches['segnum'].iteritems():
+            if segnum != prev_segnum:
+                iseg += 1
+                ireach = 0
+            ireach += 1
+            self.reaches.at[idx, 'iseg'] = iseg
+            self.reaches.at[idx, 'ireach'] = ireach
+            prev_segnum = segnum
+        self.reaches['rlen'] = self.reaches.geometry.length
+        self.reaches['rtp'] = 0.0
+        self.reaches['rgrd'] = 0.0
+        if swn.has_z:
+            for reachID, item in self.reaches.iterrows():
+                geom = item.geometry
+                # Get Z from each end
+                z0 = geom.coords[0][2]
+                z1 = geom.coords[-1][2]
+                dz = z0 - z1
+                dx = geom.length
+                slope = dz / dx
+                self.reaches.at[reachID, 'rgrd'] = slope
+                # Get strtop from LineString mid-point Z
+                zm = geom.interpolate(0.5, normalized=True).z
+                self.reaches.at[reachID, 'rtp'] = zm
+        else:
+            r = self.reaches['row'].values
+            c = self.reaches['col'].values
+            # Estimate slope from top and grid spacing
+            col_size = np.median(dis.delr.array)
+            row_size = np.median(dis.delc.array)
+            px, py = np.gradient(dis.top.array, col_size, row_size)
+            grid_slope = np.sqrt(px ** 2 + py ** 2)
+            self.reaches['rgrd'] = grid_slope[r, c]
+            # Get stream values from top of model
+            self.reaches['rtp'] = dis.top.array[r, c]
+        # Enforce min_slope
+        sel = self.reaches['rgrd'] < self.reaches['min_slope']
+        if sel.any():
+            self.logger.warning(
+                'enforcing min_slope for %d reaches (%.2f%%)',
+                sel.sum(), 100.0 * sel.sum() / len(sel))
+            self.reaches.loc[sel, 'slope'] = self.reaches.loc[sel, 'min_slope']
+        if not hasattr(self.reaches.geometry, 'geom_type'):
+            # workaround needed for reaches.to_file()
+            self.reaches.geometry.geom_type = self.reaches.geom_type
+        # Finally, add/rename a few columns to align with reach_data
+        self.reaches.insert(2, column='k', value=0)
+        self.reaches.insert(3, column='outreach', value=pd.Series(dtype=int))
+        self.reaches.rename(columns={'row': 'i', 'col': 'j'}, inplace=True)
+        self.reaches['rno'] = self.reaches.index
+        # Build mf6 packagedata from reach info
+        # get default columns for mf6 package data
+        names, dtypes = \
+            zip(*flopy.mf6.ModflowGwfsfr.packagedata.empty(model).dtype.descr)
+        defcols_names = list(names)
+        defcols_dtypes = list(dtypes)
+        # use kij unstead of cellid
+        if 'cellid' in defcols_names:
+            i = defcols_names.index('cellid')
+            defcols_names[i:i + 1] = 'k', 'i', 'j'
+            defcols_dtypes[i:i + 1] = '<i8', '<i8', '<i8'
+        # Add missing data cols
+        for n, t in zip(defcols_names, defcols_dtypes):
+            if n not in self.reaches.columns:
+                self.reaches[n] = pd.Series(index=self.reaches.index, dtype=t)
+            # self.reaches.loc[:, defcols_names]
+
+        # Build some old style Data Set 6 segment data
+        # -- again dont need this for mf6 but we can us it to fill in the
+        # reach-based data sets.  # TODO would benefit from a tidy
+        self.segment_data = self.reaches[['iseg', 'segnum']]\
+            .drop_duplicates().rename(columns={'iseg': 'nseg'})
+        # index changes from 'reachID', to 'segnum', to finally 'nseg'
+        segnum2nseg_d = self.segment_data.set_index('segnum')['nseg'].to_dict()
+        # self.segment_data[' icalc'] = 1  # assumption for all streams
+        self.segment_data['outseg'] = self.segment_data['segnum'].map(
+            lambda x: segnum2nseg_d.get(self.segments.loc[x, 'to_segnum'], 0))
+
+        # at this point we could try and build packagedata
+        self.reaches = set_outreaches(self.reaches, self.segment_data)
+        outreach_dict = self.reaches.outreach.to_dict()
+        # get number of connections # TODO is this different if there are diversions/multiple downstream?
+        self.reaches['ncon'] = self.reaches.rno.apply(
+            lambda x: (outreach_dict[x] != 0) +
+                      (self.reaches.outreach == x).sum()
+        )
+        # add more cols... for package data
+        self.reaches['ustrf'] = 1.  # upstream flow fraction  (check manual for this...)
+        # TODO: diversions
+        self.reaches['ndv'] = 0  # number of diversions - needs to be int
+
+
         return obj
 
     def set_sfr_data(
@@ -516,7 +661,7 @@ class SwnMf6(_SwnModflow):
         self.reaches = self.reaches.merge(
             self.segments[['sequence', 'min_slope']], 'left',
             left_on='segnum', right_index=True)
-        self.reaches.sort_values(['sequence', 'dist'], inplace=True)
+        self.reaches.sort_values(['sequence', 'segndist'], inplace=True)
         # Interpolate segment properties to each reach
         self.reaches['rbth'] = 0.0
         self.reaches['rhk'] = 0.0
@@ -528,7 +673,7 @@ class SwnMf6(_SwnModflow):
                 tk1 = seg['thickm1']
                 tk2 = seg['thickm2']
                 dtk = tk2 - tk1
-                val = dtk * self.reaches.loc[sel, 'dist'] + tk1
+                val = dtk * self.reaches.loc[sel, 'segndist'] + tk1
             self.reaches.loc[sel, 'rbth'] = val
             if seg['hcond1'] == seg['hcond2']:
                 val = seg['hcond1']
@@ -536,7 +681,7 @@ class SwnMf6(_SwnModflow):
                 lhc1 = np.log10(seg['hcond1'])
                 lhc2 = np.log10(seg['hcond2'])
                 dlhc = lhc2 - lhc1
-                val = 10 ** (dlhc * self.reaches.loc[sel, 'dist'] + lhc1)
+                val = 10 ** (dlhc * self.reaches.loc[sel, 'segndist'] + lhc1)
             self.reaches.loc[sel, 'rhk'] = val
             if seg['width1'] == seg['width2']:
                 val = seg['width1']
@@ -544,11 +689,11 @@ class SwnMf6(_SwnModflow):
                 lhc1 = np.log10(seg['width1'])
                 lhc2 = np.log10(seg['width2'])
                 dlhc = lhc2 - lhc1
-                val = 10 ** (dlhc * self.reaches.loc[sel, 'dist'] + lhc1)
+                val = 10 ** (dlhc * self.reaches.loc[sel, 'segndist'] + lhc1)
             self.reaches.loc[sel, 'rwid'] = val
             self.reaches.loc[sel, 'man'] = seg['roughch']
         # del self.reaches['sequence']
-        # del self.reaches['dist']
+        # del self.reaches['segndist']
         # Use MODFLOW SFR dataset 2 terms ISEG and IREACH, counting from 1
         self.reaches['iseg'] = 0
         self.reaches['ireach'] = 0
@@ -855,14 +1000,20 @@ class SwnMf6(_SwnModflow):
     def packagedata_wip(self):
         """Return DataFrame of PACKAGEDATA for MODFLOW 6 SFR data.
 
-        Columns
+        This DataFrame is derived from the reaches DataFrame.
+
+        Returns
         -------
+
+        DataFrame with the following columns:
+
         rno : int
-            Reach ID, greater than zero.
+            Reach ID, greater than zero. This is the index of the DataFrame.
         cellid: str, tuple
             NONE (where IDOMAIN<1) or ...
         rlen: float
-            Reach length, greater than zero.
+            Reach length, greater than zero. If not specified, this is
+            determined from the geometry length.
         rwid: float
             Reach width, greater than zero.
         rgrd: float
@@ -903,19 +1054,89 @@ class SwnMf6(_SwnModflow):
         if 'cellid' in defcols_names:
             idx = defcols_names.index('cellid')
             defcols_names[idx:idx + 1] = ['k', 'i', 'j']
-        dat = self.reaches.loc[:, defcols_names]
-        try:
-            pd.testing.assert_series_equal(
-                dat.index.to_series(), dat.rno, check_names=False)
-        except AssertionError as e:
-            raise ValueError(e)
+        dat = self.reaches.copy()
+        dat.rename(
+            columns={'lay': 'k', 'row': 'i', 'col': 'j'}, inplace=True)
+        if 'k' not in dat.columns:
+            dat.loc[:, 'k'] = 0
         # convert from zero-based to one-based notation
         dat.loc[:, ['k', 'i', 'j']] += 1
-        return dat.set_index("rno")
+        if 'rlen' not in dat.columns:
+            dat.loc[:, 'rlen'] = dat.geometry.length
+        # Checking missing columns
+        reach_columns = set(dat.columns)
+        missing = set(defcols_names).difference(reach_columns)
+        if missing:
+            missing_l = []
+            for name in defcols_names:
+                if name not in reach_columns:
+                    missing_l.append(name)
+            raise KeyError(
+                "missing {} reach dataset(s): {}"
+                .format(len(missing_l), ', '.join(sorted(missing_l))))
+        return dat.loc[:, defcols_names]
 
-    def set_reach_data(self, name, value, value_out):
-        """Set reach data based on scalars or per-segment."""
-        raise NotImplementedError("Not done yet")
+    def set_reach_data_from_series(
+            self, name, value, value_out=None, log10=False):
+        """Set reach data based on segment series (or scalar).
+
+        Values are interpolated along lengths of each segment based on a
+        'segndist' attribute for segment normalized distance, between 0 and 1.
+
+        Parameters
+        ----------
+        name : str
+            Name for reach dataset.
+        value : float or pandas.Series
+            Value to assign to the top of each segment. If a float, this value
+            is a constant. If a pandas Series, then this is applied for
+            each segment.
+        value_out : None, float or pandas.Series, optional
+            If None (default), the value used for the bottom of outlet segments
+            is assumed to be the same as the top. Otherwise, a Series
+            for each outlet can be specified.
+        log10 : bool, optional
+            If True, log-10 transformation applied to interpolation, otherwise
+            a linear interpolation is used from start to end of each segment.
+        """
+        if not isinstance(name, str):
+            raise ValueError("'name' must be a str type")
+        segdat = self._swn._pair_segment_values(value, value_out, name)
+        for segnum, (value1, value2) in segdat.iterrows():
+            sel = self.reaches['segnum'] == segnum
+            if value1 == value2:
+                value = value1
+            else:  # interpolate to mid points of each reach from segment data
+                segndist = self.reaches.loc[sel, 'segndist']
+                if log10:
+                    lvalue1 = np.log10(value1)
+                    lvalue2 = np.log10(value2)
+                    value = 10 ** ((lvalue2 - lvalue1) * segndist + lvalue1)
+                else:
+                    value = (value2 - value1) * segndist + value1
+            self.reaches.loc[sel, name] = value
+
+    def set_reach_data_from_array(self, name, array):
+        """Set reach data from an array that matches the model (nrow, ncol).
+
+        Parameters
+        ----------
+        name : str
+            Name for reach dataset.
+        array : array_like
+            2D array with dimensions (nrow, ncol).
+        """
+        if not isinstance(name, str):
+            raise ValueError("'name' must be a str type")
+        elif not hasattr(array, "ndim"):
+            raise ValueError("'array' must be array-like")
+        elif array.ndim != 2:
+            raise ValueError("'array' must have two dimensions")
+        dis = self.model.dis
+        expected_shape = dis.nrow.data, dis.ncol.data
+        if expected_shape != array.shape:
+            raise ValueError("'array' must have shape (nrow, ncol)")
+        self.reaches.loc[:, name] = array[self.reaches.row, self.reaches.col]
 
     def __repr__(self):
         """Return string representation of SwnModflow object."""
