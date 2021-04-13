@@ -71,6 +71,7 @@ class SwnMf6(_SwnModflow):
             cls, swn, model, idomain_action='freeze',
             reach_include_fraction=0.2):
         """Create a MODFLOW 6 SFR structure from a surface water network.
+        Relies on a hook into flopy's model object definition.
 
         Parameters
         ----------
@@ -87,14 +88,21 @@ class SwnMf6(_SwnModflow):
             reaches outside the active grid should be included to a cell.
             Based on the furthest distance of the line and cell geometries.
             Default 0.2 (e.g. for a 100 m grid cell, this is 20 m).
+
+        Returns
+        ----------
+        obj : swn.SwnMf6 object with attributes incl.:
+            MODFLOW6 SFR package data (by reaches) dataframe `obj.packagedata`.
+            MODFLOW6 SFR connections data dictionary, starting points
         """
         obj = cls()
         if not isinstance(swn, SurfaceWaterNetwork):
             raise ValueError('swn must be a SurfaceWaterNetwork object')
         elif idomain_action not in ('freeze', 'modify'):
             raise ValueError('idomain_action must be one of freeze or modify')
+        # Attach a few things to the fresh object
         obj.model = model
-        obj.segments = swn.segments.copy()
+        obj.segments = swn.segments.copy()  # segment starting data TODO: might get away without this copy for MF6
         obj._swn = swn
         # Make sure model CRS and segments CRS are the same (if defined)
         crs = None
@@ -157,8 +165,10 @@ class SwnMf6(_SwnModflow):
             zip(xv[r + 1, c + 1], yv[r + 1, c + 1]),
             zip(xv[r + 1, c], yv[r + 1, c])
         )
+        # Add dataframe of model grid cells to SwnMf6 object
         obj.grid_cells = grid_cells = geopandas.GeoDataFrame(
             grid_df, geometry=[Polygon(r) for r in cell_verts], crs=crs)
+        # Break up source segments according to the model grid definition
         obj.logger.debug('evaluating reach data on model grid')
         grid_sindex = get_sindex(grid_cells)
         reach_include = swn._segment_series(reach_include_fraction) * cell_size
@@ -363,6 +373,7 @@ class SwnMf6(_SwnModflow):
             else:
                 raise NotImplementedError(rem.geom_type)
 
+        # Looping over each segment breaking down into reaches
         for segnum, line in obj.segments.geometry.iteritems():
             remaining_line = line
             if grid_sindex:
@@ -428,7 +439,7 @@ class SwnMf6(_SwnModflow):
                 reach_mid_pt = reach_geom.interpolate(0.5, normalized=True)
                 reach_record = {
                     'geometry': reach_geom,
-                    'segnum': segnum,
+                    'segnum': segnum,  # TODO could use this in package data boundname to regroup reaches
                     'segndist': line.project(reach_mid_pt, normalized=True),
                     'row': row,
                     'col': col,
@@ -471,26 +482,65 @@ class SwnMf6(_SwnModflow):
         del obj.reaches['sequence']  # segment sequence not used anymore
         # keep 'segndist' for interpolation from segment data
         obj.reaches.reset_index(drop=True, inplace=True)
-        obj.reaches.index += 1
+        obj.reaches.index += 1  # TODO need to check base here
+                                #  -- if returning for flopy might need to be
+                                #  zero-based, there maybe some funnyness
+                                #  going on in flopy. I am happy with one-base
+                                #  though as then we can just dump the package
+                                #  out as an external file.
+                                #  Might just need a user beware!
         obj.reaches.index.name = 'rno'
 
         # TODO
-        return obj
+        # return obj
 
         # Evaluate connections
         # Assume only converging network
-        obj.reaches['to_rno'] = 0
+        # we only have knowledge of how source segments (lines)
+        # are connected at this stage
+        to_rno = []
+        from_rno = [[]]  # assuming first rno is a head water (I think that works)
+        # obj.reaches['to_rno'] = 0
+        # obj.reaches['from_rno'] = []
         # obj.reaches['div_rno'] = 0
         to_segnums_d = swn.to_segnums.to_dict()
         segnum_iter = obj.reaches['segnum'].iteritems()
         prev_rno, prev_segnum = next(segnum_iter)
         for rno, segnum in segnum_iter:
             if segnum == prev_segnum:
-                to_rno = prev_rno
+                # if segnum hasn't changed (reach still in same source segment)
+                # current rno is routed from previous
+                from_rno.append([prev_rno])  # referenced from current rno
+                # previous rno routes to this one
+                to_rno.append(rno)  # references from prev_rno
             else:
-                sel = obj.reaches.loc[:, 'segnum'] == segnum
-                to_rno = to_segnums_d[obj.reaches[sel].index[0]]
-            obj.reaches.at[rno, 'to_rno'] = to_rno
+                # need to find from_seg for current rno and to_seg for prev_rno
+                if prev_segnum in to_segnums_d.keys():  # Check that previous seg has a downstream connection
+                    to_seg = to_segnums_d[prev_segnum]
+                    if to_seg in obj.reaches.segnum:  # check if downstream seg has reaches associated
+                        # TODO poss issue if segment by-passes active domain
+                        # if the to_seg exists in the reaches data set
+                        prev_rno_tsel = obj.reaches.segnum == to_seg  # from to seg dict.
+                        to_rno.append(obj.reaches.loc[prev_rno_tsel].index[0])  # to seg is one-to-one so this should always be len() == 1
+                    else:  # to_seg not in model?
+                        to_rno.append(0)  # default
+                else:
+                    # previous seg is and outlet
+                    to_rno.append(0)  # default
+                # from rno could be one-to-many
+                rno_fsegs = [k for k, v in to_segnums_d.items()
+                             if v == segnum]  # pos could do from_rno afterwards to save this list comp in loop
+                rno_fsel = obj.reaches.segnum.isin(rno_fsegs)
+                from_rno.append(obj.reaches.loc[rno_fsel].index.to_list())
+                # sel = obj.reaches.loc[:, 'segnum'] == segnum
+                # to_rno = to_segnums_d[obj.reaches[sel].index[0]]
+            prev_rno, prev_segnum = rno, segnum
+            # obj.reaches.at[rno, 'from_rno'] = rno_frno
+            # obj.reaches.at[prev_rno, 'to_rno'] = prev_rno_trno
+        # append last rno
+        to_rno.append(0)
+        obj.reaches['from_rno'] = from_rno
+        obj.reaches['to_rno'] = to_rno
         return obj
 
         prev_segnum = None
