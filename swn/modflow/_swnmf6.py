@@ -496,6 +496,33 @@ class SwnMf6(_SwnModflow):
 
         # Evaluate connections
         # Assume only converging network
+        to_segnums_d = swn.to_segnums.to_dict()
+        reaches_segnum_s = set(obj.reaches['segnum'])
+
+        def find_next_rno(segnum):
+            if segnum in to_segnums_d:
+                to_segnum = to_segnums_d[segnum]
+                if to_segnum in reaches_segnum_s:
+                    sel = obj.reaches['segnum'] == to_segnum
+                    return obj.reaches[sel].index[0]
+                else:  # recurse
+                    return find_next_rno(to_segnum)
+            else:
+                return 0
+
+        obj.reaches['to_rno'] = 0
+        segnum_iter = obj.reaches['segnum'].iteritems()
+        rno, segnum = next(segnum_iter)
+        for next_rno, next_segnum in segnum_iter:
+            if segnum == next_segnum:
+                to_rno = next_rno
+            else:
+                # next segnum is somewhere else
+                to_rno = find_next_rno(segnum)
+            obj.reaches.at[rno, 'to_rno'] = to_rno
+            rno, segnum = next_rno, next_segnum
+        return obj
+
         # we only have knowledge of how source segments (lines)
         # are connected at this stage
         to_rno = []
