@@ -491,9 +491,6 @@ class SwnMf6(_SwnModflow):
                                 #  Might just need a user beware!
         obj.reaches.index.name = 'rno'
 
-        # TODO
-        # return obj
-
         # Evaluate connections
         # Assume only converging network
         to_segnums_d = swn.to_segnums.to_dict()
@@ -505,69 +502,33 @@ class SwnMf6(_SwnModflow):
                 if to_segnum in reaches_segnum_s:
                     sel = obj.reaches['segnum'] == to_segnum
                     return obj.reaches[sel].index[0]
-                else:  # recurse
+                else:  # recurse downstream
                     return find_next_rno(to_segnum)
             else:
                 return 0
 
-        obj.reaches['to_rno'] = 0
+        def find_to_rno(segnum, next_segnum):
+            if segnum == next_segnum:
+                return next_rno
+            else:
+                return find_next_rno(segnum)
+
+        obj.reaches['to_rno'] = -1
         segnum_iter = obj.reaches['segnum'].iteritems()
         rno, segnum = next(segnum_iter)
         for next_rno, next_segnum in segnum_iter:
-            if segnum == next_segnum:
-                to_rno = next_rno
-            else:
-                # next segnum is somewhere else
-                to_rno = find_next_rno(segnum)
-            obj.reaches.at[rno, 'to_rno'] = to_rno
+            obj.reaches.at[rno, 'to_rno'] = find_to_rno(segnum, next_segnum)
             rno, segnum = next_rno, next_segnum
-        return obj
+        obj.reaches.at[rno, 'to_rno'] = find_to_rno(segnum, next_segnum)
+        assert obj.reaches.to_rno.min() >= 0
 
-        # we only have knowledge of how source segments (lines)
-        # are connected at this stage
-        to_rno = []
-        from_rno = [[]]  # assuming first rno is a head water (I think that works)
-        # obj.reaches['to_rno'] = 0
-        # obj.reaches['from_rno'] = []
-        # obj.reaches['div_rno'] = 0
-        to_segnums_d = swn.to_segnums.to_dict()
-        segnum_iter = obj.reaches['segnum'].iteritems()
-        prev_rno, prev_segnum = next(segnum_iter)
-        for rno, segnum in segnum_iter:
-            if segnum == prev_segnum:
-                # if segnum hasn't changed (reach still in same source segment)
-                # current rno is routed from previous
-                from_rno.append([prev_rno])  # referenced from current rno
-                # previous rno routes to this one
-                to_rno.append(rno)  # references from prev_rno
-            else:
-                # need to find from_seg for current rno and to_seg for prev_rno
-                if prev_segnum in to_segnums_d.keys():  # Check that previous seg has a downstream connection
-                    to_seg = to_segnums_d[prev_segnum]
-                    if to_seg in obj.reaches.segnum:  # check if downstream seg has reaches associated
-                        # TODO poss issue if segment by-passes active domain
-                        # if the to_seg exists in the reaches data set
-                        prev_rno_tsel = obj.reaches.segnum == to_seg  # from to seg dict.
-                        to_rno.append(obj.reaches.loc[prev_rno_tsel].index[0])  # to seg is one-to-one so this should always be len() == 1
-                    else:  # to_seg not in model?
-                        to_rno.append(0)  # default
-                else:
-                    # previous seg is and outlet
-                    to_rno.append(0)  # default
-                # from rno could be one-to-many
-                rno_fsegs = [k for k, v in to_segnums_d.items()
-                             if v == segnum]  # pos could do from_rno afterwards to save this list comp in loop
-                rno_fsel = obj.reaches.segnum.isin(rno_fsegs)
-                from_rno.append(obj.reaches.loc[rno_fsel].index.to_list())
-                # sel = obj.reaches.loc[:, 'segnum'] == segnum
-                # to_rno = to_segnums_d[obj.reaches[sel].index[0]]
-            prev_rno, prev_segnum = rno, segnum
-            # obj.reaches.at[rno, 'from_rno'] = rno_frno
-            # obj.reaches.at[prev_rno, 'to_rno'] = prev_rno_trno
-        # append last rno
-        to_rno.append(0)
-        obj.reaches['from_rno'] = from_rno
-        obj.reaches['to_rno'] = to_rno
+        # Populate from_rno set
+        obj.reaches['from_rno'] = [set() for _ in range(len(obj.reaches))]
+        to_rnos = obj.reaches.loc[obj.reaches['to_rno'] != 0, 'to_rno']
+        for k, v in to_rnos.items():
+            obj.reaches.at[v, 'from_rno'].add(k)
+
+        
         return obj
 
         prev_segnum = None
@@ -1127,6 +1088,7 @@ class SwnMf6(_SwnModflow):
         """
         from flopy.mf6 import ModflowGwfsfr as Mf6Sfr
         defcols_names = list(Mf6Sfr.packagedata.empty(self.model).dtype.names)
+        defcols_names.remove('rno')  # this is the index
         # use kij unstead of cellid
         if 'cellid' in defcols_names:
             idx = defcols_names.index('cellid')
@@ -1140,7 +1102,12 @@ class SwnMf6(_SwnModflow):
         dat.loc[:, ['k', 'i', 'j']] += 1
         if 'rlen' not in dat.columns:
             dat.loc[:, 'rlen'] = dat.geometry.length
-        # Checking missing columns
+        dat['ncon'] = (
+            dat.from_rno.apply(lambda x: len(x)).max() +
+            (dat.to_rno > 0).astype(int)
+        )
+        dat['ndv'] = (dat.to_div > 0).astype(int)
+        # checking missing columns
         reach_columns = set(dat.columns)
         missing = set(defcols_names).difference(reach_columns)
         if missing:
