@@ -1,7 +1,7 @@
 # NPF6 input file, prepared by MF5to6 on 3/24/2021 at 11:30:49.
 
 BEGIN Options
-  SAVE_FLOWS  mf6h_h.cbb
+  SAVE_FLOWS  h.cbb
 END Options
 
 BEGIN GRIDDATA

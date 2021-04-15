@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import geopandas
 import numpy as np
+import os
 import pandas as pd
 import pickle
 from hashlib import md5
@@ -1614,11 +1615,12 @@ def test_pickle(tmp_path):
 
 
 @requires_mf6
-@pytest.mark.xfail
 def test_mf6(tmpdir_factory, coastal_lines_gdf, coastal_flow_m):
     outdir = tmpdir_factory.mktemp('coastal')
     # Load a MODFLOW model
-    sim = flopy.mf6.MFSimulation.load("mfsim.nam", sim_ws=datadir, exe_name='mf6')
+    sim = flopy.mf6.MFSimulation.load(
+        "mfsim.nam", sim_ws=os.path.join(datadir, "mf6_coastal"),
+        exe_name=mf6_exe)
     m = sim.get_model("mf6h")
     sim.set_sim_path("{}".format(outdir))
     # this model works without SFR -- Actually doesn't! (mfnwt lies)
