@@ -136,7 +136,7 @@ class SwnMf6(_SwnModflow):
         dis = obj.model.dis
         cols, rows = np.meshgrid(np.arange(dis.ncol.data),
                                  np.arange(dis.nrow.data))
-        idomain = dis.idomain[0].array.copy()
+        idomain = dis.idomain.array[0].copy()
         idomain_modified = 0
         grid_df = pd.DataFrame({'row': rows.flatten(), 'col': cols.flatten()})
         grid_df.set_index(['row', 'col'], inplace=True)
@@ -483,13 +483,49 @@ class SwnMf6(_SwnModflow):
         # keep 'segndist' for interpolation from segment data
         obj.reaches.reset_index(drop=True, inplace=True)
         obj.reaches.index += 1  # TODO need to check base here
-                                #  -- if returning for flopy might need to be
-                                #  zero-based, there maybe some funnyness
-                                #  going on in flopy. I am happy with one-base
-                                #  though as then we can just dump the package
-                                #  out as an external file.
-                                #  Might just need a user beware!
+        # if returning for flopy might need to be zero-based, there maybe some
+        # funnyness going on in flopy. I am happy with one-base though as then
+        # we can just dump the package out as an external file.
+        # Might just need a user beware!
         obj.reaches.index.name = 'rno'
+
+        # Add model grid info to each reach
+        r = obj.reaches['row'].values
+        c = obj.reaches['col'].values
+        obj.reaches['m_top'] = dis.top.array[r, c]
+        # Estimate slope from top and grid spacing
+        col_size = np.median(dis.delr.array)
+        row_size = np.median(dis.delc.array)
+        px, py = np.gradient(dis.top.array, col_size, row_size)
+        grid_slope = np.sqrt(px ** 2 + py ** 2)
+        obj.reaches['m_top_grid'] = grid_slope[r, c]
+        obj.reaches['m_botm0'] = dis.botm.array[0, r, c]
+
+        # Reach length is based on geometry property
+        obj.reaches['rlen'] = obj.reaches.geometry.length
+
+        if swn.has_z:
+            # If using LineStringZ, use reach Z-coordinate data
+            zcoords = obj.reaches.geometry.apply(
+                lambda g: [c[2] for c in g.coords[:]])
+            obj.reaches['lsz_min'] = zcoords.apply(lambda z: min(z))
+            obj.reaches['lsz_avg'] = zcoords.apply(lambda z: sum(z) / len(z))
+            obj.reaches['lsz_max'] = zcoords.apply(lambda z: max(z))
+            obj.reaches['lsz_first'] = zcoords.apply(lambda z: z[0])
+            obj.reaches['lsz_last'] = zcoords.apply(lambda z: z[-1])
+            # Calculate gradient
+            obj.reaches['rgrd'] = (
+                (obj.reaches['lsz_first'] - obj.reaches['lsz_last'])
+                / obj.reaches['rlen']
+            )
+        else:
+            # Otherwise assume gradient same as model top
+            obj.reaches['rgrd'] = obj.reaches['m_top_grid']
+        rgrd_le_zero = obj.reaches['rgrd'] <= 0
+        if (rgrd_le_zero).any():
+            obj.logger.error(
+                "there are {} reaches with 'rgrd' <= 0"
+                .format(rgrd_le_zero.sum()))
 
         # Evaluate connections
         # Assume only converging network
@@ -528,124 +564,23 @@ class SwnMf6(_SwnModflow):
         for k, v in to_rnos.items():
             obj.reaches.at[v, 'from_rno'].add(k)
 
-        
-        return obj
+        # Diversions not handled (yet)
+        obj.reaches['to_div'] = 0
+        obj.reaches['ustrf'] = 1.
 
-        prev_segnum = None
-        for idx, segnum in self.reaches['segnum'].iteritems():
-            if segnum != prev_segnum:
-                iseg += 1
-                ireach = 0
-            ireach += 1
-            self.reaches.at[idx, 'iseg'] = iseg
-            self.reaches.at[idx, 'ireach'] = ireach
-            prev_segnum = segnum
-    
-        # Use MODFLOW SFR dataset 2 terms ISEG and IREACH, counting from 1
-        self.reaches['iseg'] = 0
-        self.reaches['ireach'] = 0
-        iseg = ireach = 0
-        prev_segnum = None
-        for idx, segnum in self.reaches['segnum'].iteritems():
-            if segnum != prev_segnum:
-                iseg += 1
-                ireach = 0
-            ireach += 1
-            self.reaches.at[idx, 'iseg'] = iseg
-            self.reaches.at[idx, 'ireach'] = ireach
-            prev_segnum = segnum
-        self.reaches['rlen'] = self.reaches.geometry.length
-        self.reaches['rtp'] = 0.0
-        self.reaches['rgrd'] = 0.0
-        if swn.has_z:
-            for reachID, item in self.reaches.iterrows():
-                geom = item.geometry
-                # Get Z from each end
-                z0 = geom.coords[0][2]
-                z1 = geom.coords[-1][2]
-                dz = z0 - z1
-                dx = geom.length
-                slope = dz / dx
-                self.reaches.at[reachID, 'rgrd'] = slope
-                # Get strtop from LineString mid-point Z
-                zm = geom.interpolate(0.5, normalized=True).z
-                self.reaches.at[reachID, 'rtp'] = zm
-        else:
-            r = self.reaches['row'].values
-            c = self.reaches['col'].values
-            # Estimate slope from top and grid spacing
-            col_size = np.median(dis.delr.array)
-            row_size = np.median(dis.delc.array)
-            px, py = np.gradient(dis.top.array, col_size, row_size)
-            grid_slope = np.sqrt(px ** 2 + py ** 2)
-            self.reaches['rgrd'] = grid_slope[r, c]
-            # Get stream values from top of model
-            self.reaches['rtp'] = dis.top.array[r, c]
-        # Enforce min_slope
-        sel = self.reaches['rgrd'] < self.reaches['min_slope']
-        if sel.any():
-            self.logger.warning(
-                'enforcing min_slope for %d reaches (%.2f%%)',
-                sel.sum(), 100.0 * sel.sum() / len(sel))
-            self.reaches.loc[sel, 'slope'] = self.reaches.loc[sel, 'min_slope']
-        if not hasattr(self.reaches.geometry, 'geom_type'):
+        if not hasattr(obj.reaches.geometry, 'geom_type'):
             # workaround needed for reaches.to_file()
-            self.reaches.geometry.geom_type = self.reaches.geom_type
-        # Finally, add/rename a few columns to align with reach_data
-        self.reaches.insert(2, column='k', value=0)
-        self.reaches.insert(3, column='outreach', value=pd.Series(dtype=int))
-        self.reaches.rename(columns={'row': 'i', 'col': 'j'}, inplace=True)
-        self.reaches['rno'] = self.reaches.index
-        # Build mf6 packagedata from reach info
-        # get default columns for mf6 package data
-        names, dtypes = \
-            zip(*flopy.mf6.ModflowGwfsfr.packagedata.empty(model).dtype.descr)
-        defcols_names = list(names)
-        defcols_dtypes = list(dtypes)
-        # use kij unstead of cellid
-        if 'cellid' in defcols_names:
-            i = defcols_names.index('cellid')
-            defcols_names[i:i + 1] = 'k', 'i', 'j'
-            defcols_dtypes[i:i + 1] = '<i8', '<i8', '<i8'
-        # Add missing data cols
-        for n, t in zip(defcols_names, defcols_dtypes):
-            if n not in self.reaches.columns:
-                self.reaches[n] = pd.Series(index=self.reaches.index, dtype=t)
-            # self.reaches.loc[:, defcols_names]
-
-        # Build some old style Data Set 6 segment data
-        # -- again dont need this for mf6 but we can us it to fill in the
-        # reach-based data sets.  # TODO would benefit from a tidy
-        self.segment_data = self.reaches[['iseg', 'segnum']]\
-            .drop_duplicates().rename(columns={'iseg': 'nseg'})
-        # index changes from 'reachID', to 'segnum', to finally 'nseg'
-        segnum2nseg_d = self.segment_data.set_index('segnum')['nseg'].to_dict()
-        # self.segment_data[' icalc'] = 1  # assumption for all streams
-        self.segment_data['outseg'] = self.segment_data['segnum'].map(
-            lambda x: segnum2nseg_d.get(self.segments.loc[x, 'to_segnum'], 0))
-
-        # at this point we could try and build packagedata
-        self.reaches = set_outreaches(self.reaches, self.segment_data)
-        outreach_dict = self.reaches.outreach.to_dict()
-        # get number of connections # TODO is this different if there are diversions/multiple downstream?
-        self.reaches['ncon'] = self.reaches.rno.apply(
-            lambda x: (outreach_dict[x] != 0) +
-                      (self.reaches.outreach == x).sum()
-        )
-        # add more cols... for package data
-        self.reaches['ustrf'] = 1.  # upstream flow fraction  (check manual for this...)
-        # TODO: diversions
-        self.reaches['ndv'] = 0  # number of diversions - needs to be int
-
+            obj.reaches.geometry.geom_type = obj.reaches.geom_type
 
         return obj
+
 
     def set_sfr_data(
             self, min_slope=1./1000,
             hyd_cond1=1., hyd_cond_out=None, thickness1=1., thickness_out=None,
             width1=10., width_out=None, roughch=0.024,
             abstraction={}, inflow={}, flow={}, runoff={}, etsw={}, pptsw={}):
-        """Set MODFLOW 6 SFR data from segments.
+        """Set MODFLOW 6 SFR data from segment data.
 
         Parameters
         ----------
@@ -671,6 +606,13 @@ class SwnMf6(_SwnModflow):
         self.segments['min_slope'] = swn._segment_series(min_slope)
         if (self.segments['min_slope'] < 0.0).any():
             raise ValueError('min_slope must be greater than zero')
+        # Enforce min_slope
+        sel = self.reaches['rgrd'] < self.reaches['min_slope']
+        if sel.any():
+            self.logger.warning(
+                'enforcing min_slope for %d reaches (%.2f%%)',
+                sel.sum(), 100.0 * sel.sum() / len(sel))
+            self.reaches.loc[sel, 'slope'] = self.reaches.loc[sel, 'min_slope']
         # Column names common to segments and segment_data
         segment_cols = [
             'roughch',

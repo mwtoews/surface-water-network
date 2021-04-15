@@ -51,15 +51,15 @@ def test_init_errors():
     with pytest.raises(ValueError, match="expected 'logger' to be Logger"):
         swn.SwnMf6(object())
 
-@pytest.mark.xfail
+
 def test_from_swn_flopy_errors(n3d):
     n = n3d
     n.segments = n.segments.copy()
     sim = flopy.mf6.MFSimulation(exe_name=mf6_exe)
-    _ = flopy.mf6.ModflowTdis(sim, nper=4)
+    _ = flopy.mf6.ModflowTdis(sim, nper=4, time_units="days")
     m = flopy.mf6.ModflowGwf(sim)
     _ = flopy.mf6.ModflowGwfdis(
-        m, nlay=1, nrow=3, ncol=2, delr=20.0, delc=20.0)
+        m, nlay=1, nrow=3, ncol=2, delr=20.0, delc=20.0, idomain=1)
 
     with pytest.raises(
             ValueError,
@@ -84,59 +84,10 @@ def test_from_swn_flopy_errors(n3d):
     with pytest.raises(ValueError, match='idomain_action must be one of'):
         swn.SwnMf6.from_swn_flopy(n, m, idomain_action='foo')
 
-    with pytest.raises(ValueError, match='flow must be a dict or DataFrame'):
-        swn.SwnMf6.from_swn_flopy(n, m, flow=1.1)
-
-    with pytest.raises(
-            ValueError,
-            match=r'length of flow \(1\) is different than nper \(4\)'):
-        swn.SwnMf6.from_swn_flopy(
-            n, m, flow=pd.DataFrame(
-                    {'1': [1.1]},
-                    index=pd.DatetimeIndex(['1970-01-01'])))
-
-    with pytest.raises(
-            ValueError,
-            match=r'flow\.index must be a pandas\.DatetimeIndex'):
-        swn.SwnMf6.from_swn_flopy(
-            n, m, flow=pd.DataFrame({'1': [1.1] * 4}))
-
-    with pytest.raises(
-            ValueError,
-            match=r'flow\.index does not match expected \(1970\-01\-01, 1970'):
-        swn.SwnMf6.from_swn_flopy(
-            n, m, flow=pd.DataFrame(
-                    {'1': 1.1},  # starts on the wrong day
-                    index=pd.DatetimeIndex(['1970-01-02'] * 4) +
-                    pd.TimedeltaIndex(range(4), 'days')))
-
-    with pytest.raises(
-            ValueError,
-            match=r'flow\.columns\.dtype must be same as segments\.index\.dt'):
-        swn.SwnMf6.from_swn_flopy(
-            n, m, flow=pd.DataFrame(
-                    {'s1': 1.1},  # can't convert key to int
-                    index=pd.DatetimeIndex(['1970-01-01'] * 4) +
-                    pd.TimedeltaIndex(range(4), 'days')))
-
-    with pytest.raises(
-            ValueError,
-            match=r'flow\.columns \(or keys\) not found in segments\.index'):
-        swn.SwnMf6.from_swn_flopy(
-            n, m, flow=pd.DataFrame(
-                    {'3': 1.1},  # segnum 3 does not exist
-                    index=pd.DatetimeIndex(['1970-01-01'] * 4) +
-                    pd.TimedeltaIndex(range(4), 'days')))
-
     # finally success!
-    swn.SwnMf6.from_swn_flopy(
-        n, m, flow=pd.DataFrame(
-                {'1': 1.1, '3': 1.1},  # segnum 3 ignored
-                index=pd.DatetimeIndex(['1970-01-01'] * 4) +
-                pd.TimedeltaIndex(range(4), 'days')))
+    swn.SwnMf6.from_swn_flopy(n, m)
 
 
-@pytest.mark.xfail
 def test_process_flopy_n3d_defaults(n3d, tmpdir_factory):
     r"""
         .___.___.
@@ -152,21 +103,23 @@ def test_process_flopy_n3d_defaults(n3d, tmpdir_factory):
     """
     outdir = tmpdir_factory.mktemp('n3d')
     # Create a simple MODFLOW model
-    m = flopy.modflow.Modflow(version='mf2005', exe_name=mf2005_exe)
-    _ = flopy.modflow.ModflowDis(
-        m, nlay=1, nrow=3, ncol=2, delr=20.0, delc=20.0, top=15.0, botm=10.0,
-        xul=30.0, yul=130.0)
-    _ = flopy.modflow.ModflowOc(
-        m, stress_period_data={
-            (0, 0): ['print head', 'save head', 'save budget']})
-    _ = flopy.modflow.ModflowBas(m, strt=15.0, stoper=5.0)
-    _ = flopy.modflow.ModflowSip(m)
-    _ = flopy.modflow.ModflowLpf(m, ipakcb=52, laytyp=0, hk=1e-2)
-    _ = flopy.modflow.ModflowRch(m, ipakcb=52, rech=1e-4)
+    sim = flopy.mf6.MFSimulation(exe_name=mf6_exe)
+    _ = flopy.mf6.ModflowIms(
+        sim, outer_maximum=600, inner_maximum=100,
+        outer_dvclose=1e-6, rcloserecord=0.1, relaxation_factor=1.0)
+    _ = flopy.mf6.ModflowTdis(sim, nper=1, time_units="days")
+    m = flopy.mf6.ModflowGwf(sim, print_flows=True, save_flows=True)
+    _ = flopy.mf6.ModflowGwfdis(
+        m, nlay=1, nrow=3, ncol=2,
+        delr=20.0, delc=20.0, length_units="meters",
+        idomain=1, top=15.0, botm=10.0,
+        xorigin=30.0, yorigin=70.0)
+    _ = flopy.mf6.ModflowGwfic(m, strt=15.0)
+    _ = flopy.mf6.ModflowGwfnpf(m, k=1e-2)
+    # _ = flopy.mf6.ModflowGwfrcha(m, recharge=1e-4)
     nm = swn.SwnMf6.from_swn_flopy(n3d, m)
-    m.sfr.ipakcb = 52
-    m.sfr.istcb2 = -53
-    m.add_output_file(53, extension='sfo', binflag=True)
+    return
+    # TODO - WIP
     # Data set 1c
     assert abs(m.sfr.nstrm) == 7
     assert m.sfr.nss == 3
@@ -1621,17 +1574,17 @@ def test_mf6(tmpdir_factory, coastal_lines_gdf, coastal_flow_m):
     sim = flopy.mf6.MFSimulation.load(
         "mfsim.nam", sim_ws=os.path.join(datadir, "mf6_coastal"),
         exe_name=mf6_exe)
-    m = sim.get_model("mf6h")
+    m = sim.get_model("h")
     sim.set_sim_path("{}".format(outdir))
     # this model works without SFR -- Actually doesn't! (mfnwt lies)
     sim.write_simulation()
     success, buff = sim.run_simulation()
     assert success
-    return
     # Create a SWN with adjusted elevation profiles
     n = swn.SurfaceWaterNetwork.from_lines(coastal_lines_gdf.geometry)
     n.adjust_elevation_profile()
     nm = swn.SwnMf6.from_swn_flopy(n, m)
+    return
     nm.set_sfr_data()
     # m.sfr.unit_number = [24]  # WARNING: unit 17 of package SFR already in use
     # m.sfr.ipakcb = 50
