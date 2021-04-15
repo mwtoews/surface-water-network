@@ -1626,7 +1626,8 @@ def test_mf6(tmpdir_factory, coastal_lines_gdf, coastal_flow_m):
     # this model works without SFR -- Actually doesn't! (mfnwt lies)
     sim.write_simulation()
     success, buff = sim.run_simulation()
-    # assert success
+    assert success
+    return
     # Create a SWN with adjusted elevation profiles
     n = swn.SurfaceWaterNetwork.from_lines(coastal_lines_gdf.geometry)
     n.adjust_elevation_profile()
