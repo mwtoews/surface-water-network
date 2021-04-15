@@ -543,7 +543,7 @@ class SwnMf6(_SwnModflow):
             else:
                 return 0
 
-        def find_to_rno(segnum, next_segnum):
+        def get_to_rno():
             if segnum == next_segnum:
                 return next_rno
             else:
@@ -553,16 +553,17 @@ class SwnMf6(_SwnModflow):
         segnum_iter = obj.reaches['segnum'].iteritems()
         rno, segnum = next(segnum_iter)
         for next_rno, next_segnum in segnum_iter:
-            obj.reaches.at[rno, 'to_rno'] = find_to_rno(segnum, next_segnum)
+            obj.reaches.at[rno, 'to_rno'] = get_to_rno()
             rno, segnum = next_rno, next_segnum
-        obj.reaches.at[rno, 'to_rno'] = find_to_rno(segnum, next_segnum)
+        next_segnum = swn.END_SEGNUM
+        obj.reaches.at[rno, 'to_rno'] = get_to_rno()
         assert obj.reaches.to_rno.min() >= 0
 
-        # Populate from_rno set
-        obj.reaches['from_rno'] = [set() for _ in range(len(obj.reaches))]
+        # Populate from_rnos set
+        obj.reaches['from_rnos'] = [set() for _ in range(len(obj.reaches))]
         to_rnos = obj.reaches.loc[obj.reaches['to_rno'] != 0, 'to_rno']
         for k, v in to_rnos.items():
-            obj.reaches.at[v, 'from_rno'].add(k)
+            obj.reaches.at[v, 'from_rnos'].add(k)
 
         # Diversions not handled (yet)
         obj.reaches['to_div'] = 0
@@ -573,7 +574,6 @@ class SwnMf6(_SwnModflow):
             obj.reaches.geometry.geom_type = obj.reaches.geom_type
 
         return obj
-
 
     def set_sfr_data(
             self, min_slope=1./1000,
@@ -977,7 +977,7 @@ class SwnMf6(_SwnModflow):
         )
 
     @property
-    def packagedata_wip(self):
+    def packagedata_df(self):
         """Return DataFrame of PACKAGEDATA for MODFLOW 6 SFR data.
 
         This DataFrame is derived from the reaches DataFrame.
@@ -1045,7 +1045,7 @@ class SwnMf6(_SwnModflow):
         if 'rlen' not in dat.columns:
             dat.loc[:, 'rlen'] = dat.geometry.length
         dat['ncon'] = (
-            dat.from_rno.apply(lambda x: len(x)).max() +
+            dat.from_rnos.apply(lambda x: len(x)).max() +
             (dat.to_rno > 0).astype(int)
         )
         dat['ndv'] = (dat.to_div > 0).astype(int)
@@ -1061,6 +1061,15 @@ class SwnMf6(_SwnModflow):
                 "missing {} reach dataset(s): {}"
                 .format(len(missing_l), ', '.join(sorted(missing_l))))
         return dat.loc[:, defcols_names]
+
+    @property
+    def connectiondata_df(self):
+        """Return DataFrame of connectiondata."""
+        r = (self.reaches["from_rnos"].apply(sorted)
+             + self.reaches["to_rno"].apply(lambda x: [-x] if x > 0 else []))
+        if self.reaches["to_div"].any():
+            r += self.reaches["to_div"].apply(lambda x: [-x] if x > 0 else [])
+        return r
 
     def set_reach_data_from_series(
             self, name, value, value_out=None, log10=False):
@@ -1126,40 +1135,18 @@ class SwnMf6(_SwnModflow):
 
     def __repr__(self):
         """Return string representation of SwnModflow object."""
-        # is_diversion = self.segment_data['iupseg'] != 0
-        is_diversion = np.array([False] * len(self.segment_data))
-        segnum_l = list(self.segment_data.loc[~is_diversion, 'segnum'])
-        segments_line = str(len(segnum_l)) + ' from segments'
-        if set(segnum_l) != set(self.segments.index):
-            segments_line += ' ({:.0%} used)'.format(
-                len(segnum_l) / float(len(self.segments)))
-        segments_line += ': ' + abbr_str(segnum_l, 4)
-        if is_diversion.any() and self.diversions is not None:
-            divid_l = list(self.segment_data.loc[is_diversion, 'segnum'])
-            diversions_line = str(len(divid_l)) + ' from diversions'
-            if set(divid_l) != set(self.diversions.index):
-                diversions_line += ' ({:.0%} used)'.format(
-                    len(divid_l) / float(len(self.diversions)))
-            diversions_line += abbr_str(divid_l, 4)
-        else:
-            diversions_line = 'no diversions'
-        nper = self.model.dis.nper
+        tdis = self.model.simulation.tdis
+        nper = tdis.nper.data
         return dedent('''\
             <{}: flopy {} {!r}
               {} in reaches ({}): {}
-              {} in segment_data ({}): {}
-                {}
-                {}
-              {} stress period{} with perlen: {} />'''.format(
+              {} stress period{} with perlen: {} {}/>'''.format(
             self.__class__.__name__, self.model.version, self.model.name,
             len(self.reaches), self.reaches.index.name,
             abbr_str(list(self.reaches.index), 4),
-            len(self.segment_data), self.segment_data.index.name,
-            abbr_str(list(self.segment_data.index), 4),
-            segments_line,
-            diversions_line,
             nper, '' if nper == 1 else 's',
-            abbr_str(list(self.model.dis.perlen), 4)))
+            abbr_str(list(tdis.perioddata.array["perlen"]), 4),
+            tdis.time_units.data))
 
     def __eq__(self, other):
         """Return true if objects are equal."""
@@ -1219,13 +1206,12 @@ class SwnMf6(_SwnModflow):
 
     @_SwnModflow.model.setter
     def model(self, model):
-        """Set model property from flopy.mf6.ModflowGwf."""
+        """Set model property."""
         import flopy
-        if not (isinstance(model, flopy.mf6.ModflowGwf)
-                or isinstance(model, flopy.mf6.mfmodel.MFModel)):
-            raise ValueError(
-                "'model' must be a  flopy.mf6.ModflowGwf or flopy.mf6.mfmodel.MFModel object; found "
-                + str(type(model)))
+        if not (isinstance(model, flopy.mf6.mfmodel.MFModel)):
+             raise ValueError(
+                "'model' must be a flopy.mf6.MFModel object; found "
+                 + str(type(model)))
         elif 'dis' not in model.package_type_dict.keys():
             raise ValueError('DIS package required')
         if getattr(self, '_model', None) is not model:
