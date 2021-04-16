@@ -118,34 +118,50 @@ def test_process_flopy_n3d_defaults(n3d, tmpdir_factory):
     _ = flopy.mf6.ModflowGwfnpf(m, k=1e-2)
     # _ = flopy.mf6.ModflowGwfrcha(m, recharge=1e-4)
     nm = swn.SwnMf6.from_swn_flopy(n3d, m)
-    return
-    # TODO - WIP
-    # Data set 1c
-    assert abs(m.sfr.nstrm) == 7
-    assert m.sfr.nss == 3
-    assert m.sfr.const == 86400.0
-    # Data set 2
-    # Base-0
-    assert list(m.sfr.reach_data.node) == [0, 1, 3, 1, 3, 3, 5]
-    assert list(m.sfr.reach_data.k) == [0, 0, 0, 0, 0, 0, 0]
-    assert list(m.sfr.reach_data.i) == [0, 0, 1, 0, 1, 1, 2]
-    assert list(m.sfr.reach_data.j) == [0, 1, 1, 1, 1, 1, 1]
-    # Base-1
-    assert list(m.sfr.reach_data.reachID) == [1, 2, 3, 4, 5, 6, 7]
-    assert list(m.sfr.reach_data.iseg) == [1, 1, 1, 2, 2, 3, 3]
-    assert list(m.sfr.reach_data.ireach) == [1, 2, 3, 1, 2, 1, 2]
+    # check object reaches
+    r = nm.reaches
+    assert len(r) == 7
+    assert r.index.name == "rno"
+    assert list(r.index) == [1, 2, 3, 4, 5, 6, 7]
+    # row and col are base-0
+    assert list(r.row) == [0, 0, 1, 0, 1, 1, 2]
+    assert list(r.col) == [0, 1, 1, 1, 1, 1, 1]
+    assert list(r.segnum) == [1, 1, 1, 2, 2, 0, 0]
+    assert list(r.to_rno) == [2, 3, 6, 5, 6, 7, 0]
+    assert list(r.from_rnos) == [set(), {1}, {2}, set(), {4}, {3, 5}, {6}]
+    assert list(r.to_div) == [0, 0, 0, 0, 0, 0, 0]
+    with pytest.raises(KeyError, match='missing 5 reach dataset'):
+        nm.to_packagedata_df("native")
+    nm.set_reach_data_from_series("man", 0.024)
+    nm.set_reach_data_from_series("rbth", 1.0)
+    nm.set_reach_data_from_series("rhk", 1e-4)
+    nm.set_reach_data_from_array("rtp", m.dis.top.array - 5.0)
+    nm.set_reach_data_from_series("rwid", 10.0)
+    # check PACKAGEDATA
+    rn = nm.to_packagedata_df("native")
+    rf = nm.to_packagedata_df("flopy")
+    assert list(rn.ncon) == [1, 2, 2, 1, 2, 3, 1]
+    assert list(rn.ndv) == [0, 0, 0, 0, 0, 0, 0]
+    # native is one based, k,i,j are str
+    assert list(rn.index) == [1, 2, 3, 4, 5, 6, 7]
+    assert list(rn.k) == ['1', '1', '1', '1', '1', '1', '1']
+    assert list(rn.i) == ['1', '1', '2', '1', '2', '2', '3']
+    assert list(rn.j) == ['1', '2', '2', '2', '2', '2', '2']
+    # flopy has zero based, cellid with tuple
+    assert list(rf.index) == [0, 1, 2, 3, 4, 5, 6]
+    assert list(rf.cellid) == \
+        [(0, 0, 0), (0, 0, 1), (0, 1, 1), (0, 0, 1), (0, 1, 1), (0, 1, 1),
+         (0, 2, 1)]
     np.testing.assert_array_almost_equal(
-        m.sfr.reach_data.rchlen,
+        rn.rlen,
         [18.027756, 6.009252, 12.018504, 21.081851, 10.540926, 10.0, 10.0])
-    np.testing.assert_array_almost_equal(
-        m.sfr.reach_data.strtop,
-        [14.75, 14.416667, 14.166667, 14.666667, 14.166667, 13.5, 12.5])
-    np.testing.assert_array_almost_equal(
-        m.sfr.reach_data.slope,
-        [0.027735, 0.027735, 0.027735, 0.031622775, 0.031622775, 0.1, 0.1])
-    np.testing.assert_array_equal(m.sfr.reach_data.strthick, [1.0] * 7)
-    np.testing.assert_array_equal(m.sfr.reach_data.strhc1, [1.0] * 7)
-    # Data set 6
+    # todo rgrd ?
+    # check CONNECTIONDATA
+    cn = nm.connectiondata_df("native")
+    cf = nm.connectiondata_df("flopy")
+    return
+    # TODO
+    assert list(cn) == ['-2', '1 -3', '2 -6', '-5', '4 -6', '3 5 -7', '6']
     assert len(m.sfr.segment_data) == 1
     sd = m.sfr.segment_data[0]
     np.testing.assert_array_equal(sd.nseg, [1, 2, 3])

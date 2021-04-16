@@ -976,15 +976,21 @@ class SwnMf6(_SwnModflow):
             perioddata=self.spd,
         )
 
-    @property
-    def packagedata_df(self):
+    def to_packagedata_df(self, style: str):
         """Return DataFrame of PACKAGEDATA for MODFLOW 6 SFR data.
 
         This DataFrame is derived from the reaches DataFrame.
 
+        Parameters
+        ----------
+        style : str
+            If 'native', all indicies (including kij) use one-based notation.
+            Also use k,i,j columns (as str) rather than cellid.
+            If 'flopy', all indices (including rno) use zero-based notation.
+            Also use cellid as a tuple.
+
         Returns
         -------
-
         DataFrame with the following columns:
 
         rno : int
@@ -1031,21 +1037,39 @@ class SwnMf6(_SwnModflow):
         from flopy.mf6 import ModflowGwfsfr as Mf6Sfr
         defcols_names = list(Mf6Sfr.packagedata.empty(self.model).dtype.names)
         defcols_names.remove('rno')  # this is the index
-        # use kij unstead of cellid
-        if 'cellid' in defcols_names:
-            idx = defcols_names.index('cellid')
-            defcols_names[idx:idx + 1] = ['k', 'i', 'j']
         dat = self.reaches.copy()
+        if "lay" not in dat.columns:
+            dat["lay"] = 0
+        dat["idomain"] = \
+            self.model.dis.idomain.array[dat["lay"], dat["row"], dat["col"]]
+        cellid_none = dat["idomain"] < 1
         dat.rename(
-            columns={'lay': 'k', 'row': 'i', 'col': 'j'}, inplace=True)
-        if 'k' not in dat.columns:
-            dat.loc[:, 'k'] = 0
-        # convert from zero-based to one-based notation
-        dat.loc[:, ['k', 'i', 'j']] += 1
+            columns={"lay": "k", "row": "i", "col": "j"}, inplace=True)
+        kij_l = list("kij")
+        if style == "native":
+            # Convert from zero-based to one-based notation
+            dat[kij_l] += 1
+            # use kij unstead of cellid
+            idx = defcols_names.index("cellid")
+            defcols_names[idx:idx + 1] = kij_l
+            # convert kij to str, and store NONE in k, if needed
+            dat[kij_l] = dat[kij_l].astype(str)
+            if cellid_none.any():
+                dat.loc[cellid_none, "k"] = "NONE"
+                dat.loc[cellid_none, ["i", "j"]] = ""
+        elif style == "flopy":
+            # Convert rno from one-based to zero-based notation
+            dat.index -= 1
+            # make cellid into tuple
+            dat["cellid"] = dat[kij_l].to_records(index=False).tolist()
+            if cellid_none.any():
+                dat.loc[cellid_none, 'cellid'] = None
+        else:
+            raise ValueError("'style' must be either 'native' or 'flopy'")
         if 'rlen' not in dat.columns:
             dat.loc[:, 'rlen'] = dat.geometry.length
         dat['ncon'] = (
-            dat.from_rnos.apply(lambda x: len(x)).max() +
+            dat.from_rnos.apply(len) +
             (dat.to_rno > 0).astype(int)
         )
         dat['ndv'] = (dat.to_div > 0).astype(int)
@@ -1062,14 +1086,28 @@ class SwnMf6(_SwnModflow):
                 .format(len(missing_l), ', '.join(sorted(missing_l))))
         return dat.loc[:, defcols_names]
 
-    @property
-    def connectiondata_df(self):
-        """Return DataFrame of connectiondata."""
+    def connectiondata_df(self, style: str):
+        """Return DataFrame of connectiondata.
+
+        Parameters
+        ----------
+        style : str
+            If 'native', all indicies (including kij) use one-based notation.
+            If 'flopy', all indices (including rno) use zero-based notation.
+        """
         r = (self.reaches["from_rnos"].apply(sorted)
              + self.reaches["to_rno"].apply(lambda x: [-x] if x > 0 else []))
         if self.reaches["to_div"].any():
             r += self.reaches["to_div"].apply(lambda x: [-x] if x > 0 else [])
-        return r
+        if style == "native":
+            # keep one-based notation, but convert list to str
+            return r.apply(lambda x: " ".join(str(v) for v in x))
+        elif style == "flopy":
+            # Convert rno from one-based to zero-based notation
+            r.index -= 1
+            return r.apply(lambda x: [v - 1 if v > 0 else v + 1 for v in x])
+        else:
+            raise ValueError("'style' must be either 'native' or 'flopy'")
 
     def set_reach_data_from_series(
             self, name, value, value_out=None, log10=False):
