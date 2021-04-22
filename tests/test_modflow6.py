@@ -27,7 +27,10 @@ from swn.spatial import interp_2d_to_3d, force_2d, wkt_to_geoseries
 mf6_exe = which('mf6')
 requires_mf6 = pytest.mark.skipif(not mf6_exe, reason='requires mf6')
 if mf6_exe is None:
-    mfnwt_exe = 'mf6'
+    mf6_exe = 'mf6'
+
+# TODO: disable plot() for now
+matplotlib = None
 
 # same valid network used in test_basic
 n3d_lines = wkt_to_geoseries([
@@ -45,6 +48,47 @@ def n3d():
 @pytest.fixture
 def n2d():
     return swn.SurfaceWaterNetwork.from_lines(force_2d(n3d_lines))
+
+
+def read_head(hed_fname, reaches=None):
+    """Reads MODFLOW Head file
+
+    If reaches is not None, it is modified inplace to add a 'head' column
+
+    Returns numpy array
+    """
+    with flopy.utils.HeadFile(hed_fname) as b:
+        data = b.get_data()
+    if reaches is not None:
+        reaches['head'] = data[reaches['k'], reaches['i'], reaches['j']]
+    return data
+
+
+def read_budget(bud_fname, text, reaches=None, colname=None):
+    """Reads MODFLOW cell-by-cell file
+
+    If reaches is not None, it is modified inplace to add data in 'colname'
+
+    Returns numpy array
+    """
+    urn = []
+    with flopy.utils.CellBudgetFile(bud_fname) as b:
+        urn = b.get_unique_record_names(True)
+        try:
+            res = b.get_data(text=text)
+        except Exception as e:
+            raise Exception(f"cannot read text={text}; use one of {urn}\n{e}")
+        if len(res) != 1:
+            from warnings import warn
+            warn('get_data(text={!r}) returned more than one array'
+                 .format(text))
+        data = res[0]
+    if reaches is not None:
+        if isinstance(data, np.recarray) and 'q' in data.dtype.names:
+            reaches[colname] = data['q']
+        else:
+            reaches[colname] = data[reaches['k'], reaches['i'], reaches['j']]
+    return data
 
 
 def test_init_errors():
@@ -103,7 +147,7 @@ def test_process_flopy_n3d_defaults(n3d, tmpdir_factory):
     """
     outdir = tmpdir_factory.mktemp('n3d')
     # Create a simple MODFLOW model
-    sim = flopy.mf6.MFSimulation(exe_name=mf6_exe)
+    sim = flopy.mf6.MFSimulation(exe_name=mf6_exe, sim_ws=str(outdir))
     _ = flopy.mf6.ModflowIms(
         sim, outer_maximum=600, inner_maximum=100,
         outer_dvclose=1e-6, rcloserecord=0.1, relaxation_factor=1.0)
@@ -114,9 +158,12 @@ def test_process_flopy_n3d_defaults(n3d, tmpdir_factory):
         delr=20.0, delc=20.0, length_units="meters",
         idomain=1, top=15.0, botm=10.0,
         xorigin=30.0, yorigin=70.0)
+    _ = flopy.mf6.ModflowGwfoc(
+        m, head_filerecord="model.hds", budget_filerecord="model.cbc",
+        saverecord=[("HEAD", "ALL"), ("BUDGET", "ALL")])
     _ = flopy.mf6.ModflowGwfic(m, strt=15.0)
-    _ = flopy.mf6.ModflowGwfnpf(m, k=1e-2)
-    # _ = flopy.mf6.ModflowGwfrcha(m, recharge=1e-4)
+    _ = flopy.mf6.ModflowGwfnpf(m, k=1e-2, save_flows=True)
+    _ = flopy.mf6.ModflowGwfrcha(m, recharge=1e-4, save_flows=True)
     nm = swn.SwnMf6.from_swn_flopy(n3d, m)
     # check object reaches
     r = nm.reaches
@@ -135,8 +182,13 @@ def test_process_flopy_n3d_defaults(n3d, tmpdir_factory):
     nm.set_reach_data_from_series("man", 0.024)
     nm.set_reach_data_from_series("rbth", 1.0)
     nm.set_reach_data_from_series("rhk", 1e-4)
-    nm.set_reach_data_from_array("rtp", m.dis.top.array - 5.0)
+    # nm.set_reach_data_from_array("rtp", m.dis.top.array - 1.0)
+    nm.reaches["rtp"] = nm.reaches["lsz_avg"]
     nm.set_reach_data_from_series("rwid", 10.0)
+    # TODO rgrd ?
+    np.testing.assert_array_almost_equal(
+        nm.reaches["rtp"],
+        [14.75, 14.416667, 14.166667, 14.666667, 14.166667, 13.5, 12.5])
     # check PACKAGEDATA
     rn = nm.to_packagedata_df("native")
     rf = nm.to_packagedata_df("flopy")
@@ -155,72 +207,68 @@ def test_process_flopy_n3d_defaults(n3d, tmpdir_factory):
     np.testing.assert_array_almost_equal(
         rn.rlen,
         [18.027756, 6.009252, 12.018504, 21.081851, 10.540926, 10.0, 10.0])
-    # todo rgrd ?
     # check CONNECTIONDATA
-    cn = nm.connectiondata_df("native")
-    cf = nm.connectiondata_df("flopy")
-    return
-    # TODO
-    assert list(cn) == ['-2', '1 -3', '2 -6', '-5', '4 -6', '3 5 -7', '6']
-    assert len(m.sfr.segment_data) == 1
-    sd = m.sfr.segment_data[0]
-    np.testing.assert_array_equal(sd.nseg, [1, 2, 3])
-    np.testing.assert_array_equal(sd.icalc, [1, 1, 1])
-    np.testing.assert_array_equal(sd.outseg, [3, 3, 0])
-    np.testing.assert_array_equal(sd.iupseg, [0, 0, 0])
-    np.testing.assert_array_equal(sd.iprior, [0, 0, 0])
-    np.testing.assert_array_almost_equal(sd.flow, [0.0, 0.0, 0.0])
-    np.testing.assert_array_almost_equal(sd.runoff, [0.0, 0.0, 0.0])
-    np.testing.assert_array_almost_equal(sd.etsw, [0.0, 0.0, 0.0])
-    np.testing.assert_array_almost_equal(sd.pptsw, [0.0, 0.0, 0.0])
-    np.testing.assert_array_almost_equal(sd.roughch, [0.024, 0.024, 0.024])
-    np.testing.assert_array_almost_equal(sd.hcond1, [1.0, 1.0, 1.0])
-    np.testing.assert_array_almost_equal(sd.thickm1, [1.0, 1.0, 1.0])
-    np.testing.assert_array_almost_equal(sd.width1, [10.0, 10.0, 10.0])
-    np.testing.assert_array_almost_equal(sd.hcond2, [1.0, 1.0, 1.0])
-    np.testing.assert_array_almost_equal(sd.thickm2, [1.0, 1.0, 1.0])
-    np.testing.assert_array_almost_equal(sd.width2, [10.0, 10.0, 10.0])
+    cn = nm.to_connectiondata_series("native")
+    cf = nm.to_connectiondata_series("flopy")
+    assert list(cn.index) == [1, 2, 3, 4, 5, 6, 7]
+    assert list(cn) == [[-2], [1, -3], [2, -6], [-5], [4, -6], [3, 5, -7], [6]]
+    assert list(cf.index) == [0, 1, 2, 3, 4, 5, 6]
+    assert list(cf) == [[-1], [0, -2], [1, -5], [-4], [3, -5], [2, 4, -6], [5]]
+    # Write exteranl files
+    nm.write_packagedata(os.path.join(outdir, "packagedata.dat"))
+    nm.write_connectiondata(os.path.join(outdir, "connectiondata.dat"))
+    # Use with flopy
+    sfr_spd = {}
+    _ = flopy.mf6.ModflowGwfsfr(
+        m, save_flows=True,
+        stage_filerecord="model.sfr.bin",
+        budget_filerecord="model.sfr.bud",
+        maximum_iterations=100,
+        maximum_picard_iterations=10,
+        nreaches=len(nm.reaches),
+        packagedata={"filename": "packagedata.dat"},
+        connectiondata={"filename": "connectiondata.dat"},
+        perioddata=sfr_spd,
+    )
     assert repr(nm) == dedent('''\
-        <SwnMf6: flopy mf2005 'modflowtest'
-          7 in reaches (reachID): [1, 2, ..., 6, 7]
-          3 in segment_data (nseg): [1, 2, 3]
-            3 from segments: [1, 2, 0]
-            no diversions
-          1 stress period with perlen: [1.0] />''')
+        <SwnMf6: flopy mf6 'model'
+          7 in reaches (rno): [1, 2, ..., 6, 7]
+          1 stress period with perlen: [1.0] days />''')
     if matplotlib:
         _ = nm.plot()
         plt.close()
     # Run model and read outputs
-    m.model_ws = str(outdir)
-    m.write_input()
-    success, buff = m.run_model()
+    sim.write_simulation()
+    success, buff = sim.run_simulation()
     assert success
-    hds_fname = str(outdir.join(m.name + '.hds'))
-    cbc_fname = str(outdir.join(m.name + '.cbc'))
-    sfo_fname = str(outdir.join(m.name + '.sfo'))
-    heads = read_head(hds_fname)
-    sl = read_budget(cbc_fname, 'STREAM LEAKAGE', nm.reaches, 'sfrleakage')
-    sf = read_budget(sfo_fname, 'STREAMFLOW OUT', nm.reaches, 'sfr_Q')
+    hds_fname = str(outdir.join("model.hds"))
+    cbc_fname = str(outdir.join("model.cbc"))
+    sfo_fname = str(outdir.join("model.sfr.bud"))
+    head = read_head(hds_fname)
+    sl = read_budget(cbc_fname, 'SFR', nm.reaches, 'sfrleakage')
+    sf = read_budget(sfo_fname, 'GWF', nm.reaches, 'sfr_Q')
     # Write some files
-    nm.reaches.to_file(str(outdir.join('reaches.shp')))
+    gdf_to_shapefile(nm.reaches, outdir.join('reaches.shp'))
     nm.grid_cells.to_file(str(outdir.join('grid_cells.shp')))
     gdf_to_shapefile(nm.segments, outdir.join('segments.shp'))
     # Check results
-    assert heads.shape == (1, 3, 2)
+    assert head.shape == (1, 3, 2)
     np.testing.assert_array_almost_equal(
-        heads,
+        head,
         np.array([[
-                [14.604243, 14.409589],
-                [14.172486, 13.251323],
-                [13.861891, 12.751296]]], np.float32))
+            [17.10986328, 16.77658646],
+            [17.49119547, 16.81176342],
+            [17.75195983, 17.2127244]]]))
     np.testing.assert_array_almost_equal(
         sl['q'],
-        np.array([-0.00859839, 0.00420513, 0.00439326, 0.0, 0.0,
-                  -0.12359641, -0.12052996], np.float32))
+        np.array([
+            -0.04240276, -0.01410363, -0.03159486, -0.04431906, -0.02773725,
+            -0.03292868, -0.04691372]))
     np.testing.assert_array_almost_equal(
         sf['q'],
-        np.array([0.00859839, 0.00439326, 0.0, 0.0, 0.0,
-                  0.12359641, 0.24412636], np.float32))
+        np.array([
+            0.04240276, 0.01410362, 0.03159486, 0.04431904, 0.02773725,
+            0.03292867, 0.04691372]))
 
 
 @pytest.mark.xfail
@@ -266,7 +314,7 @@ def test_set_segment_data():
     # manually add outside flow from extra segnums, referenced with inflow
     n3d.segments.at[1, 'from_segnums'] = {3, 4}
     # Create a simple MODFLOW model object (don't write/run)
-    m = flopy.modflow.Modflow(version='mf2005', exe_name=mf2005_exe)
+    m = flopy.modflow.Modflow(version='mf6', exe_name=mf6_exe)
     _ = flopy.modflow.ModflowDis(
         m, nlay=1, nrow=3, ncol=2, delr=20.0, delc=20.0, top=15.0, botm=10.0,
         xul=30.0, yul=130.0)
@@ -289,7 +337,7 @@ def test_set_segment_data():
     np.testing.assert_array_equal(
         nm.segment_data.inflow_segnums, [set([3, 4]), None, None])
     np.testing.assert_array_almost_equal(
-        sd.flow, np.array([18.4 + 9.6 + 9.7, 0.0, 0.0], dtype=np.float32))
+        sd.flow, np.array([18.4 + 9.6 + 9.7, 0.0, 0.0]))
     np.testing.assert_array_almost_equal(sd.runoff, [5.0, 0.0, 0.0])
     np.testing.assert_array_almost_equal(sd.etsw, [0.02, 0.03, 0.01])
     np.testing.assert_array_almost_equal(sd.pptsw, [0.0, 1.8, 0.0])
@@ -301,7 +349,7 @@ def test_set_segment_data():
     np.testing.assert_array_almost_equal(sd.thickm2, [2.0, 2.0, 2.0])
     np.testing.assert_array_almost_equal(sd.width2, [10.0, 10.0, 10.0])
     assert repr(nm) == dedent('''\
-        <SwnMf6: flopy mf2005 'modflowtest'
+        <SwnMf6: flopy mf6 'modflowtest'
           7 in reaches (reachID): [1, 2, ..., 6, 7]
           3 in segment_data (nseg): [1, 2, 3]
             3 from segments: [1, 2, 0]
@@ -337,7 +385,7 @@ def test_set_segment_data():
     np.testing.assert_array_almost_equal(sd.thickm2, [2.0, 2.0, 2.0])
     np.testing.assert_array_almost_equal(sd.width2, [10.0, 10.0, 10.0])
     assert repr(nm) == dedent('''\
-        <SwnMf6: flopy mf2005 'modflowtest'
+        <SwnMf6: flopy mf6 'modflowtest'
           7 in reaches (reachID): [1, 2, ..., 6, 7]
           3 in segment_data (nseg): [1, 2, 3]
             3 from segments: [1, 2, 0]
@@ -364,7 +412,7 @@ def test_set_segment_data():
     np.testing.assert_array_equal(
         nm.segment_data.inflow_segnums, [set([3, 4]), None, None])
     np.testing.assert_array_almost_equal(
-        sd.flow, np.array([9.6 + 9.7, 0.0, 0.0], dtype=np.float32))
+        sd.flow, np.array([9.6 + 9.7, 0.0, 0.0]))
     np.testing.assert_array_almost_equal(sd.runoff, [5.5, 0.0, 0.0])
     np.testing.assert_array_equal(sd.etsw, [0.0, 0.0, 0.0])
     np.testing.assert_array_equal(sd.pptsw, [0.0, 0.0, 0.0])
@@ -378,7 +426,7 @@ def test_set_segment_data():
     np.testing.assert_array_almost_equal(sd.width2, [10.0, 10.0, 10.0])
 
     # Use another model with multiple stress periods
-    m = flopy.modflow.Modflow(version='mf2005', exe_name=mf2005_exe)
+    m = flopy.modflow.Modflow(version='mf6', exe_name=mf6_exe)
     _ = flopy.modflow.ModflowDis(
         m, nlay=1, nrow=3, ncol=2, nper=4, delr=20.0, delc=20.0,
         top=15.0, botm=10.0, xul=30.0, yul=130.0)
@@ -415,24 +463,24 @@ def test_set_segment_data():
     np.testing.assert_array_almost_equal(sd.pptsw, [0.0, 1.8, 0.0])
     sd = m.sfr.segment_data[1]
     np.testing.assert_array_almost_equal(
-        sd.flow, np.array([9.6 + 9.7 + 13.1, 0.0, 0.0], dtype=np.float32))
+        sd.flow, np.array([9.6 + 9.7 + 13.1, 0.0, 0.0]))
     np.testing.assert_array_almost_equal(sd.runoff, [5.0, 0.0, 0.0])
     np.testing.assert_array_almost_equal(sd.etsw, [0.02, 0.02, 0.01])
     np.testing.assert_array_almost_equal(sd.pptsw, [0.0, 0.2, 0.0])
     sd = m.sfr.segment_data[2]
     np.testing.assert_array_almost_equal(
-        sd.flow, np.array([9.6 + 9.7 + 16.4, 0.0, 0.0], dtype=np.float32))
+        sd.flow, np.array([9.6 + 9.7 + 16.4, 0.0, 0.0]))
     np.testing.assert_array_almost_equal(sd.runoff, [5.0, 0.0, 0.0])
     np.testing.assert_array_almost_equal(sd.etsw, [0.02, 0.03, 0.01])
     np.testing.assert_array_almost_equal(sd.pptsw, [0.0, 1.3, 0.0])
     sd = m.sfr.segment_data[3]
     np.testing.assert_array_almost_equal(
-        sd.flow, np.array([9.6 + 9.7 + 9.2, 0.0, 0.0], dtype=np.float32))
+        sd.flow, np.array([9.6 + 9.7 + 9.2, 0.0, 0.0]))
     np.testing.assert_array_almost_equal(sd.runoff, [5.0, 0.0, 0.0])
     np.testing.assert_array_almost_equal(sd.etsw, [0.02, 0.01, 0.01])
     np.testing.assert_array_almost_equal(sd.pptsw, [0.0, 0.9, 0.0])
     assert repr(nm) == dedent('''\
-        <SwnMf6: flopy mf2005 'modflowtest'
+        <SwnMf6: flopy mf6 'modflowtest'
           7 in reaches (reachID): [1, 2, ..., 6, 7]
           3 in segment_data (nseg): [1, 2, 3]
             3 from segments: [1, 2, 0]
@@ -497,7 +545,7 @@ def test_process_flopy_n3d_vars(tmpdir_factory):
     # manually add outside flow from extra segnums, referenced with inflow
     n3d.segments.at[1, 'from_segnums'] = {3, 4}
     # Create a simple MODFLOW model
-    m = flopy.modflow.Modflow(version='mf2005', exe_name=mf2005_exe)
+    m = flopy.modflow.Modflow(version='mf6', exe_name=mf6_exe)
     _ = flopy.modflow.ModflowDis(
         m, nlay=1, nrow=3, ncol=2, delr=20.0, delc=20.0, top=15.0, botm=10.0,
         xul=30.0, yul=130.0)
@@ -550,7 +598,7 @@ def test_process_flopy_n3d_vars(tmpdir_factory):
     np.testing.assert_array_almost_equal(sd.thickm2, [2.0, 2.0, 2.0])
     np.testing.assert_array_almost_equal(sd.width2, [10.0, 10.0, 10.0])
     assert repr(nm) == dedent('''\
-        <SwnMf6: flopy mf2005 'modflowtest'
+        <SwnMf6: flopy mf6 'modflowtest'
           7 in reaches (reachID): [1, 2, ..., 6, 7]
           3 in segment_data (nseg): [1, 2, 3]
             3 from segments: [1, 2, 0]
@@ -567,7 +615,7 @@ def test_process_flopy_n3d_vars(tmpdir_factory):
     hds_fname = str(outdir.join(m.name + '.hds'))
     cbc_fname = str(outdir.join(m.name + '.cbc'))
     sfo_fname = str(outdir.join(m.name + '.sfo'))
-    heads = read_head(hds_fname)
+    head = read_head(hds_fname)
     sl = read_budget(cbc_fname, 'STREAM LEAKAGE', nm.reaches, 'sfrleakage')
     sf = read_budget(sfo_fname, 'STREAMFLOW OUT', nm.reaches, 'sfr_Q')
     # Write some files
@@ -575,21 +623,21 @@ def test_process_flopy_n3d_vars(tmpdir_factory):
     nm.grid_cells.to_file(str(outdir.join('grid_cells.shp')))
     gdf_to_shapefile(nm.segments, outdir.join('segments.shp'))
     # Check results
-    assert heads.shape == (1, 3, 2)
+    assert head.shape == (1, 3, 2)
     np.testing.assert_array_almost_equal(
-        heads,
+        head,
         np.array([[
                 [14.620145, 14.489456],
                 [14.494376, 13.962832],
-                [14.100152, 12.905928]]], np.float32))
+                [14.100152, 12.905928]]]))
     np.testing.assert_array_almost_equal(
         sl['q'],
         np.array([-2.717792, -4.734348, 36.266556, 2.713955, 30.687397,
-                  -70.960304, -15.255642], np.float32))
+                  -70.960304, -15.255642]))
     np.testing.assert_array_almost_equal(
         sf['q'],
         np.array([39.31224, 43.67807, 6.67448, 370.4348, 526.3218,
-                  602.95654, 617.21216], np.float32))
+                  602.95654, 617.21216]))
 
 
 @pytest.mark.xfail
@@ -602,7 +650,7 @@ def test_process_flopy_n2d_defaults(n2d, tmpdir_factory):
         [15.0, 15.0],
         [14.0, 14.0],
     ])
-    m = flopy.modflow.Modflow(version='mf2005', exe_name=mf2005_exe)
+    m = flopy.modflow.Modflow(version='mf6', exe_name=mf6_exe)
     flopy.modflow.ModflowDis(
         m, nlay=1, nrow=3, ncol=2, delr=20.0, delc=20.0, top=top, botm=10.0,
         xul=30.0, yul=130.0)
@@ -637,7 +685,7 @@ def test_process_flopy_n2d_defaults(n2d, tmpdir_factory):
     assert list(sd.iupseg) == [0, 0, 0]
     # See test_process_flopy_n3d_defaults for other checks
     assert repr(nm) == dedent('''\
-        <SwnMf6: flopy mf2005 'modflowtest'
+        <SwnMf6: flopy mf6 'modflowtest'
           7 in reaches (reachID): [1, 2, ..., 6, 7]
           3 in segment_data (nseg): [1, 2, 3]
             3 from segments: [1, 2, 0]
@@ -667,7 +715,7 @@ def test_process_flopy_n2d_min_slope(n2d, tmpdir_factory):
         [15.0, 15.0],
         [14.0, 14.0],
     ])
-    m = flopy.modflow.Modflow(version='mf2005', exe_name=mf2005_exe)
+    m = flopy.modflow.Modflow(version='mf6', exe_name=mf6_exe)
     _ = flopy.modflow.ModflowDis(
         m, nlay=1, nrow=3, ncol=2, delr=20.0, delc=20.0, top=top, botm=10.0,
         xul=30.0, yul=130.0)
@@ -719,7 +767,7 @@ def test_process_flopy_interp_2d_to_3d(tmpdir_factory):
         [15.0, 15.0],
         [14.0, 14.0],
     ])
-    m = flopy.modflow.Modflow(version='mf2005', exe_name=mf2005_exe)
+    m = flopy.modflow.Modflow(version='mf6', exe_name=mf6_exe)
     flopy.modflow.ModflowDis(
         m, nlay=1, nrow=3, ncol=2, delr=20.0, delc=20.0, top=top, botm=10.0,
         xul=30.0, yul=130.0)
@@ -766,7 +814,7 @@ def test_process_flopy_interp_2d_to_3d(tmpdir_factory):
     hds_fname = str(outdir.join(m.name + '.hds'))
     cbc_fname = str(outdir.join(m.name + '.cbc'))
     sfo_fname = str(outdir.join(m.name + '.sfo'))
-    heads = read_head(hds_fname)
+    head = read_head(hds_fname)
     sl = read_budget(cbc_fname, 'STREAM LEAKAGE', nm.reaches, 'sfrleakage')
     sf = read_budget(sfo_fname, 'STREAMFLOW OUT', nm.reaches, 'sfr_Q')
     # Write some files
@@ -774,21 +822,21 @@ def test_process_flopy_interp_2d_to_3d(tmpdir_factory):
     nm.grid_cells.to_file(str(outdir.join('grid_cells.shp')))
     gdf_to_shapefile(nm.segments, outdir.join('segments.shp'))
     # Check results
-    assert heads.shape == (1, 3, 2)
+    assert head.shape == (1, 3, 2)
     np.testing.assert_array_almost_equal(
-        heads,
+        head,
         np.array([[
                 [15.595171, 15.015385],
                 [15.554525, 14.750549],
-                [15.509117, 14.458664]]], np.float32))
+                [15.509117, 14.458664]]]))
     np.testing.assert_array_almost_equal(
         sl['q'],
         np.array([-0.61594236, 0.61594236, 0.0, -6.4544363, 6.4544363,
-                  -14.501283, -9.499095], np.float32))
+                  -14.501283, -9.499095]))
     np.testing.assert_array_almost_equal(
         sf['q'],
         np.array([0.61594236, 0.0,  0.0, 6.4544363, 0.0,
-                  14.501283, 24.000378], np.float32))
+                  14.501283, 24.000378]))
 
 
 @pytest.mark.xfail
@@ -801,7 +849,7 @@ def test_set_elevations(n2d, tmpdir_factory):
         [15.0, 15.0],
         [14.0, 14.0],
     ])
-    m = flopy.modflow.Modflow(version='mf2005', exe_name=mf2005_exe)
+    m = flopy.modflow.Modflow(version='mf6', exe_name=mf6_exe)
     _ = flopy.modflow.ModflowDis(
         m, nlay=1, nrow=3, ncol=2, delr=20.0, delc=20.0, top=top, botm=10.0,
         xul=30.0, yul=130.0)
@@ -873,7 +921,7 @@ def test_set_elevations(n2d, tmpdir_factory):
     hds_fname = str(outdir.join(m.name + '.hds'))
     cbc_fname = str(outdir.join(m.name + '.cbc'))
     sfo_fname = str(outdir.join(m.name + '.sfo'))
-    heads = read_head(hds_fname)
+    head = read_head(hds_fname)
     sl = read_budget(cbc_fname, 'STREAM LEAKAGE', nm.reaches, 'sfrleakage')
     sf = read_budget(sfo_fname, 'STREAMFLOW OUT', nm.reaches, 'sfr_Q')
     # Write some files
@@ -881,21 +929,21 @@ def test_set_elevations(n2d, tmpdir_factory):
     nm.grid_cells.to_file(str(outdir.join('grid_cells.shp')))
     gdf_to_shapefile(nm.segments, outdir.join('segments.shp'))
     # Check results
-    assert heads.shape == (1, 3, 2)
+    assert head.shape == (1, 3, 2)
     np.testing.assert_array_almost_equal(
-        heads,
+        head,
         np.array([[
                 [15.4999275, 14.832507],
                 [15.434015, 14.678202],
-                [15.303412, 14.1582985]]], np.float32))
+                [15.303412, 14.1582985]]]))
     np.testing.assert_array_almost_equal(
         sl['q'],
         np.array([0.0, 0.0, 0.0, -6.8689923, 6.8689923,
-                  -13.108882, -10.891137], np.float32))
+                  -13.108882, -10.891137]))
     np.testing.assert_array_almost_equal(
         sf['q'],
         np.array([0.0, 0.0, 0.0, 6.8689923, 0.0,
-                  13.108882, 24.00002], np.float32))
+                  13.108882, 24.00002]))
 
 
 @pytest.mark.xfail
@@ -904,7 +952,7 @@ def test_reach_barely_outside_idomain():
         'LINESTRING (15 125, 70 90, 120 120, 130 90, '
         '150 110, 180 90, 190 110, 290 80)'
     ]))
-    m = flopy.modflow.Modflow(version='mf2005', exe_name=mf2005_exe)
+    m = flopy.modflow.Modflow(version='mf6', exe_name=mf6_exe)
     flopy.modflow.ModflowDis(
         m, nrow=2, ncol=3, delr=100.0, delc=100.0, xul=0.0, yul=200.0)
     flopy.modflow.ModflowBas(m, idomain=np.array([[1, 1, 1], [0, 0, 0]]))
@@ -927,7 +975,7 @@ def test_reach_barely_outside_idomain():
     expected_reaches_geom.index += 1
     assert nm.reaches.geom_almost_equals(expected_reaches_geom, 0).all()
     assert repr(nm) == dedent('''\
-        <SwnMf6: flopy mf2005 'modflowtest'
+        <SwnMf6: flopy mf6 'modflowtest'
           3 in reaches (reachID): [1, 2, 3]
           1 in segment_data (nseg): [1]
             1 from segments: [0]
@@ -951,7 +999,7 @@ def test_coastal_process_flopy(tmpdir_factory,
     outdir = tmpdir_factory.mktemp('coastal')
     # Load a MODFLOW model
     m = flopy.modflow.Modflow.load(
-        'h.nam', version='mfnwt', exe_name=mfnwt_exe, model_ws=datadir,
+        'h.nam', version='mf6', exe_name=mf6_exe, model_ws=datadir,
         check=False)
     m.model_ws = str(outdir)
     # this model works without SFR
@@ -1060,7 +1108,7 @@ def test_coastal_process_flopy(tmpdir_factory,
     check_number_sum_hex(
         m.dis.idomain.array, 509, 'c4135a084b2593e0b69c148136a3ad6d')
     assert repr(nm) == dedent('''\
-    <SwnMf6: flopy mfnwt 'h'
+    <SwnMf6: flopy mf6 'h'
       296 in reaches (reachID): [1, 2, ..., 295, 296]
       184 in segment_data (nseg): [1, 2, ..., 183, 184]
         184 from segments (61% used): [3049818, 3049819, ..., 3046952, 3046736]
@@ -1080,7 +1128,7 @@ def test_coastal_elevations(coastal_swn, coastal_flow_m, tmpdir_factory):
     outdir = tmpdir_factory.mktemp('coastal')
     # Load a MODFLOW model
     m = flopy.modflow.Modflow.load(
-        'h.nam', version='mfnwt', exe_name=mfnwt_exe, model_ws=datadir,
+        'h.nam', version='mf6', exe_name=mf6_exe, model_ws=datadir,
         check=False)
     m.model_ws = str(outdir)
     nm = swn.SwnMf6.from_swn_flopy(coastal_swn, m, inflow=coastal_flow_m)
@@ -1149,7 +1197,7 @@ def test_coastal_reduced_process_flopy(
     assert len(n) == 130
     # Load a MODFLOW model
     m = flopy.modflow.Modflow.load(
-        'h.nam', version='mfnwt', exe_name=mfnwt_exe, model_ws=datadir,
+        'h.nam', version='mf6', exe_name=mf6_exe, model_ws=datadir,
         check=False)
     nm = swn.SwnMf6.from_swn_flopy(n, m, inflow=coastal_flow_m)
     # These should be split between two cells
@@ -1232,7 +1280,7 @@ def test_coastal_reduced_process_flopy(
     # check_number_sum_hex(
     #    sd.width2, 1840, '5749f425818b3b18e395b2a432520a4e')
     assert repr(nm) == dedent('''\
-    <SwnMf6: flopy mfnwt 'h'
+    <SwnMf6: flopy mf6 'h'
       154 in reaches (reachID): [1, 2, ..., 153, 154]
       94 in segment_data (nseg): [1, 2, ..., 93, 94]
         94 from segments (72% used): [3049802, 3049683, ..., 3046952, 3046736]
@@ -1263,7 +1311,7 @@ def test_coastal_process_flopy_idomain_modify(coastal_swn, coastal_flow_m,
     outdir = tmpdir_factory.mktemp('coastal')
     # Load a MODFLOW model
     m = flopy.modflow.Modflow.load(
-        'h.nam', version='mfnwt', exe_name=mfnwt_exe, model_ws=datadir,
+        'h.nam', version='mf6', exe_name=mf6_exe, model_ws=datadir,
         check=False)
     nm = swn.SwnMf6.from_swn_flopy(
         coastal_swn, m, idomain_action='modify', inflow=coastal_flow_m)
@@ -1349,7 +1397,7 @@ def test_coastal_process_flopy_idomain_modify(coastal_swn, coastal_flow_m,
     check_number_sum_hex(
         m.dis.idomain.array, 572, 'd353560128577b37f730562d2f89c025')
     assert repr(nm) == dedent('''\
-        <SwnMf6: flopy mfnwt 'h'
+        <SwnMf6: flopy mf6 'h'
           478 in reaches (reachID): [1, 2, ..., 477, 478]
           304 in segment_data (nseg): [1, 2, ..., 303, 304]
             304 from segments: [3050413, 3050418, ..., 3046952, 3046736]
@@ -1376,7 +1424,7 @@ def test_coastal_process_flopy_idomain_modify(coastal_swn, coastal_flow_m,
 
 @pytest.mark.xfail
 def test_process_flopy_lines_on_boundaries():
-    m = flopy.modflow.Modflow(version='mf2005', exe_name=mf2005_exe)
+    m = flopy.modflow.Modflow(version='mf6', exe_name=mf6_exe)
     flopy.modflow.ModflowDis(
         m, nrow=3, ncol=3, delr=100, delc=100, xul=0, yul=300)
     flopy.modflow.ModflowBas(m)
@@ -1401,7 +1449,7 @@ def test_process_flopy_lines_on_boundaries():
 def test_process_flopy_diversion(tmpdir_factory):
     outdir = tmpdir_factory.mktemp('diversion')
     # Create a simple MODFLOW model
-    m = flopy.modflow.Modflow(version='mf2005', exe_name=mf2005_exe)
+    m = flopy.modflow.Modflow(version='mf6', exe_name=mf6_exe)
     top = np.array([
         [16.0, 15.0],
         [15.0, 15.0],
@@ -1451,7 +1499,7 @@ def test_process_flopy_diversion(tmpdir_factory):
     np.testing.assert_array_equal(sd.iupseg,  [0, 0, 0, 1, 2, 3, 3])
     np.testing.assert_array_equal(sd.iprior,  [0, 0, 0, 0, 0, 0, 0])
     assert repr(nm) == dedent('''\
-        <SwnMf6: flopy mf2005 'modflowtest'
+        <SwnMf6: flopy mf6 'modflowtest'
           11 in reaches (reachID): [1, 2, ..., 10, 11]
           7 in segment_data (nseg): [1, 2, ..., 6, 7]
             3 from segments: [1, 2, 0]
@@ -1546,7 +1594,7 @@ def test_process_flopy_diversion(tmpdir_factory):
 @pytest.mark.xfail
 def test_pickle(tmp_path):
     # Create a simple MODFLOW model
-    m = flopy.modflow.Modflow(version='mf2005', exe_name=mf2005_exe)
+    m = flopy.modflow.Modflow(version='mf6', exe_name=mf6_exe)
     top = np.array([
         [16.0, 15.0],
         [15.0, 15.0],
@@ -1700,7 +1748,7 @@ def test_mf6(tmpdir_factory, coastal_lines_gdf, coastal_flow_m):
     check_number_sum_hex(
         m.dis.idomain.array, 509, 'c4135a084b2593e0b69c148136a3ad6d')
     assert repr(nm) == dedent('''\
-    <SwnMf6: flopy mfnwt 'h'
+    <SwnMf6: flopy mf6 'h'
       296 in reaches (reachID): [1, 2, ..., 295, 296]
       184 in segment_data (nseg): [1, 2, ..., 183, 184]
         184 from segments (61% used): [3049818, 3049819, ..., 3046952, 3046736]

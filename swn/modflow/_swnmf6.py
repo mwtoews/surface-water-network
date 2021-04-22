@@ -498,7 +498,7 @@ class SwnMf6(_SwnModflow):
         row_size = np.median(dis.delc.array)
         px, py = np.gradient(dis.top.array, col_size, row_size)
         grid_slope = np.sqrt(px ** 2 + py ** 2)
-        obj.reaches['m_top_grid'] = grid_slope[r, c]
+        obj.reaches['m_top_slope'] = grid_slope[r, c]
         obj.reaches['m_botm0'] = dis.botm.array[0, r, c]
 
         # Reach length is based on geometry property
@@ -773,159 +773,6 @@ class SwnMf6(_SwnModflow):
         # TODO: diversions
         self.reaches['ndv'] = 0  # number of diversions - needs to be int
 
-        # Package DATA
-        self.packagedata = self.reaches.loc[:, defcols_names].sort_index()
-        self.packagedata.loc[:, ['k', 'i', 'j']] = self.packagedata.loc[:, ['k', 'i', 'j']] + 1
-        # save to external
-        pkd_fname = 'hpm_sfr_pkgdata.txt'
-        self.packagedata.to_csv(os.path.join(model.model_ws, pkd_fname),
-                               header=False, index=False, sep=' ')
-
-        # Build mf6 sfr connections data from outreaches
-        self.connections = self.packagedata.rno.apply(
-            lambda x:
-            self.reaches.loc[self.reaches.outreach == x].index.to_list() +
-            [-outreach_dict[x]]
-            if outreach_dict[x] != 0
-            else self.reaches.loc[self.reaches.outreach == x].index.to_list()
-        )
-        # save to external
-        conn_fname = 'hpm_sfr_connections.txt'
-        with open(os.path.join(model.model_ws, conn_fname), 'w') as fp:
-            for reach, conn in self.connections.items():
-                fp.write(f"{reach} " + ' '.join([str(c) for c in conn]) + '\n')
-
-
-        # self.segment_data['iupseg'] = 0  # handle diversions next
-        # self.segment_data['iprior'] = 0
-        # self.segment_data['flow'] = 0.0
-        # self.segment_data['runoff'] = 0.0
-        # self.segment_data['etsw'] = 0.0
-        # self.segment_data['pptsw'] = 0.0
-        # upper elevation from the first and last reachID items from reaches
-        # self.segment_data['elevup'] = \
-        #     self.reaches.loc[self.segment_data.index, 'rtop']
-        # self.segment_data['elevdn'] = self.reaches.loc[
-        #     self.reaches.groupby(['iseg']).ireach.idxmax().values,
-        #     'rtop'].values
-        # self.segment_data.set_index('segnum', drop=False, inplace=True)
-        # copy several columns over (except 'elevup' and 'elevdn', for now)
-        # segment_cols.remove('elevup')
-        # segment_cols.remove('elevdn')
-        # self.segment_data[segment_cols] = self.segments[segment_cols]
-        # now use nseg as primary index, not reachID or segnum
-        # self.segment_data.set_index('nseg', inplace=True)
-        # self.segment_data.sort_index(inplace=True)
-        # Add diversions (i.e. SW takes) # TODO bring diversions back for mf6
-        # if swn.diversions is not None:
-        #     self.diversions = swn.diversions.copy()
-        #     # Mark diversions that are not used / outside model
-        #     self.diversions['in_model'] = True
-        #     outside_model = []
-        #     # Add columns for ICALC=0
-        #     self.segment_data['depth1'] = 0.0
-        #     self.segment_data['depth2'] = 0.0
-        #     # workaround for coercion issue
-        #     self.segment_data['foo'] = ''
-        #     is_spatial = (
-        #         isinstance(self.diversions, geopandas.GeoDataFrame) and
-        #         'geometry' in self.diversions.columns and
-        #         (~self.diversions.is_empty).all())
-        #     if swn.has_z:
-        #         empty_geom = wkt.loads('linestring z empty')
-        #     else:
-        #         empty_geom = wkt.loads('linestring empty')
-        #     for divid, divn in self.diversions.iterrows():
-        #         if divn.from_segnum not in segnum2nseg_d:
-        #             # segnum does not exist -- segment is outside model
-        #             outside_model.append(divid)
-        #             continue
-        #         iupseg = segnum2nseg_d[divn.from_segnum]
-        #         assert iupseg != 0, iupseg
-        #         nseg = len(self.segment_data) + 1
-        #         rchlen = 1.0  # length required
-        #         thickm = 1.0  # thickness required
-        #         hcond = 0.0  # don't allow GW exchange
-        #         seg_d = dict(self.segment_data.loc[iupseg])
-        #         seg_d.update({  # index is nseg
-        #             'segnum': divid,
-        #             'icalc': 0,  # stream depth is specified
-        #             'outseg': 0,
-        #             'iupseg': iupseg,
-        #             'iprior': 0,  # normal behaviour for SW takes
-        #             'flow': 0.0,  # abstraction assigned later
-        #             'runoff': 0.0,
-        #             'etsw': 0.0,
-        #             'pptsw': 0.0,
-        #             'roughch': 0.0,  # not used
-        #             'hcond1': hcond, 'hcond2': hcond,
-        #             'thickm1': thickm, 'thickm2': thickm,
-        #             'width1': 0.0, 'width2': 0.0,  # not used
-        #         })
-        #         # Use the last reach as a template to modify for new reach
-        #         reach_d = dict(self.reaches.loc[
-        #             self.reaches.iseg == iupseg].iloc[-1])
-        #         reach_d.update({
-        #             'segnum': divid,
-        #             'iseg': nseg,
-        #             'ireach': 1,
-        #             'rchlen': rchlen,
-        #             'min_slope': 0.0,
-        #             'slope': 0.0,
-        #             'strthick': thickm,
-        #             'strhc1': hcond,
-        #         })
-        #         # Assign one reach at grid cell
-        #         if is_spatial:
-        #             # Find grid cell nearest to diversion
-        #             if grid_sindex:
-        #                 bbox_match = sorted(
-        #                     grid_sindex.nearest(divn.geometry.bounds))
-        #                 # more than one nearest can exist! just take one...
-        #                 num_found = len(bbox_match)
-        #                 grid_cell = grid_cells.iloc[bbox_match[0]]
-        #             else:  # slow scan of all cells
-        #                 sel = grid_cells.intersects(divn.geometry)
-        #                 num_found = sel.sum()
-        #                 grid_cell = grid_cells.loc[sel].iloc[0]
-        #             if num_found > 1:
-        #                 self.logger.warning(
-        #                     '%d grid cells are nearest to diversion %r, '
-        #                     'but only taking the first %s',
-        #                     num_found, divid, grid_cell)
-        #             row, col = grid_cell.name
-        #             strtop = dis.top[row, col]
-        #             reach_d.update({
-        #                 'geometry': empty_geom,  # divn.geometry,
-        #                 'row': row,
-        #                 'col': col,
-        #                 'strtop': strtop,
-        #             })
-        #         else:
-        #             strtop = dis.top[reach_d['row'], reach_d['col']]
-        #             reach_d['strtop'] = strtop
-        #             seg_d.update({
-        #                 'geometry': empty_geom,
-        #                 'elevup': strtop,
-        #                 'elevdn': strtop,
-        #             })
-        #         depth = strtop + thickm
-        #         seg_d.update({'depth1': depth, 'depth2': depth})
-        #         self.reaches.loc[len(self.reaches) + 1] = reach_d
-        #         self.segment_data.loc[nseg] = seg_d
-        #     if outside_model:
-        #         self.diversions.loc[list(outside_model), 'in_model'] = False
-        #         self.logger.debug(
-        #             'added %d diversions, ignoring %d that did not connect to '
-        #             'existing segments',
-        #             self.diversions['in_model'].sum(), len(outside_model))
-        #     else:
-        #         self.logger.debug(
-        #             'added all %d diversions', len(self.diversions))
-        #     # end of coercion workaround
-        #     self.segment_data.drop('foo', axis=1, inplace=True)
-        # else:
-        #     self.diversions = None
         # Build stressperiod data
         sfr_spd = {}  # TODO this only works if flows etc are
                       #  expressed as segment (segnum) based.
@@ -977,7 +824,7 @@ class SwnMf6(_SwnModflow):
         )
 
     def to_packagedata_df(self, style: str):
-        """Return DataFrame of PACKAGEDATA for MODFLOW 6 SFR data.
+        """Return DataFrame of PACKAGEDATA for MODFLOW 6 SFR.
 
         This DataFrame is derived from the reaches DataFrame.
 
@@ -1037,7 +884,7 @@ class SwnMf6(_SwnModflow):
         from flopy.mf6 import ModflowGwfsfr as Mf6Sfr
         defcols_names = list(Mf6Sfr.packagedata.empty(self.model).dtype.names)
         defcols_names.remove('rno')  # this is the index
-        dat = self.reaches.copy()
+        dat = pd.DataFrame(self.reaches.copy())
         if "lay" not in dat.columns:
             dat["lay"] = 0
         dat["idomain"] = \
@@ -1086,8 +933,27 @@ class SwnMf6(_SwnModflow):
                 .format(len(missing_l), ', '.join(sorted(missing_l))))
         return dat.loc[:, defcols_names]
 
-    def connectiondata_df(self, style: str):
-        """Return DataFrame of connectiondata.
+    def write_packagedata(self, fname: str):
+        """
+        Write PACKAGEDATA file for MODFLOW 6 SFR.
+
+        Parameters
+        ----------
+        fname : str
+            Output file name.
+
+        Returns
+        -------
+        None
+
+        """
+        pn = self.to_packagedata_df("native")
+        pn.index.name = "# rno"
+        with open(fname, "w") as f:
+            pn.reset_index().to_string(f, header=True, index=False)
+
+    def to_connectiondata_series(self, style: str):
+        """Return Series of CONNECTIONDATA for MODFLOW 6 SFR.
 
         Parameters
         ----------
@@ -1101,13 +967,37 @@ class SwnMf6(_SwnModflow):
             r += self.reaches["to_div"].apply(lambda x: [-x] if x > 0 else [])
         if style == "native":
             # keep one-based notation, but convert list to str
-            return r.apply(lambda x: " ".join(str(v) for v in x))
+            return r
         elif style == "flopy":
             # Convert rno from one-based to zero-based notation
             r.index -= 1
             return r.apply(lambda x: [v - 1 if v > 0 else v + 1 for v in x])
         else:
             raise ValueError("'style' must be either 'native' or 'flopy'")
+
+    def write_connectiondata(self, fname: str):
+        """
+        Write CONNECTIONDATA file for MODFLOW 6 SFR.
+
+        Parameters
+        ----------
+        fname : str
+            Output file name.
+
+        Returns
+        -------
+        None
+
+        """
+        cn = self.to_connectiondata_series("native")
+        icn = [f"ic{n+1}" for n in range(cn.apply(len).max())]
+        rowfmt = "{:>" + str(len(str(cn.index.max()))) + "} {}\n"
+        rnolen = 1 + len(str(len(self.reaches)))
+        cn = cn.apply(lambda x: " ".join(str(v).rjust(rnolen) for v in x))
+        with open(fname, "w") as f:
+            f.write("# rno " + " ".join(icn) + "\n")
+            for rno, ic in cn.iteritems():
+                f.write(rowfmt.format(rno, ic))
 
     def set_reach_data_from_series(
             self, name, value, value_out=None, log10=False):
@@ -1178,7 +1068,7 @@ class SwnMf6(_SwnModflow):
         return dedent('''\
             <{}: flopy {} {!r}
               {} in reaches ({}): {}
-              {} stress period{} with perlen: {} {}/>'''.format(
+              {} stress period{} with perlen: {} {} />'''.format(
             self.__class__.__name__, self.model.version, self.model.name,
             len(self.reaches), self.reaches.index.name,
             abbr_str(list(self.reaches.index), 4),
@@ -1204,7 +1094,7 @@ class SwnMf6(_SwnModflow):
                     pd.testing.assert_frame_equal(av, bv)
                 elif isinstance(av, pd.Series):
                     pd.testing.assert_series_equal(av, bv)
-                elif isinstance(av, flopy.mf6.ModflowGwf):
+                elif isinstance(av, flopy.mf6.MFModel):
                     # basic test
                     assert str(av) == str(bv)
                 else:
@@ -1268,18 +1158,18 @@ class SwnMf6(_SwnModflow):
         self.time_index = pd.DatetimeIndex(stress_df['start']).copy()
         self.time_index.name = None
 
-    def plot(self, column='iseg',
-             cmap='viridis_r', legend=False):
+    def plot(self, column: str = 'rno',
+             cmap: str = 'viridis_r', legend: bool =False):
         """
         Show map of reaches with inflow segments in royalblue.
 
         Parameters
         ----------
-        column : str
-            Column from reaches to use with 'cmap'; default 'iseg'.
+        column : str, default 'rno'
+            Column from reaches to use with 'cmap'.
             See also 'legend' to help interpret values.
-        cmap : str
-            Matplotlib color map; default 'viridis_r',
+        cmap : str, default 'viridis_r'
+            Matplotlib color map.
         legend : bool
             Show legend for 'column'; default False.
 
