@@ -12,7 +12,6 @@ from shapely import wkt
 from shapely.geometry import LineString, Point, Polygon, box
 from shapely.ops import linemerge
 from textwrap import dedent
-import os
 
 try:
     import matplotlib
@@ -1182,27 +1181,30 @@ class SwnMf6(_SwnModflow):
 
         fig, ax = plt.subplots()
         ax.set_aspect('equal')
+        reaches = self.reaches[~self.reaches.is_empty]
+        if column == self.reaches.index.name:
+            reaches = reaches.reset_index()
 
-        self.reaches[~self.reaches.is_empty].plot(
+        reaches.plot(
             column=column, label='reaches', legend=legend, ax=ax, cmap=cmap)
 
         self.grid_cells.plot(ax=ax, color='whitesmoke', edgecolor='gainsboro')
         # return ax
 
-        is_diversion = self.segment_data['iupseg'] != 0
-        outlet_sel = (self.segment_data['outseg'] == 0) & (~is_diversion)
-        outlet_points = self.reaches.loc[self.reaches['iseg'].isin(
-            self.segment_data.loc[outlet_sel].index), 'geometry']\
+        is_diversion = self.reaches['to_div'] != 0
+        outlet_sel = (self.reaches['to_rno'] == 0) & (~is_diversion)
+        outlet_points = self.reaches.loc[outlet_sel, 'geometry']\
             .apply(lambda g: Point(g.coords[-1]))
         outlet_points.plot(
             ax=ax, label='outlet', marker='o', color='navy')
-        if 'inflow_segnums' in self.segment_data.columns:
-            inflow_sel = ~self.segment_data['inflow_segnums'].isnull()
-            inflow_points = self.reaches.loc[self.reaches['iseg'].isin(
-                self.segment_data.loc[inflow_sel].index), 'geometry']\
-                .apply(lambda g: Point(g.coords[0]))
-            inflow_points.plot(
-                ax=ax, label='inflow points', marker='o', color='royalblue')
+        # TODO
+        # if 'inflow_segnums' in self.segment_data.columns:
+        #    inflow_sel = ~self.segment_data['inflow_segnums'].isnull()
+        #    inflow_points = self.reaches.loc[self.reaches['iseg'].isin(
+        #        self.segment_data.loc[inflow_sel].index), 'geometry']\
+        #        .apply(lambda g: Point(g.coords[0]))
+        #    inflow_points.plot(
+        #        ax=ax, label='inflow points', marker='o', color='royalblue')
 
         return ax
 

@@ -29,9 +29,6 @@ requires_mf6 = pytest.mark.skipif(not mf6_exe, reason='requires mf6')
 if mf6_exe is None:
     mf6_exe = 'mf6'
 
-# TODO: disable plot() for now
-matplotlib = None
-
 # same valid network used in test_basic
 n3d_lines = wkt_to_geoseries([
     'LINESTRING Z (60 100 14, 60  80 12)',
@@ -71,9 +68,8 @@ def read_budget(bud_fname, text, reaches=None, colname=None):
 
     Returns numpy array
     """
-    urn = []
     with flopy.utils.CellBudgetFile(bud_fname) as b:
-        urn = b.get_unique_record_names(True)
+        urn = [x.strip() for x in b.get_unique_record_names(True)]
         try:
             res = b.get_data(text=text)
         except Exception as e:
