@@ -519,7 +519,7 @@ class SwnMf6(_SwnModflow):
             )
         else:
             # Otherwise assume gradient same as model top
-            obj.reaches['rgrd'] = obj.reaches['m_top_grid']
+            obj.reaches['rgrd'] = obj.reaches['m_top_slope']
         rgrd_le_zero = obj.reaches['rgrd'] <= 0
         if (rgrd_le_zero).any():
             obj.logger.error(
@@ -822,7 +822,7 @@ class SwnMf6(_SwnModflow):
             perioddata=self.spd,
         )
 
-    def to_packagedata_df(self, style: str):
+    def _packagedata_df(self, style: str):
         """Return DataFrame of PACKAGEDATA for MODFLOW 6 SFR.
 
         This DataFrame is derived from the reaches DataFrame.
@@ -837,48 +837,8 @@ class SwnMf6(_SwnModflow):
 
         Returns
         -------
-        DataFrame with the following columns:
+        DataFrame
 
-        rno : int
-            Reach ID, greater than zero. This is the index of the DataFrame.
-        cellid: str, tuple
-            NONE (where IDOMAIN<1) or ...
-        rlen: float
-            Reach length, greater than zero. If not specified, this is
-            determined from the geometry length.
-        rwid: float
-            Reach width, greater than zero.
-        rgrd: float
-            Stream gradient (slope) across the reach, greater than zero.
-        rtp: float
-            Top elevation of the reach streambed.
-        rbth: float
-            Thickness of the reach streambed, greater than zero (unless CELLID
-            is NONE).
-        rhk: float
-            Hydraulic conductivity of the reach streambed, greater than zero
-            (unless CELLID is NONE).
-        man: float
-            Manning's roughness coefficient for the reach, greater than zero.
-            Can be defined in a timeseries.
-        ncon: int
-            Number of reaches connected to the reach.
-        ustrf: float
-            Fraction of upstream flow from each upstream reach that is applied
-            as upstream inflow to the reach. The sum of all USTRF values for
-            all reaches connected to the same upstream reach must be equal to
-            one and USTRF must be greater than or equal to zero.
-            Can be defined in a timeseries.
-        ndv: int
-            Number of downstream diversions for the reach
-        aux: float, optional
-            Values of the auxiliary variables for each stream reach.
-            Can be defined in a timeseries.
-        boundname: str, optional
-            Name of the stream reach cell. BOUNDNAME is an ASCII character
-            variable that can contain as many as 40 characters. If BOUNDNAME
-            contains spaces in it, then the entire name must be enclosed
-            within single quotes.
         """
         from flopy.mf6 import ModflowGwfsfr as Mf6Sfr
         defcols_names = list(Mf6Sfr.packagedata.empty(self.model).dtype.names)
@@ -946,12 +906,18 @@ class SwnMf6(_SwnModflow):
         None
 
         """
-        pn = self.to_packagedata_df("native")
+        pn = self._packagedata_df("native")
         pn.index.name = "# rno"
         with open(fname, "w") as f:
             pn.reset_index().to_string(f, header=True, index=False)
 
-    def to_connectiondata_series(self, style: str):
+    @property
+    def flopy_packagedata(self):
+        """Returns list of lists for flopy."""
+        df = self._packagedata_df("flopy")
+        return [list(x) for x in df.itertuples()]
+
+    def _connectiondata_series(self, style: str):
         """Return Series of CONNECTIONDATA for MODFLOW 6 SFR.
 
         Parameters
@@ -988,7 +954,7 @@ class SwnMf6(_SwnModflow):
         None
 
         """
-        cn = self.to_connectiondata_series("native")
+        cn = self._connectiondata_series("native")
         icn = [f"ic{n+1}" for n in range(cn.apply(len).max())]
         rowfmt = "{:>" + str(len(str(cn.index.max()))) + "} {}\n"
         rnolen = 1 + len(str(len(self.reaches)))
@@ -997,6 +963,12 @@ class SwnMf6(_SwnModflow):
             f.write("# rno " + " ".join(icn) + "\n")
             for rno, ic in cn.iteritems():
                 f.write(rowfmt.format(rno, ic))
+
+    @property
+    def flopy_connectiondata(self):
+        """Returns list of lists for flopy."""
+        s = self._connectiondata_series("flopy")
+        return (s.index.to_series().apply(lambda x: list([x])) + s).to_list()
 
     def set_reach_data_from_series(
             self, name, value, value_out=None, log10=False):
@@ -1062,18 +1034,31 @@ class SwnMf6(_SwnModflow):
 
     def __repr__(self):
         """Return string representation of SwnModflow object."""
-        tdis = self.model.simulation.tdis
-        nper = tdis.nper.data
+        model = self.model
+        if model is None:
+            model_info = "model not set"
+            sp_info = "model not set"
+        else:
+            tdis = self.model.simulation.tdis
+            nper = tdis.nper.data
+            model_info = "flopy {} {!r}".format(
+                self.model.version, self.model.name)
+            sp_info = "{} stress period{} with perlen: {} {}".format(
+                nper, '' if nper == 1 else 's',
+                abbr_str(list(tdis.perioddata.array["perlen"]), 4),
+                tdis.time_units.data)
+        reaches = self.reaches
+        if reaches is None:
+            reaches_info = "reaches not set"
+        else:
+            reaches_info = "{} in reaches ({}): {}".format(
+                len(self.reaches), self.reaches.index.name,
+                abbr_str(list(self.reaches.index), 4))
         return dedent('''\
-            <{}: flopy {} {!r}
-              {} in reaches ({}): {}
-              {} stress period{} with perlen: {} {} />'''.format(
-            self.__class__.__name__, self.model.version, self.model.name,
-            len(self.reaches), self.reaches.index.name,
-            abbr_str(list(self.reaches.index), 4),
-            nper, '' if nper == 1 else 's',
-            abbr_str(list(tdis.perioddata.array["perlen"]), 4),
-            tdis.time_units.data))
+            <{}: {}
+              {}
+              {} />'''.format(
+            self.__class__.__name__, model_info, reaches_info, sp_info))
 
     def __eq__(self, other):
         """Return true if objects are equal."""
@@ -1139,14 +1124,17 @@ class SwnMf6(_SwnModflow):
              raise ValueError(
                 "'model' must be a flopy.mf6.MFModel object; found "
                  + str(type(model)))
-        elif 'dis' not in model.package_type_dict.keys():
+        sim = model.simulation
+        if 'tdis' not in sim.package_key_dict.keys():
+            raise ValueError('TDIS package required')
+        if 'dis' not in model.package_type_dict.keys():
             raise ValueError('DIS package required')
         if getattr(self, '_model', None) is not model:
             self.logger.info("swapping 'model' object")
         self._model = model
         # Build stress period DataFrame from modflow model
         stress_df = pd.DataFrame(
-            {'perlen': self.model.simulation.tdis.perioddata.array.perlen})
+            {'perlen': sim.tdis.perioddata.array.perlen})
         modeltime = self.model.modeltime
         stress_df['duration'] = pd.TimedeltaIndex(
             stress_df['perlen'].cumsum(), modeltime.time_units)
