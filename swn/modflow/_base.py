@@ -169,12 +169,15 @@ class _SwnModflow(object):
         # More careful check of overlap of lines with grid polygons
         obj.logger.debug("building model grid cell geometries")
         dis = obj.model.dis
-        cols, rows = np.meshgrid(np.arange(dis.ncol.data),
-                                 np.arange(dis.nrow.data))
-        if domain_label == "IBOUND":
+        if domain_label == "ibound":
             domain = obj.model.bas6.ibound[0].array.copy()
+            ncol = dis.ncol
+            nrow = dis.nrow
         else:
             domain = dis.idomain.array[0].copy()
+            ncol = dis.ncol.data
+            nrow = dis.nrow.data
+        cols, rows = np.meshgrid(np.arange(ncol), np.arange(nrow))
         num_domain_modified = 0
         grid_df = pd.DataFrame({"row": rows.flatten(), "col": cols.flatten()})
         grid_df.set_index(["row", "col"], inplace=True)
@@ -679,7 +682,13 @@ class _SwnModflow(object):
         elif array.ndim != 2:
             raise ValueError("'array' must have two dimensions")
         dis = self.model.dis
-        expected_shape = dis.nrow.data, dis.ncol.data
+        if self.__class__.__name__ == "SwnModflow":
+            expected_shape = dis.nrow, dis.ncol
+        elif self.__class__.__name__ == "SwnMf6":
+            expected_shape = dis.nrow.data, dis.ncol.data
+        else:
+            raise TypeError(
+                "unsupported subclass " + repr(self.__class__.__name__))
         if expected_shape != array.shape:
             raise ValueError("'array' must have shape (nrow, ncol)")
         self.reaches.loc[:, name] = array[self.reaches.row, self.reaches.col]
