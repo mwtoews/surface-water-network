@@ -97,6 +97,9 @@ class SwnMf6(_SwnModflow):
         obj.reaches.index += 1  # "native" Fortran index
         obj.reaches.index.name = "rno"
 
+        # Reach length is based on geometry property
+        obj.reaches["rlen"] = obj.reaches.geometry.length
+
         # Add model grid info to each reach
         dis = obj.model.dis
         r = obj.reaches["row"].values
@@ -110,20 +113,21 @@ class SwnMf6(_SwnModflow):
         obj.reaches["m_top_slope"] = grid_slope[r, c]
         obj.reaches["m_botm0"] = dis.botm.array[0, r, c]
 
-        # Reach length is based on geometry property
-        obj.reaches["rlen"] = obj.reaches.geometry.length
-
         if swn.has_z:
             # If using LineStringZ, use reach Z-coordinate data
-            zcoords = obj.reaches.geometry.apply(
+            sel = (
+                (obj.reaches.geom_type == "LineString") &
+                (~obj.reaches.is_empty))
+            zcoords = obj.reaches.geometry[sel].apply(
                 lambda g: [c[2] for c in g.coords[:]])
-            obj.reaches["lsz_min"] = zcoords.apply(lambda z: min(z))
-            obj.reaches["lsz_avg"] = zcoords.apply(lambda z: sum(z) / len(z))
-            obj.reaches["lsz_max"] = zcoords.apply(lambda z: max(z))
-            obj.reaches["lsz_first"] = zcoords.apply(lambda z: z[0])
-            obj.reaches["lsz_last"] = zcoords.apply(lambda z: z[-1])
+            obj.reaches.loc[sel, "lsz_min"] = zcoords.apply(lambda z: min(z))
+            obj.reaches.loc[sel, "lsz_avg"] = \
+                zcoords.apply(lambda z: sum(z) / len(z))
+            obj.reaches.loc[sel, "lsz_max"] = zcoords.apply(lambda z: max(z))
+            obj.reaches.loc[sel, "lsz_first"] = zcoords.apply(lambda z: z[0])
+            obj.reaches.loc[sel, "lsz_last"] = zcoords.apply(lambda z: z[-1])
             # Calculate gradient
-            obj.reaches["rgrd"] = (
+            obj.reaches.loc[sel, "rgrd"] = (
                 (obj.reaches["lsz_first"] - obj.reaches["lsz_last"])
                 / obj.reaches["rlen"]
             )
@@ -205,9 +209,8 @@ class SwnMf6(_SwnModflow):
         swn = self._swn
         model = self.model
         dis = model.dis
+
         # Assign segment data
-        # FOR MF6 dont really need this segment info garbage
-        # -- but we are using it to help fill in packagedata (reach-based)
         self.segments['min_slope'] = swn._segment_series(min_slope)
         if (self.segments['min_slope'] < 0.0).any():
             raise ValueError('min_slope must be greater than zero')
@@ -576,6 +579,16 @@ class SwnMf6(_SwnModflow):
         s = self._connectiondata_series("flopy")
         return (s.index.to_series().apply(lambda x: list([x])) + s).to_list()
 
+    # TODO: add methods for diversions for flopy and writing file
+    def write_diversions(self, fname: str):
+        """Write DIVERSIONS file for MODFLOW 6 SFR."""
+        raise NotImplementedError()
+
+    @property
+    def flopy_diversions(self):
+        """Return list of lists for flopy."""
+        raise NotImplementedError()
+
     def __repr__(self):
         """Return string representation of SwnModflow object."""
         model = self.model
@@ -673,7 +686,8 @@ class SwnMf6(_SwnModflow):
             raise ValueError('TDIS package required')
         if 'dis' not in model.package_type_dict.keys():
             raise ValueError('DIS package required')
-        if getattr(self, '_model', None) is not model:
+        _model = getattr(self, "_model", None)
+        if _model is not None and _model is not model:
             self.logger.info("swapping 'model' object")
         self._model = model
         # Build stress period DataFrame from modflow model

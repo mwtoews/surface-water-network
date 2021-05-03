@@ -25,10 +25,8 @@ from swn.spatial import interp_2d_to_3d, force_2d, wkt_to_geoseries
 
 mfnwt_exe = which('mfnwt')
 mf2005_exe = which('mf2005')
-mf6_exe = which('mf6')
 requires_mfnwt = pytest.mark.skipif(not mfnwt_exe, reason='requires mfnwt')
 requires_mf2005 = pytest.mark.skipif(not mf2005_exe, reason='requires mf2005')
-requires_mf6 = pytest.mark.skipif(not mf6_exe, reason='requires mf6')
 if mfnwt_exe is None:
     mfnwt_exe = 'mfnwt'
 if mf2005_exe is None:
@@ -138,7 +136,7 @@ def test_from_swn_flopy_errors(n3d):
             match='swn must be a SurfaceWaterNetwork object'):
         swn.SwnModflow.from_swn_flopy(object(), m)
 
-    flopy.modflow.ModflowBas(m)
+    _ = flopy.modflow.ModflowBas(m)
 
     m.modelgrid.set_coord_info(epsg=2193)
     n.segments.crs = {'init': 'epsg:27200'}
@@ -237,6 +235,7 @@ def test_process_flopy_n3d_defaults(n3d, tmpdir_factory):
     _ = flopy.modflow.ModflowLpf(m, ipakcb=52, laytyp=0, hk=1e-2)
     _ = flopy.modflow.ModflowRch(m, ipakcb=52, rech=1e-4)
     nm = swn.SwnModflow.from_swn_flopy(n3d, m)
+    nm.set_sfr_data()
     m.sfr.ipakcb = 52
     m.sfr.istcb2 = -53
     m.add_output_file(53, extension='sfo', binflag=True)
@@ -289,7 +288,6 @@ def test_process_flopy_n3d_defaults(n3d, tmpdir_factory):
           7 in reaches (reachID): [1, 2, ..., 6, 7]
           3 in segment_data (nseg): [1, 2, 3]
             3 from segments: [1, 2, 0]
-            no diversions
           1 stress period with perlen: [1.0] />''')
     if matplotlib:
         _ = nm.plot()
@@ -373,8 +371,9 @@ def test_set_segment_data():
         m, nlay=1, nrow=3, ncol=2, delr=20.0, delc=20.0, top=15.0, botm=10.0,
         xul=30.0, yul=130.0)
     _ = flopy.modflow.ModflowBas(m, strt=15.0, stoper=5.0)
-    nm = swn.SwnModflow.from_swn_flopy(
-        n3d, m, min_slope=0.03, hyd_cond1=2, thickness1=2.0,
+    nm = swn.SwnModflow.from_swn_flopy(n3d, m)
+    nm.set_sfr_data(
+        min_slope=0.03, hyd_cond1=2, thickness1=2.0,
         inflow={3: 9.6, 4: 9.7}, flow={1: 18.4},
         runoff={1: 5}, pptsw={2: 1.8}, etsw={0: 0.01, 1: 0.02, 2: 0.03})
     # Check only data set 6
@@ -407,7 +406,6 @@ def test_set_segment_data():
           7 in reaches (reachID): [1, 2, ..., 6, 7]
           3 in segment_data (nseg): [1, 2, 3]
             3 from segments: [1, 2, 0]
-            no diversions
           1 stress period with perlen: [1.0] />''')
     if matplotlib:
         _ = nm.plot()
@@ -443,7 +441,6 @@ def test_set_segment_data():
           7 in reaches (reachID): [1, 2, ..., 6, 7]
           3 in segment_data (nseg): [1, 2, 3]
             3 from segments: [1, 2, 0]
-            no diversions
           1 stress period with perlen: [1.0] />''')
     if matplotlib:
         _ = nm.plot()
@@ -485,8 +482,8 @@ def test_set_segment_data():
         m, nlay=1, nrow=3, ncol=2, nper=4, delr=20.0, delc=20.0,
         top=15.0, botm=10.0, xul=30.0, yul=130.0)
     _ = flopy.modflow.ModflowBas(m, strt=15.0, stoper=5.0)
-    nm = swn.SwnModflow.from_swn_flopy(
-        n3d, m,
+    nm = swn.SwnModflow.from_swn_flopy(n3d, m)
+    nm.set_sfr_data(
         inflow={3: 9.6, 4: 9.7}, flow={1: [18.4, 13.1, 16.4, 9.2]},
         runoff={1: 5}, pptsw={2: [1.8, 0.2, 1.3, 0.9]},
         etsw={0: 0.01, 1: 0.02, 2: [0.03, 0.02, 0.03, 0.01]})
@@ -538,7 +535,6 @@ def test_set_segment_data():
           7 in reaches (reachID): [1, 2, ..., 6, 7]
           3 in segment_data (nseg): [1, 2, 3]
             3 from segments: [1, 2, 0]
-            no diversions
           4 stress periods with perlen: [1.0, 1.0, 1.0, 1.0] />''')
     if matplotlib:
         _ = nm.plot()
@@ -610,8 +606,9 @@ def test_process_flopy_n3d_vars(tmpdir_factory):
     _ = flopy.modflow.ModflowSip(m)
     _ = flopy.modflow.ModflowLpf(m, ipakcb=52, laytyp=0, hk=1.0)
     _ = flopy.modflow.ModflowRch(m, ipakcb=52, rech=0.01)
-    nm = swn.SwnModflow.from_swn_flopy(
-        n3d, m, min_slope=0.03, hyd_cond1=2, thickness1=2.0,
+    nm = swn.SwnModflow.from_swn_flopy(n3d, m)
+    nm.set_sfr_data(
+        min_slope=0.03, hyd_cond1=2, thickness1=2.0,
         inflow={3: 9.6, 4: 9.7}, flow={1: 18.4},
         runoff={1: 5}, pptsw={2: 1.8}, etsw={0: 0.01, 1: 0.02, 2: 0.03})
     m.sfr.ipakcb = 52
@@ -656,7 +653,6 @@ def test_process_flopy_n3d_vars(tmpdir_factory):
           7 in reaches (reachID): [1, 2, ..., 6, 7]
           3 in segment_data (nseg): [1, 2, 3]
             3 from segments: [1, 2, 0]
-            no diversions
           1 stress period with perlen: [1.0] />''')
     if matplotlib:
         _ = nm.plot()
@@ -716,6 +712,7 @@ def test_process_flopy_n2d_defaults(n2d, tmpdir_factory):
     _ = flopy.modflow.ModflowLpf(m, ipakcb=52, laytyp=0, hk=1.0)
     _ = flopy.modflow.ModflowRch(m, ipakcb=52, rech=0.01)
     nm = swn.SwnModflow.from_swn_flopy(n2d, m)
+    nm.set_sfr_data()
     m.sfr.ipakcb = 52
     m.sfr.istcb2 = -53
     m.add_output_file(53, extension='sfo', binflag=True)
@@ -743,7 +740,6 @@ def test_process_flopy_n2d_defaults(n2d, tmpdir_factory):
           7 in reaches (reachID): [1, 2, ..., 6, 7]
           3 in segment_data (nseg): [1, 2, 3]
             3 from segments: [1, 2, 0]
-            no diversions
           1 stress period with perlen: [1.0] />''')
     if matplotlib:
         _ = nm.plot()
@@ -780,7 +776,8 @@ def test_process_flopy_n2d_min_slope(n2d, tmpdir_factory):
     _ = flopy.modflow.ModflowSip(m)
     _ = flopy.modflow.ModflowLpf(m, ipakcb=52, laytyp=0, hk=1.0)
     _ = flopy.modflow.ModflowRch(m, ipakcb=52, rech=0.01)
-    nm = swn.SwnModflow.from_swn_flopy(n2d, m, min_slope=0.03)
+    nm = swn.SwnModflow.from_swn_flopy(n2d, m)
+    nm.set_sfr_data(min_slope=0.03)
     m.sfr.ipakcb = 52
     m.sfr.istcb2 = -53
     # Data set 2
@@ -836,6 +833,7 @@ def test_process_flopy_interp_2d_to_3d(tmpdir_factory):
     n = swn.SurfaceWaterNetwork.from_lines(interp_2d_to_3d(n3d_lines, top, gt))
     n.adjust_elevation_profile()
     nm = swn.SwnModflow.from_swn_flopy(n, m)
+    nm.set_sfr_data()
     m.sfr.ipakcb = 52
     m.sfr.istcb2 = -53
     m.add_output_file(53, extension='sfo', binflag=True)
@@ -915,10 +913,11 @@ def test_set_elevations(n2d, tmpdir_factory):
     _ = flopy.modflow.ModflowLpf(m, ipakcb=52, laytyp=0, hk=1.0)
     _ = flopy.modflow.ModflowRch(m, ipakcb=52, rech=0.01)
     nm = swn.SwnModflow.from_swn_flopy(n2d, m)
+    nm.set_sfr_data()
     # fix elevations
     _ = nm.set_topbot_elevs_at_reaches()
     seg_data = nm.set_segment_data(return_dict=True)
-    reach_data = nm.get_reach_data()
+    reach_data = nm.flopy_reach_data
     _ = flopy.modflow.mfsfr2.ModflowSfr2(
         model=m, reach_data=reach_data, segment_data=seg_data)
     if matplotlib:
@@ -927,7 +926,7 @@ def test_set_elevations(n2d, tmpdir_factory):
     _ = nm.fix_segment_elevs(min_incise=0.2, min_slope=1.e-4)
     _ = nm.reconcile_reach_strtop()
     seg_data = nm.set_segment_data(return_dict=True)
-    reach_data = nm.get_reach_data()
+    reach_data = nm.flopy_reach_data
     _ = flopy.modflow.mfsfr2.ModflowSfr2(
         model=m, reach_data=reach_data, segment_data=seg_data)
     if matplotlib:
@@ -938,7 +937,7 @@ def test_set_elevations(n2d, tmpdir_factory):
     _ = nm.set_topbot_elevs_at_reaches()
     nm.fix_reach_elevs()
     seg_data = nm.set_segment_data(return_dict=True)
-    reach_data = nm.get_reach_data()
+    reach_data = nm.flopy_reach_data
     _ = flopy.modflow.mfsfr2.ModflowSfr2(
         model=m, reach_data=reach_data, segment_data=seg_data)
     if matplotlib:
@@ -1010,6 +1009,7 @@ def test_reach_barely_outside_ibound():
         m, nrow=2, ncol=3, delr=100.0, delc=100.0, xul=0.0, yul=200.0)
     flopy.modflow.ModflowBas(m, ibound=np.array([[1, 1, 1], [0, 0, 0]]))
     nm = swn.SwnModflow.from_swn_flopy(n, m, reach_include_fraction=0.8)
+    nm.set_sfr_data()
     # Data set 1c
     assert abs(m.sfr.nstrm) == 3
     assert m.sfr.nss == 1
@@ -1032,7 +1032,6 @@ def test_reach_barely_outside_ibound():
           3 in reaches (reachID): [1, 2, 3]
           1 in segment_data (nseg): [1]
             1 from segments: [0]
-            no diversions
           1 stress period with perlen: [1.0] />''')
     if matplotlib:
         _ = nm.plot()
@@ -1062,7 +1061,8 @@ def test_coastal_process_flopy(tmpdir_factory,
     # Create a SWN with adjusted elevation profiles
     n = swn.SurfaceWaterNetwork.from_lines(coastal_lines_gdf.geometry)
     n.adjust_elevation_profile()
-    nm = swn.SwnModflow.from_swn_flopy(n, m, inflow=coastal_flow_m)
+    nm = swn.SwnModflow.from_swn_flopy(n, m)
+    nm.set_sfr_data(inflow=coastal_flow_m)
     m.sfr.unit_number = [24]  # WARNING: unit 17 of package SFR already in use
     m.sfr.ipakcb = 50
     m.sfr.istcb2 = -51
@@ -1164,8 +1164,7 @@ def test_coastal_process_flopy(tmpdir_factory,
     <SwnModflow: flopy mfnwt 'h'
       296 in reaches (reachID): [1, 2, ..., 295, 296]
       184 in segment_data (nseg): [1, 2, ..., 183, 184]
-        184 from segments (61% used): [3049818, 3049819, ..., 3046952, 3046736]
-        no diversions
+        184 from segments (nzsegment) (61% used): [3049818, 3049819, ..., 3046952, 3046736]
       1 stress period with perlen: [1.0] />''')
     if matplotlib:
         _ = nm.plot()
@@ -1184,10 +1183,11 @@ def test_coastal_elevations(coastal_swn, coastal_flow_m, tmpdir_factory):
         'h.nam', version='mfnwt', exe_name=mfnwt_exe, model_ws=datadir,
         check=False)
     m.model_ws = str(outdir)
-    nm = swn.SwnModflow.from_swn_flopy(coastal_swn, m, inflow=coastal_flow_m)
+    nm = swn.SwnModflow.from_swn_flopy(coastal_swn, m)
+    nm.set_sfr_data(inflow=coastal_flow_m)
     _ = nm.set_topbot_elevs_at_reaches()
     seg_data = nm.set_segment_data(return_dict=True)
-    reach_data = nm.get_reach_data()
+    reach_data = nm.flopy_reach_data
     flopy.modflow.mfsfr2.ModflowSfr2(
         model=m, reach_data=reach_data, segment_data=seg_data)
     if matplotlib:
@@ -1205,7 +1205,7 @@ def test_coastal_elevations(coastal_swn, coastal_flow_m, tmpdir_factory):
                              max_str_z=max_str_z)
     _ = nm.reconcile_reach_strtop()
     seg_data = nm.set_segment_data(return_dict=True)
-    reach_data = nm.get_reach_data()
+    reach_data = nm.flopy_reach_data
     flopy.modflow.mfsfr2.ModflowSfr2(
         model=m, reach_data=reach_data, segment_data=seg_data)
     if matplotlib:
@@ -1217,7 +1217,7 @@ def test_coastal_elevations(coastal_swn, coastal_flow_m, tmpdir_factory):
     _ = nm.set_topbot_elevs_at_reaches()
     nm.fix_reach_elevs()
     seg_data = nm.set_segment_data(return_dict=True)
-    reach_data = nm.get_reach_data()
+    reach_data = nm.flopy_reach_data
     flopy.modflow.mfsfr2.ModflowSfr2(
         model=m, reach_data=reach_data, segment_data=seg_data)
     if matplotlib:
@@ -1252,7 +1252,8 @@ def test_coastal_reduced_process_flopy(
     m = flopy.modflow.Modflow.load(
         'h.nam', version='mfnwt', exe_name=mfnwt_exe, model_ws=datadir,
         check=False)
-    nm = swn.SwnModflow.from_swn_flopy(n, m, inflow=coastal_flow_m)
+    nm = swn.SwnModflow.from_swn_flopy(n, m)
+    nm.set_sfr_data(inflow=coastal_flow_m)
     # These should be split between two cells
     reach_geoms = nm.reaches.loc[
         nm.reaches['segnum'] == 3047750, 'geometry']
@@ -1336,8 +1337,7 @@ def test_coastal_reduced_process_flopy(
     <SwnModflow: flopy mfnwt 'h'
       154 in reaches (reachID): [1, 2, ..., 153, 154]
       94 in segment_data (nseg): [1, 2, ..., 93, 94]
-        94 from segments (72% used): [3049802, 3049683, ..., 3046952, 3046736]
-        no diversions
+        94 from segments (nzsegment) (72% used): [3049802, 3049683, ..., 3046952, 3046736]
       1 stress period with perlen: [1.0] />''')
     if matplotlib:
         _ = nm.plot()
@@ -1366,8 +1366,8 @@ def test_coastal_process_flopy_ibound_modify(coastal_swn, coastal_flow_m,
     m = flopy.modflow.Modflow.load(
         'h.nam', version='mfnwt', exe_name=mfnwt_exe, model_ws=datadir,
         check=False)
-    nm = swn.SwnModflow.from_swn_flopy(
-        coastal_swn, m, ibound_action='modify', inflow=coastal_flow_m)
+    nm = swn.SwnModflow.from_swn_flopy(coastal_swn, m, ibound_action='modify')
+    nm.set_sfr_data(inflow=coastal_flow_m)
     assert len(nm.segments) == 304
     assert nm.segments['in_model'].sum() == 304
     # Check a remaining reach added that is outside model domain
@@ -1453,8 +1453,7 @@ def test_coastal_process_flopy_ibound_modify(coastal_swn, coastal_flow_m,
         <SwnModflow: flopy mfnwt 'h'
           478 in reaches (reachID): [1, 2, ..., 477, 478]
           304 in segment_data (nseg): [1, 2, ..., 303, 304]
-            304 from segments: [3050413, 3050418, ..., 3046952, 3046736]
-            no diversions
+            304 from segments (nzsegment): [3050413, 3050418, ..., 3046952, 3046736]
           1 stress period with perlen: [1.0] />''')
     if matplotlib:
         _ = nm.plot()
@@ -1525,7 +1524,8 @@ def test_process_flopy_diversion(tmpdir_factory):
     n.set_diversions(diversions=diversions)
 
     # With zero specified flow for all terms
-    nm = swn.SwnModflow.from_swn_flopy(n, m, hyd_cond1=0.0)
+    nm = swn.SwnModflow.from_swn_flopy(n, m)
+    nm.set_sfr_data(hyd_cond1=0.0)
     m.sfr.ipakcb = 52
     m.sfr.istcb2 = 54
     m.add_output_file(54, extension='sfl', binflag=False)
@@ -1556,7 +1556,7 @@ def test_process_flopy_diversion(tmpdir_factory):
           11 in reaches (reachID): [1, 2, ..., 10, 11]
           7 in segment_data (nseg): [1, 2, ..., 6, 7]
             3 from segments: [1, 2, 0]
-            4 from diversions[0, 1, 2, 3]
+            4 from diversions: [0, 1, 2, 3]
           1 stress period with perlen: [1.0] />''')
     if matplotlib:
         _ = nm.plot()
@@ -1572,7 +1572,7 @@ def test_process_flopy_diversion(tmpdir_factory):
     sl = read_budget(cbc_fname, 'STREAM LEAKAGE', nm.reaches, 'sfrleakage')
     sfl = read_sfl(sfl_fname, nm.reaches)
     # Write some files
-    nm.reaches.to_file(str(outdir.join('reaches.shp')))
+    nm.reaches[~nm.reaches.diversion].to_file(str(outdir.join('reaches.shp')))
     nm.grid_cells.to_file(str(outdir.join('grid_cells.shp')))
     gdf_to_shapefile(nm.segments, outdir.join('segments.shp'))
     # Check results
@@ -1677,7 +1677,8 @@ def test_pickle(tmp_path):
     diversions = geopandas.GeoDataFrame(geometry=[
         Point(58, 97), Point(62, 97), Point(61, 89), Point(59, 89)])
     n.set_diversions(diversions=diversions)
-    nm3 = swn.SwnModflow.from_swn_flopy(n, m, hyd_cond1=0.0)
+    nm3 = swn.SwnModflow.from_swn_flopy(n, m)
+    nm3.set_sfr_data(hyd_cond1=0.0)
     nm3.to_pickle(tmp_path / "nm4.pickle")
     nm4 = swn.SwnModflow.from_pickle(tmp_path / "nm4.pickle", m)
     assert nm3 == nm4

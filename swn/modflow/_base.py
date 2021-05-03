@@ -480,7 +480,7 @@ class _SwnModflow(object):
                 reach_mid_pt = reach_geom.interpolate(0.5, normalized=True)
                 reach_record = {
                     "geometry": reach_geom,
-                    "segnum": segnum,  # TODO could use this in package data boundname to regroup reaches
+                    "segnum": segnum,
                     "segndist": line.project(reach_mid_pt, normalized=True),
                     "row": row,
                     "col": col,
@@ -508,121 +508,100 @@ class _SwnModflow(object):
             else:
                 obj.reaches["prev_" + domain_label] = 1
 
-        # Now convert from DataFrame to GeoDataFrame
-        obj.reaches = geopandas.GeoDataFrame(
-                obj.reaches, geometry="geometry", crs=crs)
-
-        if not hasattr(obj.reaches.geometry, "geom_type"):
-            # workaround needed for reaches.to_file()
-            obj.reaches.geometry.geom_type = obj.reaches.geom_type
-
         # Mark segments that are not used
         obj.segments["in_model"] = True
         outside_model = \
             set(swn.segments.index).difference(obj.reaches["segnum"])
         obj.segments.loc[list(outside_model), "in_model"] = False
 
+        # Consider diversions or SW takes, add more reaches
+        if swn.diversions is not None:
+            obj.diversions = swn.diversions.copy()
+            obj.reaches["diversion"] = False
+            obj.reaches["divid"] = obj.diversions.index.dtype.type()
+            # Mark diversions that are not used / outside model
+            obj.diversions["in_model"] = True
+            outside_model = []
+            segnum_s = set(obj.reaches.segnum)
+            for divid, divn in obj.diversions.iterrows():
+                if divn.from_segnum not in segnum_s:
+                    # segnum does not exist -- segment is outside model
+                    outside_model.append(divid)
+            if outside_model:
+                obj.diversions.loc[list(outside_model), "in_model"] = False
+                obj.logger.debug(
+                    "added %d diversions, ignoring %d that did not connect to "
+                    "existing segments",
+                    obj.diversions["in_model"].sum(), len(outside_model))
+            else:
+                obj.logger.debug(
+                    "added all %d diversions", len(obj.diversions))
+            if swn.has_z:
+                empty_geom = wkt.loads("linestring z empty")
+            else:
+                empty_geom = wkt.loads("linestring empty")
+            diversions_in_model = obj.diversions[obj.diversions.in_model]
+            is_spatial = (
+                isinstance(obj.diversions, geopandas.GeoDataFrame) and
+                "geometry" in obj.diversions.columns and
+                (~diversions_in_model.is_empty).all())
+            for divid, divn in diversions_in_model.iterrows():
+                # Use the last upstream reach as a template for a new reach
+                reach_d = dict(obj.reaches.loc[
+                    obj.reaches.segnum == divn.from_segnum].iloc[-1])
+                reach_d.update({
+                    "segnum": swn.END_SEGNUM,
+                    "segndist": 0.0,
+                    "diversion": True,
+                    "divid": divid,
+                    "geometry": empty_geom,
+                })
+                # Assign one reach at grid cell
+                if is_spatial:
+                    # Find grid cell nearest to diversion
+                    grid_cells = obj.grid_cells
+                    grid_sindex = get_sindex(grid_cells)
+                    if grid_sindex:
+                        bbox_match = sorted(
+                            grid_sindex.nearest(divn.geometry.bounds))
+                        # more than one nearest can exist! just take one...
+                        num_found = len(bbox_match)
+                        grid_cell = grid_cells.iloc[bbox_match[0]]
+                    else:  # slow scan of all cells
+                        sel = grid_cells.intersects(divn.geometry)
+                        num_found = sel.sum()
+                        grid_cell = grid_cells.loc[sel].iloc[0]
+                    if num_found > 1:
+                        obj.logger.warning(
+                            "%d grid cells are nearest to diversion %r, "
+                            "but only taking the first %s",
+                            num_found, divid, grid_cell)
+                    row, col = grid_cell.name
+                    reach_d.update({"row": row, "col": col})
+                    if not divn.geometry.is_empty:
+                        reach_d["geometry"] = divn.geometry
+                obj.reaches.loc[len(obj.reaches) + 1] = reach_d
+        else:
+            obj.diversions = None
+
+        # Now convert from DataFrame to GeoDataFrame
+        obj.reaches = geopandas.GeoDataFrame(
+                obj.reaches, geometry="geometry", crs=crs)
+
         # Add information to reaches from segments
         obj.reaches = obj.reaches.merge(
             obj.segments[["sequence"]], "left",
             left_on="segnum", right_index=True)
+        # TODO: how to sequence diversions (divid)?
         obj.reaches.sort_values(["sequence", "segndist"], inplace=True)
         del obj.reaches["sequence"]  # segment sequence not used anymore
         # keep "segndist" for interpolation from segment data
-        return obj
-
-        obj.reaches.reset_index(drop=True, inplace=True)
-        obj.reaches.index += 1  # TODO need to check base here
-        # if returning for flopy might need to be zero-based, there maybe some
-        # funnyness going on in flopy. I am happy with one-base though as then
-        # we can just dump the package out as an external file.
-        # Might just need a user beware!
-        obj.reaches.index.name = "rno"
-
-        # Add model grid info to each reach
-        r = obj.reaches["row"].values
-        c = obj.reaches["col"].values
-        obj.reaches["m_top"] = dis.top.array[r, c]
-        # Estimate slope from top and grid spacing
-        col_size = np.median(dis.delr.array)
-        row_size = np.median(dis.delc.array)
-        px, py = np.gradient(dis.top.array, col_size, row_size)
-        grid_slope = np.sqrt(px ** 2 + py ** 2)
-        obj.reaches["m_top_slope"] = grid_slope[r, c]
-        obj.reaches["m_botm0"] = dis.botm.array[0, r, c]
-
-        # Reach length is based on geometry property
-        obj.reaches["rlen"] = obj.reaches.geometry.length
-
-        if swn.has_z:
-            # If using LineStringZ, use reach Z-coordinate data
-            zcoords = obj.reaches.geometry.apply(
-                lambda g: [c[2] for c in g.coords[:]])
-            obj.reaches["lsz_min"] = zcoords.apply(lambda z: min(z))
-            obj.reaches["lsz_avg"] = zcoords.apply(lambda z: sum(z) / len(z))
-            obj.reaches["lsz_max"] = zcoords.apply(lambda z: max(z))
-            obj.reaches["lsz_first"] = zcoords.apply(lambda z: z[0])
-            obj.reaches["lsz_last"] = zcoords.apply(lambda z: z[-1])
-            # Calculate gradient
-            obj.reaches["rgrd"] = (
-                (obj.reaches["lsz_first"] - obj.reaches["lsz_last"])
-                / obj.reaches["rlen"]
-            )
-        else:
-            # Otherwise assume gradient same as model top
-            obj.reaches["rgrd"] = obj.reaches["m_top_slope"]
-        rgrd_le_zero = obj.reaches["rgrd"] <= 0
-        if (rgrd_le_zero).any():
-            obj.logger.error(
-                "there are {} reaches with 'rgrd' <= 0"
-                .format(rgrd_le_zero.sum()))
-
-        # Evaluate connections
-        # Assume only converging network
-        to_segnums_d = swn.to_segnums.to_dict()
-        reaches_segnum_s = set(obj.reaches["segnum"])
-
-        def find_next_rno(segnum):
-            if segnum in to_segnums_d:
-                to_segnum = to_segnums_d[segnum]
-                if to_segnum in reaches_segnum_s:
-                    sel = obj.reaches["segnum"] == to_segnum
-                    return obj.reaches[sel].index[0]
-                else:  # recurse downstream
-                    return find_next_rno(to_segnum)
-            else:
-                return 0
-
-        def get_to_rno():
-            if segnum == next_segnum:
-                return next_rno
-            else:
-                return find_next_rno(segnum)
-
-        obj.reaches["to_rno"] = -1
-        segnum_iter = obj.reaches["segnum"].iteritems()
-        rno, segnum = next(segnum_iter)
-        for next_rno, next_segnum in segnum_iter:
-            obj.reaches.at[rno, "to_rno"] = get_to_rno()
-            rno, segnum = next_rno, next_segnum
-        next_segnum = swn.END_SEGNUM
-        obj.reaches.at[rno, "to_rno"] = get_to_rno()
-        assert obj.reaches.to_rno.min() >= 0
-
-        # Populate from_rnos set
-        obj.reaches["from_rnos"] = [set() for _ in range(len(obj.reaches))]
-        to_rnos = obj.reaches.loc[obj.reaches["to_rno"] != 0, "to_rno"]
-        for k, v in to_rnos.items():
-            obj.reaches.at[v, "from_rnos"].add(k)
-
-        # Diversions not handled (yet)
-        obj.reaches["to_div"] = 0
-        obj.reaches["ustrf"] = 1.
 
         if not hasattr(obj.reaches.geometry, "geom_type"):
             # workaround needed for reaches.to_file()
             obj.reaches.geometry.geom_type = obj.reaches.geom_type
 
+        # each subclass should do more processing with returned object
         return obj
 
     def set_reach_data_from_series(
