@@ -126,7 +126,7 @@ class SwnModflow(_SwnModflow):
         return obj
 
     def set_sfr_data(
-            self, min_slope=1./1000, hyd_cond1=1., hyd_cond_out=None,
+            self, hyd_cond1=1., hyd_cond_out=None,
             thickness1=1., thickness_out=None, width1=10., width_out=None,
             roughch=0.024, abstraction={}, inflow={}, flow={}, runoff={},
             etsw={}, pptsw={}):
@@ -136,10 +136,6 @@ class SwnModflow(_SwnModflow):
 
         Parameters
         ----------
-        min_slope : float or pandas.Series, optional
-            Minimum downwards slope imposed on segments. If float, then this is
-            a global value, otherwise it is per-segment with a Series.
-            Default 1./1000 (or 0.001).
         hyd_cond1 : float or pandas.Series, optional
             Hydraulic conductivity of the streambed, as a global or per top of
             each segment. Used for either STRHC1 or HCOND1/HCOND2 outputs.
@@ -190,10 +186,10 @@ class SwnModflow(_SwnModflow):
         model = self.model
         dis = model.dis
 
-        # Assign segment data
-        self.segments["min_slope"] = swn._segment_series(min_slope)
-        if (self.segments["min_slope"] < 0.0).any():
-            raise ValueError("min_slope must be greater than zero")
+        if "slope" not in self.reaches.columns:
+            self.logger.info(
+                "'slope' not yet evaluated, setting with set_reaches_slope()")
+            self.set_reaches_slope()
 
         # Column names common to segments and segment_data
         segment_cols = [
@@ -220,44 +216,17 @@ class SwnModflow(_SwnModflow):
         self.set_reach_data_from_series(
             "strhc1", hyd_cond1, hyd_cond_out, log10=True)
 
-        self.set_reach_data_from_series(
-            "min_slope", self.segments["min_slope"])
         self.reaches["strtop"] = 0.0
-        self.reaches["slope"] = 0.0
         if swn.has_z:
-            for reachID, item in self.reaches.iterrows():
-                geom = item.geometry
+            for reachID, geom in self.reaches.geometry.iteritems():
                 if geom.is_empty or not isinstance(geom, LineString):
                     continue
-                # Get Z from each end
-                z0 = geom.coords[0][2]
-                z1 = geom.coords[-1][2]
-                dz = z0 - z1
-                dx = geom.length
-                slope = dz / dx
-                self.reaches.at[reachID, "slope"] = slope
                 # Get strtop from LineString mid-point Z
                 zm = geom.interpolate(0.5, normalized=True).z
                 self.reaches.at[reachID, "strtop"] = zm
         else:
-            r = self.reaches["i"].values
-            c = self.reaches["j"].values
-            # Estimate slope from top and grid spacing
-            dis = self.model.dis
-            col_size = np.median(dis.delr.array)
-            row_size = np.median(dis.delc.array)
-            px, py = np.gradient(dis.top.array, col_size, row_size)
-            grid_slope = np.sqrt(px ** 2 + py ** 2)
-            self.reaches["slope"] = grid_slope[r, c]
             # Get stream values from top of model
-            self.reaches["strtop"] = dis.top.array[r, c]
-        # Enforce min_slope
-        sel = self.reaches["slope"] < self.reaches["min_slope"]
-        if sel.any():
-            self.logger.warning(
-                "enforcing min_slope for %d reaches (%.2f%%)",
-                sel.sum(), 100.0 * sel.sum() / len(sel))
-            self.reaches.loc[sel, "slope"] = self.reaches.loc[sel, "min_slope"]
+            self.set_reach_data_from_array("strtop", dis.top.array)
 
         has_diversions = self.diversions is not None
         cols = ["iseg", "segnum"]

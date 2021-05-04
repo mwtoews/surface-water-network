@@ -372,8 +372,9 @@ def test_set_segment_data():
         xul=30.0, yul=130.0)
     _ = flopy.modflow.ModflowBas(m, strt=15.0, stoper=5.0)
     nm = swn.SwnModflow.from_swn_flopy(n3d, m)
+    nm.set_reaches_slope(min_slope=0.03)
     nm.set_sfr_data(
-        min_slope=0.03, hyd_cond1=2, thickness1=2.0,
+        hyd_cond1=2, thickness1=2.0,
         inflow={3: 9.6, 4: 9.7}, flow={1: 18.4},
         runoff={1: 5}, pptsw={2: 1.8}, etsw={0: 0.01, 1: 0.02, 2: 0.03})
     # Check only data set 6
@@ -607,8 +608,9 @@ def test_process_flopy_n3d_vars(tmpdir_factory):
     _ = flopy.modflow.ModflowLpf(m, ipakcb=52, laytyp=0, hk=1.0)
     _ = flopy.modflow.ModflowRch(m, ipakcb=52, rech=0.01)
     nm = swn.SwnModflow.from_swn_flopy(n3d, m)
+    nm.set_reaches_slope(min_slope=0.03)
     nm.set_sfr_data(
-        min_slope=0.03, hyd_cond1=2, thickness1=2.0,
+        hyd_cond1=2, thickness1=2.0,
         inflow={3: 9.6, 4: 9.7}, flow={1: 18.4},
         runoff={1: 5}, pptsw={2: 1.8}, etsw={0: 0.01, 1: 0.02, 2: 0.03})
     m.sfr.ipakcb = 52
@@ -777,7 +779,8 @@ def test_process_flopy_n2d_min_slope(n2d, tmpdir_factory):
     _ = flopy.modflow.ModflowLpf(m, ipakcb=52, laytyp=0, hk=1.0)
     _ = flopy.modflow.ModflowRch(m, ipakcb=52, rech=0.01)
     nm = swn.SwnModflow.from_swn_flopy(n2d, m)
-    nm.set_sfr_data(min_slope=0.03)
+    nm.set_reaches_slope(min_slope=0.03)
+    nm.set_sfr_data()
     m.sfr.ipakcb = 52
     m.sfr.istcb2 = -53
     # Data set 2

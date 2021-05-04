@@ -670,4 +670,107 @@ class _SwnModflow(object):
                 "unsupported subclass " + repr(self.__class__.__name__))
         if expected_shape != array.shape:
             raise ValueError("'array' must have shape (nrow, ncol)")
-        self.reaches.loc[:, name] = array[self.reaches.row, self.reaches.col]
+        reaches_names = set(self.reaches.columns)
+        if set("ij").issubset(reaches_names):
+            r, c = "ij"
+        elif set(["row", "col"]).issubset(reaches_names):
+            r, c = "row", "col"
+        else:
+            raise ValueError("cannot find [i, j] or [row, col] in reaches")
+        self.reaches.loc[:, name] = array[self.reaches[r], self.reaches[c]]
+
+    def set_reaches_slope(self, method: str = "auto", min_slope=1./1000):
+        """Set slope for reaches.
+
+        This method also adds/updates several attributes for reaches.
+        The actual data is stored in "slope" for SwnModflow or
+        "rgrd" for SwnMf6 classes.
+
+        Parameters
+        ----------
+        method: str, default "auto"
+            Method used to evaluate reach slope.
+            - "auto": automatically determine method.
+            - "linestringz_ab": if surface water network has Z information,
+              use the start/end elevations to determine elevation drop.
+            - "grid_top": evaluate the slope from the top grid of the model.
+        min_slope : float or pandas.Series, optional
+            Minimum downwards slope imposed on segments. If float, then this is
+            a global value, otherwise it is per-segment with a Series.
+            Default 1./1000 (or 0.001). Diversions (if present) will use the
+            minimum of series.
+        """
+        has_z = self._swn.has_z
+        supported_methods = ["auto", "linestringz_ab", "grid_top"]
+        if method not in supported_methods:
+            raise ValueError(f"{method} not in {supported_methods}")
+        if method == "auto":
+            if has_z:
+                method = "linestringz_ab"
+            else:
+                method = "grid_top"
+        if self.__class__.__name__ == "SwnModflow":
+            grid_name = "slope"
+        elif self.__class__.__name__ == "SwnMf6":
+            grid_name = "rgrd"
+        else:
+            raise TypeError(
+                "unsupported subclass " + repr(self.__class__.__name__))
+        self.logger.debug(
+            "setting reaches['%s'] with %s method", grid_name, method)
+        rchs = self.reaches
+        rchs["min_slope"] = np.nan
+        self.set_reach_data_from_series("min_slope", min_slope)
+        # with diversions, these reaches will be NaN, so set to min
+        sel = rchs.min_slope.isna()
+        if sel.any():
+            rchs.loc[sel, "min_slope"] = rchs.min_slope[~sel].min()
+        rchs[grid_name] = 0.0
+        if method == "linestringz_ab":
+            if not has_z:
+                raise ValueError(
+                    f"method {method} requested, but surface water network "
+                    "does not contain Z coordinates")
+            sel = (rchs.geom_type == "LineString") & (~rchs.is_empty)
+            if not sel.any():
+                self.logger.error(
+                    "no reaches selected to determine slope, either because "
+                    "they are not LineString or are EMPTY")
+            zcoords = rchs.geometry[sel].apply(
+                lambda g: [c[2] for c in g.coords[:]])
+            rchs.loc[sel, "lsz_min"] = zcoords.apply(lambda z: min(z))
+            rchs.loc[sel, "lsz_avg"] = zcoords.apply(lambda z: sum(z) / len(z))
+            rchs.loc[sel, "lsz_max"] = zcoords.apply(lambda z: max(z))
+            rchs.loc[sel, "lsz_first"] = zcoords.apply(lambda z: z[0])
+            rchs.loc[sel, "lsz_last"] = zcoords.apply(lambda z: z[-1])
+            # Calculate gradient
+            rchs.loc[sel, grid_name] = (
+                (rchs.loc[sel, "lsz_first"] -
+                 rchs.loc[sel, "lsz_last"])
+                / rchs.loc[sel, "geometry"].length
+            )
+        elif method == "grid_top":
+            # Estimate slope from top and grid spacing
+            reaches_names = set(self.reaches.columns)
+            if set("ij").issubset(reaches_names):
+                rn, cn = "ij"
+            elif set(["row", "col"]).issubset(reaches_names):
+                rn, cn = "row", "col"
+            else:
+                raise ValueError("cannot find [i, j] or [row, col] in reaches")
+            r = rchs[rn].values
+            c = rchs[cn].values
+            dis = self.model.dis
+            col_size = np.median(dis.delr.array)
+            row_size = np.median(dis.delc.array)
+            px, py = np.gradient(dis.top.array, col_size, row_size)
+            grid_slope = np.sqrt(px ** 2 + py ** 2)
+            rchs[grid_name] = grid_slope[r, c]
+        # Enforce min_slope
+        sel = rchs[grid_name] < rchs["min_slope"]
+        if sel.any():
+            num = sel.sum()
+            self.logger.warning(
+                "enforcing min_slope for %d reache%s (%.2f%%)",
+                num, "" if num == 1 else "s", 100.0 * num / len(sel))
+            rchs.loc[sel, grid_name] = rchs.loc[sel, "min_slope"]

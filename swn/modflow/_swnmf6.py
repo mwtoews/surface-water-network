@@ -105,40 +105,6 @@ class SwnMf6(_SwnModflow):
         r = obj.reaches["row"].values
         c = obj.reaches["col"].values
         obj.reaches["m_top"] = dis.top.array[r, c]
-        # Estimate slope from top and grid spacing
-        col_size = np.median(dis.delr.array)
-        row_size = np.median(dis.delc.array)
-        px, py = np.gradient(dis.top.array, col_size, row_size)
-        grid_slope = np.sqrt(px ** 2 + py ** 2)
-        obj.reaches["m_top_slope"] = grid_slope[r, c]
-        obj.reaches["m_botm0"] = dis.botm.array[0, r, c]
-
-        if swn.has_z:
-            # If using LineStringZ, use reach Z-coordinate data
-            sel = (
-                (obj.reaches.geom_type == "LineString") &
-                (~obj.reaches.is_empty))
-            zcoords = obj.reaches.geometry[sel].apply(
-                lambda g: [c[2] for c in g.coords[:]])
-            obj.reaches.loc[sel, "lsz_min"] = zcoords.apply(lambda z: min(z))
-            obj.reaches.loc[sel, "lsz_avg"] = \
-                zcoords.apply(lambda z: sum(z) / len(z))
-            obj.reaches.loc[sel, "lsz_max"] = zcoords.apply(lambda z: max(z))
-            obj.reaches.loc[sel, "lsz_first"] = zcoords.apply(lambda z: z[0])
-            obj.reaches.loc[sel, "lsz_last"] = zcoords.apply(lambda z: z[-1])
-            # Calculate gradient
-            obj.reaches.loc[sel, "rgrd"] = (
-                (obj.reaches["lsz_first"] - obj.reaches["lsz_last"])
-                / obj.reaches["rlen"]
-            )
-        else:
-            # Otherwise assume gradient same as model top
-            obj.reaches["rgrd"] = obj.reaches["m_top_slope"]
-        rgrd_le_zero = obj.reaches["rgrd"] <= 0
-        if (rgrd_le_zero).any():
-            obj.logger.error(
-                "there are {} reaches with 'rgrd' <= 0"
-                .format(rgrd_le_zero.sum()))
 
         # Evaluate connections
         # Assume only converging network
@@ -185,43 +151,70 @@ class SwnMf6(_SwnModflow):
         return obj
 
     def set_sfr_data(
-            self, min_slope=1./1000,
-            hyd_cond1=1., hyd_cond_out=None, thickness1=1., thickness_out=None,
-            width1=10., width_out=None, roughch=0.024,
-            abstraction={}, inflow={}, flow={}, runoff={}, etsw={}, pptsw={}):
+            self, hyd_cond1=1., hyd_cond_out=None,
+            thickness1=1., thickness_out=None, width1=10., width_out=None,
+            roughch=0.024, abstraction={}, inflow={}, flow={}, runoff={},
+            etsw={}, pptsw={}):
         """Set MODFLOW 6 SFR data from segment data.
 
         Parameters
         ----------
-        min_slope : float or pandas.Series, optional
-            Minimum downwards slope imposed on segments. If float, then this is
-            a global value, otherwise it is per-segment with a Series.
-            Default 1./1000 (or 0.001).
-        ...
+        hyd_cond1 : float or pandas.Series, optional
+            Hydraulic conductivity of the streambed, as a global or per top of
+            each segment. Used for either  outputs.
+            Default 1.
+        hyd_cond_out : None, float or pandas.Series, optional
+            Similar to thickness1, but for the hydraulic conductivity of each
+            segment outlet. If None (default), the same hyd_cond1 value for the
+            top of the outlet segment is used for the bottom.
+        thickness1 : float or pandas.Series, optional
+            Thickness of the streambed, as a global or per top of each segment.
+            Used for either STRTHICK or THICKM1/THICKM2 outputs. Default 1.
+        thickness_out : None, float or pandas.Series, optional
+            Similar to thickness1, but for the bottom of each segment outlet.
+            If None (default), the same thickness1 value for the top of the
+            outlet segment is used for the bottom.
+        width1 : float or pandas.Series, optional
+            Channel width, as a global or per top of each segment. Used for
+            WIDTH1/WIDTH2 outputs. Default 10.
+        width_out : None, float or pandas.Series, optional
+            Similar to width1, but for the bottom of each segment outlet.
+            If None (default), the same width1 value for the top of the
+            outlet segment is used for the bottom.
+        roughch : float or pandas.Series, optional
+            Manning's roughness coefficient for the channel. If float, then
+            this is a global value, otherwise it is per-segment with a Series.
+            Default 0.024.
+        abstraction : dict or pandas.DataFrame, optional
+            See generate_segment_data for details.
+            Default is {} (no abstraction from diversions).
+        inflow : dict or pandas.DataFrame, optional
+            See generate_segment_data for details.
+            Default is {} (no outside inflow added to flow term).
+        flow : dict or pandas.DataFrame, optional
+            See generate_segment_data. Default is {} (zero).
+        runoff : dict or pandas.DataFrame, optional
+            See generate_segment_data. Default is {} (zero).
+        etsw : dict or pandas.DataFrame, optional
+            See generate_segment_data. Default is {} (zero).
+        pptsw : dict or pandas.DataFrame, optional
+            See generate_segment_data. Default is {} (zero).
 
-        TODO
-        ----
-         * Consider use the info from 'swn.segments' if this is available with
-           the expected names width1, width2
-         * Perhapps move move more logic up wo the classmethod??
+        Returns
+        -------
+        None
         """
         import flopy
         swn = self._swn
         model = self.model
         dis = model.dis
 
+        if "rgrd" not in self.reaches.columns:
+            self.logger.info(
+                "'rgrd' not yet evaluated, setting with set_reaches_slope()")
+            self.set_reaches_slope()
+
         # Assign segment data
-        self.segments['min_slope'] = swn._segment_series(min_slope)
-        if (self.segments['min_slope'] < 0.0).any():
-            raise ValueError('min_slope must be greater than zero')
-        # Enforce min_slope
-        sel = self.reaches['rgrd'] < self.reaches['min_slope']
-        if sel.any():
-            self.logger.warning(
-                'enforcing min_slope for %d reaches (%.2f%%)',
-                sel.sum(), 100.0 * sel.sum() / len(sel))
-            self.reaches.loc[sel, 'slope'] = self.reaches.loc[sel, 'min_slope']
-        # Column names common to segments and segment_data
         segment_cols = [
             'roughch',
             'hcond1', 'thickm1', 'elevup', 'width1',
@@ -247,7 +240,7 @@ class SwnMf6(_SwnModflow):
 
         # Add information to reaches from segments
         self.reaches = self.reaches.merge(
-            self.segments[['sequence', 'min_slope']], 'left',
+            self.segments[['sequence']], 'left',
             left_on='segnum', right_index=True)
         self.reaches.sort_values(['sequence', 'segndist'], inplace=True)
         # Interpolate segment properties to each reach
@@ -325,13 +318,6 @@ class SwnMf6(_SwnModflow):
             self.reaches['rgrd'] = grid_slope[r, c]
             # Get stream values from top of model
             self.reaches['rtp'] = dis.top.array[r, c]
-        # Enforce min_slope
-        sel = self.reaches['rgrd'] < self.reaches['min_slope']
-        if sel.any():
-            self.logger.warning(
-                'enforcing min_slope for %d reaches (%.2f%%)',
-                sel.sum(), 100.0 * sel.sum() / len(sel))
-            self.reaches.loc[sel, 'slope'] = self.reaches.loc[sel, 'min_slope']
         if not hasattr(self.reaches.geometry, 'geom_type'):
             # workaround needed for reaches.to_file()
             self.reaches.geometry.geom_type = self.reaches.geom_type
