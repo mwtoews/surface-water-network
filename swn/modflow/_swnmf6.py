@@ -161,7 +161,7 @@ class SwnMf6(_SwnModflow):
         ----------
         hyd_cond1 : float or pandas.Series, optional
             Hydraulic conductivity of the streambed, as a global or per top of
-            each segment. Used for either  outputs.
+            each segment. Used for reach rhk.
             Default 1.
         hyd_cond_out : None, float or pandas.Series, optional
             Similar to thickness1, but for the hydraulic conductivity of each
@@ -169,14 +169,14 @@ class SwnMf6(_SwnModflow):
             top of the outlet segment is used for the bottom.
         thickness1 : float or pandas.Series, optional
             Thickness of the streambed, as a global or per top of each segment.
-            Used for either STRTHICK or THICKM1/THICKM2 outputs. Default 1.
+            Used for reach rbth. Default 1.
         thickness_out : None, float or pandas.Series, optional
             Similar to thickness1, but for the bottom of each segment outlet.
             If None (default), the same thickness1 value for the top of the
             outlet segment is used for the bottom.
         width1 : float or pandas.Series, optional
             Channel width, as a global or per top of each segment. Used for
-            WIDTH1/WIDTH2 outputs. Default 10.
+            reach rwid. Default 10.
         width_out : None, float or pandas.Series, optional
             Similar to width1, but for the bottom of each segment outlet.
             If None (default), the same width1 value for the top of the
@@ -214,158 +214,13 @@ class SwnMf6(_SwnModflow):
                 "'rgrd' not yet evaluated, setting with set_reaches_slope()")
             self.set_reaches_slope()
 
-        # Assign segment data
-        segment_cols = [
-            'roughch',
-            'hcond1', 'thickm1', 'elevup', 'width1',
-            'hcond2', 'thickm2', 'elevdn', 'width2']
-        # Tidy any previous attempts
-        for col in segment_cols:
-            if col in self.segments.columns:
-                del self.segments[col]
-        # Combine pairs of series for each segment
-        more_segment_columns = pd.concat([
-            swn._pair_segment_values(hyd_cond1, hyd_cond_out, 'hcond'),
-            swn._pair_segment_values(thickness1, thickness_out, 'thickm'),
-            swn._pair_segment_values(width1, width_out, name='width')
-        ], axis=1, copy=False)
-        for name, series in more_segment_columns.iteritems():
-            self.segments[name] = series
-        self.segments['roughch'] = swn._segment_series(roughch)
-        # Mark segments that are not used
-        self.segments['in_model'] = True
-        outside_model = \
-            set(swn.segments.index).difference(self.reaches['segnum'])
-        self.segments.loc[list(outside_model), 'in_model'] = False
+        # TODO: add a similar method for rtp? set_reaches_top()?
 
-        # Add information to reaches from segments
-        self.reaches = self.reaches.merge(
-            self.segments[['sequence']], 'left',
-            left_on='segnum', right_index=True)
-        self.reaches.sort_values(['sequence', 'segndist'], inplace=True)
-        # Interpolate segment properties to each reach
-        self.reaches['rbth'] = 0.0
-        self.reaches['rhk'] = 0.0
-        for segnum, seg in self.segments.iterrows():
-            sel = self.reaches['segnum'] == segnum
-            if seg['thickm1'] == seg['thickm2']:
-                val = seg['thickm1']
-            else:  # linear interpolate to mid points
-                tk1 = seg['thickm1']
-                tk2 = seg['thickm2']
-                dtk = tk2 - tk1
-                val = dtk * self.reaches.loc[sel, 'segndist'] + tk1
-            self.reaches.loc[sel, 'rbth'] = val
-            if seg['hcond1'] == seg['hcond2']:
-                val = seg['hcond1']
-            else:  # linear interpolate to mid points in log-10 space
-                lhc1 = np.log10(seg['hcond1'])
-                lhc2 = np.log10(seg['hcond2'])
-                dlhc = lhc2 - lhc1
-                val = 10 ** (dlhc * self.reaches.loc[sel, 'segndist'] + lhc1)
-            self.reaches.loc[sel, 'rhk'] = val
-            if seg['width1'] == seg['width2']:
-                val = seg['width1']
-            else:  # linear interpolate to mid points in log-10 space
-                lhc1 = np.log10(seg['width1'])
-                lhc2 = np.log10(seg['width2'])
-                dlhc = lhc2 - lhc1
-                val = 10 ** (dlhc * self.reaches.loc[sel, 'segndist'] + lhc1)
-            self.reaches.loc[sel, 'rwid'] = val
-            self.reaches.loc[sel, 'man'] = seg['roughch']
-        # del self.reaches['sequence']
-        # del self.reaches['segndist']
-        # Use MODFLOW SFR dataset 2 terms ISEG and IREACH, counting from 1
-        self.reaches['iseg'] = 0
-        self.reaches['ireach'] = 0
-        iseg = ireach = 0
-        prev_segnum = None
-        for idx, segnum in self.reaches['segnum'].iteritems():
-            if segnum != prev_segnum:
-                iseg += 1
-                ireach = 0
-            ireach += 1
-            self.reaches.at[idx, 'iseg'] = iseg
-            self.reaches.at[idx, 'ireach'] = ireach
-            prev_segnum = segnum
-        self.reaches.reset_index(inplace=True, drop=True)
-        self.reaches.index += 1  # flopy series starts at one
-        self.reaches.index.name = 'reachID'
-        self.reaches['rlen'] = self.reaches.geometry.length
-        self.reaches['rtp'] = 0.0
-        self.reaches['rgrd'] = 0.0
-        if swn.has_z:
-            for reachID, item in self.reaches.iterrows():
-                geom = item.geometry
-                # Get Z from each end
-                z0 = geom.coords[0][2]
-                z1 = geom.coords[-1][2]
-                dz = z0 - z1
-                dx = geom.length
-                slope = dz / dx
-                self.reaches.at[reachID, 'rgrd'] = slope
-                # Get strtop from LineString mid-point Z
-                zm = geom.interpolate(0.5, normalized=True).z
-                self.reaches.at[reachID, 'rtp'] = zm
-        else:
-            r = self.reaches['row'].values
-            c = self.reaches['col'].values
-            # Estimate slope from top and grid spacing
-            col_size = np.median(dis.delr.array)
-            row_size = np.median(dis.delc.array)
-            px, py = np.gradient(dis.top.array, col_size, row_size)
-            grid_slope = np.sqrt(px ** 2 + py ** 2)
-            self.reaches['rgrd'] = grid_slope[r, c]
-            # Get stream values from top of model
-            self.reaches['rtp'] = dis.top.array[r, c]
-        if not hasattr(self.reaches.geometry, 'geom_type'):
-            # workaround needed for reaches.to_file()
-            self.reaches.geometry.geom_type = self.reaches.geom_type
-        # Finally, add/rename a few columns to align with reach_data
-        self.reaches.insert(2, column='k', value=0)
-        self.reaches.insert(3, column='outreach', value=pd.Series(dtype=int))
-        self.reaches.rename(columns={'row': 'i', 'col': 'j'}, inplace=True)
-        self.reaches['rno'] = self.reaches.index
-        # Build mf6 packagedata from reach info
-        # get default columns for mf6 package data
-        names, dtypes = \
-            zip(*flopy.mf6.ModflowGwfsfr.packagedata.empty(model).dtype.descr)
-        defcols_names = list(names)
-        defcols_dtypes = list(dtypes)
-        # use kij unstead of cellid
-        if 'cellid' in defcols_names:
-            i = defcols_names.index('cellid')
-            defcols_names[i:i + 1] = 'k', 'i', 'j'
-            defcols_dtypes[i:i + 1] = '<i8', '<i8', '<i8'
-        # Add missing data cols
-        for n, t in zip(defcols_names, defcols_dtypes):
-            if n not in self.reaches.columns:
-                self.reaches[n] = pd.Series(index=self.reaches.index, dtype=t)
-            # self.reaches.loc[:, defcols_names]
-
-        # Build some old style Data Set 6 segment data
-        # -- again dont need this for mf6 but we can us it to fill in the
-        # reach-based data sets.  # TODO would benefit from a tidy
-        self.segment_data = self.reaches[['iseg', 'segnum']]\
-            .drop_duplicates().rename(columns={'iseg': 'nseg'})
-        # index changes from 'reachID', to 'segnum', to finally 'nseg'
-        segnum2nseg_d = self.segment_data.set_index('segnum')['nseg'].to_dict()
-        # self.segment_data[' icalc'] = 1  # assumption for all streams
-        self.segment_data['outseg'] = self.segment_data['segnum'].map(
-            lambda x: segnum2nseg_d.get(self.segments.loc[x, 'to_segnum'], 0))
-
-        # at this point we could try and build packagedata
-        self.reaches = set_outreaches(self.reaches, self.segment_data)
-        outreach_dict = self.reaches.outreach.to_dict()
-        # get number of connections # TODO is this different if there are diversions/multiple downstream?
-        self.reaches['ncon'] = self.reaches.rno.apply(
-            lambda x: (outreach_dict[x] != 0) +
-                      (self.reaches.outreach == x).sum()
-        )
-        # add more cols... for package data
-        self.reaches['ustrf'] = 1.  # upstream flow fraction  (check manual for this...)
-        # TODO: diversions
-        self.reaches['ndv'] = 0  # number of diversions - needs to be int
+        # Assign reach datasets
+        self.set_reach_data_from_series("rhk", hyd_cond1, hyd_cond_out, True)
+        self.set_reach_data_from_series("rbth", thickness1, thickness_out)
+        self.set_reach_data_from_series("rwid", width1, width_out)
+        self.set_reach_data_from_series("man", roughch)
 
         # Build stressperiod data
         sfr_spd = {}  # TODO this only works if flows etc are
@@ -411,9 +266,9 @@ class SwnMf6(_SwnModflow):
             save_flows=True,
             maximum_iterations=100,
             maximum_picard_iterations=10,
-            nreaches=len(self.packagedata),
-            packagedata={'filename': pkd_fname, 'data': None},
-            connectiondata={'filename': conn_fname, 'data': None},
+            nreaches=len(self.reaches),
+            packagedata=self.flopy_packagedata,
+            connectiondata=self.flopy_connectiondata,
             perioddata=self.spd,
         )
 
