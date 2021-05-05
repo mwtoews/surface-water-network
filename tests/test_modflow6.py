@@ -154,9 +154,9 @@ def test_process_flopy_n3d_defaults(n3d, tmpdir_factory):
     assert len(r) == 7
     assert r.index.name == "rno"
     assert list(r.index) == [1, 2, 3, 4, 5, 6, 7]
-    # row and col are base-0
-    assert list(r.row) == [0, 0, 1, 0, 1, 1, 2]
-    assert list(r.col) == [0, 1, 1, 1, 1, 1, 1]
+    # i and j are base-0
+    assert list(r.i) == [0, 0, 1, 0, 1, 1, 2]
+    assert list(r.j) == [0, 1, 1, 1, 1, 1, 1]
     assert list(r.segnum) == [1, 1, 1, 2, 2, 0, 0]
     assert list(r.to_rno) == [2, 3, 6, 5, 6, 7, 0]
     assert list(r.from_rnos) == [set(), {1}, {2}, set(), {4}, {3, 5}, {6}]
@@ -398,9 +398,9 @@ def test_process_flopy_n2d_defaults(n2d, tmpdir_factory):
     # check object reaches
     r = nm.reaches
     assert len(r) == 7
-    # row and col are base-0
-    assert list(r.row) == [0, 0, 1, 0, 1, 1, 2]
-    assert list(r.col) == [0, 1, 1, 1, 1, 1, 1]
+    # i and j are base-0
+    assert list(r.i) == [0, 0, 1, 0, 1, 1, 2]
+    assert list(r.j) == [0, 1, 1, 1, 1, 1, 1]
     assert list(r.segnum) == [1, 1, 1, 2, 2, 0, 0]
     assert list(r.to_rno) == [2, 3, 6, 5, 6, 7, 0]
     # See test_process_flopy_n3d_defaults for other checks

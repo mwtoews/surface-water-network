@@ -101,10 +101,7 @@ class SwnMf6(_SwnModflow):
         obj.reaches["rlen"] = obj.reaches.geometry.length
 
         # Add model grid info to each reach
-        dis = obj.model.dis
-        r = obj.reaches["row"].values
-        c = obj.reaches["col"].values
-        obj.reaches["m_top"] = dis.top.array[r, c]
+        obj.set_reach_data_from_array("m_top", obj.model.dis.top.array)
 
         # Evaluate connections
         # Assume only converging network
@@ -294,13 +291,9 @@ class SwnMf6(_SwnModflow):
         defcols_names = list(Mf6Sfr.packagedata.empty(self.model).dtype.names)
         defcols_names.remove('rno')  # this is the index
         dat = pd.DataFrame(self.reaches.copy())
-        if "lay" not in dat.columns:
-            dat["lay"] = 0
         dat["idomain"] = \
-            self.model.dis.idomain.array[dat["lay"], dat["row"], dat["col"]]
+            self.model.dis.idomain.array[dat["k"], dat["i"], dat["j"]]
         cellid_none = dat["idomain"] < 1
-        dat.rename(
-            columns={"lay": "k", "row": "i", "col": "j"}, inplace=True)
         kij_l = list("kij")
         if style == "native":
             # Convert from zero-based to one-based notation

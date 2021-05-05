@@ -118,11 +118,6 @@ class SwnModflow(_SwnModflow):
         # Reach length is based on geometry property
         obj.reaches["rchlen"] = obj.reaches.geometry.length
 
-        # Finally, add/rename a few columns to align with reach_data
-        obj.reaches.insert(
-            list(obj.reaches.columns).index("row"), column="k", value=0)
-        obj.reaches.rename(columns={"row": "i", "col": "j"}, inplace=True)
-
         return obj
 
     def set_sfr_data(
@@ -321,8 +316,8 @@ class SwnModflow(_SwnModflow):
                 segd.at["width1"] = 0.0  # not used
                 segd.at["width2"] = 0.0
                 reach = self.reaches.loc[reach_idx]
-                row, col = reach[["i", "j"]]
-                strtop = dis.top[row, col]
+                i, j = reach[["i", "j"]]
+                strtop = dis.top[i, j]
                 reach.at["iseg"] = nseg
                 reach.at["ireach"] = 1
                 reach.at["rchlen"] = rchlen
@@ -1334,15 +1329,15 @@ class SwnModflow(_SwnModflow):
             self.reaches["bot"] = layerbots[0][reach_ij]
         if fix_dis:
             # fix dis for incised reaches
-            for lay in range(self.model.dis.nlay - 1):
-                laythick = layerbots[lay] - layerbots[
-                    lay + 1]  # first one is layer 1 bottom - layer 2 bottom
-                print("checking layer {} thicknesses".format(lay + 2))
+            for k in range(self.model.dis.nlay - 1):
+                laythick = layerbots[k] - layerbots[
+                    k + 1]  # first one is layer 1 bottom - layer 2 bottom
+                print("checking layer {} thicknesses".format(k + 2))
                 thincells = laythick < minthick
                 print("{} cells less than {}"
                       .format(thincells.sum(), minthick))
                 laythick[thincells] = minthick
-                layerbots[lay + 1] = layerbots[lay] - laythick
+                layerbots[k + 1] = layerbots[k] - laythick
             self.model.dis.botm = layerbots
 
     def sfr_plot(self, model, sfrar, dem, points=None, points2=None,

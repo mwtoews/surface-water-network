@@ -179,8 +179,8 @@ class _SwnModflow(object):
             nrow = dis.nrow.data
         cols, rows = np.meshgrid(np.arange(ncol), np.arange(nrow))
         num_domain_modified = 0
-        grid_df = pd.DataFrame({"row": rows.flatten(), "col": cols.flatten()})
-        grid_df.set_index(["row", "col"], inplace=True)
+        grid_df = pd.DataFrame({"i": rows.flatten(), "j": cols.flatten()})
+        grid_df.set_index(["i", "j"], inplace=True)
         grid_df[domain_label] = domain.flatten()
         if domain_action == "freeze" and (domain == 0).any():
             # Remove any inactive grid cells from analysis
@@ -195,16 +195,16 @@ class _SwnModflow(object):
             obj.logger.warning(
                 "assuming constant row spacing %s", row_size)
         cell_size = (row_size + col_size) / 2.0
-        # Note: modelgrid.get_cell_vertices(row, col) is slow!
+        # Note: modelgrid.get_cell_vertices(i, j) is slow!
         xv = modelgrid.xvertices
         yv = modelgrid.yvertices
-        r, c = [np.array(s[1])
-                for s in grid_df.reset_index()[["row", "col"]].iteritems()]
+        i, j = [np.array(s[1])
+                for s in grid_df.reset_index()[["i", "j"]].iteritems()]
         cell_verts = zip(
-            zip(xv[r, c], yv[r, c]),
-            zip(xv[r, c + 1], yv[r, c + 1]),
-            zip(xv[r + 1, c + 1], yv[r + 1, c + 1]),
-            zip(xv[r + 1, c], yv[r + 1, c])
+            zip(xv[i, j], yv[i, j]),
+            zip(xv[i, j + 1], yv[i, j + 1]),
+            zip(xv[i + 1, j + 1], yv[i + 1, j + 1]),
+            zip(xv[i + 1, j], yv[i + 1, j])
         )
         # Add dataframe of model grid cells to object
         obj.grid_cells = grid_cells = geopandas.GeoDataFrame(
@@ -215,8 +215,8 @@ class _SwnModflow(object):
         reach_include = swn._segment_series(reach_include_fraction) * cell_size
         # Make an empty DataFrame for reaches
         obj.reaches = pd.DataFrame(columns=["geometry"])
-        obj.reaches.insert(1, column="row", value=pd.Series(dtype=int))
-        obj.reaches.insert(2, column="col", value=pd.Series(dtype=int))
+        obj.reaches.insert(1, column="i", value=pd.Series(dtype=int))
+        obj.reaches.insert(2, column="j", value=pd.Series(dtype=int))
         empty_reach_df = obj.reaches.copy()  # take this before more added
         obj.reaches.insert(
             1, column="segnum",
@@ -226,18 +226,18 @@ class _SwnModflow(object):
         empty_reach_df.insert(4, column="moved", value=pd.Series(dtype=bool))
 
         # recusive helper function
-        def append_reach_df(df, row, col, reach_geom, moved=False):
+        def append_reach_df(df, i, j, reach_geom, moved=False):
             if reach_geom.geom_type == "LineString":
                 df.loc[len(df.index)] = {
                     "geometry": reach_geom,
-                    "row": row,
-                    "col": col,
+                    "i": i,
+                    "j": j,
                     "length": reach_geom.length,
                     "moved": moved,
                 }
             elif reach_geom.geom_type.startswith("Multi"):
                 for sub_reach_geom in reach_geom.geoms:  # recurse
-                    append_reach_df(df, row, col, sub_reach_geom, moved)
+                    append_reach_df(df, i, j, sub_reach_geom, moved)
             else:
                 raise NotImplementedError(reach_geom.geom_type)
 
@@ -248,12 +248,12 @@ class _SwnModflow(object):
             threshold = reach_include[segnum]
             if reach_geom.length > threshold:
                 return
-            cell_lengths = reach_df.groupby(["row", "col"])["length"].sum()
-            this_row_col = reach["row"], reach["col"]
-            this_cell_length = cell_lengths[this_row_col]
+            cell_lengths = reach_df.groupby(["i", "j"])["length"].sum()
+            this_ij = reach["i"], reach["j"]
+            this_cell_length = cell_lengths[this_ij]
             if this_cell_length > threshold:
                 return
-            grid_geom = grid_cells.at[(reach["row"], reach["col"]), "geometry"]
+            grid_geom = grid_cells.at[this_ij, "geometry"]
             # determine if it is crossing the grid once or twice
             grid_points = reach_geom.intersection(grid_geom.exterior)
             split_short = (
@@ -267,8 +267,8 @@ class _SwnModflow(object):
             for oidx, orch in reach_df.iterrows():
                 if oidx == idx or orch["moved"]:
                     continue
-                other_row_col = orch["row"], orch["col"]
-                other_cell_length = cell_lengths[other_row_col]
+                other_ij = orch["i"], orch["j"]
+                other_cell_length = cell_lengths[other_ij]
                 if (orch["geometry"].distance(reach_geom) < 1e-6 and
                         this_cell_length < other_cell_length):
                     matches.append((oidx, orch["geometry"]))
@@ -277,12 +277,12 @@ class _SwnModflow(object):
                 pass
             elif len(matches) == 1:
                 # short segment is in one other cell only
-                # update new row and col values, keep geometry as it is
-                row_col1 = tuple(reach_df.loc[matches[0][0], ["row", "col"]])
-                reach_df.loc[idx, ["row", "col", "moved"]] = row_col1 + (True,)
+                # update new i and j values, keep geometry as it is
+                ij1 = tuple(reach_df.loc[matches[0][0], ["i", "j"]])
+                reach_df.loc[idx, ["i", "j", "moved"]] = ij1 + (True,)
                 # self.logger.debug(
                 #    "moved short segment of %s from %s to %s",
-                #    segnum, this_row_col, row_col1)
+                #    segnum, this_ij, ij1)
             elif len(matches) == 2:
                 assert grid_points.geom_type == "MultiPoint", grid_points.wkt
                 if len(grid_points) != 2:
@@ -315,18 +315,18 @@ class _SwnModflow(object):
                     cidx = 1
                 elif cidx == len(reach_c) - 1:
                     cidx = len(reach_c) - 2
-                row1, col1 = list(reach_df.loc[matches[0][0], ["row", "col"]])
+                i1, j1 = list(reach_df.loc[matches[0][0], ["i", "j"]])
                 reach_geom1 = LineString(reach_geom.coords[:(cidx + 1)])
-                row2, col2 = list(reach_df.loc[matches[1][0], ["row", "col"]])
+                i2, j2 = list(reach_df.loc[matches[1][0], ["i", "j"]])
                 reach_geom2 = LineString(reach_geom.coords[cidx:])
                 # update the first, append the second
-                reach_df.loc[idx, ["row", "col", "length", "moved"]] = \
-                    (row1, col1, reach_geom1.length, True)
+                reach_df.loc[idx, ["i", "j", "length", "moved"]] = \
+                    (i1, j1, reach_geom1.length, True)
                 reach_df.at[idx, "geometry"] = reach_geom1
-                append_reach_df(reach_df, row2, col2, reach_geom2, moved=True)
+                append_reach_df(reach_df, i2, j2, reach_geom2, moved=True)
                 # self.logger.debug(
                 #   "split and moved short segment of %s from %s to %s and %s",
-                #   segnum, this_row_col, (row1, col1), (row2, col2))
+                #   segnum, this_ij, (i1, j1), (i2, j2))
             else:
                 obj.logger.critical(
                     "unhandled assign_short_reach case with %d matches: %s\n"
@@ -348,9 +348,9 @@ class _SwnModflow(object):
                     sub = grid_cells.geometry
                 assert len(sub) > 0, len(sub)
                 matches = []
-                for (row, col), grid_geom in sub.iteritems():
+                for (i, j), grid_geom in sub.iteritems():
                     if grid_geom.touches(rem):
-                        matches.append((row, col, grid_geom))
+                        matches.append((i, j, grid_geom))
                 if len(matches) == 0:
                     return
                 threshold = reach_include[segnum]
@@ -359,7 +359,7 @@ class _SwnModflow(object):
                     "pt": [Point(c) for c in rem.coords[:]]
                 })
                 if len(matches) == 1:  # merge it with adjacent cell
-                    row, col, grid_geom = matches[0]
+                    i, j, grid_geom = matches[0]
                     mdist = rem_c["pt"].apply(
                                     lambda p: grid_geom.distance(p)).max()
                     if mdist > threshold:
@@ -367,7 +367,7 @@ class _SwnModflow(object):
                             "remaining line segment from %s too far away to "
                             "merge (%.1f > %.1f)", segnum, mdist, threshold)
                         return
-                    append_reach_df(reach_df, row, col, rem, moved=True)
+                    append_reach_df(reach_df, i, j, rem, moved=True)
                 elif len(matches) == 2:  # complex: need to split it
                     if len(rem_c) == 2:
                         # If this is a simple line with two coords, split it
@@ -398,12 +398,12 @@ class _SwnModflow(object):
                         cidx = 1
                     elif cidx == len(rem_c) - 1:
                         cidx = len(rem_c) - 2
-                    row, col = matches[0][0:2]
+                    i1, j1 = matches[0][0:2]
                     rem1 = LineString(rem.coords[:(cidx + 1)])
-                    append_reach_df(reach_df, row, col, rem1, moved=True)
-                    row, col = matches[1][0:2]
+                    append_reach_df(reach_df, i1, j1, rem1, moved=True)
+                    i2, j2 = matches[1][0:2]
                     rem2 = LineString(rem.coords[cidx:])
-                    append_reach_df(reach_df, row, col, rem2, moved=True)
+                    append_reach_df(reach_df, i2, j2, rem2, moved=True)
                 else:
                     obj.logger.critical(
                         "how does this happen? Segments from %d touching %d "
@@ -426,12 +426,12 @@ class _SwnModflow(object):
                 sub = grid_cells.geometry
             # Find all intersections between segment and grid cells
             reach_df = empty_reach_df.copy()
-            for (row, col), grid_geom in sub.iteritems():
+            for (i, j), grid_geom in sub.iteritems():
                 reach_geom = grid_geom.intersection(line)
                 if reach_geom.is_empty or reach_geom.geom_type == "Point":
                     continue
                 remaining_line = remaining_line.difference(grid_geom)
-                append_reach_df(reach_df, row, col, reach_geom)
+                append_reach_df(reach_df, i, j, reach_geom)
             # Determine if any remaining portions of the line can be used
             if line is not remaining_line and remaining_line.length > 0:
                 assign_remaining_reach(reach_df, segnum, remaining_line)
@@ -441,36 +441,37 @@ class _SwnModflow(object):
                 reach_df["length"] < reach_include[segnum]]
             for idx in list(reach_lengths.sort_values().index):
                 assign_short_reach(reach_df, idx, segnum)
-            # Potentially merge a few reaches for each row/col of this segnum
+            # Potentially merge a few reaches for each i,j of this segnum
             drop_reach_ids = []
-            gb = reach_df.groupby(["row", "col"])["geometry"].apply(list)
-            for (row, col), geoms in gb.copy().iteritems():
-                row_col = row, col
+            gb = reach_df.groupby(["i", "j"])["geometry"].apply(list)
+            for ij, geoms in gb.copy().iteritems():
+                i, j = ij
                 if len(geoms) > 1:
                     geom = linemerge(geoms)
                     if geom.geom_type == "MultiLineString":
                         # workaround for odd floating point issue
                         geom = linemerge([wkt.loads(g.wkt) for g in geoms])
                     if geom.geom_type == "LineString":
-                        sel = ((reach_df["row"] == row) &
-                               (reach_df["col"] == col))
+                        sel = ((reach_df["i"] == i) & (reach_df["j"] == j))
                         drop_reach_ids += list(sel.index[sel])
                         obj.logger.debug(
                             "merging %d reaches for segnum %s at %s",
-                            sel.sum(), segnum, row_col)
-                        append_reach_df(reach_df, row, col, geom)
+                            sel.sum(), segnum, ij)
+                        append_reach_df(reach_df, i, j, geom)
                     elif any(a.distance(b) < 1e-6
                              for a, b in combinations(geoms, 2)):
                         obj.logger.warning(
                             "failed to merge segnum %s at %s: %s",
-                            segnum, row_col, geom.wkt)
+                            segnum, ij, geom.wkt)
                     # else: this is probably a meandering MultiLineString
             if drop_reach_ids:
                 reach_df.drop(drop_reach_ids, axis=0, inplace=True)
             # TODO: Some reaches match multiple cells if they share a border
             # Add all reaches for this segment
-            for _, reach in reach_df.iterrows():
-                row, col, reach_geom = reach.loc[["row", "col", "geometry"]]
+            for reach in reach_df.itertuples():
+                i = reach.i
+                j = reach.j
+                reach_geom = reach.geometry
                 if line.has_z:
                     # intersection(line) does not preserve Z coords,
                     # but line.interpolate(d) works as expected
@@ -482,13 +483,13 @@ class _SwnModflow(object):
                     "geometry": reach_geom,
                     "segnum": segnum,
                     "segndist": line.project(reach_mid_pt, normalized=True),
-                    "row": row,
-                    "col": col,
+                    "i": i,
+                    "j": j,
                 }
                 obj.reaches.loc[len(obj.reaches.index)] = reach_record
-                if domain_action == "modify" and domain[row, col] == 0:
+                if domain_action == "modify" and domain[i, j] == 0:
                     num_domain_modified += 1
-                    domain[row, col] = 1
+                    domain[i, j] = 1
 
         if domain_action == "modify":
             if num_domain_modified:
@@ -501,7 +502,7 @@ class _SwnModflow(object):
                     obj.model.dis.idomain.set_data(domain, layer=0)
                 obj.reaches = obj.reaches.merge(
                     grid_df[[domain_label]],
-                    left_on=["row", "col"], right_index=True)
+                    left_on=["i", "j"], right_index=True)
                 obj.reaches.rename(
                     columns={domain_label: "prev_" + domain_label},
                     inplace=True)
@@ -576,13 +577,17 @@ class _SwnModflow(object):
                             "%d grid cells are nearest to diversion %r, "
                             "but only taking the first %s",
                             num_found, divid, grid_cell)
-                    row, col = grid_cell.name
-                    reach_d.update({"row": row, "col": col})
+                    i, j = grid_cell.name
+                    reach_d.update({"i": i, "j": j})
                     if not divn.geometry.is_empty:
                         reach_d["geometry"] = divn.geometry
                 obj.reaches.loc[len(obj.reaches) + 1] = reach_d
         else:
             obj.diversions = None
+
+        # Insert k=0, as it is assumed all reaches are on the top layer
+        obj.reaches.insert(
+            list(obj.reaches.columns).index("i"), column="k", value=0)
 
         # Now convert from DataFrame to GeoDataFrame
         obj.reaches = geopandas.GeoDataFrame(
@@ -670,14 +675,7 @@ class _SwnModflow(object):
                 "unsupported subclass " + repr(self.__class__.__name__))
         if expected_shape != array.shape:
             raise ValueError("'array' must have shape (nrow, ncol)")
-        reaches_names = set(self.reaches.columns)
-        if set("ij").issubset(reaches_names):
-            r, c = "ij"
-        elif set(["row", "col"]).issubset(reaches_names):
-            r, c = "row", "col"
-        else:
-            raise ValueError("cannot find [i, j] or [row, col] in reaches")
-        self.reaches.loc[:, name] = array[self.reaches[r], self.reaches[c]]
+        self.reaches.loc[:, name] = array[self.reaches["i"], self.reaches["j"]]
 
     def set_reaches_slope(self, method: str = "auto", min_slope=1./1000):
         """Set slope for reaches.
@@ -751,21 +749,12 @@ class _SwnModflow(object):
             )
         elif method == "grid_top":
             # Estimate slope from top and grid spacing
-            reaches_names = set(self.reaches.columns)
-            if set("ij").issubset(reaches_names):
-                rn, cn = "ij"
-            elif set(["row", "col"]).issubset(reaches_names):
-                rn, cn = "row", "col"
-            else:
-                raise ValueError("cannot find [i, j] or [row, col] in reaches")
-            r = rchs[rn].values
-            c = rchs[cn].values
             dis = self.model.dis
             col_size = np.median(dis.delr.array)
             row_size = np.median(dis.delc.array)
             px, py = np.gradient(dis.top.array, col_size, row_size)
             grid_slope = np.sqrt(px ** 2 + py ** 2)
-            rchs[grid_name] = grid_slope[r, c]
+            self.set_reach_data_from_array(grid_name, grid_slope)
         # Enforce min_slope
         sel = rchs[grid_name] < rchs["min_slope"]
         if sel.any():
