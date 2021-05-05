@@ -677,7 +677,7 @@ class _SwnModflow(object):
             raise ValueError("'array' must have shape (nrow, ncol)")
         self.reaches.loc[:, name] = array[self.reaches["i"], self.reaches["j"]]
 
-    def set_reaches_slope(self, method: str = "auto", min_slope=1./1000):
+    def set_reach_slope(self, method: str = "auto", min_slope=1./1000):
         """Set slope for reaches.
 
         This method also adds/updates several attributes for reaches.

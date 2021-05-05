@@ -208,8 +208,8 @@ class SwnMf6(_SwnModflow):
 
         if "rgrd" not in self.reaches.columns:
             self.logger.info(
-                "'rgrd' not yet evaluated, setting with set_reaches_slope()")
-            self.set_reaches_slope()
+                "'rgrd' not yet evaluated, setting with set_reach_slope()")
+            self.set_reach_slope()
 
         # TODO: add a similar method for rtp? set_reaches_top()?
 

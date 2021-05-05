@@ -183,8 +183,8 @@ class SwnModflow(_SwnModflow):
 
         if "slope" not in self.reaches.columns:
             self.logger.info(
-                "'slope' not yet evaluated, setting with set_reaches_slope()")
-            self.set_reaches_slope()
+                "'slope' not yet evaluated, setting with set_reach_slope()")
+            self.set_reach_slope()
 
         # Column names common to segments and segment_data
         segment_cols = [

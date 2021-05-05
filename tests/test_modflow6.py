@@ -163,7 +163,7 @@ def test_process_flopy_n3d_defaults(n3d, tmpdir_factory):
     assert list(r.to_div) == [0, 0, 0, 0, 0, 0, 0]
     with pytest.raises(KeyError, match='missing 6 reach dataset'):
         nm._packagedata_df("native")
-    nm.set_reaches_slope()
+    nm.set_reach_slope()
     with pytest.raises(KeyError, match='missing 5 reach dataset'):
         nm._packagedata_df("native")
     nm.set_reach_data_from_series("man", 0.024)
@@ -404,7 +404,7 @@ def test_process_flopy_n2d_defaults(n2d, tmpdir_factory):
     assert list(r.segnum) == [1, 1, 1, 2, 2, 0, 0]
     assert list(r.to_rno) == [2, 3, 6, 5, 6, 7, 0]
     # See test_process_flopy_n3d_defaults for other checks
-    nm.set_reaches_slope()
+    nm.set_reach_slope()
     nm.set_reach_data_from_series("man", 0.024)
     nm.set_reach_data_from_series("rbth", 2.0)
     nm.set_reach_data_from_series("rhk", 2.0)
@@ -459,7 +459,7 @@ def test_coastal_process_flopy(
     n = swn.SurfaceWaterNetwork.from_lines(coastal_lines_gdf.geometry)
     n.adjust_elevation_profile()
     nm = swn.SwnMf6.from_swn_flopy(n, m)
-    nm.set_reaches_slope()
+    nm.set_reach_slope()
     nm.set_reach_data_from_series("man", 0.024)
     nm.set_reach_data_from_series("rbth", 2.0)
     nm.set_reach_data_from_series("rhk", 2.0)
@@ -527,7 +527,7 @@ def test_coastal_elevations(coastal_swn, coastal_flow_m, tmpdir_factory):
     sim.set_sim_path(str(outdir))
     m = sim.get_model("h")
     nm = swn.SwnMf6.from_swn_flopy(coastal_swn, m)
-    nm.set_reaches_slope()
+    nm.set_reach_slope()
     nm.set_reach_data_from_series("man", 0.024)
     nm.set_reach_data_from_series("rbth", 2.0)
     nm.set_reach_data_from_series("rhk", 2.0)
@@ -630,7 +630,7 @@ def test_coastal_reduced_process_flopy(
         _ = nm.plot()
         plt.close()
     # Run model and read outputs
-    nm.set_reaches_slope()
+    nm.set_reach_slope()
     nm.set_reach_data_from_series("man", 0.024)
     nm.set_reach_data_from_series("rbth", 2.0)
     nm.set_reach_data_from_series("rhk", 2.0)
@@ -698,7 +698,7 @@ def test_coastal_process_flopy_idomain_modify(
         _ = nm.plot()
         plt.close()
     # Run model and read outputs
-    nm.set_reaches_slope()
+    nm.set_reach_slope()
     nm.set_reach_data_from_series("man", 0.024)
     nm.set_reach_data_from_series("rbth", 2.0)
     nm.set_reach_data_from_series("rhk", 2.0)
