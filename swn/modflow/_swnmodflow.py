@@ -54,8 +54,9 @@ class SwnModflow(_SwnModflow):
         """
         super().__init__(logger)
         # set empty properties for now
-        self.segment_data = None
         self.reaches = None
+        self.segment_data = None
+        self.diversions = None
         # all other properties added afterwards
 
     @classmethod
@@ -426,10 +427,6 @@ class SwnModflow(_SwnModflow):
         yield "reaches", self.reaches
         yield "diversions", self.diversions
         yield "model", self.model
-
-    def __getstate__(self):
-        """Serialize object attributes for pickle dumps."""
-        return dict(self)
 
     def __setstate__(self, state):
         """Set object attributes from pickle loads."""
@@ -1396,34 +1393,3 @@ class SwnModflow(_SwnModflow):
         else:
             vbot = None
         return vtop, vbot
-
-    def to_pickle(self, path, protocol=pickle.HIGHEST_PROTOCOL):
-        """Pickle (serialize) non-flopy object data to file.
-
-        Parameters
-        ----------
-        path : str
-            File path where the pickled object will be stored.
-        protocol : int
-            Default is pickle.HIGHEST_PROTOCOL.
-
-        """
-        with open(path, "wb") as f:
-            pickle.dump(self, f, protocol=protocol)
-
-    @classmethod
-    def from_pickle(cls, path, model):
-        """Read a pickled format from a file.
-
-        Parameters
-        ----------
-        path : str
-            File path where the pickled object will be stored.
-        model : flopy.modflow.Modflow
-            Instance of flopy.modflow.Modflow.
-
-        """
-        with open(path, "rb") as f:
-            obj = pickle.load(f)
-        obj.model = model
-        return obj

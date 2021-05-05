@@ -28,16 +28,10 @@ class SwnMf6(_SwnModflow):
         Instance of flopy.mf6.ModflowGwf
     segments : geopandas.GeoDataFrame
         Copied from swn.segments, but with additional columns added
-    segment_data : pandas.DataFrame
-        Simialr to structure in model.sfr.segment_data, but for one stress
-        period. Transient data (where applicable) will show summary statistics.
-        The index is 'nseg', ordered and starting from 1. An additional column
-        'segnum' is used to identify segments, and if defined,
-        abstraction/diversion identifiers, where iupseg != 0.
     reaches : geopandas.GeoDataFrame
-        Similar to structure in model.sfr.reach_data with index 'reachID',
+        Similar to structure in model.sfr.reach_data with index 'rno',
         ordered and starting from 1. Contains geometry and other columns
-        not used by flopy. Use get_reach_data() for use with flopy.
+        not used by flopy.
     diversions :  geopandas.GeoDataFrame, pd.DataFrame or None
         Copied from swn.diversions, if set/defined.
     logger : logging.Logger
@@ -55,8 +49,8 @@ class SwnMf6(_SwnModflow):
         """
         super().__init__(logger)
         # set empty properties for now
-        self.segment_data = None
         self.reaches = None
+        self.diversions = None
         # all other properties added afterwards
 
     @classmethod
@@ -482,14 +476,9 @@ class SwnMf6(_SwnModflow):
         """Return object datasets with an iterator."""
         yield "class", self.__class__.__name__
         yield "segments", self.segments
-        yield "segment_data", self.segment_data
         yield "reaches", self.reaches
         yield "diversions", self.diversions
         yield "model", self.model
-
-    def __getstate__(self):
-        """Serialize object attributes for pickle dumps."""
-        return dict(self)
 
     def __setstate__(self, state):
         """Set object attributes from pickle loads."""
@@ -502,7 +491,6 @@ class SwnMf6(_SwnModflow):
                              .format(state["class"], self.__class__.__name__))
         self.__init__()
         self.segments = state["segments"]
-        self.segment_data = state["segment_data"]
         self.reaches = state["reaches"]
         self.diversions = state["diversions"]
         # Note: model must be set outsie of this method
@@ -608,307 +596,6 @@ class SwnMf6(_SwnModflow):
                 reach_data_names.append(name)
         reach_data = pd.DataFrame(self.reaches[reach_data_names])
         return reach_data.to_records(index=True)
-
-    def set_segment_data(self, abstraction={}, inflow={}, flow={}, runoff={},
-                         etsw={}, pptsw={}, return_dict=False):
-        """
-        Set timeseries data in segment_data required for flopy's ModflowSfr2.
-
-        This method does two things:
-
-            1. Updates sfr.segment_data, which is a dict of rec.array
-               for each stress period.
-            2. Updates summary statistics in segment_data if there are more
-               than one stress period, otherwise values are kept for one
-               stress period.
-
-        Other stationary data members that are part of segment_data
-        (e.g. hcond1, elevup, etc.) are not modified.
-
-        Parameters
-        ----------
-        abstraction : dict or pandas.DataFrame, optional
-            Surface water abstraction from diversions. Default is {} (zero).
-            Keys are matched to diversions index.
-        inflow : dict or pandas.DataFrame, optional
-            Streamflow at the bottom of each segment, which is used to to
-            determine the streamflow entering the upstream end of a segment if
-            it is not part of the SFR network. Internal flows are ignored.
-            A dict can be used to provide constant values to segnum
-            identifiers. If a DataFrame is passed for a model with more than
-            one stress period, the index must be a DatetimeIndex aligned with
-            the start of each model stress period.
-            Default is {} (no outside inflow added to flow term).
-        flow : dict or pandas.DataFrame, optional
-            Flow to the top of each segment. This is added to any inflow,
-            which is handled separately. This can be negative for withdrawls.
-            Default is {} (zero).
-        runoff : dict or pandas.DataFrame, optional
-            Runoff to each segment. Default is {} (zero).
-        etsw : dict or pandas.DataFrame, optional
-            Evapotranspiration removed from each segment. Default is {} (zero).
-        pptsw : dict or pandas.DataFrame, optional
-            Precipitation added to each segment. Default is {} (zero).
-        return_dict : bool, optional
-            If True, return segment_data instead of setting the sfr object.
-            Default False, which implies that an sfr object exists.
-
-        Returns
-        -------
-        None or dict (if return_dict is True)
-
-        """
-        from flopy.modflow.mfsfr2 import ModflowSfr2
-        # Build stress period DataFrame from modflow model
-        dis = self.model.dis
-        stress_df = pd.DataFrame({'perlen': dis.perlen.array})
-        modeltime = self.model.modeltime
-        stress_df['duration'] = pd.TimedeltaIndex(
-                stress_df['perlen'].cumsum(), modeltime.time_units)
-        stress_df['start'] = pd.to_datetime(modeltime.start_datetime)
-        stress_df['end'] = stress_df['duration'] + stress_df.at[0, 'start']
-        stress_df.loc[1:, 'start'] = stress_df['end'].iloc[:-1].values
-        # Consider all IDs from segments/diversions
-        segments_segnums = set(self.segments.index)
-        has_diversions = self.diversions is not None
-        if has_diversions:
-            diversions_divids = set(self.diversions.index)
-        else:
-            diversions_divids = set()
-
-        def check_ts(data, name):
-            """Return DataFrame with index along nper.
-
-            Columns are either segnum or divid (checked later).
-            """
-            if isinstance(data, dict):
-                data = pd.DataFrame(data, index=stress_df['start'])
-            elif not isinstance(data, pd.DataFrame):
-                raise ValueError(
-                    '{0} must be a dict or DataFrame'.format(name))
-            data.index.name = name  # handy for debugging
-            if len(data) != dis.nper:
-                raise ValueError(
-                    'length of {0} ({1}) is different than nper ({2})'
-                    .format(name, len(data), dis.nper))
-            if dis.nper > 1:  # check DatetimeIndex
-                if not isinstance(data.index, pd.DatetimeIndex):
-                    raise ValueError(
-                        '{0}.index must be a pandas.DatetimeIndex'
-                        .format(name))
-                elif not (data.index == stress_df['start']).all():
-                    try:
-                        t = stress_df['start'].to_string(
-                                index=False, max_rows=5).replace('\n', ', ')
-                    except TypeError:
-                        t = abbr_str(list(stress_df['start']))
-                    raise ValueError(
-                        '{0}.index does not match expected ({1})'
-                        .format(name, t))
-            # Also do basic check of column IDs against diversions/segments
-            if name == 'abstraction':
-                if not has_diversions:
-                    if len(data.columns) > 0:
-                        self.logger.error(
-                            'abstraction provided, but diversions are not '
-                            'defined for the surface water network')
-                        data.drop(data.columns, axis=1, inplace=True)
-                    return data
-                parent = self.diversions
-                parent_name = 'diversions'
-                parent_s = diversions_divids
-            else:
-                parent = self.segments
-                parent_name = 'segments'
-                parent_s = segments_segnums
-            try:
-                data.columns = data.columns.astype(parent.index.dtype)
-            except (ValueError, TypeError):
-                raise ValueError(
-                    '{0}.columns.dtype must be same as {1}.index.dtype'
-                    .format(name, parent_name))
-            data_id_s = set(data.columns)
-            if len(data_id_s) > 0:
-                if data_id_s.isdisjoint(parent_s):
-                    msg = '{0}.columns (or keys) not found in {1}.index: {2}'\
-                        .format(name, parent_name, abbr_str(data_id_s))
-                    if name == 'inflow':
-                        self.logger.warning(msg)
-                    else:
-                        raise ValueError(msg)
-                if name != 'inflow':  # some segnums accumulate outside flow
-                    not_found = data_id_s.difference(parent_s)
-                    if not data_id_s.issubset(parent_s):
-                        self.logger.warning(
-                            'dropping %s of %s %s.columns, which are '
-                            'not found in %s.index: %s',
-                            len(not_found), len(data_id_s), name,
-                            parent_name, abbr_str(data_id_s))
-                        data.drop(not_found, axis=1, inplace=True)
-            return data
-
-        self.logger.debug('checking timeseries data against modflow model')
-        abstraction = check_ts(abstraction, 'abstraction')
-        inflow = check_ts(inflow, 'inflow')
-        flow = check_ts(flow, 'flow')
-        runoff = check_ts(runoff, 'runoff')
-        etsw = check_ts(etsw, 'etsw')
-        pptsw = check_ts(pptsw, 'pptsw')
-
-        # Translate segnum/divid to nseg
-        is_diversion = self.segment_data['iupseg'] != 0
-        divid2nseg = self.segment_data[is_diversion]\
-            .reset_index().set_index('segnum')['nseg']
-        divid2nseg_d = divid2nseg.to_dict()
-        segnum2nseg = self.segment_data[~is_diversion]\
-            .reset_index().set_index('segnum')['nseg']
-        segnum2nseg_d = segnum2nseg.to_dict()
-        segnum_s = set(segnum2nseg_d.keys())
-
-        def map_nseg(data, name):
-            data_id_s = set(data.columns)
-            if len(data_id_s) == 0:
-                return data
-            if name == 'abstraction':
-                colid2nseg_d = divid2nseg_d
-                parent_descr = 'diversions'
-            else:
-                colid2nseg_d = segnum2nseg_d
-                parent_descr = 'regular segments'
-            colid_s = set(colid2nseg_d.keys())
-            not_found = data_id_s.difference(colid_s)
-            if not data_id_s.issubset(colid_s):
-                self.logger.warning(
-                    'dropping %s of %s %s.columns, which are '
-                    'not found in segment_data.index for %s',
-                    len(not_found), len(data_id_s), name,
-                    parent_descr)
-                data.drop(not_found, axis=1, inplace=True)
-            return data.rename(columns=colid2nseg_d)
-
-        self.logger.debug('mapping segnum/divid to segment_data.index (nseg)')
-        abstraction = map_nseg(abstraction, 'abstraction')
-        flow = map_nseg(flow, 'flow')
-        runoff = map_nseg(runoff, 'runoff')
-        etsw = map_nseg(etsw, 'etsw')
-        pptsw = map_nseg(pptsw, 'pptsw')
-
-        self.logger.debug('accumulating inflow from outside network')
-        # Create an 'inflows' DataFrame calculated from combining 'inflow'
-        inflows = pd.DataFrame(index=inflow.index)
-        has_inflow = len(inflow.columns) > 0
-        missing_inflow_segnums = []
-        if has_inflow:
-            self.segment_data['inflow_segnums'] = None
-        elif 'inflow_segnums' in self.segment_data:
-            self.segment_data.drop('inflow_segnums', axis=1, inplace=True)
-        # Determine upstream flows needed for each SFR segment
-        for segnum in self.segment_data.loc[~is_diversion, 'segnum']:
-            nseg = segnum2nseg_d[segnum]
-            from_segnums = self.segments.at[segnum, 'from_segnums']
-            if not from_segnums:
-                continue
-            # gather segments outside SFR network
-            outside_segnums = from_segnums.difference(segnum_s)
-            if not outside_segnums:
-                continue
-            if has_inflow:
-                inflow_series = pd.Series(0.0, index=inflow.index)
-                inflow_segnums = set()
-                for from_segnum in outside_segnums:
-                    try:
-                        inflow_series += inflow[from_segnum]
-                        inflow_segnums.add(from_segnum)
-                    except KeyError:
-                        self.logger.warning(
-                            'flow from segment %s not provided by inflow term '
-                            '(needed for %s)', from_segnum, segnum)
-                        missing_inflow_segnums.append(from_segnum)
-                if inflow_segnums:
-                    inflows[nseg] = inflow_series
-                    self.segment_data.at[nseg, 'inflow_segnums'] = \
-                        inflow_segnums
-            else:
-                missing_inflow_segnums += outside_segnums
-        if not has_inflow and len(missing_inflow_segnums) > 0:
-            self.logger.warning(
-                'inflow from %d segnums are needed to determine flow from '
-                'outside SFR network: %s', len(missing_inflow_segnums),
-                abbr_str(missing_inflow_segnums))
-        # Append extra columns to segment_data that are used by flopy
-        segment_column_names = []
-        nss = len(self.segment_data)
-        for name, dtype in ModflowSfr2.get_default_segment_dtype().descr:
-            if name == 'nseg':  # skip adding the index
-                continue
-            segment_column_names.append(name)
-            if name not in self.segment_data.columns:
-                self.segment_data[name] = np.zeros(nss, dtype=dtype)
-        # Re-assmble stress period dict for flopy, with iper keys
-        segment_data = {}
-        has_abstraction = len(abstraction.columns) > 0
-        has_inflows = len(inflows.columns) > 0
-        has_flow = len(flow.columns) > 0
-        has_runoff = len(runoff.columns) > 0
-        has_etsw = len(etsw.columns) > 0
-        has_pptsw = len(pptsw.columns) > 0
-        for iper in range(dis.nper):
-            # Store data for each stress period
-            self.segment_data['flow'] = 0.0
-            self.segment_data['runoff'] = 0.0
-            self.segment_data['etsw'] = 0.0
-            self.segment_data['pptsw'] = 0.0
-            if has_abstraction:
-                item = abstraction.iloc[iper]
-                self.segment_data.loc[item.index, 'flow'] = item
-            if has_inflows:
-                item = inflows.iloc[iper]
-                self.segment_data.loc[item.index, 'flow'] += item
-            if has_flow:
-                item = flow.iloc[iper]
-                self.segment_data.loc[item.index, 'flow'] += item
-            if has_runoff:
-                item = runoff.iloc[iper]
-                self.segment_data.loc[item.index, 'runoff'] = item
-            if has_etsw:
-                item = etsw.iloc[iper]
-                self.segment_data.loc[item.index, 'etsw'] = item
-            if has_pptsw:
-                item = pptsw.iloc[iper]
-                self.segment_data.loc[item.index, 'pptsw'] = item
-            segment_data[iper] = self.segment_data[segment_column_names]\
-                .to_records(index=True)  # index is nseg
-
-        # For models with more than one stress period, evaluate summary stats
-        if dis.nper > 1:
-            # Remove time-varying data from last stress period
-            self.segment_data.drop(
-                ['flow', 'runoff', 'etsw', 'pptsw'], axis=1, inplace=True)
-
-            def add_summary_stats(name, df):
-                if len(df.columns) == 0:
-                    return
-                self.segment_data[name + '_min'] = 0.0
-                self.segment_data[name + '_mean'] = 0.0
-                self.segment_data[name + '_max'] = 0.0
-                min_v = df.min(0)
-                mean_v = df.mean(0)
-                max_v = df.max(0)
-                self.segment_data.loc[min_v.index, name + '_min'] = min_v
-                self.segment_data.loc[mean_v.index, name + '_mean'] = mean_v
-                self.segment_data.loc[max_v.index, name + '_max'] = max_v
-
-            add_summary_stats('abstraction', abstraction)
-            add_summary_stats('inflow', inflows)
-            add_summary_stats('flow', flow)
-            add_summary_stats('runoff', runoff)
-            add_summary_stats('etsw', etsw)
-            add_summary_stats('pptsw', pptsw)
-
-        if return_dict:
-            return segment_data
-        else:
-            self.model.sfr.segment_data = segment_data
 
     def get_seg_ijk(self):
         """Get the upstream and downstream segment k,i,j."""
