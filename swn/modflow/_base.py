@@ -515,8 +515,21 @@ class _SwnModflow(object):
             set(swn.segments.index).difference(obj.reaches["segnum"])
         obj.segments.loc[list(outside_model), "in_model"] = False
 
+        # Evaluate inflow segments that potentially receive flow from outside
+        segnums_outside = set(obj.segments[~obj.segments["in_model"]].index)
+        if segnums_outside:
+            obj.logger.debug("evaluating inflow from outside network")
+            # Ensure "from_segnums" is always a set
+            sel = obj.segments.from_segnums.isna()
+            if sel.any():
+                obj.segments.loc[sel, "from_segnums"] = \
+                    [set() for _ in range(sel.sum())]
+            obj.segments["inflow_segnums"] = obj.segments.from_segnums.apply(
+                lambda x: x.intersection(segnums_outside))
+
         # Consider diversions or SW takes, add more reaches
-        if swn.diversions is not None:
+        has_diversions = swn.diversions is not None
+        if has_diversions:
             obj.diversions = swn.diversions.copy()
             obj.reaches["diversion"] = False
             obj.reaches["divid"] = obj.diversions.index.dtype.type()
@@ -601,6 +614,28 @@ class _SwnModflow(object):
         obj.reaches.sort_values(["sequence", "segndist"], inplace=True)
         del obj.reaches["sequence"]  # segment sequence not used anymore
         # keep "segndist" for interpolation from segment data
+
+        # Add classic ISEG and IREACH, counting from 1
+        obj.reaches["iseg"] = 0
+        obj.reaches["ireach"] = 0
+        iseg = ireach = 0
+        prev_segnum = None
+        for idx, segnum in obj.reaches["segnum"].iteritems():
+            if has_diversions and obj.reaches.at[idx, "diversion"]:
+                # Each diversion gets a new segment/reach
+                iseg += 1
+                ireach = 0
+            elif segnum != prev_segnum:
+                # Start of a regular segment/reach
+                iseg += 1
+                ireach = 0
+            ireach += 1
+            obj.reaches.at[idx, "iseg"] = iseg
+            obj.reaches.at[idx, "ireach"] = ireach
+            prev_segnum = segnum
+
+        obj.reaches.reset_index(inplace=True, drop=True)
+        obj.reaches.index += 1  # flopy series starts at one
 
         if not hasattr(obj.reaches.geometry, "geom_type"):
             # workaround needed for reaches.to_file()
@@ -763,3 +798,63 @@ class _SwnModflow(object):
                 "enforcing min_slope for %d reache%s (%.2f%%)",
                 num, "" if num == 1 else "s", 100.0 * num / len(sel))
             rchs.loc[sel, grid_name] = rchs.loc[sel, "min_slope"]
+
+    def plot(self, column=None, cmap="viridis_r", legend=False):
+        """
+        Show map of reaches with inflow segments in royalblue.
+
+        Parameters
+        ----------
+        column : str, optional
+            Column from reaches to use with "cmap"; default None will actually
+            select the reaches.index. See also "legend" to help interpret
+            values.
+        cmap : str
+            Matplotlib color map; default "viridis_r",
+        legend : bool
+            Show legend for "column"; default False.
+
+        Returns
+        -------
+        AxesSubplot
+
+        """
+        import matplotlib.pyplot as plt
+
+        fig, ax = plt.subplots()
+        ax.set_aspect("equal")
+
+        if column is None:
+            reaches = self.reaches[~self.reaches.is_empty].reset_index()
+            column = reaches.columns[0]
+        else:
+            reaches = self.reaches[~self.reaches.is_empty]
+
+        reaches.plot(
+            column=column, label="reaches", legend=legend, ax=ax, cmap=cmap)
+
+        self.grid_cells.plot(ax=ax, color="whitesmoke", edgecolor="gainsboro")
+
+        def getpt(g, idx):
+            if g.geom_type == "LineString":
+                return Point(g.coords[idx])
+            elif g.geom_type == "Point":
+                return g
+            else:
+                return Point()
+
+        lastpt = lambda g: getpt(g, -1)
+        reaches_idx = reaches[reaches.segnum.isin(self._swn.outlets)]\
+            .groupby(["segnum"]).ireach.idxmax().values
+        outlet_pt = reaches.loc[reaches_idx, "geometry"].apply(lastpt)
+        outlet_pt.plot(ax=ax, label="outlet", marker="o", color="navy")
+
+        if "inflow_segnums" in self.segments.columns:
+            firstpt = lambda g: getpt(g, 0)
+            segnums = self.segments.index[~self.segments.inflow_segnums.isna()]
+            reaches_idx = (reaches.segnum.isin(segnums) & reaches.ireach == 1)
+            inflow_pt = reaches.loc[reaches_idx, "geometry"].apply(firstpt)
+            inflow_pt.plot(
+                ax=ax, label="inflow", marker="o", color="royalblue")
+
+        return ax

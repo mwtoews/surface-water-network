@@ -87,15 +87,8 @@ class SwnMf6(_SwnModflow):
             reach_include_fraction=reach_include_fraction)
 
         # Add more information to reaches
-        obj.reaches.reset_index(drop=True, inplace=True)
-        obj.reaches.index += 1  # "native" Fortran index
         obj.reaches.index.name = "rno"
-
-        # Reach length is based on geometry property
         obj.reaches["rlen"] = obj.reaches.geometry.length
-
-        # Add model grid info to each reach
-        obj.set_reach_data_from_array("m_top", obj.model.dis.top.array)
 
         # Evaluate connections
         # Assume only converging network
@@ -135,7 +128,7 @@ class SwnMf6(_SwnModflow):
         for k, v in to_rnos.items():
             obj.reaches.at[v, "from_rnos"].add(k)
 
-        # Diversions not handled (yet)
+        # TODO: Diversions not handled (yet)
         obj.reaches["to_div"] = 0
         obj.reaches["ustrf"] = 1.
 
@@ -524,57 +517,6 @@ class SwnMf6(_SwnModflow):
         self._stress_df = stress_df  # keep this for debugging
         self.time_index = pd.DatetimeIndex(stress_df['start']).copy()
         self.time_index.name = None
-
-    def plot(self, column: str = 'rno',
-             cmap: str = 'viridis_r', legend: bool = False):
-        """
-        Show map of reaches with inflow segments in royalblue.
-
-        Parameters
-        ----------
-        column : str, default 'rno'
-            Column from reaches to use with 'cmap'.
-            See also 'legend' to help interpret values.
-        cmap : str, default 'viridis_r'
-            Matplotlib color map.
-        legend : bool
-            Show legend for 'column'; default False.
-
-        Returns
-        -------
-        AxesSubplot
-
-        """
-        import matplotlib.pyplot as plt
-
-        fig, ax = plt.subplots()
-        ax.set_aspect('equal')
-        reaches = self.reaches[~self.reaches.is_empty]
-        if column == self.reaches.index.name:
-            reaches = reaches.reset_index()
-
-        reaches.plot(
-            column=column, label='reaches', legend=legend, ax=ax, cmap=cmap)
-
-        self.grid_cells.plot(ax=ax, color='whitesmoke', edgecolor='gainsboro')
-        # return ax
-
-        is_diversion = self.reaches['to_div'] != 0
-        outlet_sel = (self.reaches['to_rno'] == 0) & (~is_diversion)
-        outlet_points = self.reaches.loc[outlet_sel, 'geometry']\
-            .apply(lambda g: Point(g.coords[-1]))
-        outlet_points.plot(
-            ax=ax, label='outlet', marker='o', color='navy')
-        # TODO
-        # if 'inflow_segnums' in self.segment_data.columns:
-        #    inflow_sel = ~self.segment_data['inflow_segnums'].isnull()
-        #    inflow_points = self.reaches.loc[self.reaches['iseg'].isin(
-        #        self.segment_data.loc[inflow_sel].index), 'geometry']\
-        #        .apply(lambda g: Point(g.coords[0]))
-        #    inflow_points.plot(
-        #        ax=ax, label='inflow points', marker='o', color='royalblue')
-
-        return ax
 
     def get_reach_data(self):
         """Return numpy.recarray for flopy's ModflowSfr2 reach_data.

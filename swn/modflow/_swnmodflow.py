@@ -5,9 +5,8 @@ __all__ = ["SwnModflow"]
 
 import numpy as np
 import pandas as pd
-import pickle
 from itertools import zip_longest
-from shapely.geometry import LineString, Point
+from shapely.geometry import LineString
 
 try:
     import matplotlib
@@ -92,31 +91,8 @@ class SwnModflow(_SwnModflow):
             swn=swn, model=model, domain_action=ibound_action,
             reach_include_fraction=reach_include_fraction)
 
-        has_diversions = obj.diversions is not None
-
-        # Use MODFLOW SFR dataset 2 terms ISEG and IREACH, counting from 1
-        obj.reaches["iseg"] = 0
-        obj.reaches["ireach"] = 0
-        iseg = ireach = 0
-        prev_segnum = None
-        for idx, segnum in obj.reaches["segnum"].iteritems():
-            if has_diversions and obj.reaches.at[idx, "diversion"]:
-                # Each diversion gets a new segment/reach
-                iseg += 1
-                ireach = 0
-            elif segnum != prev_segnum:
-                # Start of a regular segment/reach
-                iseg += 1
-                ireach = 0
-            ireach += 1
-            obj.reaches.at[idx, "iseg"] = iseg
-            obj.reaches.at[idx, "ireach"] = ireach
-            prev_segnum = segnum
-        obj.reaches.reset_index(inplace=True, drop=True)
-        obj.reaches.index += 1  # flopy series starts at one
+        # Add more information to reaches
         obj.reaches.index.name = "reachID"
-
-        # Reach length is based on geometry property
         obj.reaches["rchlen"] = obj.reaches.geometry.length
 
         return obj
@@ -471,54 +447,6 @@ class SwnModflow(_SwnModflow):
         self._stress_df = stress_df  # keep this for debugging
         self.time_index = pd.DatetimeIndex(stress_df["start"]).copy()
         self.time_index.name = None
-
-    def plot(self, column="iseg",
-             cmap="viridis_r", legend=False):
-        """
-        Show map of reaches with inflow segments in royalblue.
-
-        Parameters
-        ----------
-        column : str
-            Column from reaches to use with "cmap"; default "iseg".
-            See also "legend" to help interpret values.
-        cmap : str
-            Matplotlib color map; default "viridis_r",
-        legend : bool
-            Show legend for "column"; default False.
-
-        Returns
-        -------
-        AxesSubplot
-
-        """
-        import matplotlib.pyplot as plt
-
-        fig, ax = plt.subplots()
-        ax.set_aspect("equal")
-
-        self.reaches[~self.reaches.is_empty].plot(
-            column=column, label="reaches", legend=legend, ax=ax, cmap=cmap)
-
-        self.grid_cells.plot(ax=ax, color="whitesmoke", edgecolor="gainsboro")
-        # return ax
-
-        is_diversion = self.segment_data["iupseg"] != 0
-        outlet_sel = (self.segment_data["outseg"] == 0) & (~is_diversion)
-        outlet_points = self.reaches.loc[self.reaches["iseg"].isin(
-            self.segment_data.loc[outlet_sel].index), "geometry"]\
-            .apply(lambda g: Point(g.coords[-1]))
-        outlet_points.plot(
-            ax=ax, label="outlet", marker="o", color="navy")
-        if "inflow_segnums" in self.segment_data.columns:
-            inflow_sel = ~self.segment_data["inflow_segnums"].isnull()
-            inflow_points = self.reaches.loc[self.reaches["iseg"].isin(
-                self.segment_data.loc[inflow_sel].index), "geometry"]\
-                .apply(lambda g: Point(g.coords[0]))
-            inflow_points.plot(
-                ax=ax, label="inflow points", marker="o", color="royalblue")
-
-        return ax
 
     @property
     def flopy_reach_data(self):
