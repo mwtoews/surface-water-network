@@ -128,7 +128,7 @@ def test_from_swn_flopy_errors(n3d):
     swn.SwnMf6.from_swn_flopy(n, m)
 
 
-def test_process_flopy_n3d_defaults(n3d, tmpdir_factory):
+def test_n3d_defaults(n3d, tmpdir_factory):
     outdir = tmpdir_factory.mktemp('n3d')
     # Create a simple MODFLOW model
     sim = flopy.mf6.MFSimulation(exe_name=mf6_exe, sim_ws=str(outdir))
@@ -368,7 +368,7 @@ def test_set_reach_data_from_series():
             5.62341325, 177.827941]))
 
 
-def test_process_flopy_n2d_defaults(n2d, tmpdir_factory):
+def test_n2d_defaults(n2d, tmpdir_factory):
     # similar to 3D version, but getting information from model
     outdir = tmpdir_factory.mktemp('n2d')
     # Create a simple MODFLOW model
@@ -403,7 +403,7 @@ def test_process_flopy_n2d_defaults(n2d, tmpdir_factory):
     assert list(r.j) == [0, 1, 1, 1, 1, 1, 1]
     assert list(r.segnum) == [1, 1, 1, 2, 2, 0, 0]
     assert list(r.to_rno) == [2, 3, 6, 5, 6, 7, 0]
-    # See test_process_flopy_n3d_defaults for other checks
+    # See test_n3d_defaults for other checks
     nm.set_reach_slope()
     nm.set_reach_data_from_series("man", 0.024)
     nm.set_reach_data_from_series("rbth", 2.0)
@@ -659,8 +659,7 @@ def test_coastal_reduced_process_flopy(
 
 
 @requires_mf6
-def test_coastal_process_flopy_idomain_modify(
-        coastal_swn, coastal_flow_m, tmpdir_factory):
+def test_coastal_idomain_modify(coastal_swn, coastal_flow_m, tmpdir_factory):
     outdir = tmpdir_factory.mktemp('coastal')
     # Load a MODFLOW model
     sim = flopy.mf6.MFSimulation.load(
@@ -727,7 +726,7 @@ def test_coastal_process_flopy_idomain_modify(
 
 
 @pytest.mark.xfail
-def test_process_flopy_diversion(tmpdir_factory):
+def test_diversions(tmpdir_factory):
     outdir = tmpdir_factory.mktemp('diversion')
     # Create a simple MODFLOW model
     m = flopy.modflow.Modflow(version='mf6', exe_name=mf6_exe)
