@@ -37,14 +37,46 @@ n3d_lines = wkt_to_geoseries([
 ])
 
 
-@pytest.fixture
-def n3d():
-    return swn.SurfaceWaterNetwork.from_lines(n3d_lines)
+def get_basic_swn(has_z: bool = True, has_diversions: bool = False):
+    if has_z:
+        n = swn.SurfaceWaterNetwork.from_lines(n3d_lines)
+    else:
+        n = swn.SurfaceWaterNetwork.from_lines(force_2d(n3d_lines))
+    if has_diversions:
+        diversions = geopandas.GeoDataFrame(geometry=[
+            Point(58, 97), Point(62, 97), Point(61, 89), Point(59, 89)])
+        n.set_diversions(diversions=diversions)
+    return n
 
 
-@pytest.fixture
-def n2d():
-    return swn.SurfaceWaterNetwork.from_lines(force_2d(n3d_lines))
+def get_basic_modflow(outdir=".", with_top: bool = False, nper: int = 1):
+    """Returns a basic Flopy MODFLOW model"""
+    if with_top:
+        top = np.array([
+            [16.0, 15.0],
+            [15.0, 15.0],
+            [14.0, 14.0],
+        ])
+    else:
+        top=15.0
+    sim = flopy.mf6.MFSimulation(exe_name=mf6_exe, sim_ws=str(outdir))
+    _ = flopy.mf6.ModflowTdis(sim, nper=nper, time_units="days")
+    m = flopy.mf6.ModflowGwf(sim, print_flows=True, save_flows=True)
+    _ = flopy.mf6.ModflowIms(
+        sim, outer_maximum=600, inner_maximum=100,
+        outer_dvclose=1e-6, rcloserecord=0.1, relaxation_factor=1.0)
+    _ = flopy.mf6.ModflowGwfdis(
+        m, nlay=1, nrow=3, ncol=2,
+        delr=20.0, delc=20.0, length_units="meters",
+        idomain=1, top=top, botm=10.0,
+        xorigin=30.0, yorigin=70.0)
+    _ = flopy.mf6.ModflowGwfoc(
+        m, head_filerecord="model.hds", budget_filerecord="model.cbc",
+        saverecord=[("HEAD", "ALL"), ("BUDGET", "ALL")])
+    _ = flopy.mf6.ModflowGwfic(m, strt=15.0)
+    _ = flopy.mf6.ModflowGwfnpf(m, k=1e-2, save_flows=True)
+    _ = flopy.mf6.ModflowGwfrcha(m, recharge=1e-4, save_flows=True)
+    return sim, m
 
 
 def read_head(hed_fname, reaches=None):
@@ -92,9 +124,8 @@ def test_init_errors():
         swn.SwnMf6(object())
 
 
-def test_from_swn_flopy_errors(n3d):
-    n = n3d
-    n.segments = n.segments.copy()
+def test_from_swn_flopy_errors():
+    n = get_basic_swn()
     sim = flopy.mf6.MFSimulation(exe_name=mf6_exe)
     _ = flopy.mf6.ModflowTdis(sim, nper=4, time_units="days")
     m = flopy.mf6.ModflowGwf(sim)
@@ -107,7 +138,7 @@ def test_from_swn_flopy_errors(n3d):
         swn.SwnMf6.from_swn_flopy(object(), m)
 
     m.modelgrid.set_coord_info(epsg=2193)
-    n.segments.crs = {'init': 'epsg:27200'}
+    # n.segments.crs = {'init': 'epsg:27200'}
     # with pytest.raises(
     #        ValueError,
     #        match='CRS for segments and modelgrid are different'):
@@ -128,27 +159,11 @@ def test_from_swn_flopy_errors(n3d):
     swn.SwnMf6.from_swn_flopy(n, m)
 
 
-def test_n3d_defaults(n3d, tmpdir_factory):
-    outdir = tmpdir_factory.mktemp('n3d')
-    # Create a simple MODFLOW model
-    sim = flopy.mf6.MFSimulation(exe_name=mf6_exe, sim_ws=str(outdir))
-    _ = flopy.mf6.ModflowIms(
-        sim, outer_maximum=600, inner_maximum=100,
-        outer_dvclose=1e-6, rcloserecord=0.1, relaxation_factor=1.0)
-    _ = flopy.mf6.ModflowTdis(sim, nper=1, time_units="days")
-    m = flopy.mf6.ModflowGwf(sim, print_flows=True, save_flows=True)
-    _ = flopy.mf6.ModflowGwfdis(
-        m, nlay=1, nrow=3, ncol=2,
-        delr=20.0, delc=20.0, length_units="meters",
-        idomain=1, top=15.0, botm=10.0,
-        xorigin=30.0, yorigin=70.0)
-    _ = flopy.mf6.ModflowGwfoc(
-        m, head_filerecord="model.hds", budget_filerecord="model.cbc",
-        saverecord=[("HEAD", "ALL"), ("BUDGET", "ALL")])
-    _ = flopy.mf6.ModflowGwfic(m, strt=15.0)
-    _ = flopy.mf6.ModflowGwfnpf(m, k=1e-2, save_flows=True)
-    _ = flopy.mf6.ModflowGwfrcha(m, recharge=1e-4, save_flows=True)
-    nm = swn.SwnMf6.from_swn_flopy(n3d, m)
+def test_n3d_defaults(tmpdir_factory):
+    outdir = tmpdir_factory.mktemp("test_n3d_defaults")
+    n = get_basic_swn()
+    sim, m = get_basic_modflow(outdir, with_top=False)
+    nm = swn.SwnMf6.from_swn_flopy(n, m)
     # check object reaches
     r = nm.reaches
     assert len(r) == 7
@@ -169,7 +184,7 @@ def test_n3d_defaults(n3d, tmpdir_factory):
     nm.set_reach_data_from_series("man", 0.024)
     nm.set_reach_data_from_series("rbth", 1.0)
     nm.set_reach_data_from_series("rhk", 1e-4)
-    nm.reaches["rtp"] = nm.reaches["lsz_avg"]
+    nm.reaches["rtp"] = nm.reaches["zcoord_avg"]
     nm.set_reach_data_from_series("rwid", 10.0)
     # TODO rgrd ?
     np.testing.assert_array_almost_equal(
@@ -268,8 +283,7 @@ def test_n3d_defaults(n3d, tmpdir_factory):
             0.04240276, 0.01410362, 0.03159486, 0.04431904, 0.02773725,
             0.03292867, 0.04691372]))
 
-
-def test_model_property(n3d):
+def test_model_property():
     nm = swn.SwnMf6()
     with pytest.raises(
             ValueError, match="'model' must be a flopy.mf6.MFModel object"):
@@ -306,16 +320,10 @@ def test_model_property(n3d):
     nm.model = m2
 
 
-def test_set_reach_data_from_array(n3d):
-    sim = flopy.mf6.MFSimulation(exe_name=mf6_exe)
-    _ = flopy.mf6.ModflowTdis(sim, nper=1, time_units="days")
-    m = flopy.mf6.ModflowGwf(sim, print_flows=True, save_flows=True)
-    _ = flopy.mf6.ModflowGwfdis(
-        m, nlay=1, nrow=3, ncol=2,
-        delr=20.0, delc=20.0, length_units="meters",
-        idomain=1, top=15.0, botm=10.0,
-        xorigin=30.0, yorigin=70.0)
-    nm = swn.SwnMf6.from_swn_flopy(n3d, m)
+def test_set_reach_data_from_array():
+    n = get_basic_swn()
+    sim, m = get_basic_modflow(with_top=False)
+    nm = swn.SwnMf6.from_swn_flopy(n, m)
     ar = np.arange(6).reshape((3, 2)) + 8.0
     nm.set_reach_data_from_array("test", ar)
     assert list(nm.reaches["test"]) == \
@@ -323,27 +331,20 @@ def test_set_reach_data_from_array(n3d):
 
 
 def test_set_reach_data_from_series():
-    sim = flopy.mf6.MFSimulation(exe_name=mf6_exe)
-    _ = flopy.mf6.ModflowTdis(sim, nper=1, time_units="days")
-    m = flopy.mf6.ModflowGwf(sim, print_flows=True, save_flows=True)
-    _ = flopy.mf6.ModflowGwfdis(
-        m, nlay=1, nrow=3, ncol=2,
-        delr=20.0, delc=20.0, length_units="meters",
-        idomain=1, top=15.0, botm=10.0,
-        xorigin=30.0, yorigin=70.0)
-    n3d = swn.SurfaceWaterNetwork.from_lines(n3d_lines)
-    n3d.segments["upstream_area"] = n3d.segments["upstream_length"] ** 2 * 100
-    n3d.estimate_width()
-    nm = swn.SwnMf6.from_swn_flopy(n3d, m)
+    n = get_basic_swn()
+    sim, m = get_basic_modflow(with_top=False)
+    n.segments["upstream_area"] = n.segments["upstream_length"] ** 2 * 100
+    n.estimate_width()
+    nm = swn.SwnMf6.from_swn_flopy(n, m)
     nm.set_reach_data_from_series("const_var", 9)
     assert list(nm.reaches["const_var"]) == [9.0] * 7
-    nm.set_reach_data_from_series("rwd", n3d.segments.width)
+    nm.set_reach_data_from_series("rwd", n.segments.width)
     np.testing.assert_array_almost_equal(
         nm.reaches["rwd"],
         np.array([
             1.89765007, 2.07299816, 2.20450922, 1.91205787, 2.19715192,
             2.29218327, 2.29218327]))
-    nm.set_reach_data_from_series("rwd", n3d.segments.width, pd.Series(5))
+    nm.set_reach_data_from_series("rwd", n.segments.width, pd.Series(5))
     np.testing.assert_array_almost_equal(
         nm.reaches["rwd"],
         np.array([
@@ -368,33 +369,12 @@ def test_set_reach_data_from_series():
             5.62341325, 177.827941]))
 
 
-def test_n2d_defaults(n2d, tmpdir_factory):
+def test_n2d_defaults(tmpdir_factory):
     # similar to 3D version, but getting information from model
-    outdir = tmpdir_factory.mktemp('n2d')
-    # Create a simple MODFLOW model
-    top = np.array([
-        [16.0, 15.0],
-        [15.0, 15.0],
-        [14.0, 14.0],
-    ])
-    sim = flopy.mf6.MFSimulation(exe_name=mf6_exe, sim_ws=str(outdir))
-    _ = flopy.mf6.ModflowIms(
-        sim, outer_maximum=600, inner_maximum=100,
-        outer_dvclose=1e-6, rcloserecord=0.1, relaxation_factor=1.0)
-    _ = flopy.mf6.ModflowTdis(sim, nper=1, time_units="days")
-    m = flopy.mf6.ModflowGwf(sim, print_flows=True, save_flows=True)
-    _ = flopy.mf6.ModflowGwfdis(
-        m, nlay=1, nrow=3, ncol=2,
-        delr=20.0, delc=20.0, length_units="meters",
-        idomain=1, top=top, botm=10.0,
-        xorigin=30.0, yorigin=70.0)
-    _ = flopy.mf6.ModflowGwfoc(
-        m, head_filerecord="model.hds", budget_filerecord="model.cbc",
-        saverecord=[("HEAD", "ALL"), ("BUDGET", "ALL")])
-    _ = flopy.mf6.ModflowGwfic(m, strt=top)
-    _ = flopy.mf6.ModflowGwfnpf(m, k=1.0, save_flows=True)
-    _ = flopy.mf6.ModflowGwfrcha(m, recharge=0.01, save_flows=True)
-    nm = swn.SwnMf6.from_swn_flopy(n2d, m)
+    outdir = tmpdir_factory.mktemp("test_n2d_defaults")
+    n = get_basic_swn(has_z=False)
+    sim, m = get_basic_modflow(outdir, with_top=True)
+    nm = swn.SwnMf6.from_swn_flopy(n, m)
     # check object reaches
     r = nm.reaches
     assert len(r) == 7
@@ -442,9 +422,9 @@ def check_number_sum_hex(a, n, h):
 
 
 @requires_mf6
-def test_coastal_process_flopy(
+def test_coastal(
         tmpdir_factory, coastal_lines_gdf, coastal_flow_m):
-    outdir = tmpdir_factory.mktemp('coastal')
+    outdir = tmpdir_factory.mktemp("test_coastal")
     # Load a MODFLOW model
     sim = flopy.mf6.MFSimulation.load(
         "mfsim.nam", sim_ws=os.path.join(datadir, "mf6_coastal"),
@@ -464,7 +444,7 @@ def test_coastal_process_flopy(
     nm.set_reach_data_from_series("rbth", 2.0)
     nm.set_reach_data_from_series("rhk", 2.0)
     nm.set_reach_data_from_series("rwid", 10.0)
-    nm.reaches["rtp"] = nm.reaches["lsz_avg"]
+    nm.reaches["rtp"] = nm.reaches["zcoord_avg"]
     sfr_spd = {}
     _ = flopy.mf6.ModflowGwfsfr(
         m, save_flows=True,
@@ -519,7 +499,7 @@ def test_coastal_process_flopy(
 
 @requires_mf6
 def test_coastal_elevations(coastal_swn, coastal_flow_m, tmpdir_factory):
-    outdir = tmpdir_factory.mktemp('coastal')
+    outdir = tmpdir_factory.mktemp("test_coastal_elevations")
     # Load a MODFLOW model
     sim = flopy.mf6.MFSimulation.load(
         "mfsim.nam", sim_ws=os.path.join(datadir, "mf6_coastal"),
@@ -532,7 +512,7 @@ def test_coastal_elevations(coastal_swn, coastal_flow_m, tmpdir_factory):
     nm.set_reach_data_from_series("rbth", 2.0)
     nm.set_reach_data_from_series("rhk", 2.0)
     nm.set_reach_data_from_series("rwid", 10.0)
-    nm.reaches["rtp"] = nm.reaches["lsz_avg"]
+    nm.reaches["rtp"] = nm.reaches["zcoord_avg"]
     # TODO: inflow=coastal_flow_m
     # TODO: complete elevation adjustments; see older MODFLOW methods
     return
@@ -589,9 +569,9 @@ def test_coastal_elevations(coastal_swn, coastal_flow_m, tmpdir_factory):
 
 
 @requires_mf6
-def test_coastal_reduced_process_flopy(
+def test_coastal_reduced(
         coastal_lines_gdf, coastal_flow_m, tmpdir_factory):
-    outdir = tmpdir_factory.mktemp('coastal')
+    outdir = tmpdir_factory.mktemp("test_coastal_reduced")
     n = swn.SurfaceWaterNetwork.from_lines(coastal_lines_gdf.geometry)
     assert len(n) == 304
     # Modify swn object
@@ -635,7 +615,7 @@ def test_coastal_reduced_process_flopy(
     nm.set_reach_data_from_series("rbth", 2.0)
     nm.set_reach_data_from_series("rhk", 2.0)
     nm.set_reach_data_from_series("rwid", 10.0)
-    nm.reaches["rtp"] = nm.reaches["lsz_avg"]
+    nm.reaches["rtp"] = nm.reaches["zcoord_avg"]
     sfr_spd = {}
     _ = flopy.mf6.ModflowGwfsfr(
         m, save_flows=True,
@@ -660,7 +640,7 @@ def test_coastal_reduced_process_flopy(
 
 @requires_mf6
 def test_coastal_idomain_modify(coastal_swn, coastal_flow_m, tmpdir_factory):
-    outdir = tmpdir_factory.mktemp('coastal')
+    outdir = tmpdir_factory.mktemp("test_coastal_idomain_modify")
     # Load a MODFLOW model
     sim = flopy.mf6.MFSimulation.load(
         "mfsim.nam", sim_ws=os.path.join(datadir, "mf6_coastal"),
@@ -702,7 +682,7 @@ def test_coastal_idomain_modify(coastal_swn, coastal_flow_m, tmpdir_factory):
     nm.set_reach_data_from_series("rbth", 2.0)
     nm.set_reach_data_from_series("rhk", 2.0)
     nm.set_reach_data_from_series("rwid", 10.0)
-    nm.reaches["rtp"] = nm.reaches["lsz_avg"]
+    nm.reaches["rtp"] = nm.reaches["zcoord_avg"]
     sfr_spd = {}
     _ = flopy.mf6.ModflowGwfsfr(
         m, save_flows=True,
@@ -727,7 +707,7 @@ def test_coastal_idomain_modify(coastal_swn, coastal_flow_m, tmpdir_factory):
 
 @pytest.mark.xfail
 def test_diversions(tmpdir_factory):
-    outdir = tmpdir_factory.mktemp('diversion')
+    outdir = tmpdir_factory.mktemp("test_diversions")
     # Create a simple MODFLOW model
     m = flopy.modflow.Modflow(version='mf6', exe_name=mf6_exe)
     top = np.array([

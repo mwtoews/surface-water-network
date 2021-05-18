@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 """This test suit checks the abstract base class for SwnModflow.
 
+Also check functionality in modflow._misc too.
+
 MODFLOW models are not run. See test_modflow.py and test_modflow6.py
 for similar, but running models.
 """
@@ -23,7 +25,6 @@ except ImportError:
 
 import swn
 import swn.modflow
-from swn.file import gdf_to_shapefile
 from swn.spatial import interp_2d_to_3d, force_2d, wkt_to_geoseries
 
 # same valid network used in test_basic
@@ -34,16 +35,19 @@ n3d_lines = wkt_to_geoseries([
 ])
 
 
-@pytest.fixture
-def n3d():
-    return swn.SurfaceWaterNetwork.from_lines(n3d_lines)
+def get_basic_swn(has_z: bool = True, has_diversions: bool = False):
+    if has_z:
+        n = swn.SurfaceWaterNetwork.from_lines(n3d_lines)
+    else:
+        n = swn.SurfaceWaterNetwork.from_lines(force_2d(n3d_lines))
+    if has_diversions:
+        diversions = geopandas.GeoDataFrame(geometry=[
+            Point(58, 97), Point(62, 97), Point(61, 89), Point(59, 89)])
+        n.set_diversions(diversions=diversions)
+    return n
 
 
-@pytest.fixture
-def n2d():
-    return swn.SurfaceWaterNetwork.from_lines(force_2d(n3d_lines))
-
-def get_basic_m(with_top: bool = False):
+def get_basic_modflow(with_top: bool = False, nper: int = 1):
     """Returns a basic Flopy MODFLOW model"""
     if with_top:
         top = np.array([
@@ -52,16 +56,19 @@ def get_basic_m(with_top: bool = False):
             [14.0, 14.0],
         ])
     else:
-        top=15.0
+        top = 15.0
     m = flopy.modflow.Modflow()
     flopy.modflow.ModflowDis(
-        m, nlay=1, nrow=3, ncol=2, delr=20.0, delc=20.0, top=top, botm=10.0,
+        m, nlay=1, nrow=3, ncol=2, nper=nper,
+        delr=20.0, delc=20.0, top=top, botm=10.0,
         xul=30.0, yul=130.0)
     _ = flopy.modflow.ModflowBas(m)
     return m
 
 
-def test_from_swn_flopy_n3d_defaults(n3d, tmpdir_factory):
+@pytest.mark.parametrize(
+    "has_z", [False, True], ids=["n2d", "n3d"])
+def test_from_swn_flopy_defaults(has_z):
     r"""
         .___.___.
         :  1:  2:  row 0
@@ -74,15 +81,17 @@ def test_from_swn_flopy_n3d_defaults(n3d, tmpdir_factory):
 
       Segment IDs: 0 (bottom), 1 & 2 (top)
     """
-    m = get_basic_m()
-    nm = swn.SwnModflow.from_swn_flopy(n3d, m)
+    n = get_basic_swn(has_z=has_z)
+    m = get_basic_modflow()
+    nm = swn.SwnModflow.from_swn_flopy(n, m)
 
     # Check that "SFR" package was not automatically added
     assert m.sfr is None
     assert nm.segment_data is None
+    assert nm.segment_data_ts is None
 
     # Check segments
-    pd.testing.assert_index_equal(n3d.segments.index, nm.segments.index)
+    pd.testing.assert_index_equal(n.segments.index, nm.segments.index)
     assert list(nm.segments.in_model) == [True, True, True]
 
     # Check grid cells
@@ -113,82 +122,55 @@ def test_from_swn_flopy_n3d_defaults(n3d, tmpdir_factory):
         _ = nm.plot()
         plt.close()
 
-    # Write some files
-    outdir = tmpdir_factory.mktemp("n3d")
-    nm.reaches.to_file(str(outdir.join("reaches.shp")))
-    nm.grid_cells.to_file(str(outdir.join("grid_cells.shp")))
-    gdf_to_shapefile(nm.segments, outdir.join("segments.shp"))
 
-def test_set_reach_slope_n3d(n3d):
-    m = get_basic_m()
-    nm = swn.SwnModflow.from_swn_flopy(n3d, m)
+@pytest.mark.parametrize(
+    "has_diversions", [False, True], ids=["nodiv", "div"])
+def test_set_reach_slope_n3d(has_diversions):
+    n = get_basic_swn(has_z=True, has_diversions=has_diversions)
+    m = get_basic_modflow(with_top=False)
+    nm = swn.SwnModflow.from_swn_flopy(n, m)
 
     assert "slope" not in nm.reaches.columns
-    nm.set_reach_slope()  # default method="auto" is "linestringz_ab"
-    np.testing.assert_array_almost_equal(
-        nm.reaches.slope,
-        [0.027735, 0.027735, 0.027735, 0.03162277, 0.03162277, 0.1, 0.1])
+    nm.set_reach_slope()  # default method="auto" is "zcoord_ab"
+    if has_diversions:
+        expected = \
+            [0.027735, 0.027735, 0.027735, 0.03162277, 0.03162277, 0.1, 0.1,
+             0.001, 0.001, 0.001, 0.001]
+    else:
+        expected = \
+            [0.027735, 0.027735, 0.027735, 0.03162277, 0.03162277, 0.1, 0.1]
+    np.testing.assert_array_almost_equal(nm.reaches.slope, expected)
     nm.set_reach_slope("grid_top", 0.01)
-    np.testing.assert_array_almost_equal(
-        nm.reaches.slope,
-        [0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01])
+    if has_diversions:
+        expected = [0.01] * 11
+    else:
+        expected = [0.01] * 7
+    np.testing.assert_array_almost_equal(nm.reaches.slope, expected)
 
 
-def test_from_swn_flopy_n2d_defaults(n2d):
-    # similar to 3D version, but getting Z information from model
-    m = get_basic_m(with_top=True)
-    nm = swn.SwnModflow.from_swn_flopy(n2d, m)
-
-    # Check that "SFR" package was not automatically added
-    assert m.sfr is None
-    assert nm.segment_data is None
-
-    # Check segments
-    pd.testing.assert_index_equal(n2d.segments.index, nm.segments.index)
-    assert list(nm.segments.in_model) == [True, True, True]
-
-    # Check grid cells
-    assert list(nm.grid_cells.index.names) == ["i", "j"]
-    assert list(nm.grid_cells.index) == \
-        [(0, 0), (0, 1), (1, 0), (1, 1), (2, 0), (2, 1)]
-    assert list(nm.grid_cells.ibound) == [1, 1, 1, 1, 1, 1]
-
-    # Check reaches
-    assert list(nm.reaches.index) == [1, 2, 3, 4, 5, 6, 7]
-    assert list(nm.reaches.segnum) == [1, 1, 1, 2, 2, 0, 0]
-    # Base-0
-    assert list(nm.reaches.k) == [0, 0, 0, 0, 0, 0, 0]
-    assert list(nm.reaches.i) == [0, 0, 1, 0, 1, 1, 2]
-    assert list(nm.reaches.j) == [0, 1, 1, 1, 1, 1, 1]
-    # Base-1
-    assert list(nm.reaches.iseg) == [1, 1, 1, 2, 2, 3, 3]
-    assert list(nm.reaches.ireach) == [1, 2, 3, 1, 2, 1, 2]
-    # Other data
-    np.testing.assert_array_almost_equal(
-        nm.reaches.segndist,
-        [0.25, 0.58333333, 0.8333333333, 0.333333333, 0.833333333, 0.25, 0.75])
-    np.testing.assert_array_almost_equal(
-        nm.reaches.geometry.length,
-        [18.027756, 6.009252, 12.018504, 21.081851, 10.540926, 10.0, 10.0])
-
-    if matplotlib:
-        _ = nm.plot()
-        plt.close()
-
-def test_set_reach_slope_n2d(n2d):
-    m = get_basic_m(with_top=True)
-    nm = swn.SwnModflow.from_swn_flopy(n2d, m)
+@pytest.mark.parametrize(
+    "has_diversions", [False, True], ids=["nodiv", "div"])
+def test_set_reach_slope_n2d(has_diversions):
+    n = get_basic_swn(has_z=False, has_diversions=has_diversions)
+    m = get_basic_modflow(with_top=True)
+    nm = swn.SwnModflow.from_swn_flopy(n, m)
 
     assert "slope" not in nm.reaches.columns
     nm.set_reach_slope()  # default method="auto" is "grid_top"
-    np.testing.assert_array_almost_equal(
-        nm.reaches.slope,
-        [0.070711, 0.05, 0.025, 0.05, 0.025, 0.025, 0.05])
-    with pytest.raises(ValueError, match="method linestringz_ab requested"):
-        nm.set_reach_slope("linestringz_ab")
+    if has_diversions:
+        expected = \
+            [0.070711, 0.05, 0.025, 0.05, 0.025, 0.025, 0.05,
+             0.025, 0.025, 0.05, 0.05]
+    else:
+        expected = \
+            [0.070711, 0.05, 0.025, 0.05, 0.025, 0.025, 0.05]
+    np.testing.assert_array_almost_equal(nm.reaches.slope, expected)
+    with pytest.raises(ValueError, match="method zcoord_ab requested"):
+        nm.set_reach_slope("zcoord_ab")
 
-def test_interp_2d_to_3d():
-    m = get_basic_m(with_top=True)
+
+def test_geotransform_from_flopy():
+    m = get_basic_modflow(with_top=True)
     gt = swn.modflow.geotransform_from_flopy(m)
     assert gt == (30.0, 20.0, 0.0, 130.0, 0.0, -20.0)
     # Interpolate the line from the top of the model
@@ -198,7 +180,7 @@ def test_interp_2d_to_3d():
     nm = swn.SwnModflow.from_swn_flopy(n, m)
     nm.set_reach_slope()
     np.testing.assert_array_almost_equal(
-        nm.reaches.lsz_avg,  # aka strtop or rtop
+        nm.reaches.zcoord_avg,  # aka strtop or rtop
         [15.742094, 15.39822, 15.140314, 14.989459, 14.973648, 14.726283,
          14.242094])
     np.testing.assert_array_almost_equal(
@@ -311,7 +293,7 @@ def test_coastal_elevations(coastal_swn):
     _ = nm.fix_segment_elevs(min_incise=0.2, min_slope=1.e-4,
                              max_str_z=max_str_z)
     _ = nm.reconcile_reach_strtop()
-    seg_data = nm.set_segment_data(return_dict=True)
+    seg_data = nm.flopy_segment_data
     reach_data = nm.flopy_reach_data
     flopy.modflow.mfsfr2.ModflowSfr2(
         model=m, reach_data=reach_data, segment_data=seg_data)
@@ -323,7 +305,7 @@ def test_coastal_elevations(coastal_swn):
             plt.close()
     _ = nm.set_topbot_elevs_at_reaches()
     nm.fix_reach_elevs()
-    seg_data = nm.set_segment_data(return_dict=True)
+    seg_data = nm.flopy_segment_data
     reach_data = nm.flopy_reach_data
     flopy.modflow.mfsfr2.ModflowSfr2(
         model=m, reach_data=reach_data, segment_data=seg_data)
@@ -445,7 +427,7 @@ def test_lines_on_boundaries():
 
 
 def test_diversions():
-    m = get_basic_m(with_top=True)
+    m = get_basic_modflow(with_top=True)
     gt = swn.modflow.geotransform_from_flopy(m)
     assert gt == (30.0, 20.0, 0.0, 130.0, 0.0, -20.0)
     # Interpolate the line from the top of the model
@@ -500,3 +482,331 @@ def test_diversions():
     if matplotlib:
         _ = nm.plot()
         plt.close()
+
+
+def test_transform_data_from_dict():
+    from swn.modflow._misc import transform_data_to_series_or_frame as f
+    time_index = pd.DatetimeIndex(["2000-07-01", "2000-07-02"])
+    mapping = pd.Series(
+        [1, 2, 3], name="nseg",
+        index=pd.Int64Index([1, 2, 0], name="segnum"))
+
+    # returns series
+    pd.testing.assert_series_equal(
+        f({}, float, time_index),
+        pd.Series(dtype=float))
+
+    pd.testing.assert_series_equal(
+        f({}, float, time_index, mapping),
+        pd.Series(dtype=float))
+
+    pd.testing.assert_series_equal(
+        f({0: 10, 1: 11.1}, float, time_index),
+        pd.Series([10.0, 11.1], index=[0, 1]))
+
+    pd.testing.assert_series_equal(
+        f({101: 10, 100: 11.1}, int, time_index),
+        pd.Series([10, 11], index=[101, 100]))
+
+    pd.testing.assert_series_equal(
+        f({0: 10, 1: 11}, float, time_index, mapping),
+        pd.Series([10.0, 11.0], index=[3, 1]))
+
+    pd.testing.assert_series_equal(
+        f({0: 10, 1: 11}, float, time_index, mapping, {1}),
+        pd.Series([10.0], index=[3]))
+
+    pd.testing.assert_series_equal(
+        f({0: 10, 1: 11, 3: 12}, float, time_index, mapping, {3}),
+        pd.Series([10.0, 11.0], index=[3, 1]))
+
+    # errors returning series
+    with pytest.raises(KeyError, match="dict has a disjoint segnum set"):
+        f({3: 10}, float, time_index, mapping)
+    with pytest.raises(KeyError, match="dict has a disjoint segnum set"):
+        f({"0": 10, "1": 11}, float, time_index, mapping),
+    with pytest.raises(KeyError, match="dict has 1 key not found in segnum"):
+        f({0: 1.1, 3: 10}, float, time_index, mapping)
+    with pytest.raises(KeyError, match="dict has 2 keys not found in segnum"):
+        f({0: 1.1, 3: 10, 10: 1}, float, time_index, mapping)
+
+    # returns frame
+    pd.testing.assert_frame_equal(
+        f({0: [10, 10], 1: [11.1, 12.2]}, float, time_index),
+        pd.DataFrame({0: [10, 10], 1: [11.1, 12.2]},
+                     dtype=float, index=time_index))
+
+    pd.testing.assert_frame_equal(
+        f({101: [10, 10], 100: [11.1, 12.2]}, int, time_index),
+        pd.DataFrame({101: [10, 10], 100: [11, 12]},
+                     dtype=int, index=time_index))
+
+    pd.testing.assert_frame_equal(
+        f({0: [10, 10], 1: [11.1, 12.2]}, float, time_index, mapping),
+        pd.DataFrame({3: [10, 10], 1: [11.1, 12.2]},
+                     dtype=float, index=time_index))
+
+    pd.testing.assert_frame_equal(
+        f({0: [10, 10], 1: [11.1, 12.2]}, float, time_index, mapping, {1}),
+        pd.DataFrame({3: [10, 10]}, dtype=float, index=time_index))
+
+    pd.testing.assert_frame_equal(
+        f({0: [10, 10], 1: [11.1, 12.2]}, float, time_index, mapping, {3}),
+        pd.DataFrame({3: [10, 10], 1: [11.1, 12.2]},
+                     dtype=float, index=time_index))
+
+    # errors returning frame
+    with pytest.raises(ValueError, match="mixture of iterable and scalar val"):
+        f({1: 10, 2: [1, 2]}, float, time_index)
+    with pytest.raises(ValueError, match="inconsistent lengths found in dict"):
+        f({1: [10], 2: [1, 2]}, float, time_index)
+    with pytest.raises(ValueError, match="length of dict series does not mat"):
+        f({1: [10], 2: [1]}, float, time_index)
+    with pytest.raises(KeyError, match="dict has a disjoint segnum set"):
+        f({3: [10, 10]}, float, time_index, mapping)
+    with pytest.raises(KeyError, match="dict has a disjoint segnum set"):
+        f({"0": [10, 10], "1": [11.1, 12.2]}, float, time_index, mapping)
+    with pytest.raises(KeyError, match="dict has 1 key not found in segnum"):
+        f({0: [0, 0], 3: [0, 0]}, float, time_index, mapping)
+    with pytest.raises(KeyError, match="dict has 2 keys not found in segnum"):
+        f({0: [0, 0], 3: [0, 0], 10: [0, 0]}, float, time_index, mapping)
+
+
+def test_transform_data_from_series():
+    from swn.modflow._misc import transform_data_to_series_or_frame as f
+    time_index = pd.DatetimeIndex(["2000-07-01", "2000-07-02"])
+    mapping = pd.Series(
+        [1, 2, 3], name="nseg",
+        index=pd.Int64Index([1, 2, 0], name="segnum"))
+
+    pd.testing.assert_series_equal(
+        f(pd.Series(dtype=float), float, time_index),
+        pd.Series(dtype=float))
+
+    pd.testing.assert_series_equal(
+        f(pd.Series(dtype=float), float, time_index, mapping),
+        pd.Series(dtype=float))
+
+    pd.testing.assert_series_equal(
+        f(pd.Series([10.0, 11.1], index=[0, 1]), float, time_index),
+        pd.Series([10.0, 11.1], index=[0, 1]))
+
+    pd.testing.assert_series_equal(
+        f(pd.Series([10, 11], index=[101, 100]), int, time_index),
+        pd.Series([10, 11], index=[101, 100]))
+
+    pd.testing.assert_series_equal(
+        f(pd.Series([set(), {1, 2}], index=[101, 100]), set, time_index),
+        pd.Series([set(), {1, 2}], index=[101, 100]))
+
+    pd.testing.assert_series_equal(
+        f(pd.Series([10.0, 11.0], index=[0, 1]), float, time_index, mapping),
+        pd.Series([10.0, 11.0], index=[3, 1]))
+
+    pd.testing.assert_series_equal(
+        f(pd.Series([10, 11], index=["0", "1"]), int, time_index, mapping),
+        pd.Series([10, 11], index=[3, 1]))
+
+    pd.testing.assert_series_equal(
+        f(pd.Series([10.0, 11.0, 12.0], index=[0, 1, 2]),
+          float, time_index, mapping, {2}),
+        pd.Series([10.0, 11.0], index=[3, 1]))
+
+    # errors
+    # with pytest.raises(ValueError,match="dtype for series cannot be object"):
+    #    f(pd.Series([[1]]), float, time_index)
+    with pytest.raises(ValueError, match="cannot cast index.dtype to int64"):
+        f(pd.Series([10, 11], index=["0", "1A"]), int, time_index, mapping)
+    with pytest.raises(KeyError, match="series has a disjoint segnum set"):
+        f(pd.Series([3], index=[10]), float, time_index, mapping)
+    with pytest.raises(KeyError, match="series has 1 key not found in segnum"):
+        f(pd.Series([2, 3], index=[0, 3]), float, time_index, mapping)
+    with pytest.raises(KeyError, match="series has 2 keys not found in segnu"):
+        f(pd.Series([2, 3, 4], index=[0, 3, 10]), float, time_index, mapping)
+
+
+def test_transform_data_from_frame():
+    from swn.modflow._misc import transform_data_to_series_or_frame as f
+    time_index = pd.DatetimeIndex(["2000-07-01", "2000-07-02"])
+    mapping = pd.Series(
+        [1, 2, 3], name="nseg",
+        index=pd.Int64Index([1, 2, 0], name="segnum"))
+
+    pd.testing.assert_frame_equal(
+        f(pd.DataFrame(dtype=float, index=time_index), float, time_index),
+        pd.DataFrame(dtype=float, index=time_index))
+
+    pd.testing.assert_frame_equal(
+        f(pd.DataFrame(dtype=float, index=[0, 1]), float, time_index),
+        pd.DataFrame(dtype=float, index=time_index))
+
+    pd.testing.assert_frame_equal(
+        f(pd.DataFrame(dtype=float, index=[0, 1]), float, time_index, mapping),
+        pd.DataFrame(dtype=float, index=time_index))
+
+    pd.testing.assert_frame_equal(
+        f(pd.DataFrame({0: [10, 10], 1: [11.1, 12.2]}, index=time_index),
+          float, time_index),
+        pd.DataFrame({0: [10, 10], 1: [11.1, 12.2]},
+                     dtype=float, index=time_index))
+
+    pd.testing.assert_frame_equal(
+        f(pd.DataFrame({0: [10, 10], 1: [11.1, 12.2]}), float, time_index),
+        pd.DataFrame({0: [10, 10], 1: [11.1, 12.2]},
+                     dtype=float, index=time_index))
+
+    pd.testing.assert_frame_equal(
+        f(pd.DataFrame({101: [10, 10], 100: [11.1, 12.2]}, index=time_index),
+          int, time_index),
+        pd.DataFrame({101: [10, 10], 100: [11, 12]},
+                     dtype=int, index=time_index))
+
+    pd.testing.assert_frame_equal(
+        f(pd.DataFrame({101: [10, 10], 100: [11.1, 12.2]}), int, time_index),
+        pd.DataFrame({101: [10, 10], 100: [11, 12]},
+                     dtype=int, index=time_index))
+
+    pd.testing.assert_frame_equal(
+        f(pd.DataFrame({0: [10, 10], 1: [11.1, 12.2]}, index=time_index),
+          float, time_index, mapping),
+        pd.DataFrame({3: [10, 10], 1: [11.1, 12.2]},
+                     dtype=float, index=time_index))
+
+    pd.testing.assert_frame_equal(
+        f(pd.DataFrame({0: [10, 10], 1: [11.1, 12.2]}),
+          float, time_index, mapping),
+        pd.DataFrame({3: [10, 10], 1: [11.1, 12.2]},
+                     dtype=float, index=time_index))
+
+    pd.testing.assert_frame_equal(
+        f(pd.DataFrame({0: [10, 10], 1: [11.1, 12.2]}, index=time_index),
+          float, time_index, mapping, {2}),
+        pd.DataFrame({3: [10, 10], 1: [11.1, 12.2]},
+                     dtype=float, index=time_index))
+
+    pd.testing.assert_frame_equal(
+        f(pd.DataFrame({0: [10, 10], 1: [11.1, 12.2], 2: [13, 14]}),
+          float, time_index, mapping, {2, 1}),
+        pd.DataFrame({3: [10, 10]}, dtype=float, index=time_index))
+
+    # errors returning frame
+    with pytest.raises(ValueError, match="frame index should be a DatetimeIn"):
+        f(pd.DataFrame({3: [10, 10]}, index=[1, 2]),
+          float, time_index, mapping)
+    with pytest.raises(ValueError, match="length of frame index does not mat"):
+        f(pd.DataFrame({3: [10]}, index=pd.DatetimeIndex(["2000-07-03"])),
+          float, time_index, mapping)
+    with pytest.raises(ValueError, match="frame index does not match time in"):
+        f(pd.DataFrame(
+            {3: [10, 10]},
+            index=pd.DatetimeIndex(["2000-07-03", "2000-07-04"])),
+          float, time_index, mapping)
+    with pytest.raises(ValueError, match="cannot cast columns.dtype to int64"):
+        f(pd.DataFrame({"0": [10, 10], "1A": [11.1, 12.2]}),
+          float, time_index, mapping),
+    with pytest.raises(KeyError, match="frame has a disjoint segnum set"):
+        f(pd.DataFrame({3: [10, 10]}, index=time_index),
+          float, time_index, mapping)
+    with pytest.raises(KeyError, match="frame has 1 key not found in segnum"):
+        f(pd.DataFrame({0: [0, 0], 3: [0, 0]}, index=time_index),
+          float, time_index, mapping)
+    with pytest.raises(KeyError, match="frame has 2 keys not found in segnum"):
+        f(pd.DataFrame({0: [0, 0], 3: [0, 0], 10: [0, 0]}, index=time_index),
+          float, time_index, mapping)
+
+
+def test_get_segments_inflow():
+    m = get_basic_modflow()
+    n = get_basic_swn()
+    nm = swn.SwnModflow.from_swn_flopy(n, m)
+
+    pd.testing.assert_series_equal(
+        nm._get_segments_inflow({}),
+        pd.Series(dtype=float))
+
+    pd.testing.assert_frame_equal(
+        nm._get_segments_inflow(pd.DataFrame(dtype=float, index=[0])),
+        pd.DataFrame(dtype=float, index=nm.time_index))
+
+    pd.testing.assert_series_equal(
+        nm._get_segments_inflow({4: 1.1}),
+        pd.Series(dtype=float))
+
+    pd.testing.assert_frame_equal(
+        nm._get_segments_inflow({4: [1.1]}),
+        pd.DataFrame(dtype=float, index=nm.time_index))
+
+    nm.segments.from_segnums.at[1] = {4}
+
+    pd.testing.assert_series_equal(
+        nm._get_segments_inflow({4: 1.1}),
+        pd.Series({1: 1.1}))
+
+    pd.testing.assert_frame_equal(
+        nm._get_segments_inflow({4: [1.1]}),
+        pd.DataFrame({1: [1.1]}, index=nm.time_index))
+
+    pd.testing.assert_series_equal(
+        nm._get_segments_inflow({1: 2.2, 4: 1.1}),
+        pd.Series({1: 1.1}))
+
+    pd.testing.assert_frame_equal(
+        nm._get_segments_inflow({1: [2.2], 4: [1.1]}),
+        pd.DataFrame({1: [1.1]}, index=nm.time_index))
+
+    nm.segments.from_segnums.at[1] = {4, 5}
+
+    pd.testing.assert_series_equal(
+        nm._get_segments_inflow({5: 2.2, 4: 1.1}),
+        pd.Series({1: 3.3}))
+
+    pd.testing.assert_frame_equal(
+        nm._get_segments_inflow({5: [2.2], 4: [1.1]}),
+        pd.DataFrame({1: [3.3]}, index=nm.time_index))
+
+    m = get_basic_modflow(nper=2)
+    nm = swn.SwnModflow.from_swn_flopy(n, m)
+
+    pd.testing.assert_series_equal(
+        nm._get_segments_inflow({}),
+        pd.Series(dtype=float))
+
+    pd.testing.assert_frame_equal(
+        nm._get_segments_inflow(pd.DataFrame(dtype=float, index=[0, 1])),
+        pd.DataFrame(dtype=float, index=nm.time_index))
+
+    pd.testing.assert_series_equal(
+        nm._get_segments_inflow({4: 1.1}),
+        pd.Series(dtype=float))
+
+    pd.testing.assert_frame_equal(
+        nm._get_segments_inflow({4: [1.1, 2.2]}),
+        pd.DataFrame(dtype=float, index=nm.time_index))
+
+    nm.segments.from_segnums.at[1] = {4}
+
+    pd.testing.assert_series_equal(
+        nm._get_segments_inflow({4: 1.1}),
+        pd.Series({1: 1.1}))
+
+    pd.testing.assert_frame_equal(
+        nm._get_segments_inflow({4: [1.1, 2.2]}),
+        pd.DataFrame({1: [1.1, 2.2]}, index=nm.time_index))
+
+    pd.testing.assert_series_equal(
+        nm._get_segments_inflow({1: 2.2, 4: 1.1}),
+        pd.Series({1: 1.1}))
+
+    pd.testing.assert_frame_equal(
+        nm._get_segments_inflow({1: [2.2, 2.3], 4: [1.1, 1.2]}),
+        pd.DataFrame({1: [1.1, 1.2]}, index=nm.time_index))
+
+    nm.segments.from_segnums.at[1] = {4, 5}
+
+    pd.testing.assert_series_equal(
+        nm._get_segments_inflow({5: 2.2, 4: 1.1}),
+        pd.Series({1: 3.3}))
+
+    pd.testing.assert_frame_equal(
+        nm._get_segments_inflow({5: [2.2, 2.3], 4: [1.1, 1.2]}),
+        pd.DataFrame({1: [3.3, 3.5]}, index=nm.time_index))

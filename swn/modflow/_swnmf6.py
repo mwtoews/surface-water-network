@@ -6,7 +6,6 @@ __all__ = ["SwnMf6"]
 import numpy as np
 import pandas as pd
 from itertools import zip_longest
-from shapely.geometry import Point
 from textwrap import dedent
 
 try:
@@ -16,7 +15,6 @@ except ImportError:
 
 from swn.util import abbr_str
 from swn.modflow._base import _SwnModflow
-from swn.modflow._misc import set_outreaches
 
 
 class SwnMf6(_SwnModflow):
@@ -29,9 +27,11 @@ class SwnMf6(_SwnModflow):
     segments : geopandas.GeoDataFrame
         Copied from swn.segments, but with additional columns added
     reaches : geopandas.GeoDataFrame
-        Similar to structure in model.sfr.reach_data with index 'rno',
+        Similar to structure in model.sfr.reaches with index 'rno',
         ordered and starting from 1. Contains geometry and other columns
         not used by flopy.
+    reaches_ts : dict
+        Dataframe of time-varying data for MODFLOW SFR, key is dataset name.
     diversions :  geopandas.GeoDataFrame, pd.DataFrame or None
         Copied from swn.diversions, if set/defined.
     logger : logging.Logger
@@ -48,9 +48,7 @@ class SwnMf6(_SwnModflow):
             Logger to show messages.
         """
         super().__init__(logger)
-        # set empty properties for now
-        self.reaches = None
-        self.diversions = None
+        self.reaches_ts = {}
         # all other properties added afterwards
 
     @classmethod
@@ -134,12 +132,12 @@ class SwnMf6(_SwnModflow):
 
         return obj
 
-    def set_sfr_data(
+    def set_sfr_defaults(
             self, hyd_cond1=1., hyd_cond_out=None,
             thickness1=1., thickness_out=None, width1=10., width_out=None,
             roughch=0.024, abstraction={}, inflow={}, flow={}, runoff={},
             etsw={}, pptsw={}):
-        """Set MODFLOW 6 SFR data from segment data.
+        """Set MODFLOW 6 SFR package data defaults.
 
         Parameters
         ----------
@@ -188,11 +186,6 @@ class SwnMf6(_SwnModflow):
         -------
         None
         """
-        import flopy
-        swn = self._swn
-        model = self.model
-        dis = model.dis
-
         if "rgrd" not in self.reaches.columns:
             self.logger.info(
                 "'rgrd' not yet evaluated, setting with set_reach_slope()")
@@ -211,7 +204,7 @@ class SwnMf6(_SwnModflow):
                       #  expressed as segment (segnum) based.
                       #  Need to think more about the format that flows etc
                       #  are going to be passed to this constructor.
-        for t in range(model.nper):
+        for t in range(self.model.nper):
             # fname = f'hpm_sfr_perdata_{t}.txt'
             if t in flow.keys():
                 persfr = pd.DataFrame()
@@ -238,6 +231,11 @@ class SwnMf6(_SwnModflow):
             # persfr.to_csv(os.path.join(gwf.model_ws, fname),
             #               index=False, header=False, sep=' ')
             # sfr_spd[t] = {'filename': fname, 'data': None}
+
+    def set_sfr_obj(self, **kwds):
+        """Set MODFLOW 6 SFR package to flopy model."""
+        import flopy
+
         # Create flopy Sfr2 package
         # segment_data = self.set_segment_data(
         #     abstraction=abstraction, inflow=inflow,
@@ -247,13 +245,11 @@ class SwnMf6(_SwnModflow):
         #     model=self.model, reach_data=reach_data, segment_data=segment_data)
         flopy.mf6.ModflowGwfsfr(
             self.model,
-            save_flows=True,
-            maximum_iterations=100,
-            maximum_picard_iterations=10,
             nreaches=len(self.reaches),
             packagedata=self.flopy_packagedata,
             connectiondata=self.flopy_connectiondata,
             perioddata=self.spd,
+            **kwds
         )
 
     def _packagedata_df(self, style: str):
@@ -465,28 +461,13 @@ class SwnMf6(_SwnModflow):
         except (AssertionError, TypeError, ValueError):
             return False
 
-    def __iter__(self):
-        """Return object datasets with an iterator."""
-        yield "class", self.__class__.__name__
-        yield "segments", self.segments
-        yield "reaches", self.reaches
-        yield "diversions", self.diversions
-        yield "model", self.model
+    # def __iter__(self):
+    #    """Return object datasets with an iterator."""
+    #    super().__iter__()
 
-    def __setstate__(self, state):
-        """Set object attributes from pickle loads."""
-        if not isinstance(state, dict):
-            raise ValueError("expected 'dict'; found {!r}".format(type(state)))
-        elif "class" not in state:
-            raise KeyError("state does not have 'class' key")
-        elif state["class"] != self.__class__.__name__:
-            raise ValueError("expected state class {!r}; found {!r}"
-                             .format(state["class"], self.__class__.__name__))
-        self.__init__()
-        self.segments = state["segments"]
-        self.reaches = state["reaches"]
-        self.diversions = state["diversions"]
-        # Note: model must be set outsie of this method
+    # def __setstate__(self, state):
+    #    """Set object attributes from pickle loads."""
+    #    super().__setstate__(state)
 
     @_SwnModflow.model.setter
     def model(self, model):

@@ -70,6 +70,6 @@ def coastal_flow_ts():
 
 @pytest.fixture(scope='module')
 def coastal_flow_m(coastal_flow_ts):
-    flow_m = pd.DataFrame(coastal_flow_ts.mean(0)).T
-    # flow_m.index = pd.DatetimeIndex(['2000-01-01'])
-    return flow_m
+    coastal_flow_m = pd.DataFrame(coastal_flow_ts.mean(0)).T
+    # coastal_flow_m.index = pd.DatetimeIndex(['2000-01-01'])
+    return coastal_flow_m
