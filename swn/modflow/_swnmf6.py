@@ -383,7 +383,7 @@ class SwnMf6(_SwnModflow):
             self, hyd_cond1=1., hyd_cond_out=None,
             thickness1=1., thickness_out=None, width1=10., width_out=None,
             roughch=0.024):
-        """Set MODFLOW 6 SFR package data defaults.
+        """High-level function to set MODFLOW 6 SFR PACKAGEDATA defaults.
 
         Parameters
         ----------
@@ -535,7 +535,7 @@ class SwnMf6(_SwnModflow):
         Adds elevation of model top at
         upstream and downstream ends of each segment
         :param m: modeflow model with active dis package
-        :return: Adds 'top_up' and 'top_dn' columns to segment data dataframe
+        :return: Adds "top_up" and "top_dn" columns to segment data dataframe
         """
         if m is None:
             m = self.model

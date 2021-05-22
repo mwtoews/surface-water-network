@@ -28,13 +28,13 @@ class SwnModflow(_SwnModflow):
         Copied from swn.segments, but with additional columns added
     segment_data : pd.DataFrame or None
         Dataframe of stationary data for MODFLOW SFR, index is nseg, ordered
-        and starting from 1. Additional column 'segnum' is usedto identify
-        segments, and if present, 'divid' to identify diversions, where
+        and starting from 1. Additional column "segnum" is usedto identify
+        segments, and if present, "divid" to identify diversions, where
         iupseg != 0.
     segment_data_ts : dict or None
         Dataframe of time-varying data for MODFLOW SFR, key is dataset name.
     reaches : geopandas.GeoDataFrame
-        Similar to structure in model.sfr.reach_data with index 'reachID',
+        Similar to structure in model.sfr.reach_data with index "reachID",
         ordered and starting from 1. Contains geometry and other columns
         not used by flopy. Use flopy_reach_data for use with flopy.
     diversions :  geopandas.GeoDataFrame, pd.DataFrame or None
@@ -112,7 +112,7 @@ class SwnModflow(_SwnModflow):
             model_info = "flopy {} {!r}".format(
                 self.model.version, self.model.name)
             sp_info = "{} stress period{} with perlen: {}".format(
-                nper, '' if nper == 1 else 's',
+                nper, "" if nper == 1 else "s",
                 abbr_str(list(dis.perlen), 4))
         s = "<{}: {}\n".format(self.__class__.__name__, model_info)
         reaches = self.reaches
