@@ -2,7 +2,6 @@
 """Abstract base class for a surface water network for MODFLOW."""
 
 import geopandas
-import inspect
 import pickle
 import numpy as np
 import pandas as pd
@@ -848,40 +847,6 @@ class _SwnModflow(object):
                 "enforcing min_slope for %d reache%s (%.2f%%)",
                 num, "" if num == 1 else "s", 100.0 * num / len(sel))
             rchs.loc[sel, grid_name] = rchs.loc[sel, "min_slope"]
-
-    def _set_stationary_tsvar_data(self, dfname, name, data, mapping, ingore):
-        """Helper function for set_* methods for stationary or tsvar data."""
-        caller = inspect.stack()[1].function
-        dfref = getattr(self, dfname)  # dataframe of series for stationary
-        assert dfref is not None
-        dtype = dfref[name].dtype
-        data = transform_data_to_series_or_frame(
-            data, dtype, self.time_index, mapping, ingore)
-        if isinstance(data, pd.Series):
-            if len(data.index) == 0:
-                self.logger.debug("%s: empty %r series", caller, name)
-                return
-            self.logger.debug(
-                "%s: setting %s[%r] from series with shape %s",
-                caller, dfname, name, data.shape)
-            dfref.loc[data.index, name] = data
-        elif isinstance(data, pd.DataFrame):
-            if len(data.columns) == 0:
-                self.logger.debug("%s: empty %r frame", caller, name)
-                return
-            tsref = getattr(self, dfname + "_ts")  # dict of dataframes for ts
-            if name in name in tsref:
-                self.logger.debug(
-                    "%s: combining %r with existing tsvar frame", caller, name)
-                odf = tsref[name]
-                odf.loc[data.index, data.columns] = data
-                tsref[name] = odf
-            else:
-                self.logger.debug(
-                    "%s: creating new %r tsvar frame", caller, name)
-                tsref[name] = data
-        else:
-            raise NotImplementedError("expected a series or frame")
 
     def _get_segments_inflow(self, data):
         """Get inflow data by gathering external flow upstream of the model.

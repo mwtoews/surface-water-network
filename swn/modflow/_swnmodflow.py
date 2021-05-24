@@ -3,6 +3,7 @@
 
 __all__ = ["SwnModflow"]
 
+import inspect
 import numpy as np
 import pandas as pd
 from itertools import zip_longest
@@ -13,7 +14,8 @@ except ImportError:
     matplotlib = False
 
 from swn.modflow._base import _SwnModflow
-from swn.modflow._misc import invert_series
+from swn.modflow._misc import invert_series, transform_data_to_series_or_frame
+
 from swn.util import abbr_str
 
 
@@ -281,6 +283,8 @@ class SwnModflow(_SwnModflow):
 
     def _check_segment_data_name(self, name: str):
         """Helper method to check name used for set_segment_data_* methods."""
+        if not isinstance(name, str):
+            raise ValueError("name must be str type")
         if self.segment_data is None:
             self.new_segment_data()
         if name == "nseg":
@@ -307,9 +311,9 @@ class SwnModflow(_SwnModflow):
             Determine which segment_data rows should be set as "segments",
             "diversions" (determined from IUPSEG), or "all".
         """
+        self._check_segment_data_name(name)
         if not np.isscalar(data):
             raise ValueError(repr(name) + " data is not scalar")
-        self._check_segment_data_name(name)
         self.logger.debug(
             "setting scalar segment_data[%r] = %r for %s", name, data, which)
         if which == "all":
@@ -326,6 +330,37 @@ class SwnModflow(_SwnModflow):
             del self.segment_data_ts[name]
         return
 
+    def _set_segment_data(self, name, data):
+        """Helper function for set_* methods for frame or tsvar data."""
+        caller = inspect.stack()[1].function
+        # dfref = getattr(self, dfname)  # dataframe of series for stationary
+        assert self.segment_data is not None
+        if isinstance(data, pd.Series):
+            if len(data.index) == 0:
+                self.logger.debug("%s: empty %r series", caller, name)
+                return
+            self.logger.debug(
+                "%s: setting segment_data[%r] from series with shape %s",
+                caller, name, data.shape)
+            self.segment_data.loc[data.index, name] = data
+        elif isinstance(data, pd.DataFrame):
+            if len(data.columns) == 0:
+                self.logger.debug("%s: empty %r frame", caller, name)
+                return
+            if name in name in self.segment_data_ts:
+                self.logger.debug(
+                    "%s: combining %r with existing segment_data_ts",
+                    caller, name)
+                existing = self.segment_data_ts[name]
+                existing.loc[data.index, data.columns] = data
+                self.segment_data_ts[name] = existing
+            else:
+                self.logger.debug(
+                    "%s: creating new %r in segment_data_ts", caller, name)
+                self.segment_data_ts[name] = data
+        else:
+            raise NotImplementedError("expected a series or frame")
+
     def set_segment_data_from_segments(self, name: str, data):
         """Set segment_data from a series indexed by segments.
 
@@ -338,19 +373,19 @@ class SwnModflow(_SwnModflow):
             applied for each index matched by segnum. If a dict, then
             each item is applied for each key matched by segnum.
         """
-        if not isinstance(name, str):
-            raise ValueError("name must be str type")
+        self._check_segment_data_name(name)
         if np.isscalar(data):
             self.set_segment_data_from_scalar(name, data, "segments")
             return
-        self._check_segment_data_name(name)
         # Prepare mapping between segnum <-> nseg
         nseg2segnum = self.segment_data.loc[
             self.segment_data.iupseg == 0, "segnum"]
         mapping = invert_series(nseg2segnum)
         ignore = set(self.segments.index[~self.segments.in_model])
-        self._set_stationary_tsvar_data(
-            "segment_data", name, data, mapping, ignore)
+        dtype = self.segment_data[name].dtype
+        data = transform_data_to_series_or_frame(
+            data, dtype, self.time_index, mapping, ignore)
+        self._set_segment_data(name, data)
 
     def set_segment_data_from_diversions(self, name: str, data):
         """Set segment_data from a series indexed by diversions.
@@ -364,17 +399,19 @@ class SwnModflow(_SwnModflow):
             applied for each index matched by divid. If a dict, then
             each item is applied for each key matched by divid.
         """
+        self._check_segment_data_name(name)
         if np.isscalar(data):
             self.set_segment_data_from_scalar(name, data, "diversions")
             return
-        self._check_segment_data_name(name)
         # Prepare mapping between divid <-> nseg
         nseg2divid = self.segment_data.loc[
             self.segment_data.iupseg != 0, "divid"]
         mapping = invert_series(nseg2divid)
         ignore = set(self.diversions.index[~self.diversions.in_model])
-        self._set_stationary_tsvar_data(
-            "segment_data", name, data, mapping, ignore)
+        dtype = self.segment_data[name].dtype
+        data = transform_data_to_series_or_frame(
+            data, dtype, self.time_index, mapping, ignore)
+        self._set_segment_data(name, data)
 
     def set_segment_data_inflow(self, data):
         """Set segment_data inflow data upstream of the model.
