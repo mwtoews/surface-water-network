@@ -379,9 +379,13 @@ class SwnMf6(_SwnModflow):
         """Return list of lists for flopy."""
         raise NotImplementedError()
 
+    def set_period(name, data):
+        """Set PERIOD data.
+        """
+
     def default_packagedata(
             self, hyd_cond1=1., hyd_cond_out=None,
-            thickness1=1., thickness_out=None, width1=10., width_out=None,
+            thickness1=1., thickness_out=None, width1=None, width_out=None,
             roughch=0.024):
         """High-level function to set MODFLOW 6 SFR PACKAGEDATA defaults.
 
@@ -404,7 +408,8 @@ class SwnMf6(_SwnModflow):
             outlet segment is used for the bottom.
         width1 : float or pandas.Series, optional
             Channel width, as a global or per top of each segment. Used for
-            reach rwid. Default 10.
+            reach rwid. Default None will first try finding "width" from
+            "segments", otherwise will use 10.
         width_out : None, float or pandas.Series, optional
             Similar to width1, but for the bottom of each segment outlet.
             If None (default), the same width1 value for the top of the
@@ -418,51 +423,42 @@ class SwnMf6(_SwnModflow):
         -------
         None
         """
+        self.logger.info("default_packagedata: using high-level function")
+
+        if width1 is None:
+            # Determine width based on available data
+            if "width" in self.segments.columns:
+                width1 = self.segments.width
+                action = "taken from segments frame, with range %.3f to %.3f"
+                action_args = width1.min(), width1.max()
+            else:
+                width1 = 10.0
+                action = "not found in segments frame; using default %s"
+                action_args = (width1,)
+            self.logger.info(
+                "default_packagedata: 'rwd' " + action, *action_args)
+        self.set_reach_data_from_series("rwid", width1, width_out)
+
         if "rgrd" not in self.reaches.columns:
             self.logger.info(
-                "'rgrd' not yet evaluated, setting with set_reach_slope()")
+                "default_packagedata: 'rgrd' not yet evaluated, setting with "
+                "set_reach_slope()")
             self.set_reach_slope()
 
         # TODO: add a similar method for rtp? set_reaches_top()?
 
-        # Assign reach datasets
-        self.set_reach_data_from_series("rhk", hyd_cond1, hyd_cond_out, True)
+        # Get stream values from top of model
+        self.set_reach_data_from_array("rtp", self.model.dis.top.array)
+        if "zcoord_avg" in self.reaches.columns:
+            # Created by set_reach_slope(); be aware of NaN
+            nn = ~self.reaches.zcoord_avg.isnull()
+            self.reaches.loc[nn, "rtp"] = self.reaches.loc[nn, "zcoord_avg"]
+
+        # Assign remaining reach datasets
         self.set_reach_data_from_series("rbth", thickness1, thickness_out)
-        self.set_reach_data_from_series("rwid", width1, width_out)
+        self.set_reach_data_from_series("rhk", hyd_cond1, hyd_cond_out, True)
         self.set_reach_data_from_series("man", roughch)
 
-        # Build stressperiod data
-        sfr_spd = {}  # TODO this only works if flows etc are
-                      #  expressed as segment (segnum) based.
-                      #  Need to think more about the format that flows etc
-                      #  are going to be passed to this constructor.
-        for t in range(self.model.nper):
-            # fname = f"hpm_sfr_perdata_{t}.txt"
-            if t in flow.keys():
-                persfr = pd.DataFrame()
-                tdf = flow[t]
-                withflow = tdf[tdf["flow"] != 0]
-                persfr["rno"] = [self.reaches.loc[
-                                     (self.reaches.iseg == seg.segnum) &
-                                     (self.reaches.ireach == 1)].index.values[0]
-                                 for seg in withflow]
-                persfr["settingtype"] = "inflow"
-                persfr["settingvalue"] = withflow.flow
-            # if t in runoff.keys():  # TODO how is runoff to be divided up?
-            #     tdf = runoff[t]
-            #     withro = tdf[tdf["flow"] != 0]
-            #     persfr["rno"] = [self.reaches.loc[
-            #                          (self.reaches.iseg == seg.segnum) &
-            #                          (self.reaches.ireach == 1)].index.values[0]
-            #                      for seg in withro]
-            #     persfr["settingtype"] = "runoff"
-            #     persfr["settingvalue"] = withro.flow
-                sfr_spd[t] = persfr
-        self.spd = sfr_spd
-
-            # persfr.to_csv(os.path.join(gwf.model_ws, fname),
-            #               index=False, header=False, sep=" ")
-            # sfr_spd[t] = {"filename": fname, "data": None}
 
     def set_sfr_obj(self, **kwds):
         """Set MODFLOW 6 SFR package data to flopy model.

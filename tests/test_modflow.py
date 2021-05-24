@@ -478,6 +478,59 @@ def test_set_segment_data_inflow(nper, inflow, expected):
         plt.close()
 
 
+@pytest.mark.parametrize(
+    "has_z", [False, True], ids=["n2d", "n3d"])
+def test_default_segment_data(has_z):
+    n = get_basic_swn(has_z=has_z)
+    m = get_basic_modflow()
+    nm = swn.SwnModflow.from_swn_flopy(n, m)
+    assert nm.segment_data is None
+    assert nm.segment_data_ts is None
+    nm.default_segment_data()
+    assert nm.segment_data is not None
+    assert nm.segment_data_ts == {}
+    sd = nm.segment_data
+    assert sd.index.name == "nseg"
+    np.testing.assert_array_equal(sd.index, [1, 2, 3])
+    np.testing.assert_array_equal(sd.icalc, [1, 1, 1])
+    np.testing.assert_array_equal(sd.outseg, [3, 3, 0])
+    np.testing.assert_array_equal(sd.iupseg, [0, 0, 0])
+    np.testing.assert_array_equal(sd.iprior, [0, 0, 0])
+    np.testing.assert_array_almost_equal(sd.flow, [0.0, 0.0, 0.0])
+    np.testing.assert_array_almost_equal(sd.runoff, [0.0, 0.0, 0.0])
+    np.testing.assert_array_almost_equal(sd.etsw, [0.0, 0.0, 0.0])
+    np.testing.assert_array_almost_equal(sd.pptsw, [0.0, 0.0, 0.0])
+    np.testing.assert_array_almost_equal(sd.roughch, [0.024, 0.024, 0.024])
+    np.testing.assert_array_almost_equal(sd.hcond1, [1.0, 1.0, 1.0])
+    np.testing.assert_array_almost_equal(sd.thickm1, [1.0, 1.0, 1.0])
+    if has_z:
+        expected_elevup = [14.75, 14.66666667, 13.5]
+        expected_elevdn = [14.16666667, 14.16666667, 12.5]
+    else:
+        expected_elevup = [15.0, 15.0, 15.0]
+        expected_elevdn = [15.0, 15.0, 15.0]
+    np.testing.assert_array_almost_equal(sd.elevup, expected_elevup)
+    np.testing.assert_array_almost_equal(sd.width1, [10.0, 10.0, 10.0])
+    np.testing.assert_array_almost_equal(sd.hcond2, [1.0, 1.0, 1.0])
+    np.testing.assert_array_almost_equal(sd.thickm2, [1.0, 1.0, 1.0])
+    np.testing.assert_array_almost_equal(sd.elevdn, expected_elevdn)
+    np.testing.assert_array_almost_equal(sd.width2, [10.0, 10.0, 10.0])
+
+    # auto determine width
+    n.catchments = wkt_to_geoseries([
+        "POLYGON ((35 100, 75 100, 75  80, 35  80, 35 100))",
+        "POLYGON ((35 135, 60 135, 60 100, 35 100, 35 135))",
+        "POLYGON ((60 135, 75 135, 75 100, 60 100, 60 135))",
+    ])
+    nm = swn.SwnModflow.from_swn_flopy(n, m)
+    nm.default_segment_data()
+    sd = nm.segment_data
+    np.testing.assert_array_almost_equal(
+        sd.width1, [1.4456947376374667, 1.439700753532406, 1.4615011177787172])
+    np.testing.assert_array_almost_equal(
+        sd.width2, [1.4615011177787172, 1.461501117778717, 1.4615011177787172])
+
+
 @requires_mf2005
 def test_n3d_vars(tmpdir_factory):
     # Repeat, but with min_slope enforced, and other options

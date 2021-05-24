@@ -458,7 +458,7 @@ class SwnModflow(_SwnModflow):
 
     def default_segment_data(
             self, hyd_cond1=1., hyd_cond_out=None,
-            thickness1=1., thickness_out=None, width1=10., width_out=None,
+            thickness1=1., thickness_out=None, width1=None, width_out=None,
             roughch=0.024):
         """High-level function to set default segment_data for MODFLOW SFR.
 
@@ -481,7 +481,8 @@ class SwnModflow(_SwnModflow):
             outlet segment is used for the bottom.
         width1 : float or pandas.Series, optional
             Channel width, as a global or per top of each segment. Used for
-            WIDTH1/WIDTH2 outputs. Default 10.
+            WIDTH1/WIDTH2 outputs. Default None will first try finding
+            "width" from "segments", otherwise will use 10.
         width_out : None, float or pandas.Series, optional
             Similar to width1, but for the bottom of each segment outlet.
             If None (default), the same width1 value for the top of the
@@ -495,14 +496,28 @@ class SwnModflow(_SwnModflow):
         -------
         None
         """
-        swn = self._swn
-        model = self.model
-        dis = model.dis
+        self.logger.info("default_segment_data: using high-level function")
+        if self.segment_data is None:
+            self.new_segment_data()
 
         if "slope" not in self.reaches.columns:
             self.logger.info(
-                "'slope' not yet evaluated, setting with set_reach_slope()")
+                "default_segment_data: 'slope' not yet evaluated, setting "
+                "with set_reach_slope()")
             self.set_reach_slope()
+
+        if width1 is None:
+            # Determine width based on available data
+            if "width" in self.segments.columns:
+                width1 = self.segments.width
+                action = "taken from segments frame, with range %.3f to %.3f"
+                action_args = width1.min(), width1.max()
+            else:
+                width1 = 10.0
+                action = "not found in segments frame; using default %s"
+                action_args = (width1,)
+            self.logger.info(
+                "default_segment_data: 'width' " + action, *action_args)
 
         # Column names common to segments and segment_data
         segment_cols = [
@@ -514,6 +529,7 @@ class SwnModflow(_SwnModflow):
             if col in self.segments.columns:
                 del self.segments[col]
         # Combine pairs of series for each segment
+        swn = self._swn
         more_segment_columns = pd.concat([
             swn._pair_segment_values(hyd_cond1, hyd_cond_out, "hcond"),
             swn._pair_segment_values(thickness1, thickness_out, "thickm"),
@@ -530,7 +546,7 @@ class SwnModflow(_SwnModflow):
             "strhc1", hyd_cond1, hyd_cond_out, log10=True)
 
         # Get stream values from top of model
-        self.set_reach_data_from_array("strtop", dis.top.array)
+        self.set_reach_data_from_array("strtop", self.model.dis.top.array)
         if "zcoord_avg" in self.reaches.columns:
             # Created by set_reach_slope(); be aware of NaN
             nn = ~self.reaches.zcoord_avg.isnull()

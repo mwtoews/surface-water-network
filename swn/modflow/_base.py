@@ -551,7 +551,8 @@ class _SwnModflow(object):
         # Evaluate inflow segments that potentially receive flow from outside
         segnums_outside = set(obj.segments[~obj.segments["in_model"]].index)
         if segnums_outside:
-            obj.logger.debug("evaluating inflow from outside network")
+            obj.logger.debug(
+                "evaluating inflow connections from outside network")
             # Ensure "from_segnums" is always a set
             sel = obj.segments.from_segnums.isna()
             if sel.any():
