@@ -13,13 +13,13 @@ try:
 except ImportError:
     matplotlib = False
 
-from swn.modflow._base import _SwnModflow
+from swn.modflow._base import SwnModflowBase
 from swn.modflow._misc import invert_series, transform_data_to_series_or_frame
 
 from swn.util import abbr_str
 
 
-class SwnModflow(_SwnModflow):
+class SwnModflow(SwnModflowBase):
     """Surface water network adaptor for MODFLOW.
 
     Attributes
@@ -189,7 +189,7 @@ class SwnModflow(_SwnModflow):
         self.segment_data = state["segment_data"]
         self.segment_data_ts = state["segment_data_ts"]
 
-    @_SwnModflow.model.setter
+    @SwnModflowBase.model.setter
     def model(self, model):
         """Set model property from flopy.modflow.Modflow."""
         import flopy

@@ -14,10 +14,10 @@ except ImportError:
     matplotlib = False
 
 from swn.util import abbr_str
-from swn.modflow._base import _SwnModflow
+from swn.modflow._base import SwnModflowBase
 
 
-class SwnMf6(_SwnModflow):
+class SwnMf6(SwnModflowBase):
     """Surface water network adaptor for MODFLOW 6.
 
     Attributes
@@ -48,7 +48,7 @@ class SwnMf6(_SwnModflow):
             Logger to show messages.
         """
         super().__init__(logger)
-        self.reaches_ts = {}
+        self.tsvar = {}  # time-varying data
         # all other properties added afterwards
 
     @classmethod
@@ -187,15 +187,17 @@ class SwnMf6(_SwnModflow):
         except (AssertionError, TypeError, ValueError):
             return False
 
-    # def __iter__(self):
-    #    """Return object datasets with an iterator."""
-    #    super().__iter__()
+    def __iter__(self):
+        """Return object datasets with an iterator."""
+        yield from super().__iter__()
+        yield "tsvar", self.tsvar
 
-    # def __setstate__(self, state):
-    #    """Set object attributes from pickle loads."""
-    #    super().__setstate__(state)
+    def __setstate__(self, state):
+        """Set object attributes from pickle loads."""
+        super().__setstate__(state)
+        self.tsvar = state["tsvar"]
 
-    @_SwnModflow.model.setter
+    @SwnModflowBase.model.setter
     def model(self, model):
         """Set model property."""
         import flopy
@@ -379,9 +381,46 @@ class SwnMf6(_SwnModflow):
         """Return list of lists for flopy."""
         raise NotImplementedError()
 
-    def set_period(name, data):
-        """Set PERIOD data.
+    _tsvar_meta = pd.DataFrame([
+        ("status", "str"),
+        ("manning", "ts"),
+        ("stage", "ts"),
+        ("inflow", "ts"),
+        ("rainfall", "ts"),
+        ("evaporation", "ts"),
+        ("runoff", "ts"),
+        ("divflow", "ts"),
+        ("upstream_fraction", "float"),
+        ("auxname", "str"),
+        ("auxval", "ts"),
+    ], columns=["name", "type"]).set_index("name")
+
+    def _check_tsvar_name(self, name: str):
+        """Helper method to check name used for set_tsvar_* methods."""
+        if not isinstance(name, str):
+            raise ValueError("name must be str type")
+        elif name not in self._tsvar_meta.index:
+            names = ", ".join(repr(n) for n in self._tsvar_meta.index)
+            raise KeyError(f"could not find {name!r} in {names}")
+
+    def set_tsvar_from_segments(self, name: str, data, where: str = "start"):
+        """Set time-varying data from data defined at segments.
+
+        Parameters
+        ----------
+        name : str
+            Name for dataset to use in a tsvar dict.
+        data : dict, pandas.Series or pandas.DataFrame
+            Data to assigned to tsvar, indexed by segnum.
+        where : str, optional, default "start"
+            For segments represented by multiple reaches, pick which reach
+            to represent data. Default "start" is the upper-most reach.
         """
+        self._check_tsvar_name(name)
+        if not np.isscalar(data):
+            raise ValueError("only non-scalar data can be set")
+        if where != "start":
+            raise NotImplementedError("only 'start' is currently implemented")
 
     def default_packagedata(
             self, hyd_cond1=1., hyd_cond_out=None,

@@ -18,7 +18,7 @@ from swn.modflow._misc import (
 from swn.spatial import get_sindex, compare_crs
 
 
-class _SwnModflow(object):
+class SwnModflowBase(object):
     """Abstract class for a surface water network adaptor for MODFLOW.
 
     Attributes
