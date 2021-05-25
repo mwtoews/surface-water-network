@@ -227,7 +227,7 @@ class SwnMf6(SwnModflowBase):
         self.time_index = pd.DatetimeIndex(stress_df["start"]).copy()
         self.time_index.name = None
 
-    def packagedata_df(self, style: str):
+    def packagedata_df(self, style: str, auxiliary: list = [], boundname=None):
         """Return DataFrame of PACKAGEDATA for MODFLOW 6 SFR.
 
         This DataFrame is derived from the reaches DataFrame.
@@ -239,6 +239,11 @@ class SwnMf6(SwnModflowBase):
             Also use k,i,j columns (as str) rather than cellid.
             If "flopy", all indices (including rno) use zero-based notation.
             Also use cellid as a tuple.
+        auxiliary : str, list, optional
+            String or list of auxiliary variable names. Default [].
+        boundname : bool, optional
+            Default None will determine if "boundname" column is added if
+            available in reaches.columns.
 
         Returns
         -------
@@ -248,6 +253,10 @@ class SwnMf6(SwnModflowBase):
         from flopy.mf6 import ModflowGwfsfr as Mf6Sfr
         defcols_names = list(Mf6Sfr.packagedata.empty(self.model).dtype.names)
         defcols_names.remove("rno")  # this is the index
+        if auxiliary is not None:
+            if isinstance(auxiliary, str):
+                auxiliary = [auxiliary]
+            defcols_names += auxiliary
         dat = pd.DataFrame(self.reaches.copy())
         dat["idomain"] = \
             self.model.dis.idomain.array[dat["k"], dat["i"], dat["j"]]
@@ -280,6 +289,19 @@ class SwnMf6(SwnModflowBase):
             (dat.to_rno > 0).astype(int)
         )
         dat["ndv"] = (dat.to_div > 0).astype(int)
+        if boundname is None:
+            boundname = "boundname" in dat.columns
+        if boundname:
+            defcols_names.append("boundname")
+            dat["boundname"] = dat["boundname"].astype(str)
+            # Check and enforce 40 character limit
+            sel = dat.boundname.str.len() > 40
+            if sel.any():
+                self.logger.warning(
+                    "clipping %d boundname entries to 40 character limit",
+                    sel.sum())
+                dat.loc[sel, "boundname"] = \
+                    dat.loc[sel, "boundname"].str.slice(stop=40)
         # checking missing columns
         reach_columns = set(dat.columns)
         missing = set(defcols_names).difference(reach_columns)
@@ -293,7 +315,8 @@ class SwnMf6(SwnModflowBase):
                 .format(len(missing_l), ", ".join(sorted(missing_l))))
         return dat.loc[:, defcols_names]
 
-    def write_packagedata(self, fname: str):
+    def write_packagedata(
+            self, fname: str, auxiliary: list = [], boundname=None):
         """
         Write PACKAGEDATA file for MODFLOW 6 SFR.
 
@@ -301,26 +324,54 @@ class SwnMf6(SwnModflowBase):
         ----------
         fname : str
             Output file name.
+        auxiliary : str, list, optional
+            String or list of auxiliary variable names. Default [].
+        boundname : bool, optional
+            Default None will determine if "boundname" column is added if
+            available in reaches.columns.
 
         Returns
         -------
         None
 
         """
-        pn = self.packagedata_df("native")
+        pn = self.packagedata_df(
+            "native", auxiliary=auxiliary, boundname=boundname)
         pn.index.name = "# rno"
+        formatters = None
+        if "boundname" in pn.columns:
+            # Add single quotes for any items with spaces
+            sel = pn.boundname.str.contains(" ")
+            if sel.any():
+                pn.loc[sel, "boundname"] = pn.loc[sel, "boundname"].map(
+                    lambda x: "'{}'".format(x))
+            # left-justify column
+            formatters = {
+                "boundname": "{{:<{}s}}".format(
+                    pn["boundname"].str.len().max()).format}
         with open(fname, "w") as f:
-            pn.reset_index().to_string(f, header=True, index=False)
+            pn.reset_index().to_string(
+                f, header=True, index=False, formatters=formatters)
+            f.write("\n")
 
-    def flopy_packagedata(self):
+    def flopy_packagedata(self, auxiliary: list = [], boundname=None):
         """Return list of lists for flopy.
+
+        Parameters
+        ----------
+        auxiliary : str, list, optional
+            String or list of auxiliary variable names. Default [].
+        boundname : bool, optional
+            Default None will determine if "boundname" column is added if
+            available in reaches.columns.
 
         Returns
         -------
         list
 
         """
-        df = self.packagedata_df("flopy")
+        df = self.packagedata_df(
+            "flopy", auxiliary=auxiliary, boundname=boundname)
         return [list(x) for x in df.itertuples()]
 
     def _connectiondata_series(self, style: str):
@@ -513,18 +564,32 @@ class SwnMf6(SwnModflowBase):
         self.set_reach_data_from_series("rhk", hyd_cond1, hyd_cond_out, True)
         self.set_reach_data_from_series("man", roughch)
 
-    def set_sfr_obj(self, **kwds):
+    def set_sfr_obj(self, auxiliary=None, boundnames=None, **kwds):
         """Set MODFLOW 6 SFR package data to flopy model.
 
         Parameters
         ----------
+        auxiliary : list, optional
+            List of auxiliary names, which must be columns in the reaches
+            frame.
+        boundnames : bool, optional
+            Sets the BOUNDAMES option, with names provided by a "boundname"
+            column of the reaches frame. Default None will set this True
+            if column exists.
         **kwargs : dict, optional
             Passed to flopy.mf6.ModflowGwfsfr.
         """
         import flopy
 
+        if auxiliary is not None:
+            kwds["auxiliary"] = auxiliary
+        if boundnames is None:
+            boundnames = "boundname" in self.reaches.columns
+        if boundnames:
+            kwds["boundnames"] = True
         if "packagedata" not in kwds:
-            kwds["packagedata"] = self.flopy_packagedata()
+            kwds["packagedata"] = self.flopy_packagedata(
+                auxiliary=auxiliary, boundname=boundnames)
         if "connectiondata" not in kwds:
             kwds["connectiondata"] = self.flopy_connectiondata()
 

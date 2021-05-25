@@ -194,24 +194,6 @@ def test_n3d_defaults(tmp_path):
     np.testing.assert_array_almost_equal(nm.reaches["rbth"], [1.0] * 7)
     np.testing.assert_array_almost_equal(nm.reaches["rhk"], [1e-4] * 7)
     np.testing.assert_array_almost_equal(nm.reaches["man"], [0.024] * 7)
-    # check PACKAGEDATA
-    rn = nm.packagedata_df("native")
-    rf = nm.packagedata_df("flopy")
-    assert list(rn.ncon) == [1, 2, 2, 1, 2, 3, 1]
-    assert list(rn.ndv) == [0, 0, 0, 0, 0, 0, 0]
-    # native is one based, k,i,j are str
-    assert list(rn.index) == [1, 2, 3, 4, 5, 6, 7]
-    assert list(rn.k) == ["1", "1", "1", "1", "1", "1", "1"]
-    assert list(rn.i) == ["1", "1", "2", "1", "2", "2", "3"]
-    assert list(rn.j) == ["1", "2", "2", "2", "2", "2", "2"]
-    # flopy has zero based, cellid with tuple
-    assert list(rf.index) == [0, 1, 2, 3, 4, 5, 6]
-    assert list(rf.cellid) == \
-        [(0, 0, 0), (0, 0, 1), (0, 1, 1), (0, 0, 1), (0, 1, 1), (0, 1, 1),
-         (0, 2, 1)]
-    np.testing.assert_array_almost_equal(
-        rn.rlen,
-        [18.027756, 6.009252, 12.018504, 21.081851, 10.540926, 10.0, 10.0])
     # Write native MF6 file and flopy datasets
     nm.write_packagedata(tmp_path / "packagedata.dat")
     fpd = nm.flopy_packagedata()
@@ -411,6 +393,93 @@ def test_n2d_defaults(tmp_path):
         assert success
         # check outputs?
 
+
+def test_packagedata(tmp_path):
+    n = get_basic_swn()
+    sim, m = get_basic_modflow(tmp_path)
+    nm = swn.SwnMf6.from_swn_flopy(n, m)
+    nm.default_packagedata()
+    nm.set_sfr_obj()
+
+    partial_expected_cols = [
+        "rlen", "rwid", "rgrd", "rtp", "rbth", "rhk", "man", "ncon", "ustrf",
+        "ndv"]
+    assert list(m.sfr.packagedata.array.dtype.names) == \
+        ["rno", "cellid"] + partial_expected_cols
+
+    # Check pandas frame
+    rn = nm.packagedata_df("native")
+    rf = nm.packagedata_df("flopy")
+    assert list(rn.columns) == ["k", "i", "j"] + partial_expected_cols
+    assert list(rf.columns) == ["cellid"] + partial_expected_cols
+    assert list(rn.ncon) == [1, 2, 2, 1, 2, 3, 1]
+    assert list(rn.ndv) == [0, 0, 0, 0, 0, 0, 0]
+    # native is one based, k,i,j are str
+    assert list(rn.index) == [1, 2, 3, 4, 5, 6, 7]
+    assert list(rn.k) == ["1", "1", "1", "1", "1", "1", "1"]
+    assert list(rn.i) == ["1", "1", "2", "1", "2", "2", "3"]
+    assert list(rn.j) == ["1", "2", "2", "2", "2", "2", "2"]
+    # flopy has zero based, cellid with tuple
+    assert list(rf.index) == [0, 1, 2, 3, 4, 5, 6]
+    assert list(rf.cellid) == \
+        [(0, 0, 0), (0, 0, 1), (0, 1, 1), (0, 0, 1), (0, 1, 1), (0, 1, 1),
+         (0, 2, 1)]
+    nm.write_packagedata(tmp_path / "packagedata.dat")
+
+    # With one auxiliary str
+    m.remove_package("sfr")
+    nm.reaches["var1"] = np.arange(len(nm.reaches), dtype=float) * 12.0
+    nm.set_sfr_obj(auxiliary="var1")
+    assert list(m.sfr.packagedata.array.dtype.names) == \
+        ["rno", "cellid"] + partial_expected_cols + ["var1"]
+    np.testing.assert_array_almost_equal(
+        m.sfr.packagedata.array["var1"],
+        [0.0, 12.0, 24.0, 36.0, 48.0, 60.0, 72.0])
+    nm.write_packagedata(
+        tmp_path / "packagedata_one_aux.dat", auxiliary="var1")
+
+    # With auxiliary list
+    m.remove_package("sfr")
+    nm.reaches["var1"] = np.arange(len(nm.reaches), dtype=float) * 12.0
+    nm.reaches["var2"] = np.arange(len(nm.reaches)) * 11
+    nm.set_sfr_obj(auxiliary=["var1", "var2"])
+    assert list(m.sfr.packagedata.array.dtype.names) == \
+        ["rno", "cellid"] + partial_expected_cols + ["var1", "var2"]
+    np.testing.assert_array_almost_equal(
+        m.sfr.packagedata.array["var1"],
+        [0.0, 12.0, 24.0, 36.0, 48.0, 60.0, 72.0])
+    np.testing.assert_array_almost_equal(
+        m.sfr.packagedata.array["var2"],
+        [0, 11, 22, 33, 44, 55, 66])
+    nm.write_packagedata(
+        tmp_path / "packagedata_two_aux.dat", auxiliary=["var1", "var2"])
+
+    # With boundname
+    m.remove_package("sfr")
+    nm.reaches["boundname"] = nm.reaches["segnum"]
+    nm.set_sfr_obj()
+    assert list(m.sfr.packagedata.array.dtype.names) == \
+        ["rno", "cellid"] + partial_expected_cols + ["boundname"]
+    assert list(m.sfr.packagedata.array["boundname"]) == \
+        ["1", "1", "1", "2", "2", "0", "0"]
+    nm.write_packagedata(tmp_path / "packagedata_boundname.dat")
+
+    # With auxiliary and boundname
+    m.remove_package("sfr")
+    nm.reaches["boundname"] = nm.reaches["segnum"].astype(str)
+    nm.reaches.boundname.at[1] = "another reach"
+    nm.reaches.boundname.at[2] = "longname" * 6
+    nm.reaches["var1"] = np.arange(len(nm.reaches), dtype=float) * 12.0
+    nm.set_sfr_obj(auxiliary=["var1"])
+    assert list(m.sfr.packagedata.array.dtype.names) == \
+        ["rno", "cellid"] + partial_expected_cols + ["var1", "boundname"]
+    np.testing.assert_array_almost_equal(
+        m.sfr.packagedata.array["var1"],
+        [0.0, 12.0, 24.0, 36.0, 48.0, 60.0, 72.0])
+    assert list(m.sfr.packagedata.array["boundname"]) == \
+        ["another reach", "longname" * 5, "1", "2", "2", "0", "0"]
+    nm.write_packagedata(
+        tmp_path / "packagedata_aux_boundname.dat", auxiliary=["var1"])
 
 def check_number_sum_hex(a, n, h):
     a = np.ceil(a).astype(np.int64)
