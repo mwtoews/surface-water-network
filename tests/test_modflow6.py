@@ -176,22 +176,27 @@ def test_n3d_defaults(tmp_path):
     assert list(r.from_rnos) == [set(), {1}, {2}, set(), {4}, {3, 5}, {6}]
     assert list(r.to_div) == [0, 0, 0, 0, 0, 0, 0]
     with pytest.raises(KeyError, match="missing 6 reach dataset"):
-        nm._packagedata_df("native")
+        nm.packagedata_df("native")
     nm.set_reach_slope()
     with pytest.raises(KeyError, match="missing 5 reach dataset"):
-        nm._packagedata_df("native")
-    nm.set_reach_data_from_series("man", 0.024)
-    nm.set_reach_data_from_series("rbth", 1.0)
-    nm.set_reach_data_from_series("rhk", 1e-4)
-    nm.reaches["rtp"] = nm.reaches["zcoord_avg"]
-    nm.set_reach_data_from_series("rwid", 10.0)
-    # TODO rgrd ?
+        nm.packagedata_df("native")
+    nm.default_packagedata(hyd_cond1=1e-4)
+    np.testing.assert_array_almost_equal(
+        nm.reaches["rlen"],
+        [18.027756, 6.009252, 12.018504, 21.081851, 10.540926, 10.0, 10.0])
+    np.testing.assert_array_almost_equal(nm.reaches["rwid"], [10.0] * 7)
+    np.testing.assert_array_almost_equal(
+        nm.reaches["rgrd"],
+        [0.027735, 0.027735, 0.027735, 0.0316227766, 0.0316227766, 0.1, 0.1])
     np.testing.assert_array_almost_equal(
         nm.reaches["rtp"],
         [14.75, 14.416667, 14.166667, 14.666667, 14.166667, 13.5, 12.5])
+    np.testing.assert_array_almost_equal(nm.reaches["rbth"], [1.0] * 7)
+    np.testing.assert_array_almost_equal(nm.reaches["rhk"], [1e-4] * 7)
+    np.testing.assert_array_almost_equal(nm.reaches["man"], [0.024] * 7)
     # check PACKAGEDATA
-    rn = nm._packagedata_df("native")
-    rf = nm._packagedata_df("flopy")
+    rn = nm.packagedata_df("native")
+    rf = nm.packagedata_df("flopy")
     assert list(rn.ncon) == [1, 2, 2, 1, 2, 3, 1]
     assert list(rn.ndv) == [0, 0, 0, 0, 0, 0, 0]
     # native is one based, k,i,j are str
@@ -230,17 +235,15 @@ def test_n3d_defaults(tmp_path):
         [[0, -1], [1, 0, -2], [2, 1, -5], [3, -4], [4, 3, -5], [5, 2, 4, -6],
          [6, 5]]
     # Use with flopy
-    sfr_spd = {}
-    _ = flopy.mf6.ModflowGwfsfr(
-        m, save_flows=True,
+    nm.set_sfr_obj(
+        save_flows=True,
         stage_filerecord="model.sfr.bin",
         budget_filerecord="model.sfr.bud",
         maximum_iterations=100,
         maximum_picard_iterations=10,
-        nreaches=len(nm.reaches),
         packagedata={"filename": "packagedata.dat"},
         connectiondata={"filename": "connectiondata.dat"},
-        perioddata=sfr_spd,
+        perioddata={},
     )
     assert repr(nm) == dedent("""\
         <SwnMf6: flopy mf6 'model'
@@ -379,28 +382,27 @@ def test_n2d_defaults(tmp_path):
     assert list(r.j) == [0, 1, 1, 1, 1, 1, 1]
     assert list(r.segnum) == [1, 1, 1, 2, 2, 0, 0]
     assert list(r.to_rno) == [2, 3, 6, 5, 6, 7, 0]
-    # See test_n3d_defaults for other checks
-    nm.set_reach_slope()
-    nm.set_reach_data_from_series("man", 0.024)
-    nm.set_reach_data_from_series("rbth", 2.0)
-    nm.set_reach_data_from_series("rhk", 2.0)
-    nm.set_reach_data_from_series("rwid", 10.0)
+    nm.default_packagedata(hyd_cond1=2.0, thickness1=2.0)
     nm.set_reach_data_from_array("rtp", m.dis.top.array - 1.0)
     np.testing.assert_array_almost_equal(
-        nm.reaches["rtp"],
-        [15., 14., 14., 14., 14., 14., 13.])
+        nm.reaches["rlen"],
+        [18.027756, 6.009252, 12.018504, 21.081851, 10.540926, 10.0, 10.0])
+    np.testing.assert_array_almost_equal(nm.reaches["rwid"], [10.0] * 7)
+    np.testing.assert_array_almost_equal(
+        nm.reaches["rgrd"],
+        [0.070711, 0.05, 0.025, 0.05, 0.025, 0.025, 0.05])
+    np.testing.assert_array_almost_equal(
+        nm.reaches["rtp"], [15., 14., 14., 14., 14., 14., 13.])
+    np.testing.assert_array_almost_equal(nm.reaches["rbth"], [2.0] * 7)
+    np.testing.assert_array_almost_equal(nm.reaches["rhk"], [2.0] * 7)
+    np.testing.assert_array_almost_equal(nm.reaches["man"], [0.024] * 7)
     # Use with flopy
-    sfr_spd = {}
-    _ = flopy.mf6.ModflowGwfsfr(
-        m, save_flows=True,
+    nm.set_sfr_obj(
+        save_flows=True,
         stage_filerecord="model.sfr.bin",
         budget_filerecord="model.sfr.bud",
         maximum_iterations=100,
         maximum_picard_iterations=10,
-        nreaches=len(nm.reaches),
-        packagedata=nm.flopy_packagedata(),
-        connectiondata=nm.flopy_connectiondata(),
-        perioddata=sfr_spd,
     )
     if mf6_exe:
         # Run model
@@ -434,23 +436,13 @@ def test_coastal(
     n = swn.SurfaceWaterNetwork.from_lines(coastal_lines_gdf.geometry)
     n.adjust_elevation_profile()
     nm = swn.SwnMf6.from_swn_flopy(n, m)
-    nm.set_reach_slope()
-    nm.set_reach_data_from_series("man", 0.024)
-    nm.set_reach_data_from_series("rbth", 2.0)
-    nm.set_reach_data_from_series("rhk", 2.0)
-    nm.set_reach_data_from_series("rwid", 10.0)
-    nm.reaches["rtp"] = nm.reaches["zcoord_avg"]
-    sfr_spd = {}
-    _ = flopy.mf6.ModflowGwfsfr(
-        m, save_flows=True,
+    nm.default_packagedata(hyd_cond1=2.0, thickness1=2.0)
+    nm.set_sfr_obj(
+        save_flows=True,
         stage_filerecord="h.sfr.bin",
         budget_filerecord="h.sfr.bud",
         maximum_iterations=100,
         maximum_picard_iterations=10,
-        nreaches=len(nm.reaches),
-        packagedata=nm.flopy_packagedata(),
-        connectiondata=nm.flopy_connectiondata(),
-        perioddata=sfr_spd,
     )
     sim.write_simulation()
     success, buff = sim.run_simulation()
@@ -501,12 +493,7 @@ def test_coastal_elevations(coastal_swn, coastal_flow_m, tmp_path):
     sim.set_sim_path(str(tmp_path))
     m = sim.get_model("h")
     nm = swn.SwnMf6.from_swn_flopy(coastal_swn, m)
-    nm.set_reach_slope()
-    nm.set_reach_data_from_series("man", 0.024)
-    nm.set_reach_data_from_series("rbth", 2.0)
-    nm.set_reach_data_from_series("rhk", 2.0)
-    nm.set_reach_data_from_series("rwid", 10.0)
-    nm.reaches["rtp"] = nm.reaches["zcoord_avg"]
+    nm.default_packagedata(hyd_cond1=2.0, thickness1=2.0)
     # TODO: inflow=coastal_flow_m
     # TODO: complete elevation adjustments; see older MODFLOW methods
 
@@ -552,23 +539,13 @@ def test_coastal_reduced(
         _ = nm.plot()
         plt.close()
     # Run model and read outputs
-    nm.set_reach_slope()
-    nm.set_reach_data_from_series("man", 0.024)
-    nm.set_reach_data_from_series("rbth", 2.0)
-    nm.set_reach_data_from_series("rhk", 2.0)
-    nm.set_reach_data_from_series("rwid", 10.0)
-    nm.reaches["rtp"] = nm.reaches["zcoord_avg"]
-    sfr_spd = {}
-    _ = flopy.mf6.ModflowGwfsfr(
-        m, save_flows=True,
+    nm.default_packagedata(hyd_cond1=2.0, thickness1=2.0)
+    nm.set_sfr_obj(
+        save_flows=True,
         stage_filerecord="h.sfr.bin",
         budget_filerecord="h.sfr.bud",
         maximum_iterations=100,
         maximum_picard_iterations=10,
-        nreaches=len(nm.reaches),
-        packagedata=nm.flopy_packagedata(),
-        connectiondata=nm.flopy_connectiondata(),
-        perioddata=sfr_spd,
     )
     sim.write_simulation()
     success, buff = sim.run_simulation()
@@ -618,23 +595,13 @@ def test_coastal_idomain_modify(coastal_swn, coastal_flow_m, tmp_path):
         _ = nm.plot()
         plt.close()
     # Run model and read outputs
-    nm.set_reach_slope()
-    nm.set_reach_data_from_series("man", 0.024)
-    nm.set_reach_data_from_series("rbth", 2.0)
-    nm.set_reach_data_from_series("rhk", 2.0)
-    nm.set_reach_data_from_series("rwid", 10.0)
-    nm.reaches["rtp"] = nm.reaches["zcoord_avg"]
-    sfr_spd = {}
-    _ = flopy.mf6.ModflowGwfsfr(
-        m, save_flows=True,
+    nm.default_packagedata(hyd_cond1=2.0, thickness1=2.0)
+    nm.set_sfr_obj(
+        save_flows=True,
         stage_filerecord="h.sfr.bin",
         budget_filerecord="h.sfr.bud",
         maximum_iterations=100,
         maximum_picard_iterations=10,
-        nreaches=len(nm.reaches),
-        packagedata=nm.flopy_packagedata(),
-        connectiondata=nm.flopy_connectiondata(),
-        perioddata=sfr_spd,
     )
     sim.write_simulation()
     success, buff = sim.run_simulation()

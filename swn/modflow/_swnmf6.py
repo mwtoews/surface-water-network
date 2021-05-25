@@ -227,7 +227,7 @@ class SwnMf6(SwnModflowBase):
         self.time_index = pd.DatetimeIndex(stress_df["start"]).copy()
         self.time_index.name = None
 
-    def _packagedata_df(self, style: str):
+    def packagedata_df(self, style: str):
         """Return DataFrame of PACKAGEDATA for MODFLOW 6 SFR.
 
         This DataFrame is derived from the reaches DataFrame.
@@ -307,7 +307,7 @@ class SwnMf6(SwnModflowBase):
         None
 
         """
-        pn = self._packagedata_df("native")
+        pn = self.packagedata_df("native")
         pn.index.name = "# rno"
         with open(fname, "w") as f:
             pn.reset_index().to_string(f, header=True, index=False)
@@ -320,7 +320,7 @@ class SwnMf6(SwnModflowBase):
         list
 
         """
-        df = self._packagedata_df("flopy")
+        df = self.packagedata_df("flopy")
         return [list(x) for x in df.itertuples()]
 
     def _connectiondata_series(self, style: str):
@@ -523,12 +523,14 @@ class SwnMf6(SwnModflowBase):
         """
         import flopy
 
+        if "packagedata" not in kwds:
+            kwds["packagedata"] = self.flopy_packagedata()
+        if "connectiondata" not in kwds:
+            kwds["connectiondata"] = self.flopy_connectiondata()
+
         flopy.mf6.ModflowGwfsfr(
             self.model,
             nreaches=len(self.reaches),
-            packagedata=self.flopy_packagedata(),
-            connectiondata=self.flopy_connectiondata(),
-            perioddata=self.spd,
             **kwds)
 
     def get_reach_data(self):
