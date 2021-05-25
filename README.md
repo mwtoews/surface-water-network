@@ -32,6 +32,7 @@ For faster multi-core `pytest -v -n 2` (with `pytest-xdist`)
 import geopandas
 import pandas as pd
 import swn
+import swn.file
 ```
 
 Read from Shapefile:
@@ -101,9 +102,13 @@ Process a MODFLOW/flopy model:
 import flopy
 
 m = flopy.modflow.Modflow.load('h.nam', model_ws='tests/data', check=False)
-nm = swn.MfSfrNetwork.from_swn_flopy(n, m, inflow=flow_m)
+nm = swn.SwnModflow.from_swn_flopy(n, m)
+nm.default_segment_data()
+nm.set_segment_data_inflow(flow_m)
+nm.plot()
 nm.to_pickle('sfr_network.pkl')
-nm = swn.MfSfrNetwork.from_pickle('sfr_network.pkl', m)
+nm = swn.SwnModflow.from_pickle('sfr_network.pkl', m)
+nm.set_sfr_obj()
 m.sfr.write_file('file.sfr')
 nm.grid_cells.to_file('grid_cells.shp')
 nm.reaches.to_file('reaches.shp')
