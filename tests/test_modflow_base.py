@@ -506,7 +506,7 @@ def test_transform_data_from_dict():
 
     pd.testing.assert_series_equal(
         f({101: 10, 100: 11.1}, int, time_index),
-        pd.Series([10, 11], index=[101, 100]))
+        pd.Series([10, 11], index=[101, 100], dtype=int))
 
     pd.testing.assert_series_equal(
         f({0: 10, 1: 11}, float, time_index, mapping),
@@ -593,7 +593,7 @@ def test_transform_data_from_series():
 
     pd.testing.assert_series_equal(
         f(pd.Series([10, 11], index=[101, 100]), int, time_index),
-        pd.Series([10, 11], index=[101, 100]))
+        pd.Series([10, 11], index=[101, 100], dtype=int))
 
     pd.testing.assert_series_equal(
         f(pd.Series([set(), {1, 2}], index=[101, 100]), set, time_index),
@@ -605,7 +605,7 @@ def test_transform_data_from_series():
 
     pd.testing.assert_series_equal(
         f(pd.Series([10, 11], index=["0", "1"]), int, time_index, mapping),
-        pd.Series([10, 11], index=[3, 1]))
+        pd.Series([10, 11], index=[3, 1], dtype=int))
 
     pd.testing.assert_series_equal(
         f(pd.Series([10.0, 11.0, 12.0], index=[0, 1, 2]),
