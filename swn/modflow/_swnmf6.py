@@ -30,7 +30,7 @@ class SwnMf6(SwnModflowBase):
         Similar to structure in model.sfr.reaches with index "rno",
         ordered and starting from 1. Contains geometry and other columns
         not used by flopy.
-    reaches_ts : dict
+    tsvar : dict
         Dataframe of time-varying data for MODFLOW SFR, key is dataset name.
     diversions :  geopandas.GeoDataFrame, pd.DataFrame or None
         Copied from swn.diversions, if set/defined.
@@ -435,7 +435,8 @@ class SwnMf6(SwnModflowBase):
     # TODO: add methods for diversions for flopy and writing file
     def write_diversions(self, fname: str):
         """Write DIVERSIONS file for MODFLOW 6 SFR."""
-        raise NotImplementedError()
+        # TODO
+        raise NotImplementedError("method is not finished")
 
     def flopy_diversions(self):
         """Return list of lists for flopy.
@@ -445,7 +446,8 @@ class SwnMf6(SwnModflowBase):
         list
 
         """
-        raise NotImplementedError()
+        # TODO
+        raise NotImplementedError("method is not finished")
 
     _tsvar_meta = pd.DataFrame([
         ("status", "str"),
@@ -463,6 +465,8 @@ class SwnMf6(SwnModflowBase):
 
     def _check_tsvar_name(self, name: str):
         """Helper method to check name used for set_tsvar_* methods."""
+        # TODO
+        raise NotImplementedError("method is not finished")
         if not isinstance(name, str):
             raise ValueError("name must be str type")
         elif name not in self._tsvar_meta.index:
@@ -482,6 +486,8 @@ class SwnMf6(SwnModflowBase):
             For segments represented by multiple reaches, pick which reach
             to represent data. Default "start" is the upper-most reach.
         """
+        # TODO
+        raise NotImplementedError("method is not finished")
         self._check_tsvar_name(name)
         if not np.isscalar(data):
             raise ValueError("only non-scalar data can be set")
@@ -498,8 +504,7 @@ class SwnMf6(SwnModflowBase):
         ----------
         hyd_cond1 : float or pandas.Series, optional
             Hydraulic conductivity of the streambed, as a global or per top of
-            each segment. Used for reach rhk.
-            Default 1.
+            each segment. Used for reach rhk. Default 1.
         hyd_cond_out : None, float or pandas.Series, optional
             Similar to thickness1, but for the hydraulic conductivity of each
             segment outlet. If None (default), the same hyd_cond1 value for the
