@@ -83,7 +83,8 @@ def geotransform_from_flopy(m):
 def set_outreaches(reach_data, seg_data):
     """
     Determine the outreach for each SFR reach (requires a reachID
-    column in reach_data). Uses the segment routing specified in segdata?!? TODO?.
+    column in reach_data). Uses the segment routing specified in segdata?!?
+    TODO?.
     """
     rd = reach_data.sort_values(["iseg", "ireach"])
     # ensure that each segment starts with reach 1
@@ -91,7 +92,8 @@ def set_outreaches(reach_data, seg_data):
     # ensure that all outsegs are segments, outlets, or negative (lakes)
     # seg_data = repair_outsegs(seg_data)
     # rd = reach_data
-    outseg = seg_data.set_index('nseg').outseg.to_dict()  # make_graph(seg_data)  # TODO
+    # make_graph(seg_data)  # TODO
+    outseg = seg_data.set_index('nseg').outseg.to_dict()
     reach1IDs = dict(
         zip(rd[rd.ireach == 1].iseg, rd[rd.ireach == 1].index)
     )

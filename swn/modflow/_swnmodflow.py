@@ -452,7 +452,7 @@ class SwnModflow(SwnModflowBase):
         return reach_data.to_records(index=True)
 
     def flopy_segment_data(self):
-        """Returns dict of numpy.recarray for flopy's ModflowSfr2 segment_data.
+        """Return dict of numpy.recarray for flopy's ModflowSfr2 segment_data.
 
         This method relies of segnum and divid values being mapped to nseg,
         and stored in segment_data for stationary and segment_data_ts

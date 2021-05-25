@@ -922,7 +922,7 @@ def test_coastal(tmp_path, coastal_lines_gdf, coastal_flow_m):
       296 in reaches (reachID): [1, 2, ..., 295, 296]
       184 in segment_data (nseg): [1, 2, ..., 183, 184]
         184 from segments (nzsegment) (61% used): [3049818, 3049819, ..., 3046952, 3046736]
-      1 stress period with perlen: [1.0] />""")
+      1 stress period with perlen: [1.0] />""")  # noqa
     if matplotlib:
         _ = nm.plot()
         plt.close()
@@ -1095,7 +1095,7 @@ def test_coastal_reduced(coastal_lines_gdf, coastal_flow_m, tmp_path):
       154 in reaches (reachID): [1, 2, ..., 153, 154]
       94 in segment_data (nseg): [1, 2, ..., 93, 94]
         94 from segments (nzsegment) (72% used): [3049802, 3049683, ..., 3046952, 3046736]
-      1 stress period with perlen: [1.0] />""")
+      1 stress period with perlen: [1.0] />""")  # noqa
     if matplotlib:
         _ = nm.plot()
         plt.close()
@@ -1210,7 +1210,7 @@ def test_coastal_ibound_modify(coastal_swn, coastal_flow_m, tmp_path):
           478 in reaches (reachID): [1, 2, ..., 477, 478]
           304 in segment_data (nseg): [1, 2, ..., 303, 304]
             304 from segments (nzsegment): [3050413, 3050418, ..., 3046952, 3046736]
-          1 stress period with perlen: [1.0] />""")
+          1 stress period with perlen: [1.0] />""")  # noqa
     if matplotlib:
         _ = nm.plot()
         plt.close()

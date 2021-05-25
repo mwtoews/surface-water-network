@@ -801,7 +801,7 @@ class SwnModflowBase(object):
             def get_zcoords(g):
                 if g.is_empty or not g.has_z:
                     return []
-                elif g.geom_type =="LineString":
+                elif g.geom_type == "LineString":
                     return [c[2] for c in g.coords[:]]
                 elif g.geom_type == "Point":
                     return [g.z]
@@ -958,8 +958,11 @@ class SwnModflowBase(object):
             else:
                 return Point()
 
-        lastpt = lambda g: getpt(g, -1)
-        firstpt = lambda g: getpt(g, 0)
+        def lastpt(g):
+            return getpt(g, -1)
+
+        def firstpt(g):
+            return getpt(g, 0)
 
         reaches_idx = reaches[reaches.segnum.isin(self._swn.outlets)]\
             .groupby(["segnum"]).ireach.idxmax().values
