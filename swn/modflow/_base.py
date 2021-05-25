@@ -828,8 +828,8 @@ class SwnModflowBase(object):
             # Calculate gradient based on first/last coordinate
             rchs.loc[sel, grid_name] = (
                 (rchs.loc[sel, "zcoord_first"] -
-                 rchs.loc[sel, "zcoord_last"])
-                / rchs.loc[sel, "geometry"].length
+                 rchs.loc[sel, "zcoord_last"]) /
+                rchs.loc[sel, "geometry"].length
             )
         elif method == "grid_top":
             # Estimate slope from top and grid spacing

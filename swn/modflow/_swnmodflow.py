@@ -195,8 +195,8 @@ class SwnModflow(SwnModflowBase):
         import flopy
         if not isinstance(model, flopy.modflow.Modflow):
             raise ValueError(
-                "'model' must be a flopy Modflow object; found "
-                + str(type(model)))
+                "'model' must be a flopy Modflow object; found " +
+                str(type(model)))
         elif not model.has_package("DIS"):
             raise ValueError("DIS package required")
         elif not model.has_package("BAS6"):

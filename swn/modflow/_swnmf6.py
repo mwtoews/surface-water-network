@@ -203,8 +203,8 @@ class SwnMf6(SwnModflowBase):
         import flopy
         if not (isinstance(model, flopy.mf6.mfmodel.MFModel)):
             raise ValueError(
-                "'model' must be a flopy.mf6.MFModel object; found "
-                + str(type(model)))
+                "'model' must be a flopy.mf6.MFModel object; found " +
+                str(type(model)))
         sim = model.simulation
         if "tdis" not in sim.package_key_dict.keys():
             raise ValueError("TDIS package required")
@@ -383,8 +383,8 @@ class SwnMf6(SwnModflowBase):
             If "native", all indicies (including kij) use one-based notation.
             If "flopy", all indices (including rno) use zero-based notation.
         """
-        r = (self.reaches["from_rnos"].apply(sorted)
-             + self.reaches["to_rno"].apply(lambda x: [-x] if x > 0 else []))
+        r = (self.reaches["from_rnos"].apply(sorted) +
+             self.reaches["to_rno"].apply(lambda x: [-x] if x > 0 else []))
         if self.reaches["to_div"].any():
             r += self.reaches["to_div"].apply(lambda x: [-x] if x > 0 else [])
         if style == "native":
