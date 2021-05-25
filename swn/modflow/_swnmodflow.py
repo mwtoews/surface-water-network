@@ -583,9 +583,11 @@ class SwnModflow(SwnModflowBase):
         self.segments["roughch"] = swn._segment_series(roughch)
 
         # Interpolate segment properties to each reach
-        self.set_reach_data_from_series("thickm", thickness1, thickness_out)
-        self.set_reach_data_from_series("strthick", thickness1, thickness_out)
-        self.set_reach_data_from_series(
+        self.set_reach_data_from_segments(
+            "thickm", thickness1, thickness_out)
+        self.set_reach_data_from_segments(
+            "strthick", thickness1, thickness_out)
+        self.set_reach_data_from_segments(
             "strhc1", hyd_cond1, hyd_cond_out, log10=True)
 
         # Get stream values from top of model

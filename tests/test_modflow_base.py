@@ -123,6 +123,45 @@ def test_from_swn_flopy_defaults(has_z):
         plt.close()
 
 
+def test_set_reach_data_from_segments():
+    n = get_basic_swn()
+    m = get_basic_modflow(with_top=False)
+    n.segments["upstream_area"] = n.segments["upstream_length"] ** 2 * 100
+    n.estimate_width()
+    nm = swn.SwnModflow.from_swn_flopy(n, m)
+    nm.set_reach_data_from_segments("const_var", 9)
+    assert list(nm.reaches["const_var"]) == [9.0] * 7
+    nm.set_reach_data_from_segments("width", n.segments.width)
+    np.testing.assert_array_almost_equal(
+        nm.reaches["width"],
+        np.array([
+            1.89765007, 2.07299816, 2.20450922, 1.91205787, 2.19715192,
+            2.29218327, 2.29218327]))
+    nm.set_reach_data_from_segments("width", n.segments.width, pd.Series(5))
+    np.testing.assert_array_almost_equal(
+        nm.reaches["width"],
+        np.array([
+            1.89765007, 2.07299816, 2.20450922, 1.91205787, 2.19715192,
+            2.96913745, 4.32304582]))
+    k = pd.Series([1, 10, 100], dtype=float)
+    nm.set_reach_data_from_segments("strhc1", k)
+    np.testing.assert_array_almost_equal(
+        nm.reaches["strhc1"],
+        np.array([7.75, 4.75, 2.5, 67., 17.5, 1., 1.]))
+    nm.set_reach_data_from_segments("strhc1", k, log10=True)
+    np.testing.assert_array_almost_equal(
+        nm.reaches["strhc1"],
+        np.array([
+            5.62341325, 2.61015722, 1.46779927, 21.5443469, 2.15443469,
+            1., 1.]))
+    nm.set_reach_data_from_segments("strhc1", k, pd.Series(1000), log10=True)
+    np.testing.assert_array_almost_equal(
+        nm.reaches["strhc1"],
+        np.array([
+            5.62341325, 2.61015722, 1.46779927, 21.5443469, 2.15443469,
+            5.62341325, 177.827941]))
+
+
 @pytest.mark.parametrize(
     "has_diversions", [False, True], ids=["nodiv", "div"])
 def test_set_reach_slope_n3d(has_diversions):

@@ -542,7 +542,7 @@ class SwnMf6(SwnModflowBase):
                 action_args = (width1,)
             self.logger.info(
                 "default_packagedata: 'rwd' " + action, *action_args)
-        self.set_reach_data_from_series("rwid", width1, width_out)
+        self.set_reach_data_from_segments("rwid", width1, width_out)
 
         if "rgrd" not in self.reaches.columns:
             self.logger.info(
@@ -560,9 +560,9 @@ class SwnMf6(SwnModflowBase):
             self.reaches.loc[nn, "rtp"] = self.reaches.loc[nn, "zcoord_avg"]
 
         # Assign remaining reach datasets
-        self.set_reach_data_from_series("rbth", thickness1, thickness_out)
-        self.set_reach_data_from_series("rhk", hyd_cond1, hyd_cond_out, True)
-        self.set_reach_data_from_series("man", roughch)
+        self.set_reach_data_from_segments("rbth", thickness1, thickness_out)
+        self.set_reach_data_from_segments("rhk", hyd_cond1, hyd_cond_out, True)
+        self.set_reach_data_from_segments("man", roughch)
 
     def set_sfr_obj(self, auxiliary=None, boundnames=None, **kwds):
         """Set MODFLOW 6 SFR package data to flopy model.

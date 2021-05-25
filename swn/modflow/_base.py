@@ -677,12 +677,12 @@ class SwnModflowBase(object):
         # each subclass should do more processing with returned object
         return obj
 
-    def set_reach_data_from_series(
+    def set_reach_data_from_segments(
             self, name, value, value_out=None, log10=False):
         """Set reach data based on segment series (or scalar).
 
         Values are interpolated along lengths of each segment based on a
-        'segndist' attribute for segment normalized distance, between 0 and 1.
+        "segndist" attribute for segment normalized distance, between 0 and 1.
 
         Parameters
         ----------
@@ -704,11 +704,11 @@ class SwnModflowBase(object):
             raise ValueError("'name' must be a str type")
         segdat = self._swn._pair_segment_values(value, value_out, name)
         for segnum, (value1, value2) in segdat.iterrows():
-            sel = self.reaches['segnum'] == segnum
+            sel = self.reaches["segnum"] == segnum
             if value1 == value2:
                 value = value1
             else:  # interpolate to mid points of each reach from segment data
-                segndist = self.reaches.loc[sel, 'segndist']
+                segndist = self.reaches.loc[sel, "segndist"]
                 if log10:
                     lvalue1 = np.log10(value1)
                     lvalue2 = np.log10(value2)
@@ -786,7 +786,7 @@ class SwnModflowBase(object):
             "setting reaches['%s'] with %s method", grid_name, method)
         rchs = self.reaches
         rchs["min_slope"] = np.nan
-        self.set_reach_data_from_series("min_slope", min_slope)
+        self.set_reach_data_from_segments("min_slope", min_slope)
         # with diversions, these reaches will be NaN, so set to min
         sel = rchs.min_slope.isna()
         if sel.any():
