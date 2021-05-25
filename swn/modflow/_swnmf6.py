@@ -312,9 +312,14 @@ class SwnMf6(SwnModflowBase):
         with open(fname, "w") as f:
             pn.reset_index().to_string(f, header=True, index=False)
 
-    @property
     def flopy_packagedata(self):
-        """Return list of lists for flopy."""
+        """Return list of lists for flopy.
+
+        Returns
+        -------
+        list
+
+        """
         df = self._packagedata_df("flopy")
         return [list(x) for x in df.itertuples()]
 
@@ -365,9 +370,14 @@ class SwnMf6(SwnModflowBase):
             for rno, ic in cn.iteritems():
                 f.write(rowfmt.format(rno, ic))
 
-    @property
     def flopy_connectiondata(self):
-        """Return list of lists for flopy."""
+        """Return list of lists for flopy.
+
+        Returns
+        -------
+        list
+
+        """
         s = self._connectiondata_series("flopy")
         return (s.index.to_series().apply(lambda x: list([x])) + s).to_list()
 
@@ -376,9 +386,14 @@ class SwnMf6(SwnModflowBase):
         """Write DIVERSIONS file for MODFLOW 6 SFR."""
         raise NotImplementedError()
 
-    @property
     def flopy_diversions(self):
-        """Return list of lists for flopy."""
+        """Return list of lists for flopy.
+
+        Returns
+        -------
+        list
+
+        """
         raise NotImplementedError()
 
     _tsvar_meta = pd.DataFrame([
@@ -498,7 +513,6 @@ class SwnMf6(SwnModflowBase):
         self.set_reach_data_from_series("rhk", hyd_cond1, hyd_cond_out, True)
         self.set_reach_data_from_series("man", roughch)
 
-
     def set_sfr_obj(self, **kwds):
         """Set MODFLOW 6 SFR package data to flopy model.
 
@@ -512,8 +526,8 @@ class SwnMf6(SwnModflowBase):
         flopy.mf6.ModflowGwfsfr(
             self.model,
             nreaches=len(self.reaches),
-            packagedata=self.flopy_packagedata,
-            connectiondata=self.flopy_connectiondata,
+            packagedata=self.flopy_packagedata(),
+            connectiondata=self.flopy_connectiondata(),
             perioddata=self.spd,
             **kwds)
 

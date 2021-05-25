@@ -781,8 +781,8 @@ def test_set_elevations(tmpdir_factory):
     nm.default_segment_data()
     # fix elevations
     _ = nm.set_topbot_elevs_at_reaches()
-    seg_data = nm.flopy_segment_data
-    reach_data = nm.flopy_reach_data
+    seg_data = nm.flopy_segment_data()
+    reach_data = nm.flopy_reach_data()
     _ = flopy.modflow.mfsfr2.ModflowSfr2(
         model=m, reach_data=reach_data, segment_data=seg_data)
     if matplotlib:
@@ -790,8 +790,8 @@ def test_set_elevations(tmpdir_factory):
         plt.close()
     _ = nm.fix_segment_elevs(min_incise=0.2, min_slope=1.e-4)
     _ = nm.reconcile_reach_strtop()
-    seg_data = nm.flopy_segment_data
-    reach_data = nm.flopy_reach_data
+    seg_data = nm.flopy_segment_data()
+    reach_data = nm.flopy_reach_data()
     _ = flopy.modflow.mfsfr2.ModflowSfr2(
         model=m, reach_data=reach_data, segment_data=seg_data)
     if matplotlib:
@@ -801,8 +801,8 @@ def test_set_elevations(tmpdir_factory):
         plt.close()
     _ = nm.set_topbot_elevs_at_reaches()
     nm.fix_reach_elevs()
-    seg_data = nm.flopy_segment_data
-    reach_data = nm.flopy_reach_data
+    seg_data = nm.flopy_segment_data()
+    reach_data = nm.flopy_reach_data()
     _ = flopy.modflow.mfsfr2.ModflowSfr2(
         model=m, reach_data=reach_data, segment_data=seg_data)
     if matplotlib:
@@ -1010,8 +1010,8 @@ def test_coastal_elevations(coastal_swn, coastal_flow_m, tmpdir_factory):
     nm.default_segment_data()
     nm.set_segment_data_inflow(coastal_flow_m)
     _ = nm.set_topbot_elevs_at_reaches()
-    seg_data = nm.flopy_segment_data
-    reach_data = nm.flopy_reach_data
+    seg_data = nm.flopy_segment_data()
+    reach_data = nm.flopy_reach_data()
     flopy.modflow.mfsfr2.ModflowSfr2(
         model=m, reach_data=reach_data, segment_data=seg_data)
     if matplotlib:
@@ -1028,8 +1028,8 @@ def test_coastal_elevations(coastal_swn, coastal_flow_m, tmpdir_factory):
     _ = nm.fix_segment_elevs(min_incise=0.2, min_slope=1.e-4,
                              max_str_z=max_str_z)
     _ = nm.reconcile_reach_strtop()
-    seg_data = nm.flopy_segment_data
-    reach_data = nm.flopy_reach_data
+    seg_data = nm.flopy_segment_data()
+    reach_data = nm.flopy_reach_data()
     flopy.modflow.mfsfr2.ModflowSfr2(
         model=m, reach_data=reach_data, segment_data=seg_data)
     if matplotlib:
@@ -1040,8 +1040,8 @@ def test_coastal_elevations(coastal_swn, coastal_flow_m, tmpdir_factory):
             plt.close()
     _ = nm.set_topbot_elevs_at_reaches()
     nm.fix_reach_elevs()
-    seg_data = nm.flopy_segment_data
-    reach_data = nm.flopy_reach_data
+    seg_data = nm.flopy_segment_data()
+    reach_data = nm.flopy_reach_data()
     flopy.modflow.mfsfr2.ModflowSfr2(
         model=m, reach_data=reach_data, segment_data=seg_data)
     if matplotlib:
@@ -1383,7 +1383,7 @@ def test_diversions(tmpdir_factory):
 
     # Route some flow from headwater segments
     nm.set_segment_data_from_segments("flow", {1: 2, 2: 3})
-    m.sfr.segment_data = nm.flopy_segment_data
+    m.sfr.segment_data = nm.flopy_segment_data()
     np.testing.assert_array_almost_equal(
         m.sfr.segment_data[0]["flow"],
         [2.0, 3.0, 0.0, 0.0, 0.0, 0.0, 0.0])
@@ -1404,7 +1404,7 @@ def test_diversions(tmpdir_factory):
 
     # Same, but with abstraction
     nm.set_segment_data_from_diversions("abstraction", {0: 1.1})
-    m.sfr.segment_data = nm.flopy_segment_data
+    m.sfr.segment_data = nm.flopy_segment_data()
     np.testing.assert_array_almost_equal(
         m.sfr.segment_data[0]["flow"],
         [2.0, 3.0, 0.0, 1.1, 0.0, 0.0, 0.0])
@@ -1425,7 +1425,7 @@ def test_diversions(tmpdir_factory):
 
     # More abstraction with dry streams
     nm.set_segment_data_from_diversions("abstraction", {1: 3.3})
-    m.sfr.segment_data = nm.flopy_segment_data
+    m.sfr.segment_data = nm.flopy_segment_data()
     np.testing.assert_array_almost_equal(
         m.sfr.segment_data[0]["flow"],
         [2.0, 3.0, 0.0, 1.1, 3.3, 0.0, 0.0])

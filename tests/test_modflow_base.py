@@ -293,8 +293,8 @@ def test_coastal_elevations(coastal_swn):
     _ = nm.fix_segment_elevs(min_incise=0.2, min_slope=1.e-4,
                              max_str_z=max_str_z)
     _ = nm.reconcile_reach_strtop()
-    seg_data = nm.flopy_segment_data
-    reach_data = nm.flopy_reach_data
+    seg_data = nm.flopy_segment_data()
+    reach_data = nm.flopy_reach_data()
     flopy.modflow.mfsfr2.ModflowSfr2(
         model=m, reach_data=reach_data, segment_data=seg_data)
     if matplotlib:
@@ -305,8 +305,8 @@ def test_coastal_elevations(coastal_swn):
             plt.close()
     _ = nm.set_topbot_elevs_at_reaches()
     nm.fix_reach_elevs()
-    seg_data = nm.flopy_segment_data
-    reach_data = nm.flopy_reach_data
+    seg_data = nm.flopy_segment_data()
+    reach_data = nm.flopy_reach_data()
     flopy.modflow.mfsfr2.ModflowSfr2(
         model=m, reach_data=reach_data, segment_data=seg_data)
     if matplotlib:

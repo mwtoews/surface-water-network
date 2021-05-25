@@ -210,7 +210,7 @@ def test_n3d_defaults(tmpdir_factory):
         [18.027756, 6.009252, 12.018504, 21.081851, 10.540926, 10.0, 10.0])
     # Write native MF6 file and flopy datasets
     nm.write_packagedata(os.path.join(outdir, "packagedata.dat"))
-    fpd = nm.flopy_packagedata
+    fpd = nm.flopy_packagedata()
     # Don't check everything
     assert isinstance(fpd, list)
     assert len(fpd) == 7
@@ -227,7 +227,7 @@ def test_n3d_defaults(tmpdir_factory):
     assert list(cf) == [[-1], [0, -2], [1, -5], [-4], [3, -5], [2, 4, -6], [5]]
     # Write native MF6 file and flopy datasets
     nm.write_connectiondata(os.path.join(outdir, "connectiondata.dat"))
-    assert nm.flopy_connectiondata == \
+    assert nm.flopy_connectiondata() == \
         [[0, -1], [1, 0, -2], [2, 1, -5], [3, -4], [4, 3, -5], [5, 2, 4, -6],
          [6, 5]]
     # Use with flopy
@@ -402,8 +402,8 @@ def test_n2d_defaults(tmpdir_factory):
         maximum_iterations=100,
         maximum_picard_iterations=10,
         nreaches=len(nm.reaches),
-        packagedata=nm.flopy_packagedata,
-        connectiondata=nm.flopy_connectiondata,
+        packagedata=nm.flopy_packagedata(),
+        connectiondata=nm.flopy_connectiondata(),
         perioddata=sfr_spd,
     )
     if mf6_exe:
@@ -453,8 +453,8 @@ def test_coastal(
         maximum_iterations=100,
         maximum_picard_iterations=10,
         nreaches=len(nm.reaches),
-        packagedata=nm.flopy_packagedata,
-        connectiondata=nm.flopy_connectiondata,
+        packagedata=nm.flopy_packagedata(),
+        connectiondata=nm.flopy_connectiondata(),
         perioddata=sfr_spd,
     )
     sim.write_simulation()
@@ -624,8 +624,8 @@ def test_coastal_reduced(
         maximum_iterations=100,
         maximum_picard_iterations=10,
         nreaches=len(nm.reaches),
-        packagedata=nm.flopy_packagedata,
-        connectiondata=nm.flopy_connectiondata,
+        packagedata=nm.flopy_packagedata(),
+        connectiondata=nm.flopy_connectiondata(),
         perioddata=sfr_spd,
     )
     sim.write_simulation()
@@ -691,8 +691,8 @@ def test_coastal_idomain_modify(coastal_swn, coastal_flow_m, tmpdir_factory):
         maximum_iterations=100,
         maximum_picard_iterations=10,
         nreaches=len(nm.reaches),
-        packagedata=nm.flopy_packagedata,
-        connectiondata=nm.flopy_connectiondata,
+        packagedata=nm.flopy_packagedata(),
+        connectiondata=nm.flopy_connectiondata(),
         perioddata=sfr_spd,
     )
     sim.write_simulation()

@@ -38,7 +38,7 @@ class SwnModflow(SwnModflowBase):
     reaches : geopandas.GeoDataFrame
         Similar to structure in model.sfr.reach_data with index "reachID",
         ordered and starting from 1. Contains geometry and other columns
-        not used by flopy. Use flopy_reach_data for use with flopy.
+        not used by flopy. Use flopy_reach_data() for use with flopy.
     diversions :  geopandas.GeoDataFrame, pd.DataFrame or None
         Copied from swn.diversions, if set/defined.
     logger : logging.Logger
@@ -430,9 +430,12 @@ class SwnModflow(SwnModflowBase):
             self.set_segment_data_from_segments(
                 "inflow_segnums", self.segments["inflow_segnums"])
 
-    @property
     def flopy_reach_data(self):
         """Return numpy.recarray for flopy's ModflowSfr2 reach_data.
+
+        Parameters
+        ----------
+        None
 
         Returns
         -------
@@ -448,7 +451,6 @@ class SwnModflow(SwnModflowBase):
         reach_data = pd.DataFrame(self.reaches[reach_data_names])
         return reach_data.to_records(index=True)
 
-    @property
     def flopy_segment_data(self):
         """Returns dict of numpy.recarray for flopy's ModflowSfr2 segment_data.
 
@@ -458,6 +460,10 @@ class SwnModflow(SwnModflowBase):
 
         Importantly, the final FLOW term is determined by combining
         abstraction and inflow terms.
+
+        Parameters
+        ----------
+        None
 
         Returns
         -------
@@ -626,8 +632,8 @@ class SwnModflow(SwnModflowBase):
 
         flopy.modflow.mfsfr2.ModflowSfr2(
             model=self.model,
-            reach_data=self.flopy_reach_data,
-            segment_data=self.flopy_segment_data,
+            reach_data=self.flopy_reach_data(),
+            segment_data=self.flopy_segment_data(),
             **kwds)
 
     def get_seg_ijk(self):
