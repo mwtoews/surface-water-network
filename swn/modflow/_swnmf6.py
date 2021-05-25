@@ -374,7 +374,7 @@ class SwnMf6(SwnModflowBase):
             "flopy", auxiliary=auxiliary, boundname=boundname)
         return [list(x) for x in df.itertuples()]
 
-    def _connectiondata_series(self, style: str):
+    def connectiondata_series(self, style: str):
         """Return Series of CONNECTIONDATA for MODFLOW 6 SFR.
 
         Parameters
@@ -411,7 +411,7 @@ class SwnMf6(SwnModflowBase):
         None
 
         """
-        cn = self._connectiondata_series("native")
+        cn = self.connectiondata_series("native")
         icn = [f"ic{n+1}" for n in range(cn.apply(len).max())]
         rowfmt = "{:>" + str(len(str(cn.index.max()))) + "} {}\n"
         rnolen = 1 + len(str(len(self.reaches)))
@@ -429,7 +429,7 @@ class SwnMf6(SwnModflowBase):
         list
 
         """
-        s = self._connectiondata_series("flopy")
+        s = self.connectiondata_series("flopy")
         return (s.index.to_series().apply(lambda x: list([x])) + s).to_list()
 
     # TODO: add methods for diversions for flopy and writing file

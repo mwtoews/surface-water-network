@@ -204,13 +204,6 @@ def test_n3d_defaults(tmp_path):
     assert len(fpd[0]) == 12
     assert fpd[-1][0] == 6
     assert fpd[-1][1] == (0, 2, 1)
-    # check CONNECTIONDATA
-    cn = nm._connectiondata_series("native")
-    cf = nm._connectiondata_series("flopy")
-    assert list(cn.index) == [1, 2, 3, 4, 5, 6, 7]
-    assert list(cn) == [[-2], [1, -3], [2, -6], [-5], [4, -6], [3, 5, -7], [6]]
-    assert list(cf.index) == [0, 1, 2, 3, 4, 5, 6]
-    assert list(cf) == [[-1], [0, -2], [1, -5], [-4], [3, -5], [2, 4, -6], [5]]
     # Write native MF6 file and flopy datasets
     nm.write_connectiondata(tmp_path / "connectiondata.dat")
     assert nm.flopy_connectiondata() == \
@@ -407,7 +400,7 @@ def test_packagedata(tmp_path):
     assert list(m.sfr.packagedata.array.dtype.names) == \
         ["rno", "cellid"] + partial_expected_cols
 
-    # Check pandas frame
+    # Check pandas frames
     rn = nm.packagedata_df("native")
     rf = nm.packagedata_df("flopy")
     assert list(rn.columns) == ["k", "i", "j"] + partial_expected_cols
@@ -480,6 +473,25 @@ def test_packagedata(tmp_path):
         ["another reach", "longname" * 5, "1", "2", "2", "0", "0"]
     nm.write_packagedata(
         tmp_path / "packagedata_aux_boundname.dat", auxiliary=["var1"])
+
+
+def test_connectiondata(tmp_path):
+    n = get_basic_swn()
+    sim, m = get_basic_modflow(tmp_path)
+    nm = swn.SwnMf6.from_swn_flopy(n, m)
+    nm.default_packagedata()
+    nm.set_sfr_obj()
+
+    # Check pandas series
+    cn = nm.connectiondata_series("native")
+    cf = nm.connectiondata_series("flopy")
+    assert list(cn.index) == [1, 2, 3, 4, 5, 6, 7]
+    assert list(cn) == [[-2], [1, -3], [2, -6], [-5], [4, -6], [3, 5, -7], [6]]
+    assert list(cf.index) == [0, 1, 2, 3, 4, 5, 6]
+    assert list(cf) == [[-1], [0, -2], [1, -5], [-4], [3, -5], [2, 4, -6], [5]]
+
+    nm.write_connectiondata(tmp_path / "connectiondata.dat")
+
 
 def check_number_sum_hex(a, n, h):
     a = np.ceil(a).astype(np.int64)
