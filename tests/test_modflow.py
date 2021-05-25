@@ -52,7 +52,9 @@ def get_basic_swn(has_z: bool = True, has_diversions: bool = False):
     return n
 
 
-def get_basic_modflow(outdir=".", with_top: bool = False, nper: int = 1):
+def get_basic_modflow(
+        outdir=".", with_top: bool = False, nper: int = 1,
+        hk=1e-2, rech=1e-4):
     """Returns a basic Flopy MODFLOW model"""
     if with_top:
         top = np.array([
@@ -70,8 +72,8 @@ def get_basic_modflow(outdir=".", with_top: bool = False, nper: int = 1):
         xul=30.0, yul=130.0)
     _ = flopy.modflow.ModflowBas(m, strt=top, stoper=5.0)
     _ = flopy.modflow.ModflowSip(m)
-    _ = flopy.modflow.ModflowLpf(m, ipakcb=52, laytyp=0, hk=1e-2)
-    _ = flopy.modflow.ModflowRch(m, ipakcb=52, rech=1e-4)
+    _ = flopy.modflow.ModflowLpf(m, ipakcb=52, laytyp=0, hk=hk)
+    _ = flopy.modflow.ModflowRch(m, ipakcb=52, rech=rech)
     _ = flopy.modflow.ModflowOc(
         m, stress_period_data={
             (0, 0): ["print head", "save head", "save budget"]})
@@ -207,10 +209,9 @@ def test_new_segment_data(has_diversions):
 
 
 @requires_mf2005
-def test_n3d_defaults(tmpdir_factory):
-    outdir = tmpdir_factory.mktemp("test_n3d_defaults")
+def test_n3d_defaults(tmp_path):
     n = get_basic_swn()
-    m = get_basic_modflow(outdir)
+    m = get_basic_modflow(tmp_path)
     nm = swn.SwnModflow.from_swn_flopy(n, m)
     nm.default_segment_data()
     nm.set_sfr_obj(ipakcb=52, istcb2=-53)
@@ -273,20 +274,19 @@ def test_n3d_defaults(tmpdir_factory):
         _ = nm.plot()
         plt.close()
     # Run model and read outputs
-    m.model_ws = str(outdir)
+    m.model_ws = str(tmp_path)
     m.write_input()
     success, buff = m.run_model()
     assert success
-    hds_fname = str(outdir.join(m.name + ".hds"))
-    cbc_fname = str(outdir.join(m.name + ".cbc"))
-    sfo_fname = str(outdir.join(m.name + ".sfr.bin"))
-    heads = read_head(hds_fname)
-    sl = read_budget(cbc_fname, "STREAM LEAKAGE", nm.reaches, "sfrleakage")
-    sf = read_budget(sfo_fname, "STREAMFLOW OUT", nm.reaches, "sfr_Q")
+    heads = read_head(tmp_path / "modflowtest.hds")
+    sl = read_budget(tmp_path / "modflowtest.cbc",
+                     "STREAM LEAKAGE", nm.reaches, "sfrleakage")
+    sf = read_budget(tmp_path / "modflowtest.sfr.bin",
+                     "STREAMFLOW OUT", nm.reaches, "sfr_Q")
     # Write some files
-    nm.reaches.to_file(str(outdir.join("reaches.shp")))
-    nm.grid_cells.to_file(str(outdir.join("grid_cells.shp")))
-    gdf_to_shapefile(nm.segments, outdir.join("segments.shp"))
+    nm.reaches.to_file(tmp_path / "reaches.shp")
+    nm.grid_cells.to_file(tmp_path / "grid_cells.shp")
+    gdf_to_shapefile(nm.segments, tmp_path / "segments.shp")
     # Check results
     assert heads.shape == (1, 3, 2)
     np.testing.assert_array_almost_equal(
@@ -532,24 +532,12 @@ def test_default_segment_data(has_z):
 
 
 @requires_mf2005
-def test_n3d_vars(tmpdir_factory):
+def test_n3d_vars(tmp_path):
     # Repeat, but with min_slope enforced, and other options
-    outdir = tmpdir_factory.mktemp("test_n3d_vars")
     n = get_basic_swn()
     # manually add outside flow from extra segnums, referenced with inflow
     n.segments.at[1, "from_segnums"] = {3, 4}
-    # Create a simple MODFLOW model
-    m = flopy.modflow.Modflow(version="mf2005", exe_name=mf2005_exe)
-    _ = flopy.modflow.ModflowDis(
-        m, nlay=1, nrow=3, ncol=2, delr=20.0, delc=20.0, top=15.0, botm=10.0,
-        xul=30.0, yul=130.0)
-    _ = flopy.modflow.ModflowOc(
-        m, stress_period_data={
-            (0, 0): ["print head", "save head", "save budget"]})
-    _ = flopy.modflow.ModflowBas(m, strt=15.0, stoper=5.0)
-    _ = flopy.modflow.ModflowSip(m)
-    _ = flopy.modflow.ModflowLpf(m, ipakcb=52, laytyp=0, hk=1.0)
-    _ = flopy.modflow.ModflowRch(m, ipakcb=52, rech=0.01)
+    m = get_basic_modflow(str(tmp_path), hk=1.0, rech=0.01)
     nm = swn.SwnModflow.from_swn_flopy(n, m)
     nm.set_reach_slope(min_slope=0.03)
     nm.default_segment_data(hyd_cond1=2, thickness1=2.0)
@@ -604,20 +592,19 @@ def test_n3d_vars(tmpdir_factory):
         _ = nm.plot()
         plt.close()
     # Run model and read outputs
-    m.model_ws = str(outdir)
+    m.model_ws = str(tmp_path)
     m.write_input()
     success, buff = m.run_model()
     assert success
-    hds_fname = str(outdir.join(m.name + ".hds"))
-    cbc_fname = str(outdir.join(m.name + ".cbc"))
-    sfo_fname = str(outdir.join(m.name + ".sfr.bin"))
-    heads = read_head(hds_fname)
-    sl = read_budget(cbc_fname, "STREAM LEAKAGE", nm.reaches, "sfrleakage")
-    sf = read_budget(sfo_fname, "STREAMFLOW OUT", nm.reaches, "sfr_Q")
+    heads = read_head(tmp_path / "modflowtest.hds")
+    sl = read_budget(tmp_path / "modflowtest.cbc",
+                     "STREAM LEAKAGE", nm.reaches, "sfrleakage")
+    sf = read_budget(tmp_path / "modflowtest.sfr.bin",
+                     "STREAMFLOW OUT", nm.reaches, "sfr_Q")
     # Write some files
-    nm.reaches.to_file(str(outdir.join("reaches.shp")))
-    nm.grid_cells.to_file(str(outdir.join("grid_cells.shp")))
-    gdf_to_shapefile(nm.segments, outdir.join("segments.shp"))
+    nm.reaches.to_file(tmp_path / "reaches.shp")
+    nm.grid_cells.to_file(tmp_path / "grid_cells.shp")
+    gdf_to_shapefile(nm.segments, tmp_path / "segments.shp")
     # Check results
     assert heads.shape == (1, 3, 2)
     np.testing.assert_array_almost_equal(
@@ -637,27 +624,10 @@ def test_n3d_vars(tmpdir_factory):
 
 
 @requires_mf2005
-def test_n2d_defaults(tmpdir_factory):
-    outdir = tmpdir_factory.mktemp("test_n2d_defaults")
+def test_n2d_defaults(tmp_path):
     # similar to 3D version, but getting information from model
     n = get_basic_swn(has_z=False)
-    # Create a simple MODFLOW model
-    top = np.array([
-        [16.0, 15.0],
-        [15.0, 15.0],
-        [14.0, 14.0],
-    ])
-    m = flopy.modflow.Modflow(version="mf2005", exe_name=mf2005_exe)
-    flopy.modflow.ModflowDis(
-        m, nlay=1, nrow=3, ncol=2, delr=20.0, delc=20.0, top=top, botm=10.0,
-        xul=30.0, yul=130.0)
-    _ = flopy.modflow.ModflowOc(
-        m, stress_period_data={
-            (0, 0): ["print head", "save head", "save budget"]})
-    _ = flopy.modflow.ModflowBas(m, strt=top, stoper=5.0)
-    _ = flopy.modflow.ModflowSip(m)
-    _ = flopy.modflow.ModflowLpf(m, ipakcb=52, laytyp=0, hk=1.0)
-    _ = flopy.modflow.ModflowRch(m, ipakcb=52, rech=0.01)
+    m = get_basic_modflow(str(tmp_path), with_top=True, hk=1.0, rech=0.01)
     nm = swn.SwnModflow.from_swn_flopy(n, m)
     nm.default_segment_data()
     nm.set_sfr_obj(ipakcb=52, istcb2=-53)
@@ -690,38 +660,21 @@ def test_n2d_defaults(tmpdir_factory):
         _ = nm.plot()
         plt.close()
     # Run model
-    m.model_ws = str(outdir)
+    m.model_ws = str(tmp_path)
     m.write_input()
     success, buff = m.run_model()
     assert not success
     # Error/warning: upstream elevation is equal to downstream, slope is zero
     # TODO: improve processing to correct elevation errors
-    nm.reaches.to_file(str(outdir.join("reaches.shp")))
-    nm.grid_cells.to_file(str(outdir.join("grid_cells.shp")))
-    gdf_to_shapefile(nm.segments, outdir.join("segments.shp"))
+    nm.reaches.to_file(tmp_path / "reaches.shp")
+    nm.grid_cells.to_file(tmp_path / "grid_cells.shp")
+    gdf_to_shapefile(nm.segments, tmp_path / "segments.shp")
 
 
 @requires_mf2005
-def test_n2d_min_slope(tmpdir_factory):
-    outdir = tmpdir_factory.mktemp("test_n2d_min_slope")
+def test_n2d_min_slope(tmp_path):
     n = get_basic_swn(has_z=False)
-    # Create a simple MODFLOW model
-    top = np.array([
-        [16.0, 15.0],
-        [15.0, 15.0],
-        [14.0, 14.0],
-    ])
-    m = flopy.modflow.Modflow(version="mf2005", exe_name=mf2005_exe)
-    _ = flopy.modflow.ModflowDis(
-        m, nlay=1, nrow=3, ncol=2, delr=20.0, delc=20.0, top=top, botm=10.0,
-        xul=30.0, yul=130.0)
-    _ = flopy.modflow.ModflowOc(
-        m, stress_period_data={
-            (0, 0): ["print head", "save head", "save budget"]})
-    _ = flopy.modflow.ModflowBas(m, strt=top, stoper=5.0)
-    _ = flopy.modflow.ModflowSip(m)
-    _ = flopy.modflow.ModflowLpf(m, ipakcb=52, laytyp=0, hk=1.0)
-    _ = flopy.modflow.ModflowRch(m, ipakcb=52, rech=0.01)
+    m = get_basic_modflow(str(tmp_path), with_top=True, hk=1.0, rech=0.01)
     nm = swn.SwnModflow.from_swn_flopy(n, m)
     nm.set_reach_slope(min_slope=0.03)
     nm.default_segment_data()
@@ -744,39 +697,21 @@ def test_n2d_min_slope(tmpdir_factory):
     assert list(sd.iupseg) == [0, 0, 0]
     # See test_n3d_defaults for other checks
     # Run model and read outputs
-    m.model_ws = str(outdir)
+    m.model_ws = str(tmp_path)
     m.write_input()
     success, buff = m.run_model()
     assert not success
     # Error/warning: upstream elevation is equal to downstream, slope is zero
     # TODO: improve processing to correct elevation errors
-    nm.reaches.to_file(str(outdir.join("reaches.shp")))
-    nm.grid_cells.to_file(str(outdir.join("grid_cells.shp")))
-    gdf_to_shapefile(nm.segments, outdir.join("segments.shp"))
+    nm.reaches.to_file(tmp_path / "reaches.shp")
+    nm.grid_cells.to_file(tmp_path / "grid_cells.shp")
+    gdf_to_shapefile(nm.segments, tmp_path / "segments.shp")
 
 
 @requires_mf2005
-def test_set_elevations(tmpdir_factory):
-    outdir = tmpdir_factory.mktemp("test_set_elevations")
-    # similar to 3D version, but getting information from model
+def test_set_elevations(tmp_path):
     n = get_basic_swn(has_z=False)
-    # Create a simple MODFLOW model
-    top = np.array([
-        [16.0, 15.0],
-        [15.0, 15.0],
-        [14.0, 14.0],
-    ])
-    m = flopy.modflow.Modflow(version="mf2005", exe_name=mf2005_exe)
-    _ = flopy.modflow.ModflowDis(
-        m, nlay=1, nrow=3, ncol=2, delr=20.0, delc=20.0, top=top, botm=10.0,
-        xul=30.0, yul=130.0)
-    _ = flopy.modflow.ModflowOc(
-        m, stress_period_data={
-            (0, 0): ["print head", "save head", "save budget"]})
-    _ = flopy.modflow.ModflowBas(m, strt=top, stoper=5.0)
-    _ = flopy.modflow.ModflowSip(m)
-    _ = flopy.modflow.ModflowLpf(m, ipakcb=52, laytyp=0, hk=1.0)
-    _ = flopy.modflow.ModflowRch(m, ipakcb=52, rech=0.01)
+    m = get_basic_modflow(str(tmp_path), with_top=True, hk=1.0, rech=0.01)
     nm = swn.SwnModflow.from_swn_flopy(n, m)
     nm.default_segment_data()
     # fix elevations
@@ -831,20 +766,19 @@ def test_set_elevations(tmpdir_factory):
     assert list(sd.iupseg) == [0, 0, 0]
     # See test_n3d_defaults for other checks
     # Run model
-    m.model_ws = str(outdir)
+    m.model_ws = str(tmp_path)
     m.write_input()
     success, buff = m.run_model()
     assert success
-    hds_fname = str(outdir.join(m.name + ".hds"))
-    cbc_fname = str(outdir.join(m.name + ".cbc"))
-    sfo_fname = str(outdir.join(m.name + ".sfr.bin"))
-    heads = read_head(hds_fname)
-    sl = read_budget(cbc_fname, "STREAM LEAKAGE", nm.reaches, "sfrleakage")
-    sf = read_budget(sfo_fname, "STREAMFLOW OUT", nm.reaches, "sfr_Q")
+    heads = read_head(tmp_path / "modflowtest.hds")
+    sl = read_budget(tmp_path / "modflowtest.cbc",
+                     "STREAM LEAKAGE", nm.reaches, "sfrleakage")
+    sf = read_budget(tmp_path / "modflowtest.sfr.bin",
+                     "STREAMFLOW OUT", nm.reaches, "sfr_Q")
     # Write some files
-    nm.reaches.to_file(str(outdir.join("reaches.shp")))
-    nm.grid_cells.to_file(str(outdir.join("grid_cells.shp")))
-    gdf_to_shapefile(nm.segments, outdir.join("segments.shp"))
+    nm.reaches.to_file(tmp_path / "reaches.shp")
+    nm.grid_cells.to_file(tmp_path / "grid_cells.shp")
+    gdf_to_shapefile(nm.segments, tmp_path / "segments.shp")
     # Check results
     assert heads.shape == (1, 3, 2)
     np.testing.assert_array_almost_equal(
@@ -871,12 +805,11 @@ def check_number_sum_hex(a, n, h):
 
 
 @requires_mfnwt
-def test_coastal(tmpdir_factory, coastal_lines_gdf, coastal_flow_m):
-    outdir = tmpdir_factory.mktemp("test_coastal")
+def test_coastal(tmp_path, coastal_lines_gdf, coastal_flow_m):
     m = flopy.modflow.Modflow.load(
         "h.nam", version="mfnwt", exe_name=mfnwt_exe, model_ws=datadir,
         check=False)
-    m.model_ws = str(outdir)
+    m.model_ws = str(tmp_path)
     # this model works without SFR
     m.write_input()
     success, buff = m.run_model()
@@ -994,18 +927,17 @@ def test_coastal(tmpdir_factory, coastal_lines_gdf, coastal_flow_m):
         _ = nm.plot()
         plt.close()
     # Write output files
-    nm.grid_cells.to_file(str(outdir.join("grid_cells.shp")))
-    nm.reaches.to_file(str(outdir.join("reaches.shp")))
-    gdf_to_shapefile(nm.segments, outdir.join("segments.shp"))
+    nm.grid_cells.to_file(tmp_path / "grid_cells.shp")
+    nm.reaches.to_file(tmp_path / "reaches.shp")
+    gdf_to_shapefile(nm.segments, tmp_path / "segments.shp")
 
 
 @requires_mfnwt
-def test_coastal_elevations(coastal_swn, coastal_flow_m, tmpdir_factory):
-    outdir = tmpdir_factory.mktemp("test_coastal_elevations")
+def test_coastal_elevations(coastal_swn, coastal_flow_m, tmp_path):
     m = flopy.modflow.Modflow.load(
         "h.nam", version="mfnwt", exe_name=mfnwt_exe, model_ws=datadir,
         check=False)
-    m.model_ws = str(outdir)
+    m.model_ws = str(tmp_path)
     nm = swn.SwnModflow.from_swn_flopy(coastal_swn, m)
     nm.default_segment_data()
     nm.set_segment_data_inflow(coastal_flow_m)
@@ -1055,15 +987,14 @@ def test_coastal_elevations(coastal_swn, coastal_flow_m, tmpdir_factory):
     m.sfr.istcb2 = -51
     m.add_output_file(51, extension="sfo", binflag=True)
     # Run model
-    m.model_ws = str(outdir)
+    m.model_ws = str(tmp_path)
     m.write_input()
     success, buff = m.run_model()
     assert success
 
 
 @requires_mfnwt
-def test_coastal_reduced(coastal_lines_gdf, coastal_flow_m, tmpdir_factory):
-    outdir = tmpdir_factory.mktemp("test_coastal_reduced")
+def test_coastal_reduced(coastal_lines_gdf, coastal_flow_m, tmp_path):
     n = swn.SurfaceWaterNetwork.from_lines(coastal_lines_gdf.geometry)
     assert len(n) == 304
     # Modify swn object
@@ -1169,7 +1100,7 @@ def test_coastal_reduced(coastal_lines_gdf, coastal_flow_m, tmpdir_factory):
         _ = nm.plot()
         plt.close()
     # Run model and read outputs
-    m.model_ws = str(outdir)
+    m.model_ws = str(tmp_path)
     m.sfr.unit_number = [24]
     m.sfr.ipakcb = 50
     m.sfr.istcb2 = -51
@@ -1179,14 +1110,13 @@ def test_coastal_reduced(coastal_lines_gdf, coastal_flow_m, tmpdir_factory):
     assert not success
     # Error/warning: upstream elevation is equal to downstream, slope is zero
     # TODO: improve processing to correct elevation errors
-    nm.grid_cells.to_file(str(outdir.join("grid_cells.shp")))
-    nm.reaches.to_file(str(outdir.join("reaches.shp")))
-    gdf_to_shapefile(nm.segments, outdir.join("segments.shp"))
+    nm.grid_cells.to_file(tmp_path / "grid_cells.shp")
+    nm.reaches.to_file(tmp_path / "reaches.shp")
+    gdf_to_shapefile(nm.segments, tmp_path / "segments.shp")
 
 
 @requires_mfnwt
-def test_coastal_ibound_modify(coastal_swn, coastal_flow_m, tmpdir_factory):
-    outdir = tmpdir_factory.mktemp("test_coastal_ibound_modify")
+def test_coastal_ibound_modify(coastal_swn, coastal_flow_m, tmp_path):
     m = flopy.modflow.Modflow.load(
         "h.nam", version="mfnwt", exe_name=mfnwt_exe, model_ws=datadir,
         check=False)
@@ -1285,7 +1215,7 @@ def test_coastal_ibound_modify(coastal_swn, coastal_flow_m, tmpdir_factory):
         _ = nm.plot()
         plt.close()
     # Run model and read outputs
-    m.model_ws = str(outdir)
+    m.model_ws = str(tmp_path)
     m.sfr.unit_number = [24]
     m.sfr.ipakcb = 50
     m.sfr.istcb2 = -51
@@ -1295,15 +1225,14 @@ def test_coastal_ibound_modify(coastal_swn, coastal_flow_m, tmpdir_factory):
     assert not success
     # Error/warning: upstream elevation is equal to downstream, slope is zero
     # TODO: improve processing to correct elevation errors
-    nm.reaches.to_file(str(outdir.join("reaches.shp")))
-    nm.grid_cells.to_file(str(outdir.join("grid_cells.shp")))
-    gdf_to_shapefile(nm.segments, outdir.join("segments.shp"))
+    nm.reaches.to_file(tmp_path / "reaches.shp")
+    nm.grid_cells.to_file(tmp_path / "grid_cells.shp")
+    gdf_to_shapefile(nm.segments, tmp_path / "segments.shp")
 
 
 @requires_mf2005
-def test_diversions(tmpdir_factory):
-    outdir = tmpdir_factory.mktemp("test_diversions")
-    m = get_basic_modflow(outdir, with_top=True)
+def test_diversions(tmp_path):
+    m = get_basic_modflow(tmp_path, with_top=True)
     m.remove_package("rch")
     m.remove_package("sip")
     _ = flopy.modflow.ModflowDe4(m)
@@ -1355,18 +1284,18 @@ def test_diversions(tmpdir_factory):
         plt.close()
 
     # Run model and read outputs
-    m.model_ws = str(outdir)
+    m.model_ws = str(tmp_path)
     m.write_input()
     success, buff = m.run_model()
     assert success
-    cbc_fname = str(outdir.join(m.name + ".cbc"))
-    sfl_fname = str(outdir.join(m.name + ".sfl"))
+    cbc_fname = tmp_path / "modflowtest.cbc"
+    sfl_fname = tmp_path / "modflowtest.sfl"
     sl = read_budget(cbc_fname, "STREAM LEAKAGE", nm.reaches, "sfrleakage")
     sfl = read_sfl(sfl_fname, nm.reaches)
     # Write some files
-    nm.reaches[~nm.reaches.diversion].to_file(str(outdir.join("reaches.shp")))
-    nm.grid_cells.to_file(str(outdir.join("grid_cells.shp")))
-    gdf_to_shapefile(nm.segments, outdir.join("segments.shp"))
+    nm.reaches[~nm.reaches.diversion].to_file(tmp_path / "reaches.shp")
+    nm.grid_cells.to_file(tmp_path / "grid_cells.shp")
+    gdf_to_shapefile(nm.segments, tmp_path / "segments.shp")
     # Check results
     assert (sl["q"] == 0.0).all()
     assert (sfl["Qin"] == 0.0).all()
@@ -1445,9 +1374,8 @@ def test_diversions(tmpdir_factory):
     assert (sfl["Qet"] == 0.0).all()
 
 
-def test_pickle(tmpdir_factory):
-    outdir = tmpdir_factory.mktemp("test_pickle")
-    m = get_basic_modflow(outdir, with_top=True)
+def test_pickle(tmp_path):
+    m = get_basic_modflow(tmp_path, with_top=True)
     m.remove_package("rch")
     m.remove_package("sip")
     _ = flopy.modflow.ModflowDe4(m)
@@ -1469,6 +1397,6 @@ def test_pickle(tmpdir_factory):
     n.set_diversions(diversions=diversions)
     nm3 = swn.SwnModflow.from_swn_flopy(n, m)
     nm3.default_segment_data(hyd_cond1=0.0)
-    nm3.to_pickle(outdir / "nm4.pickle")
-    nm4 = swn.SwnModflow.from_pickle(outdir / "nm4.pickle", m)
+    nm3.to_pickle(tmp_path / "nm4.pickle")
+    nm4 = swn.SwnModflow.from_pickle(tmp_path / "nm4.pickle", m)
     assert nm3 == nm4

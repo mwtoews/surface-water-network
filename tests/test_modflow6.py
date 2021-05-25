@@ -58,7 +58,7 @@ def get_basic_modflow(outdir=".", with_top: bool = False, nper: int = 1):
             [14.0, 14.0],
         ])
     else:
-        top=15.0
+        top = 15.0
     sim = flopy.mf6.MFSimulation(exe_name=mf6_exe, sim_ws=str(outdir))
     _ = flopy.mf6.ModflowTdis(sim, nper=nper, time_units="days")
     m = flopy.mf6.ModflowGwf(sim, print_flows=True, save_flows=True)
@@ -159,10 +159,9 @@ def test_from_swn_flopy_errors():
     swn.SwnMf6.from_swn_flopy(n, m)
 
 
-def test_n3d_defaults(tmpdir_factory):
-    outdir = tmpdir_factory.mktemp("test_n3d_defaults")
+def test_n3d_defaults(tmp_path):
     n = get_basic_swn()
-    sim, m = get_basic_modflow(outdir, with_top=False)
+    sim, m = get_basic_modflow(tmp_path, with_top=False)
     nm = swn.SwnMf6.from_swn_flopy(n, m)
     # check object reaches
     r = nm.reaches
@@ -209,7 +208,7 @@ def test_n3d_defaults(tmpdir_factory):
         rn.rlen,
         [18.027756, 6.009252, 12.018504, 21.081851, 10.540926, 10.0, 10.0])
     # Write native MF6 file and flopy datasets
-    nm.write_packagedata(os.path.join(outdir, "packagedata.dat"))
+    nm.write_packagedata(tmp_path / "packagedata.dat")
     fpd = nm.flopy_packagedata()
     # Don't check everything
     assert isinstance(fpd, list)
@@ -226,7 +225,7 @@ def test_n3d_defaults(tmpdir_factory):
     assert list(cf.index) == [0, 1, 2, 3, 4, 5, 6]
     assert list(cf) == [[-1], [0, -2], [1, -5], [-4], [3, -5], [2, 4, -6], [5]]
     # Write native MF6 file and flopy datasets
-    nm.write_connectiondata(os.path.join(outdir, "connectiondata.dat"))
+    nm.write_connectiondata(tmp_path / "connectiondata.dat")
     assert nm.flopy_connectiondata() == \
         [[0, -1], [1, 0, -2], [2, 1, -5], [3, -4], [4, 3, -5], [5, 2, 4, -6],
          [6, 5]]
@@ -254,16 +253,13 @@ def test_n3d_defaults(tmpdir_factory):
     sim.write_simulation()
     success, buff = sim.run_simulation()
     assert success
-    hds_fname = str(outdir.join("model.hds"))
-    cbc_fname = str(outdir.join("model.cbc"))
-    sfo_fname = str(outdir.join("model.sfr.bud"))
-    head = read_head(hds_fname)
-    sl = read_budget(cbc_fname, "SFR", nm.reaches, "sfrleakage")
-    sf = read_budget(sfo_fname, "GWF", nm.reaches, "sfr_Q")
+    head = read_head(tmp_path / "model.hds")
+    sl = read_budget(tmp_path / "model.cbc", "SFR", nm.reaches, "sfrleakage")
+    sf = read_budget(tmp_path / "model.sfr.bud", "GWF", nm.reaches, "sfr_Q")
     # Write some files
-    gdf_to_shapefile(nm.reaches, outdir.join("reaches.shp"))
-    gdf_to_shapefile(nm.segments, outdir.join("segments.shp"))
-    nm.grid_cells.to_file(str(outdir.join("grid_cells.shp")))
+    gdf_to_shapefile(nm.reaches, tmp_path / "reaches.shp")
+    gdf_to_shapefile(nm.segments, tmp_path / "segments.shp")
+    nm.grid_cells.to_file(tmp_path / "grid_cells.shp")
     # Check results
     assert head.shape == (1, 3, 2)
     np.testing.assert_array_almost_equal(
@@ -282,6 +278,7 @@ def test_n3d_defaults(tmpdir_factory):
         np.array([
             0.04240276, 0.01410362, 0.03159486, 0.04431904, 0.02773725,
             0.03292867, 0.04691372]))
+
 
 def test_model_property():
     nm = swn.SwnMf6()
@@ -369,11 +366,10 @@ def test_set_reach_data_from_series():
             5.62341325, 177.827941]))
 
 
-def test_n2d_defaults(tmpdir_factory):
+def test_n2d_defaults(tmp_path):
     # similar to 3D version, but getting information from model
-    outdir = tmpdir_factory.mktemp("test_n2d_defaults")
     n = get_basic_swn(has_z=False)
-    sim, m = get_basic_modflow(outdir, with_top=True)
+    sim, m = get_basic_modflow(tmp_path, with_top=True)
     nm = swn.SwnMf6.from_swn_flopy(n, m)
     # check object reaches
     r = nm.reaches
@@ -423,13 +419,12 @@ def check_number_sum_hex(a, n, h):
 
 @requires_mf6
 def test_coastal(
-        tmpdir_factory, coastal_lines_gdf, coastal_flow_m):
-    outdir = tmpdir_factory.mktemp("test_coastal")
+        tmp_path, coastal_lines_gdf, coastal_flow_m):
     # Load a MODFLOW model
     sim = flopy.mf6.MFSimulation.load(
         "mfsim.nam", sim_ws=os.path.join(datadir, "mf6_coastal"),
         exe_name=mf6_exe)
-    sim.set_sim_path(str(outdir))
+    sim.set_sim_path(str(tmp_path))
     m = sim.get_model("h")
     # this model runs without SFR
     sim.write_simulation()
@@ -492,19 +487,18 @@ def test_coastal(
         _ = nm.plot()
         plt.close()
     # Write output files
-    gdf_to_shapefile(nm.reaches, outdir.join("reaches.shp"))
-    gdf_to_shapefile(nm.segments, outdir.join("segments.shp"))
-    nm.grid_cells.to_file(str(outdir.join("grid_cells.shp")))
+    gdf_to_shapefile(nm.reaches, tmp_path / "reaches.shp")
+    gdf_to_shapefile(nm.segments, tmp_path / "segments.shp")
+    nm.grid_cells.to_file(tmp_path / "grid_cells.shp")
 
 
 @requires_mf6
-def test_coastal_elevations(coastal_swn, coastal_flow_m, tmpdir_factory):
-    outdir = tmpdir_factory.mktemp("test_coastal_elevations")
+def test_coastal_elevations(coastal_swn, coastal_flow_m, tmp_path):
     # Load a MODFLOW model
     sim = flopy.mf6.MFSimulation.load(
         "mfsim.nam", sim_ws=os.path.join(datadir, "mf6_coastal"),
         exe_name=mf6_exe)
-    sim.set_sim_path(str(outdir))
+    sim.set_sim_path(str(tmp_path))
     m = sim.get_model("h")
     nm = swn.SwnMf6.from_swn_flopy(coastal_swn, m)
     nm.set_reach_slope()
@@ -515,63 +509,11 @@ def test_coastal_elevations(coastal_swn, coastal_flow_m, tmpdir_factory):
     nm.reaches["rtp"] = nm.reaches["zcoord_avg"]
     # TODO: inflow=coastal_flow_m
     # TODO: complete elevation adjustments; see older MODFLOW methods
-    return
-    _ = nm.set_topbot_elevs_at_reaches()
-    seg_data = nm.set_segment_data(return_dict=True)
-    reach_data = nm.get_reach_data()
-    flopy.modflow.mfsfr2.ModflowSfr2(
-        model=m, reach_data=reach_data, segment_data=seg_data)
-    if matplotlib:
-        nm.plot_reaches_above(m, "all", plot_bottom=False)
-        plt.close()
-    # handy to set a max elevation that a stream can be
-    _ = nm.get_seg_ijk()
-    tops = nm.get_top_elevs_at_segs().top_up
-    max_str_z = tops.describe()["75%"]
-    if matplotlib:
-        for seg in nm.segment_data.index[nm.segment_data.index.isin([1, 18])]:
-            nm.plot_reaches_above(m, seg)
-            plt.close()
-    _ = nm.fix_segment_elevs(min_incise=0.2, min_slope=1.e-4,
-                             max_str_z=max_str_z)
-    _ = nm.reconcile_reach_strtop()
-    seg_data = nm.set_segment_data(return_dict=True)
-    reach_data = nm.get_reach_data()
-    flopy.modflow.mfsfr2.ModflowSfr2(
-        model=m, reach_data=reach_data, segment_data=seg_data)
-    if matplotlib:
-        nm.plot_reaches_above(m, "all", plot_bottom=False)
-        plt.close()
-        for seg in nm.segment_data.index[nm.segment_data.index.isin([1, 18])]:
-            nm.plot_reaches_above(m, seg)
-            plt.close()
-    _ = nm.set_topbot_elevs_at_reaches()
-    nm.fix_reach_elevs()
-    seg_data = nm.set_segment_data(return_dict=True)
-    reach_data = nm.get_reach_data()
-    flopy.modflow.mfsfr2.ModflowSfr2(
-        model=m, reach_data=reach_data, segment_data=seg_data)
-    if matplotlib:
-        nm.plot_reaches_above(m, "all", plot_bottom=False)
-        plt.close()
-        for seg in nm.segment_data.index[nm.segment_data.index.isin([1, 18])]:
-            nm.plot_reaches_above(m, seg)
-            plt.close()
-    m.sfr.unit_number = [24]
-    m.sfr.ipakcb = 50
-    m.sfr.istcb2 = -51
-    m.add_output_file(51, extension="sfo", binflag=True)
-    # Run model
-    m.model_ws = str(outdir)
-    m.write_input()
-    success, buff = m.run_model()
-    assert success
 
 
 @requires_mf6
 def test_coastal_reduced(
-        coastal_lines_gdf, coastal_flow_m, tmpdir_factory):
-    outdir = tmpdir_factory.mktemp("test_coastal_reduced")
+        coastal_lines_gdf, coastal_flow_m, tmp_path):
     n = swn.SurfaceWaterNetwork.from_lines(coastal_lines_gdf.geometry)
     assert len(n) == 304
     # Modify swn object
@@ -583,7 +525,7 @@ def test_coastal_reduced(
     sim = flopy.mf6.MFSimulation.load(
         "mfsim.nam", sim_ws=os.path.join(datadir, "mf6_coastal"),
         exe_name=mf6_exe)
-    sim.set_sim_path(str(outdir))
+    sim.set_sim_path(str(tmp_path))
     m = sim.get_model("h")
     nm = swn.SwnMf6.from_swn_flopy(n, m)
     # TODO: inflow=coastal_flow_m
@@ -633,19 +575,18 @@ def test_coastal_reduced(
     assert not success
     # Error/warning: upstream elevation is equal to downstream, slope is zero
     # TODO: improve processing to correct elevation errors
-    gdf_to_shapefile(nm.reaches, outdir.join("reaches.shp"))
-    gdf_to_shapefile(nm.segments, outdir.join("segments.shp"))
-    nm.grid_cells.to_file(str(outdir.join("grid_cells.shp")))
+    gdf_to_shapefile(nm.reaches, tmp_path / "reaches.shp")
+    gdf_to_shapefile(nm.segments, tmp_path / "segments.shp")
+    nm.grid_cells.to_file(tmp_path / "grid_cells.shp")
 
 
 @requires_mf6
-def test_coastal_idomain_modify(coastal_swn, coastal_flow_m, tmpdir_factory):
-    outdir = tmpdir_factory.mktemp("test_coastal_idomain_modify")
+def test_coastal_idomain_modify(coastal_swn, coastal_flow_m, tmp_path):
     # Load a MODFLOW model
     sim = flopy.mf6.MFSimulation.load(
         "mfsim.nam", sim_ws=os.path.join(datadir, "mf6_coastal"),
         exe_name=mf6_exe)
-    sim.set_sim_path(str(outdir))
+    sim.set_sim_path(str(tmp_path))
     m = sim.get_model("h")
     nm = swn.SwnMf6.from_swn_flopy(
         coastal_swn, m, idomain_action="modify")
@@ -700,32 +641,17 @@ def test_coastal_idomain_modify(coastal_swn, coastal_flow_m, tmpdir_factory):
     assert not success
     # Error/warning: upstream elevation is equal to downstream, slope is zero
     # TODO: improve processing to correct elevation errors
-    gdf_to_shapefile(nm.reaches, outdir.join("reaches.shp"))
-    gdf_to_shapefile(nm.segments, outdir.join("segments.shp"))
-    nm.grid_cells.to_file(str(outdir.join("grid_cells.shp")))
+    gdf_to_shapefile(nm.reaches, tmp_path / "reaches.shp")
+    gdf_to_shapefile(nm.segments, tmp_path / "segments.shp")
+    nm.grid_cells.to_file(tmp_path / "grid_cells.shp")
 
 
 @pytest.mark.xfail
-def test_diversions(tmpdir_factory):
-    outdir = tmpdir_factory.mktemp("test_diversions")
-    # Create a simple MODFLOW model
-    m = flopy.modflow.Modflow(version="mf6", exe_name=mf6_exe)
-    top = np.array([
-        [16.0, 15.0],
-        [15.0, 15.0],
-        [14.0, 14.0],
-    ])
-    _ = flopy.modflow.ModflowDis(
-        m, nlay=1, nrow=3, ncol=2, delr=20.0, delc=20.0, top=top, botm=10.0,
-        xul=30.0, yul=130.0)
-    _ = flopy.modflow.ModflowOc(
-        m, stress_period_data={
-            (0, 0): ["print head", "save head", "save budget"]})
-    _ = flopy.modflow.ModflowBas(m, strt=top)
-    _ = flopy.modflow.ModflowDe4(m)
-    _ = flopy.modflow.ModflowLpf(m, ipakcb=52, laytyp=0)
+def test_diversions(tmp_path):
+    sim, m = get_basic_modflow(tmp_path, with_top=True)
     gt = swn.modflow.geotransform_from_flopy(m)
-    n = swn.SurfaceWaterNetwork.from_lines(interp_2d_to_3d(n3d_lines, top, gt))
+    lsz = interp_2d_to_3d(n3d_lines, m.dis.top.array, gt)
+    n = swn.SurfaceWaterNetwork.from_lines(lsz)
     n.adjust_elevation_profile()
     diversions = geopandas.GeoDataFrame(geometry=[
         Point(58, 97), Point(62, 97), Point(61, 89), Point(59, 89)])
@@ -733,141 +659,15 @@ def test_diversions(tmpdir_factory):
 
     # With zero specified flow for all terms
     nm = swn.SwnMf6.from_swn_flopy(n, m, hyd_cond1=0.0)
-    m.sfr.ipakcb = 52
-    m.sfr.istcb2 = 54
-    m.add_output_file(54, extension="sfl", binflag=False)
-    # Data set 1c
-    assert abs(m.sfr.nstrm) == 11
-    assert m.sfr.nss == 7
-    # Data set 2
-    np.testing.assert_array_almost_equal(
-        m.sfr.reach_data.rchlen,
-        [18.027756, 6.009252, 12.018504, 21.081852, 10.540926, 10.0, 10.0,
-         1.0, 1.0, 1.0, 1.0])
-    np.testing.assert_array_almost_equal(
-        m.sfr.reach_data.strtop,
-        [15.742094, 15.39822, 15.140314, 14.989459, 14.973648, 14.726283,
-         14.242094, 15.0, 15.0, 14.0, 14.0])
-    np.testing.assert_array_almost_equal(
-        m.sfr.reach_data.slope,
-        [0.02861207, 0.02861207, 0.02861207, 0.001, 0.001, 0.04841886,
-         0.04841886, 0.0, 0.0, 0.0, 0.0])
-    sd = m.sfr.segment_data[0]
-    np.testing.assert_array_equal(sd.nseg, [1, 2, 3, 4, 5, 6, 7])
-    np.testing.assert_array_equal(sd.icalc,  [1, 1, 1, 0, 0, 0, 0])
-    np.testing.assert_array_equal(sd.outseg,  [3, 3, 0, 0, 0, 0, 0])
-    np.testing.assert_array_equal(sd.iupseg,  [0, 0, 0, 1, 2, 3, 3])
-    np.testing.assert_array_equal(sd.iprior,  [0, 0, 0, 0, 0, 0, 0])
-    assert repr(nm) == dedent("""\
-        <SwnMf6: flopy mf6 'modflowtest'
-          11 in reaches (reachID): [1, 2, ..., 10, 11]
-          7 in segment_data (nseg): [1, 2, ..., 6, 7]
-            3 from segments: [1, 2, 0]
-            4 from diversions[0, 1, 2, 3]
-          1 stress period with perlen: [1.0] />""")
-    if matplotlib:
-        _ = nm.plot()
-        plt.close()
-
-    # Run model and read outputs
-    m.model_ws = str(outdir)
-    m.write_input()
-    success, buff = m.run_model()
-    assert success
-    cbc_fname = str(outdir.join(m.name + ".cbc"))
-    sfl_fname = str(outdir.join(m.name + ".sfl"))
-    sl = read_budget(cbc_fname, "STREAM LEAKAGE", nm.reaches, "sfrleakage")
-    sfl = read_sfl(sfl_fname, nm.reaches)
-    # Write some files
-    gdf_to_shapefile(nm.reaches, outdir.join("reaches.shp"))
-    gdf_to_shapefile(nm.segments, outdir.join("segments.shp"))
-    nm.grid_cells.to_file(str(outdir.join("grid_cells.shp")))
-    # Check results
-    assert (sl["q"] == 0.0).all()
-    assert (sfl["Qin"] == 0.0).all()
-    assert (sfl["Qaquifer"] == 0.0).all()
-    assert (sfl["Qout"] == 0.0).all()
-    assert (sfl["Qovr"] == 0.0).all()
-    assert (sfl["Qprecip"] == 0.0).all()
-    assert (sfl["Qet"] == 0.0).all()
-    # Don't check stage, depth or gradient
-    np.testing.assert_array_almost_equal(
-        nm.reaches["width"],
-        [10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 0.0, 0.0, 0.0, 0.0])
-    assert (nm.reaches["Cond"] == 0.0).all()
-
-    # Route some flow from headwater segments
-    m.sfr.segment_data = nm.set_segment_data(
-        flow={1: 2, 2: 3}, return_dict=True)
-    m.sfr.write_file()
-    success, buff = m.run_model()
-    assert success
-    sl = read_budget(cbc_fname, "STREAM LEAKAGE", nm.reaches, "sfrleakage")
-    sfl = read_sfl(sfl_fname, nm.reaches)
-    expected_flow = np.array(
-        [2.0, 2.0, 2.0, 3.0, 3.0, 5.0, 5.0, 0.0, 0.0, 0.0, 0.0])
-    assert (sl["q"] == 0.0).all()
-    np.testing.assert_almost_equal(sfl["Qin"], expected_flow)
-    assert (sfl["Qaquifer"] == 0.0).all()
-    np.testing.assert_almost_equal(sfl["Qout"], expected_flow)
-    assert (sfl["Qovr"] == 0.0).all()
-    assert (sfl["Qprecip"] == 0.0).all()
-    assert (sfl["Qet"] == 0.0).all()
-
-    # Same, but with abstraction
-    m.sfr.segment_data = nm.set_segment_data(
-        abstraction={0: 1.1}, flow={1: 2, 2: 3}, return_dict=True)
-    m.sfr.write_file()
-    success, buff = m.run_model()
-    assert success
-    sl = read_budget(cbc_fname, "STREAM LEAKAGE", nm.reaches, "sfrleakage")
-    sfl = read_sfl(sfl_fname, nm.reaches)
-    expected_flow = np.array(
-        [2.0, 2.0, 2.0, 3.0, 3.0, 3.9, 3.9, 1.1, 0.0, 0.0, 0.0])
-    assert (sl["q"] == 0.0).all()
-    np.testing.assert_almost_equal(sfl["Qin"], expected_flow)
-    assert (sfl["Qaquifer"] == 0.0).all()
-    np.testing.assert_almost_equal(sfl["Qout"], expected_flow)
-    assert (sfl["Qovr"] == 0.0).all()
-    assert (sfl["Qprecip"] == 0.0).all()
-    assert (sfl["Qet"] == 0.0).all()
-
-    # More abstraction with dry streams
-    m.sfr.segment_data = nm.set_segment_data(
-        abstraction={0: 1.1, 1: 3.3}, flow={1: 2, 2: 3}, return_dict=True)
-    m.sfr.write_file()
-    success, buff = m.run_model()
-    assert success
-    sl = read_budget(cbc_fname, "STREAM LEAKAGE", nm.reaches, "sfrleakage")
-    sfl = read_sfl(sfl_fname, nm.reaches)
-    expected_flow = np.array(
-        [2.0, 2.0, 2.0, 3.0, 3.0, 0.9, 0.9, 1.1, 3.0, 0.0, 0.0])
-    assert (sl["q"] == 0.0).all()
-    np.testing.assert_almost_equal(sfl["Qin"], expected_flow)
-    assert (sfl["Qaquifer"] == 0.0).all()
-    np.testing.assert_almost_equal(sfl["Qout"], expected_flow)
-    assert (sfl["Qovr"] == 0.0).all()
-    assert (sfl["Qprecip"] == 0.0).all()
-    assert (sfl["Qet"] == 0.0).all()
+    del nm
+    # TODO: diversions not yet supported
 
 
 def test_pickle(tmp_path):
-    # Create a simple MODFLOW model
-    sim = flopy.mf6.MFSimulation(exe_name=mf6_exe)
-    top = np.array([
-        [16.0, 15.0],
-        [15.0, 15.0],
-        [14.0, 14.0],
-    ])
-    _ = flopy.mf6.ModflowTdis(sim, nper=1, time_units="days")
-    m = flopy.mf6.ModflowGwf(sim)
-    _ = flopy.mf6.ModflowGwfdis(
-        m, nlay=1, nrow=3, ncol=2,
-        delr=20.0, delc=20.0, length_units="meters",
-        idomain=1, top=top, botm=10.0,
-        xorigin=30.0, yorigin=70.0)
+    sim, m = get_basic_modflow(tmp_path, with_top=True)
     gt = swn.modflow.geotransform_from_flopy(m)
-    n = swn.SurfaceWaterNetwork.from_lines(interp_2d_to_3d(n3d_lines, top, gt))
+    lsz = interp_2d_to_3d(n3d_lines, m.dis.top.array, gt)
+    n = swn.SurfaceWaterNetwork.from_lines(lsz)
     n.adjust_elevation_profile()
     nm1 = swn.SwnMf6.from_swn_flopy(n, m)
     # use pickle dumps / loads methods
