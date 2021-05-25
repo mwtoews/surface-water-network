@@ -1,6 +1,12 @@
 name: Tests (Linux)
 
-on: [push, pull_request]
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
 
 jobs:
   build:
@@ -17,24 +23,20 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Cache pip packages and local install
+      - name: Cache pip packages
         uses: actions/cache@v2
         with:
           key: ${{ matrix.python-version }}
           path: |
             ~/.cache/pip
-            ~/.local/bin
 
       - name: Install dependencies
         shell: bash
         run: |
-          sudo apt-get install gcc gfortran libspatialindex-dev
           python -m pip install pip --upgrade --disable-pip-version-check
-          export INSTALL_PREFIX=$HOME/.local
-          ./ci/mf2005/install.sh
-          ./ci/mfnwt/install.sh
+          pip install pytest flake8 requests
+          python ci/get-usgs-executables.py --bindir="$HOME/.local/bin"
           echo "$HOME/.local/bin" >> $GITHUB_PATH
-          pip install pytest flake8
           pip install -e .
 
       - name: Linting

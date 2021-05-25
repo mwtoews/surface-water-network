@@ -66,6 +66,8 @@ class MfSfrNetwork(object):
         else:
             raise ValueError(
                 "expected 'logger' to be Logger; found " + str(type(logger)))
+        self.logger.warning(
+            "using legacy MfSfrNetwork; consider using SwnModflow")
         self.logger.info('creating new %s object', self.__class__.__name__)
         if not find_spec('flopy'):
             raise ImportError(self.__class__.__name__ + ' requires flopy')
