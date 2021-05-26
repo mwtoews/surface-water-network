@@ -476,7 +476,7 @@ class SurfaceWaterNetwork(object):
                 ax=ax, label='diversion', marker='+', color='red')
             if diversions_is_spatial:
                 diversion_lines = []
-                for divid, item in self.diversions.iterrows():
+                for item in self.diversions.itertuples():
                     p = self.segments.loc[item.from_segnum].geometry.coords[-1]
                     diversion_lines.append(
                         LineString([item.geometry.coords[0], p]))
@@ -580,15 +580,15 @@ class SurfaceWaterNetwork(object):
                     .format(len(diff), abbr_str(diff)))
             self._diversions = diversions.copy()
             if is_spatial:
-                self._diversions['dist_end'] = np.nan
-                self._diversions['dist_line'] = np.nan
+                cols = ["dist_end", "dist_line"]
+                self._diversions[cols] = np.nan
                 geom_name = self._diversions.geometry.name
-                for idx, item in self._diversions.iterrows():
-                    div_geom = item[geom_name]
-                    seg_geom = self.segments.geometry[item['from_segnum']]
+                for item in self._diversions.itertuples():
+                    div_geom = getattr(item, geom_name)
+                    seg_geom = self.segments.geometry[item.from_segnum]
                     dist_end = div_geom.distance(Point(seg_geom.coords[-1]))
                     dist_line = div_geom.distance(seg_geom)
-                    self._diversions.loc[idx, ['dist_end', 'dist_line']] = \
+                    self._diversions.loc[item.Index, cols] = \
                         [dist_end, dist_line]
         elif is_spatial:
             self.logger.debug(

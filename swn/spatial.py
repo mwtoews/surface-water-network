@@ -56,8 +56,8 @@ def get_sindex(gdf):
         # Manually populate a 2D spatial index for speed
         sindex = Index()
         # slow, but reliable
-        for idx, (segnum, row) in enumerate(gdf.bounds.iterrows()):
-            sindex.add(idx, tuple(row))
+        for idx, item in enumerate(gdf.bounds.itertuples()):
+            sindex.add(idx, item[1:])
         # cache the index for later
         setattr(gdf, '_rtree_sindex', sindex)
     return sindex

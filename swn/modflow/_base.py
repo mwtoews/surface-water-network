@@ -296,14 +296,13 @@ class SwnModflowBase(object):
                 return
             matches = []
             # sequence scan on reach_df
-            for oidx, orch in reach_df.iterrows():
-                if oidx == idx or orch["moved"]:
+            for item in reach_df.itertuples():
+                if item[0] == idx or item.moved:
                     continue
-                other_ij = orch["i"], orch["j"]
-                other_cell_length = cell_lengths[other_ij]
-                if (orch["geometry"].distance(reach_geom) < 1e-6 and
+                other_cell_length = cell_lengths[item.i, item.j]
+                if (item.geometry.distance(reach_geom) < 1e-6 and
                         this_cell_length < other_cell_length):
-                    matches.append((oidx, orch["geometry"]))
+                    matches.append((item[0], item.geometry))
             if len(matches) == 0:
                 # don't merge, e.g. reach does not connect to adjacent cell
                 pass
@@ -570,8 +569,8 @@ class SwnModflowBase(object):
             obj.diversions["in_model"] = True
             outside_model = []
             segnum_s = set(obj.reaches.segnum)
-            for divid, divn in obj.diversions.iterrows():
-                if divn.from_segnum not in segnum_s:
+            for divid, from_segnum in obj.diversions.from_segnum.iteritems():
+                if from_segnum not in segnum_s:
                     # segnum does not exist -- segment is outside model
                     outside_model.append(divid)
             if outside_model:
@@ -592,7 +591,7 @@ class SwnModflowBase(object):
                 isinstance(obj.diversions, geopandas.GeoDataFrame) and
                 "geometry" in obj.diversions.columns and
                 (~diversions_in_model.is_empty).all())
-            for divid, divn in diversions_in_model.iterrows():
+            for divn in diversions_in_model.itertuples():
                 # Use the last upstream reach as a template for a new reach
                 reach_d = dict(obj.reaches.loc[
                     obj.reaches.segnum == divn.from_segnum].iloc[-1])
@@ -600,7 +599,7 @@ class SwnModflowBase(object):
                     "segnum": swn.END_SEGNUM,
                     "segndist": 0.0,
                     "diversion": True,
-                    "divid": divid,
+                    "divid": divn.Index,
                     "geometry": empty_geom,
                 })
                 # Assign one reach at grid cell
@@ -622,7 +621,7 @@ class SwnModflowBase(object):
                         obj.logger.warning(
                             "%d grid cells are nearest to diversion %r, "
                             "but only taking the first %s",
-                            num_found, divid, grid_cell)
+                            num_found, divn.Index, grid_cell)
                     i, j = grid_cell.name
                     reach_d.update({"i": i, "j": j})
                     if not divn.geometry.is_empty:
@@ -703,18 +702,18 @@ class SwnModflowBase(object):
         if not isinstance(name, str):
             raise ValueError("'name' must be a str type")
         segdat = self._swn._pair_segment_values(value, value_out, name)
-        for segnum, (value1, value2) in segdat.iterrows():
-            sel = self.reaches["segnum"] == segnum
-            if value1 == value2:
-                value = value1
+        for item in segdat.itertuples():
+            sel = self.reaches["segnum"] == item[0]
+            if item[1] == item[2]:
+                value = item[1]
             else:  # interpolate to mid points of each reach from segment data
                 segndist = self.reaches.loc[sel, "segndist"]
                 if log10:
-                    lvalue1 = np.log10(value1)
-                    lvalue2 = np.log10(value2)
+                    lvalue1 = np.log10(item[1])
+                    lvalue2 = np.log10(item[2])
                     value = 10 ** ((lvalue2 - lvalue1) * segndist + lvalue1)
                 else:
-                    value = (value2 - value1) * segndist + value1
+                    value = (item[2] - item[1]) * segndist + item[1]
             self.reaches.loc[sel, name] = value
 
     def set_reach_data_from_array(self, name, array):
