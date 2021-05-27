@@ -23,27 +23,29 @@ def test_init(coastal_swn, coastal_lines_gdf):
     assert set(n.headwater).issuperset([3046700, 3046802, 3050418, 3048102])
     assert list(n.outlets) == [3046700, 3046737, 3046736]
     to_segnums = n.to_segnums
-    to_segnums_d = dict(to_segnums)
+    from_segnums = n.from_segnums
+    assert to_segnums.index.name == "nzsegment"
+    assert from_segnums.index.name == "nzsegment"
     assert len(to_segnums) == 301
-    assert len(n.from_segnums) == 150
-    assert n.END_SEGNUM not in to_segnums_d
-    assert n.END_SEGNUM not in n.from_segnums
+    assert len(from_segnums) == 150
+    assert n.END_SEGNUM not in to_segnums
+    assert n.END_SEGNUM not in from_segnums
     # one segment catchment
-    assert 3046700 not in to_segnums_d
-    assert 3046700 not in n.from_segnums
+    assert 3046700 not in to_segnums
+    assert 3046700 not in from_segnums
     # near outlet
-    assert to_segnums_d[3046539] == 3046737
-    assert to_segnums_d[3046745] == 3046737
-    assert n.from_segnums[3046737] == set([3046539, 3046745])
+    assert to_segnums[3046539] == 3046737
+    assert to_segnums[3046745] == 3046737
+    assert from_segnums[3046737] == set([3046539, 3046745])
     # at hedwater
-    assert to_segnums_d[3047898] == 3047762
-    assert to_segnums_d[3047899] == 3047762
-    assert n.from_segnums[3047762] == set([3047898, 3047899])
+    assert to_segnums[3047898] == 3047762
+    assert to_segnums[3047899] == 3047762
+    assert from_segnums[3047762] == set([3047898, 3047899])
     # three tributaries
-    assert to_segnums_d[3048237] == 3048157
-    assert to_segnums_d[3048250] == 3048157
-    assert to_segnums_d[3048251] == 3048157
-    assert n.from_segnums[3048157] == set([3048237, 3048250, 3048251])
+    assert to_segnums[3048237] == 3048157
+    assert to_segnums[3048250] == 3048157
+    assert to_segnums[3048251] == 3048157
+    assert from_segnums[3048157] == set([3048237, 3048250, 3048251])
     nto = n.segments['num_to_outlet']
     assert nto.min() == 1
     assert nto.max() == 32

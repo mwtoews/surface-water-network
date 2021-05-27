@@ -551,11 +551,6 @@ class SwnModflowBase(object):
         if segnums_outside:
             obj.logger.debug(
                 "evaluating inflow connections from outside network")
-            # Ensure "from_segnums" is always a set
-            sel = obj.segments.from_segnums.isna()
-            if sel.any():
-                obj.segments.loc[sel, "from_segnums"] = \
-                    [set() for _ in range(sel.sum())]
             obj.segments["inflow_segnums"] = obj.segments.from_segnums.apply(
                 lambda x: x.intersection(segnums_outside))
 

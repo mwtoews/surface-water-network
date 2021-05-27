@@ -179,11 +179,13 @@ class SurfaceWaterNetwork(object):
             if len(to_segnums) > 0:
                 # do not diverge flow; only flow to one downstream segment
                 obj.segments.at[segnum1, 'to_segnum'] = to_segnums[0]
-        # Store from_segnums list to segments GeoDataFrame
-        obj.segments['from_segnums'] = None
+        # Store from_segnums set to segments GeoDataFrame
         from_segnums = obj.from_segnums
-        for k, v in from_segnums.items():
-            obj.segments.at[k, 'from_segnums'] = v
+        obj.segments["from_segnums"] = from_segnums
+        sel = obj.segments.from_segnums.isna()
+        if sel.any():
+            obj.segments.loc[sel, "from_segnums"] = \
+                [set() for _ in range(sel.sum())]
         outlets = obj.outlets
         obj.logger.debug('evaluating segments upstream from %d outlet%s',
                          len(outlets), 's' if len(outlets) != 1 else '')
@@ -675,12 +677,12 @@ class SurfaceWaterNetwork(object):
 
     @property
     def from_segnums(self):
-        """Return dict of a set of segnums to connect upstream."""
-        to_segnums = self.to_segnums
-        from_segnums = {}
-        for k, v in to_segnums.items():
-            from_segnums.setdefault(v, set()).add(k)
-        return from_segnums
+        """Return partial Series of a set of segnums to connect upstream."""
+        series = self.to_segnums.to_frame(0).reset_index()\
+            .groupby(0).aggregate(set).iloc[:, 0]
+        series.index.name = self.segments.index.name
+        series.name = "from_segnums"
+        return series
 
     def query(self, upstream=[], downstream=[], barrier=[],
               gather_upstream=False):

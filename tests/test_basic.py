@@ -71,6 +71,7 @@ def test_init_defaults(valid_n):
     assert n.END_SEGNUM == -1
     assert list(n.segments.index) == [0, 1, 2]
     assert list(n.segments['to_segnum']) == [-1, 0, 0]
+    assert list(n.segments['from_segnums']) == [{1, 2}, set(), set()]
     assert list(n.segments['cat_group']) == [0, 0, 0]
     assert list(n.segments['num_to_outlet']) == [1, 2, 2]
     np.testing.assert_allclose(
@@ -84,7 +85,7 @@ def test_init_defaults(valid_n):
     assert list(n.headwater) == [1, 2]
     assert list(n.outlets) == [0]
     assert dict(n.to_segnums) == {1: 0, 2: 0}
-    assert n.from_segnums == {0: set([1, 2])}
+    assert dict(n.from_segnums) == {0: set([1, 2])}
     n.adjust_elevation_profile()
     assert len(n.messages) == 0
     assert str(n) == repr(n)
@@ -183,7 +184,7 @@ def test_init_reversed_lines():
     assert list(n.headwater) == [0, 2]
     assert list(n.outlets) == [1, 2]
     assert dict(n.to_segnums) == {0: 1}
-    assert n.from_segnums == {1: set([0])}
+    assert dict(n.from_segnums) == {1: set([0])}
     assert repr(n) == dedent('''\
         <SurfaceWaterNetwork: with Z coordinates
           3 segments: [0, 1, 2]
@@ -226,7 +227,7 @@ def test_init_all_converge():
     assert list(n.headwater) == [0, 1, 2]
     assert list(n.outlets) == [0, 1, 2]
     assert dict(n.to_segnums) == {}
-    assert n.from_segnums == {}
+    assert dict(n.from_segnums) == {}
     assert repr(n) == dedent('''\
         <SurfaceWaterNetwork: with Z coordinates
           3 segments: [0, 1, 2]
@@ -269,7 +270,7 @@ def test_init_all_diverge():
     assert list(n.headwater) == [0, 1, 2]
     assert list(n.outlets) == [0, 1, 2]
     assert dict(n.to_segnums) == {}
-    assert n.from_segnums == {}
+    assert dict(n.from_segnums) == {}
     assert repr(n) == dedent('''\
         <SurfaceWaterNetwork: with Z coordinates
           3 segments: [0, 1, 2]
@@ -305,7 +306,7 @@ def test_init_line_connects_to_middle():
     assert list(n.headwater) == [0, 1]
     assert list(n.outlets) == [0, 1]
     assert dict(n.to_segnums) == {}
-    assert n.from_segnums == {}
+    assert dict(n.from_segnums) == {}
     assert repr(n) == dedent('''\
         <SurfaceWaterNetwork: with Z coordinates
           2 segments: [0, 1]
@@ -315,6 +316,54 @@ def test_init_line_connects_to_middle():
     if matplotlib:
         _ = n.plot()
         plt.close()
+
+
+def test_to_segnums(valid_n):
+    # check series in propery method
+    pd.testing.assert_series_equal(
+        valid_n.to_segnums,
+        pd.Series([0, 0], name="to_segnum", index=pd.Int64Index([1, 2])))
+    # check series in segments frame
+    pd.testing.assert_series_equal(
+        valid_n.segments["to_segnum"],
+        pd.Series([-1, 0, 0], name="to_segnum"))
+
+    # Rebuild network using named index
+    lines = valid_lines.copy()
+    lines.index.name = "idx"
+    n = swn.SurfaceWaterNetwork.from_lines(lines)
+    pd.testing.assert_series_equal(
+        n.to_segnums,
+        pd.Series([0, 0], name="to_segnum",
+                  index=pd.Int64Index([1, 2], name="idx")))
+    pd.testing.assert_series_equal(
+        n.segments["to_segnum"],
+        pd.Series([-1, 0, 0], name="to_segnum",
+                  index=pd.RangeIndex(0, 3, name="idx")))
+
+
+def test_from_segnums(valid_n):
+    # check series in propery method
+    pd.testing.assert_series_equal(
+        valid_n.from_segnums,
+        pd.Series([{1, 2}], name="from_segnums"))
+    # check series in segments frame
+    pd.testing.assert_series_equal(
+        valid_n.segments["from_segnums"],
+        pd.Series([{1, 2}, set(), set()], name="from_segnums"))
+
+    # Rebuild network using named index
+    lines = valid_lines.copy()
+    lines.index.name = "idx"
+    n = swn.SurfaceWaterNetwork.from_lines(lines)
+    pd.testing.assert_series_equal(
+        n.from_segnums,
+        pd.Series([{1, 2}], name="from_segnums",
+                  index=pd.Int64Index([0], name="idx")))
+    pd.testing.assert_series_equal(
+        n.segments["from_segnums"],
+        pd.Series([{1, 2}, set(), set()], name="from_segnums",
+                  index=pd.RangeIndex(0, 3, name="idx")))
 
 
 def test_dict(valid_n):
@@ -910,7 +959,7 @@ def test_fluss_n(fluss_n):
     assert dict(n.to_segnums) == \
         {0: 2, 1: 2, 2: 6, 3: 5, 4: 5, 5: 6, 6: 8, 7: 8, 8: 16, 9: 16, 10: 9,
          11: 9, 12: 11, 13: 11, 14: 10, 15: 10, 16: 18, 17: 18}
-    assert n.from_segnums == \
+    assert dict(n.from_segnums) == \
         {16: set([8, 9]), 2: set([0, 1]), 5: set([3, 4]), 6: set([2, 5]),
          8: set([6, 7]),  9: set([10, 11]), 10: set([14, 15]),
          11: set([12, 13]), 18: set([16, 17])}
