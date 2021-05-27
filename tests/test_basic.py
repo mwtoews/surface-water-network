@@ -85,7 +85,7 @@ def test_init_defaults(valid_n):
     assert list(n.headwater) == [1, 2]
     assert list(n.outlets) == [0]
     assert dict(n.to_segnums) == {1: 0, 2: 0}
-    assert dict(n.from_segnums) == {0: set([1, 2])}
+    assert dict(n.from_segnums) == {0: {1, 2}}
     n.adjust_elevation_profile()
     assert len(n.messages) == 0
     assert str(n) == repr(n)
@@ -166,8 +166,7 @@ def test_init_reversed_lines():
     assert n.errors[0] == \
         'segment 0 has more than one downstream segments: [1, 2]'
     assert n.errors[1] == \
-        'starting coordinate (60.0, 100.0) matches start segment: ' + \
-        str(set([1]))
+        'starting coordinate (60.0, 100.0) matches start segment: {1}'
     assert len(n) == 3
     assert n.has_z is True
     assert list(n.segments.index) == [0, 1, 2]
@@ -184,7 +183,7 @@ def test_init_reversed_lines():
     assert list(n.headwater) == [0, 2]
     assert list(n.outlets) == [1, 2]
     assert dict(n.to_segnums) == {0: 1}
-    assert dict(n.from_segnums) == {1: set([0])}
+    assert dict(n.from_segnums) == {1: {0}}
     assert repr(n) == dedent('''\
         <SurfaceWaterNetwork: with Z coordinates
           3 segments: [0, 1, 2]
@@ -209,8 +208,7 @@ def test_init_all_converge():
         'ending segment 0 matches end of segment 1 '\
         'in 2D, but not in Z dimension'
     assert n.warnings[4] == \
-        'ending coordinate (60.0, 100.0) matches end segments: ' + \
-        str(set([0, 1, 2]))
+        'ending coordinate (60.0, 100.0) matches end segments: {0, 1, 2}'
     assert len(n.errors) == 0
     assert len(n) == 3
     assert n.has_z is True
@@ -253,8 +251,7 @@ def test_init_all_diverge():
         'but not in Z dimension'
     assert len(n.errors) == 1
     assert n.errors[0] == \
-        'starting coordinate (60.0, 100.0) matches start segments: ' + \
-        str(set([0, 1, 2]))
+        'starting coordinate (60.0, 100.0) matches start segments: {0, 1, 2}'
     assert len(n) == 3
     assert n.has_z is True
     assert list(n.segments.index) == [0, 1, 2]
@@ -552,7 +549,7 @@ def test_set_diversions_geodataframe():
     np.testing.assert_array_equal(
         n.diversions['from_segnum'], [1, 2, 0, 0])
     np.testing.assert_array_equal(
-        n.segments['diversions'], [set([2, 3]), set([0]), set([1])])
+        n.segments['diversions'], [{2, 3}, {0}, {1}])
     # Unset
     n.set_diversions(None)
     assert n.diversions is None
@@ -862,7 +859,7 @@ def test_remove_condition():
     assert len(n.segments) == 1
     assert len(n.catchments) == 1
     assert list(n.segments.index) == [0]
-    assert n.segments.at[0, 'from_segnums'] == set([1, 2])
+    assert n.segments.at[0, 'from_segnums'] == {1, 2}
     np.testing.assert_almost_equal(
         n.segments.at[0, 'upstream_length'], 87.67828936)
     np.testing.assert_almost_equal(
@@ -894,14 +891,14 @@ def test_remove_segnums():
     assert len(n) == 2
     assert len(n.segments) == 2
     assert list(n.segments.index) == [0, 2]
-    assert n.segments.at[0, 'from_segnums'] == set([1, 2])
+    assert n.segments.at[0, 'from_segnums'] == {1, 2}
     # repeats are ok
     n = swn.SurfaceWaterNetwork.from_lines(valid_lines)
     n.remove(segnums=[1, 2, 1])
     assert len(n) == 1
     assert len(n.segments) == 1
     assert list(n.segments.index) == [0]
-    assert n.segments.at[0, 'from_segnums'] == set([1, 2])
+    assert n.segments.at[0, 'from_segnums'] == {1, 2}
 
 
 def test_remove_errors(valid_n):
@@ -960,9 +957,8 @@ def test_fluss_n(fluss_n):
         {0: 2, 1: 2, 2: 6, 3: 5, 4: 5, 5: 6, 6: 8, 7: 8, 8: 16, 9: 16, 10: 9,
          11: 9, 12: 11, 13: 11, 14: 10, 15: 10, 16: 18, 17: 18}
     assert dict(n.from_segnums) == \
-        {16: set([8, 9]), 2: set([0, 1]), 5: set([3, 4]), 6: set([2, 5]),
-         8: set([6, 7]),  9: set([10, 11]), 10: set([14, 15]),
-         11: set([12, 13]), 18: set([16, 17])}
+        {16: {8, 9}, 2: {0, 1}, 5: {3, 4}, 6: {2, 5}, 8: {6, 7}, 9: {10, 11},
+         10: {14, 15}, 11: {12, 13}, 18: {16, 17}}
     assert repr(n) == dedent('''\
         <SurfaceWaterNetwork:
           19 segments: [0, 1, ..., 17, 18]
@@ -976,19 +972,18 @@ def test_fluss_n(fluss_n):
 
 def test_fluss_n_query_upstream(fluss_n):
     n = fluss_n
-    assert set(n.query(upstream=0)) == set([0])
-    assert set(n.query(upstream=[2])) == set([0, 1, 2])
-    assert set(n.query(upstream=8)) == set([0, 1, 2, 3, 4, 5, 6, 7, 8])
-    assert set(n.query(upstream=9)) == set([9, 10, 11, 12, 13, 14, 15])
-    assert set(n.query(upstream=17)) == set([17])
+    assert set(n.query(upstream=0)) == {0}
+    assert set(n.query(upstream=[2])) == {0, 1, 2}
+    assert set(n.query(upstream=8)) == {0, 1, 2, 3, 4, 5, 6, 7, 8}
+    assert set(n.query(upstream=9)) == {9, 10, 11, 12, 13, 14, 15}
+    assert set(n.query(upstream=17)) == {17}
     assert len(set(n.query(upstream=18))) == 19
     # with barriers
     assert len(set(n.query(upstream=18, barrier=17))) == 18
     assert len(set(n.query(upstream=18, barrier=9))) == 13
-    assert set(n.query(upstream=9, barrier=8)) == \
-        set([9, 10, 11, 12, 13, 14, 15])
+    assert set(n.query(upstream=9, barrier=8)) == {9, 10, 11, 12, 13, 14, 15}
     assert set(n.query(upstream=16, barrier=[9, 5])) == \
-        set([0, 1, 2, 5, 6, 7, 8, 9, 16])
+        {0, 1, 2, 5, 6, 7, 8, 9, 16}
     # break it
     with pytest.raises(
             IndexError,
@@ -1017,14 +1012,14 @@ def test_fluss_n_query_downstream(fluss_n):
     assert n.query(downstream=17) == [18]
     assert n.query(downstream=18) == []
     assert set(n.query(downstream=7, gather_upstream=True)) == \
-        set([8, 16, 18, 6, 2, 0, 1, 5, 3, 4, 9, 10, 14, 15, 11, 12, 13, 17])
+        {0, 1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18}
     assert set(n.query(downstream=8, gather_upstream=True)) == \
-        set([16, 18, 9, 10, 14, 15, 11, 12, 13, 17])
+        {9, 10, 11, 12, 13, 14, 15, 16, 17, 18}
     assert set(n.query(downstream=[9], gather_upstream=True)) == \
-        set([16, 18, 8, 6, 2, 0, 1, 5, 3, 4, 7, 17])
+        {0, 1, 2, 3, 4, 5, 6, 7, 8, 16, 17, 18}
     assert n.query(downstream=18, gather_upstream=True) == []
     assert set(n.query(downstream=0, gather_upstream=True, barrier=8)) == \
-        set([2, 6, 8, 1, 5, 3, 4])
+        {1, 2, 3, 4, 5, 6, 8}
     with pytest.raises(
             IndexError,
             match=r'downstream segnum \-1 not found in segments\.index'):
@@ -1057,8 +1052,8 @@ def test_aggregate_fluss_headwater_and_middle(fluss_n):
     assert list(na.headwater) == [17, 16]
     assert list(na.outlets) == [18]
     assert [set(x) for x in na.segments['agg_patch']] == \
-        [set([17]), set([18]),
-         set([16, 8, 6, 2, 0, 1, 5, 3, 4, 7, 9, 10, 14, 15, 11, 12, 13])]
+        [{17}, {18},
+         {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}]
     assert list(na.segments['agg_path']) == [[17], [18], [16, 8, 6, 5, 4]]
     assert list(na.segments['agg_unpath']) == [[], [16, 17], [9, 7, 2, 3]]
 
@@ -1074,7 +1069,7 @@ def test_aggregate_fluss_two_middle(fluss_n):
     assert list(na.headwater) == [8, 9]
     assert list(na.outlets) == [8, 9]
     assert [set(x) for x in na.segments['agg_patch']] == \
-        [set([8, 6, 2, 0, 1, 5, 3, 4, 7]), set([9, 10, 14, 15, 11, 12, 13])]
+        [{0, 1, 2, 3, 4, 5, 6, 7, 8}, {9, 10, 11, 12, 13, 14, 15}]
     assert list(na.segments['agg_path']) == [[8, 6, 5, 4], [9, 11, 13]]
     assert list(na.segments['agg_unpath']) == [[7, 2, 3], [10, 12]]
 
@@ -1090,7 +1085,7 @@ def test_aggregate_fluss_disconnected(fluss_n):
     assert list(na.headwater) == [5, 10, 17]
     assert list(na.outlets) == [5, 10, 17]
     assert [set(x) for x in na.segments['agg_patch']] == \
-        [set([5, 3, 4]), set([10, 14, 15]), set([17])]
+        [{3, 4, 5}, {10, 14, 15}, {17}]
     assert list(na.segments['agg_path']) == [[5, 4], [10, 15], [17]]
     assert list(na.segments['agg_unpath']) == [[3], [14], []]
 
@@ -1107,8 +1102,8 @@ def test_aggregate_fluss_coarse(fluss_n):
     assert list(na.headwater) == [5, 10, 2,  11]
     assert list(na.outlets) == [18]
     assert [set(x) for x in na.segments['agg_patch']] == \
-        [set([5, 3, 4]), set([10, 14, 15]), set([18, 16, 17]), set([8, 6, 7]),
-         set([2, 0, 1]), set([9]), set([11, 12, 13])]
+        [{3, 4, 5}, {10, 14, 15}, {16, 17, 18}, {6, 7, 8}, {0, 1, 2}, {9},
+         {11, 12, 13}]
     assert list(na.segments['agg_path']) == \
         [[5, 4], [10, 15], [18, 16], [8, 6], [2, 1], [9], [11, 13]]
     assert list(na.segments['agg_unpath']) == \

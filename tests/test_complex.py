@@ -11,8 +11,7 @@ def test_init(coastal_swn, coastal_lines_gdf):
     n = coastal_swn
     assert len(n.warnings) == 1
     assert n.warnings[0].startswith('ending coordinate ')
-    assert n.warnings[0].endswith(
-            ' matches end segments: ' + str(set([3046736, 3046737])))
+    assert n.warnings[0].endswith(' matches end segments: {3046736, 3046737}')
     assert len(n.errors) == 0
     assert len(n) == 304
     assert n.has_z is True
@@ -20,7 +19,7 @@ def test_init(coastal_swn, coastal_lines_gdf):
     assert 0 not in n.segments.index
     assert 3046700 in n.segments.index
     assert len(n.headwater) == 154
-    assert set(n.headwater).issuperset([3046700, 3046802, 3050418, 3048102])
+    assert set(n.headwater).issuperset({3046700, 3046802, 3050418, 3048102})
     assert list(n.outlets) == [3046700, 3046737, 3046736]
     to_segnums = n.to_segnums
     from_segnums = n.from_segnums
@@ -36,16 +35,16 @@ def test_init(coastal_swn, coastal_lines_gdf):
     # near outlet
     assert to_segnums[3046539] == 3046737
     assert to_segnums[3046745] == 3046737
-    assert from_segnums[3046737] == set([3046539, 3046745])
+    assert from_segnums[3046737] == {3046539, 3046745}
     # at hedwater
     assert to_segnums[3047898] == 3047762
     assert to_segnums[3047899] == 3047762
-    assert from_segnums[3047762] == set([3047898, 3047899])
+    assert from_segnums[3047762] == {3047898, 3047899}
     # three tributaries
     assert to_segnums[3048237] == 3048157
     assert to_segnums[3048250] == 3048157
     assert to_segnums[3048251] == 3048157
-    assert from_segnums[3048157] == set([3048237, 3048250, 3048251])
+    assert from_segnums[3048157] == {3048237, 3048250, 3048251}
     nto = n.segments['num_to_outlet']
     assert nto.min() == 1
     assert nto.max() == 32

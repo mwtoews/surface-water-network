@@ -238,7 +238,7 @@ class SurfaceWaterNetwork(object):
                     if start1_coord2d in start_coords:
                         start_coords[start1_coord2d].add(segnum2)
                     else:
-                        start_coords[start1_coord2d] = set([segnum2])
+                        start_coords[start1_coord2d] = {segnum2}
         for key in start_coords.keys():
             v = start_coords[key]
             m = ('starting coordinate %s matches start segment%s: %s',
@@ -272,7 +272,7 @@ class SurfaceWaterNetwork(object):
                     if end1_coord2d in end_coords:
                         end_coords[end1_coord2d].add(segnum2)
                     else:
-                        end_coords[end1_coord2d] = set([segnum2])
+                        end_coords[end1_coord2d] = {segnum2}
         for key in end_coords.keys():
             v = end_coords[key]
             m = ('ending coordinate %s matches end segment%s: %s',
@@ -874,14 +874,14 @@ class SurfaceWaterNetwork(object):
         # aggregate segnums in a path accross an internal subcatchment
         def up_path_internal_segnums(segnum):
             yield segnum
-            up_segnums = from_segnums.get(segnum, set([])).intersection(trbset)
+            up_segnums = from_segnums.get(segnum, set()).intersection(trbset)
             if len(up_segnums) == 1:
                 yield from up_path_internal_segnums(up_segnums.pop())
 
         # aggregate segnums in a path up a headwater, choosing untraced path
         def up_path_headwater_segnums(segnum):
             yield segnum
-            up_segnums = from_segnums.get(segnum, set([]))
+            up_segnums = from_segnums.get(segnum, set())
             if len(up_segnums) == 1:
                 yield from up_path_headwater_segnums(up_segnums.pop())
             elif len(up_segnums) > 1:
@@ -923,7 +923,7 @@ class SurfaceWaterNetwork(object):
             agg_unpath_l = []
             for aseg in agg_path_l:
                 agg_unpath_l += sorted(
-                        from_segnums.get(aseg, set([])).difference(agg_path_s))
+                        from_segnums.get(aseg, set()).difference(agg_path_s))
             agg_unpath.at[segnum] = agg_unpath_l
             # agg_path_l.reverse()
             lines.at[segnum] = linemerge(list(
