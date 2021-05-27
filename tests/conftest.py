@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
 """Common code for testing."""
-import geopandas
 import os
+
+import geopandas
 import pandas as pd
+import pytest
 
 try:
     import matplotlib
@@ -10,8 +12,6 @@ try:
 except ImportError:
     matplotlib = False
     plt = None
-
-import pytest
 
 # Import this local package for tests
 import sys

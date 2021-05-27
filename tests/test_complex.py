@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
-import numpy as np
 from textwrap import dedent
 
-from .conftest import matplotlib, plt
+import numpy as np
 
 import swn
+
+from .conftest import matplotlib, plt
 
 
 def test_init(coastal_swn, coastal_lines_gdf):

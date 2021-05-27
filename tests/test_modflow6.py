@@ -1,16 +1,21 @@
 # -*- coding: utf-8 -*-
-import geopandas
-import numpy as np
 import os
-import pandas as pd
 import pickle
 from hashlib import md5
-from shapely import wkt
-from shapely.geometry import Point
 from shutil import which
 from textwrap import dedent
 
+import geopandas
+import numpy as np
+import pandas as pd
 import pytest
+from shapely import wkt
+from shapely.geometry import Point
+
+import swn
+import swn.modflow
+from swn.file import gdf_to_shapefile
+from swn.spatial import force_2d, interp_2d_to_3d, wkt_to_geoseries
 
 from .conftest import datadir, matplotlib, plt
 
@@ -19,10 +24,6 @@ try:
 except ImportError:
     pytest.skip("skipping tests that require flopy", allow_module_level=True)
 
-import swn
-import swn.modflow
-from swn.file import gdf_to_shapefile
-from swn.spatial import interp_2d_to_3d, force_2d, wkt_to_geoseries
 
 mf6_exe = which("mf6")
 requires_mf6 = pytest.mark.skipif(not mf6_exe, reason="requires mf6")

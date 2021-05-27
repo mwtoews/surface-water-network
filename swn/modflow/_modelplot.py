@@ -1,11 +1,12 @@
 import numpy as np
 
+from swn.spatial import get_crs
+
 try:
     import matplotlib
 except ImportError:
     matplotlib = False
 
-from swn.spatial import get_crs
 
 
 class ModelPlot(object):

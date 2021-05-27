@@ -6,15 +6,19 @@ Also check functionality in modflow._misc too.
 MODFLOW models are not run. See test_modflow.py and test_modflow6.py
 for similar, but running models.
 """
+from hashlib import md5
+from textwrap import dedent
+
 import geopandas
 import numpy as np
 import pandas as pd
-from hashlib import md5
+import pytest
 from shapely import wkt
 from shapely.geometry import Point
-from textwrap import dedent
 
-import pytest
+import swn
+import swn.modflow
+from swn.spatial import force_2d, interp_2d_to_3d, wkt_to_geoseries
 
 from .conftest import datadir, matplotlib, plt
 
@@ -23,9 +27,6 @@ try:
 except ImportError:
     pytest.skip("skipping tests that require flopy", allow_module_level=True)
 
-import swn
-import swn.modflow
-from swn.spatial import interp_2d_to_3d, force_2d, wkt_to_geoseries
 
 # same valid network used in test_basic
 n3d_lines = wkt_to_geoseries([

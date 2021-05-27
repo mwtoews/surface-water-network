@@ -1,21 +1,21 @@
 # -*- coding: utf-8 -*-
 """Abstract base class for a surface water network for MODFLOW."""
 
-import geopandas
 import pickle
+from itertools import combinations
+
+import geopandas
 import numpy as np
 import pandas as pd
-from itertools import combinations
 from shapely import wkt
 from shapely.geometry import LineString, Point, Polygon, box
 from shapely.ops import linemerge
 
 from swn.core import SurfaceWaterNetwork
 from swn.modflow._misc import (
-    transform_data_to_series_or_frame,
-    tile_series_as_frame,
+    tile_series_as_frame, transform_data_to_series_or_frame
 )
-from swn.spatial import get_sindex, compare_crs
+from swn.spatial import compare_crs, get_sindex
 
 
 class SwnModflowBase(object):

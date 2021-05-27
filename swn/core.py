@@ -3,15 +3,16 @@
 
 __all__ = ["SurfaceWaterNetwork"]
 
-import geopandas
-import numpy as np
-import pandas as pd
 import pickle
 from itertools import zip_longest
 from math import sqrt
+from textwrap import dedent
+
+import geopandas
+import numpy as np
+import pandas as pd
 from shapely.geometry import LineString, Point
 from shapely.ops import cascaded_union, linemerge
-from textwrap import dedent
 
 from swn.spatial import get_sindex
 from swn.util import abbr_str

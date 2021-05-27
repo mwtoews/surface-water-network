@@ -6,8 +6,9 @@ __all__ = [
     "transform_data_to_series_or_frame",
 ]
 
-import pandas as pd
 from collections.abc import Iterable
+
+import pandas as pd
 
 from swn.util import abbr_str
 

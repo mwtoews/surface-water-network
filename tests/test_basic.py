@@ -1,16 +1,17 @@
 # -*- coding: utf-8 -*-
+from textwrap import dedent
+
 import geopandas
 import numpy as np
 import pandas as pd
 import pytest
 from shapely import wkt
 from shapely.geometry import LineString, Point
-from textwrap import dedent
-
-from .conftest import matplotlib, plt
 
 import swn
 from swn.spatial import force_2d, round_coords, wkt_to_geoseries
+
+from .conftest import matplotlib, plt
 
 # a few static objects (not fixtures)
 

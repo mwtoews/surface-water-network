@@ -6,11 +6,12 @@ Download USGS executables, and install them in bindir
 
 import os
 import platform
-import requests
 import sys
 import tempfile
 import urllib
 import zipfile
+
+import requests
 
 # See https://docs.github.com/en/rest/reference/repos#releases
 owner = "MODFLOW-USGS"

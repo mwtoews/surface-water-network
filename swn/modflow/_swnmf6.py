@@ -3,18 +3,20 @@
 
 __all__ = ["SwnMf6"]
 
-import numpy as np
-import pandas as pd
 from itertools import zip_longest
 from textwrap import dedent
+
+import numpy as np
+import pandas as pd
+
+from swn.modflow._base import SwnModflowBase
+from swn.util import abbr_str
 
 try:
     import matplotlib
 except ImportError:
     matplotlib = False
 
-from swn.util import abbr_str
-from swn.modflow._base import SwnModflowBase
 
 
 class SwnMf6(SwnModflowBase):

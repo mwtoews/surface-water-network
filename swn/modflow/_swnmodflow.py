@@ -4,19 +4,21 @@
 __all__ = ["SwnModflow"]
 
 import inspect
+from itertools import zip_longest
+
 import numpy as np
 import pandas as pd
-from itertools import zip_longest
+
+from swn.modflow._base import SwnModflowBase
+from swn.modflow._misc import invert_series, transform_data_to_series_or_frame
+from swn.util import abbr_str
 
 try:
     import matplotlib
 except ImportError:
     matplotlib = False
 
-from swn.modflow._base import SwnModflowBase
-from swn.modflow._misc import invert_series, transform_data_to_series_or_frame
 
-from swn.util import abbr_str
 
 
 class SwnModflow(SwnModflowBase):

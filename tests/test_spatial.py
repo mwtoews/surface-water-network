@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
 import geopandas
 import numpy as np
+import pytest
 from shapely import wkt
 from shapely.geometry import Point
-
-import pytest
 
 import swn.spatial as spatial
 from swn import SurfaceWaterNetwork

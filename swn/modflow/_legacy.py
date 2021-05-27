@@ -3,24 +3,26 @@
 
 __all__ = ["MfSfrNetwork"]
 
+import pickle
+from itertools import combinations, zip_longest
+from textwrap import dedent
+
 import geopandas
 import numpy as np
 import pandas as pd
-import pickle
-from itertools import combinations, zip_longest
 from shapely import wkt
 from shapely.geometry import LineString, Point, Polygon, box
 from shapely.ops import linemerge
-from textwrap import dedent
+
+from swn.core import SurfaceWaterNetwork
+from swn.spatial import compare_crs, get_sindex
+from swn.util import abbr_str
 
 try:
     import matplotlib
 except ImportError:
     matplotlib = False
 
-from swn.core import SurfaceWaterNetwork
-from swn.spatial import get_sindex, compare_crs
-from swn.util import abbr_str
 
 
 class MfSfrNetwork(object):

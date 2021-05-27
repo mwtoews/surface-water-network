@@ -1,16 +1,17 @@
 # -*- coding: utf-8 -*-
+import os
+import pickle
+
 import geopandas
 import numpy as np
-import os
 import pandas as pd
-import pickle
-from shapely.geometry import Point
-
 import pytest
-from .conftest import datadir
+from shapely.geometry import Point
 
 import swn
 from swn.spatial import wkt_to_geoseries
+
+from .conftest import datadir
 
 # same valid network used in test_basic
 n3d_lines = wkt_to_geoseries([
