@@ -651,6 +651,10 @@ class SurfaceWaterNetwork(object):
             sel = self._diversions['from_segnum'] == segnum
             self.segments.at[segnum, 'diversions'] = \
                 set(self._diversions.loc[sel].index)
+        sel = self.segments.diversions.isna()
+        if sel.any():
+            self.segments.loc[sel, "diversions"] = \
+                [set() for _ in range(sel.sum())]
 
     @property
     def has_z(self):

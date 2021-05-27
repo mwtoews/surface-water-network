@@ -567,7 +567,7 @@ def test_set_diversions_geodataframe():
     np.testing.assert_array_equal(
         n.diversions['from_segnum'], [0, 0, 0, 0])
     np.testing.assert_array_equal(
-        n.segments['diversions'], [set([0, 1, 2, 3]), None, None])
+        n.segments['diversions'], [{0, 1, 2, 3}, set(), set()])
     # Try again, but use 'from_segnum' column
     diversions = geopandas.GeoDataFrame(
         {'from_segnum': [0, 2]}, geometry=[Point(55, 97), Point(68, 105)])
@@ -580,7 +580,7 @@ def test_set_diversions_geodataframe():
     np.testing.assert_array_equal(
         n.diversions['from_segnum'], [0, 2])
     np.testing.assert_array_equal(
-        n.segments['diversions'], [set([0]), None, set([1])])
+        n.segments['diversions'], [{0}, set(), {1}])
     assert repr(n) == dedent('''\
         <SurfaceWaterNetwork: with Z coordinates
           3 segments: [0, 1, 2]
@@ -616,7 +616,7 @@ def test_set_diversions_dataframe():
     assert 'dist_line' not in n.diversions.columns
     np.testing.assert_array_equal(n.diversions['from_segnum'], [0, 2])
     np.testing.assert_array_equal(
-        n.segments['diversions'], [set([0]), None, set([1])])
+        n.segments['diversions'], [{0}, set(), {1}])
     assert repr(n) == dedent('''\
         <SurfaceWaterNetwork: with Z coordinates
           3 segments: [0, 1, 2]
