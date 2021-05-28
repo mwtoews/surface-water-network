@@ -18,7 +18,6 @@ except ImportError:
     matplotlib = False
 
 
-
 class SwnMf6(SwnModflowBase):
     """Surface water network adaptor for MODFLOW 6.
 

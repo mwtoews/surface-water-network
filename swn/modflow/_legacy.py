@@ -24,7 +24,6 @@ except ImportError:
     matplotlib = False
 
 
-
 class MfSfrNetwork(object):
     """MODFLOW SFR network class.
 
@@ -880,8 +879,8 @@ class MfSfrNetwork(object):
         import flopy
         if not isinstance(model, flopy.modflow.mf.Modflow):
             raise ValueError(
-                "'model' must be a flopy Modflow object; found "
-                + str(type(model)))
+                "'model' must be a flopy Modflow object; found " +
+                str(type(model)))
         elif not model.has_package('DIS'):
             raise ValueError('DIS package required')
         elif not model.has_package('BAS6'):
@@ -1646,7 +1645,7 @@ class MfSfrNetwork(object):
                 botreach_strtop = self.reaches[rsel]['strtop'].values[-1]
                 # total segment length
                 seglen = self.reaches[rsel]['seglen'].values[-1]
-                botreach_slope = minslope  # minimum slope of segment
+                # botreach_slope = minslope  # minimum slope of segment
                 # top reach elevation and "length?":
                 upreach_strtop = self.reaches[rsel]['strtop'].values[0]
                 upreach_cmid = self.reaches[rsel]['cmids'].values[0]

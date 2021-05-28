@@ -19,8 +19,6 @@ except ImportError:
     matplotlib = False
 
 
-
-
 class SwnModflow(SwnModflowBase):
     """Surface water network adaptor for MODFLOW.
 
@@ -1015,7 +1013,7 @@ class SwnModflow(SwnModflowBase):
                 botreach_strtop = self.reaches[rsel]["strtop"].values[-1]
                 # total segment length
                 seglen = self.reaches[rsel]["seglen"].values[-1]
-                botreach_slope = minslope  # minimum slope of segment
+                # botreach_slope = minslope  # minimum slope of segment
                 # top reach elevation and "length?":
                 upreach_strtop = self.reaches[rsel]["strtop"].values[0]
                 upreach_cmid = self.reaches[rsel]["cmids"].values[0]

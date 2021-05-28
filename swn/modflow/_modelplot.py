@@ -8,7 +8,6 @@ except ImportError:
     matplotlib = False
 
 
-
 class ModelPlot(object):
     """Object for plotting array style results."""
 
@@ -229,7 +228,6 @@ class ModelPlot(object):
         :param x: 2D numpy array
         :param zorder: mpl overlay order
         """
-        from matplotlib import pyplot as plt
         from matplotlib import colors, cm
 
         vmin = x.min()
@@ -245,8 +243,8 @@ class ModelPlot(object):
         else:
             cmap = cm.get_cmap(cmap_txt)
             norm = MidpointNormalize(vmin=vmin, vmax=vmax, midpoint=0)
-        imx = self._add_plotlayer(x, cmap=cmap, norm=norm, zorder=zorder,
-                                  alpha=1, label=label, cbar=cbar)
+        self._add_plotlayer(x, cmap=cmap, norm=norm, zorder=zorder,
+                            alpha=1, label=label, cbar=cbar)
         if points is not None:
             self.ax.scatter(self.model.modelgrid.xcellcenters[
                                 points.i, points.j],
