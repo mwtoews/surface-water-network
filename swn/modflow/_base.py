@@ -769,6 +769,11 @@ class SwnModflowBase(object):
                 method = "zcoord_ab"
             else:
                 method = "grid_top"
+        if method == "zcoord_ab":
+            if not has_z:
+                raise ValueError(
+                    f"method {method} requested, but surface water network "
+                    "does not contain Z coordinates")
         if self.__class__.__name__ == "SwnModflow":
             grid_name = "slope"
         elif self.__class__.__name__ == "SwnMf6":
@@ -787,11 +792,6 @@ class SwnModflowBase(object):
             rchs.loc[sel, "min_slope"] = rchs.min_slope[~sel].min()
         rchs[grid_name] = 0.0
         if method == "zcoord_ab":
-            if not has_z:
-                raise ValueError(
-                    f"method {method} requested, but surface water network "
-                    "does not contain Z coordinates")
-
             def get_zcoords(g):
                 if g.is_empty or not g.has_z:
                     return []
@@ -833,8 +833,8 @@ class SwnModflowBase(object):
             px, py = np.gradient(dis.top.array, col_size, row_size)
             grid_slope = np.sqrt(px ** 2 + py ** 2)
             self.set_reach_data_from_array(grid_name, grid_slope)
-        # Enforce min_slope
-        sel = rchs[grid_name] < rchs["min_slope"]
+        # Enforce min_slope when less than min_slop or is NaN
+        sel = (rchs[grid_name] < rchs["min_slope"]) | rchs[grid_name].isna()
         if sel.any():
             num = sel.sum()
             self.logger.warning(
