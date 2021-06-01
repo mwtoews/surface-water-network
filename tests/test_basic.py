@@ -420,6 +420,23 @@ def test_init_geoseries():
     assert dict(a) == {0: 9.0, 1: 2.0, 2: 4.0}
 
 
+def test_init_segments_loc():
+    lines = wkt_to_geoseries([
+        "LINESTRING (60 100, 60  80)",
+        "LINESTRING (40 130, 60 100)",
+        "LINESTRING (70 130, 60 100)",
+        "LINESTRING (60  80, 70  70)",
+    ])
+    lines.index += 100
+    n1 = swn.SurfaceWaterNetwork.from_lines(lines)
+    assert list(n1.outlets) == [103]
+    # Create by slicing another GeoDataFrame, but check to_segnums
+    n2 = swn.SurfaceWaterNetwork(n1.segments.loc[100:102])
+    assert len(n2.segments) == 3
+    assert list(n2.outlets) == [100]
+    assert dict(n2.to_segnums) == {101: 100, 102: 100}
+
+
 def test_accumulate_values_must_be_series(valid_n):
     with pytest.raises(ValueError, match='values must be a pandas Series'):
         valid_n.accumulate_values([3.0, 2.0, 4.0])

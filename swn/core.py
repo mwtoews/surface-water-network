@@ -96,8 +96,15 @@ class SurfaceWaterNetwork(object):
         self.segments = segments
         self.END_SEGNUM = END_SEGNUM
         if self.END_SEGNUM in self.segments.index:
-            self.logger.error('END_SEGNUM %r found in segments.index',
-                              self.END_SEGNUM)
+            self.logger.error(
+                "END_SEGNUM %r found in segments.index", self.END_SEGNUM)
+        notin = ~self.to_segnums.isin(self.segments.index)
+        if notin.any():
+            self.segments = self.segments.copy()
+            self.logger.warning(
+                "correcting %d to_segnum not found in segments.index",
+                notin.sum())
+            self.segments.loc[notin, "to_segnum"] = self.END_SEGNUM
         # all other properties added afterwards
 
     @classmethod
