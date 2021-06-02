@@ -184,6 +184,22 @@ class SurfaceWaterNetwork(object):
             Optional input polygons of surface water catchments. Geometries
             must be 'POLYGON'. Index must be the same as segments.index.
 
+        Examples
+        --------
+        >>> import swn
+        >>> from swn.spatial import wkt_to_geoseries
+        >>> lines = wkt_to_geoseries([
+        ...    "LINESTRING (60 100, 60  80)",
+        ...    "LINESTRING (40 130, 60 100)",
+        ...    "LINESTRING (70 130, 60 100)"])
+        >>> n = swn.SurfaceWaterNetwork.from_lines(lines)
+        >>> n
+        <SurfaceWaterNetwork:
+          3 segments: [0, 1, 2]
+          2 headwater: [1, 2]
+          1 outlets: [0]
+          no diversions />
+
         """
         if not isinstance(lines, geopandas.GeoSeries):
             raise ValueError('lines must be a GeoSeries')

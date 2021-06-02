@@ -51,3 +51,7 @@ jobs:
         run: |
           pip install flopy netcdf4
           pytest -v
+
+      - name: Run doctest
+        run: |
+          pytest -v swn --doctest-modules
