@@ -101,6 +101,14 @@ def test_init_defaults(valid_n):
         plt.close()
 
 
+def test_segments(valid_n):
+    assert valid_n.segments is valid_n._segments
+    assert isinstance(valid_n.segments, geopandas.GeoDataFrame)
+    # columns are checked in other tests
+    with pytest.raises(AttributeError, match="can't set attribute"):
+        valid_n.segments = None
+
+
 def test_init_2D_geom():
     lines = force_2d(valid_lines)
     n = swn.SurfaceWaterNetwork.from_lines(lines)

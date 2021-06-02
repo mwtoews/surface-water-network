@@ -35,12 +35,6 @@ class SurfaceWaterNetwork(object):
 
     """
 
-    END_SEGNUM = None
-    segments = None
-    logger = None
-    warnings = None
-    errors = None
-
     def __init__(self, segments, END_SEGNUM=0, logger=None):
         """
         Initialise SurfaceWaterNetwork.
@@ -70,14 +64,14 @@ class SurfaceWaterNetwork(object):
             raise ValueError(
                 'segments must be a GeoDataFrame; found {!r}'
                 .format(type(segments)))
-        self.segments = segments
+        self._segments = segments
         self.END_SEGNUM = END_SEGNUM
         if self.END_SEGNUM in self.segments.index:
             self.logger.error(
                 "END_SEGNUM %r found in segments.index", self.END_SEGNUM)
         notin = ~self.to_segnums.isin(self.segments.index)
         if notin.any():
-            self.segments = self.segments.copy()
+            self._segments = self._segments.copy()
             self.logger.warning(
                 "correcting %d to_segnum not found in segments.index",
                 notin.sum())
@@ -86,7 +80,7 @@ class SurfaceWaterNetwork(object):
 
     def __len__(self):
         """Return number of segments."""
-        return len(self.segments.index)
+        return len(self._segments.index)
 
     def __repr__(self):
         """Return string representation of surface water network."""
@@ -401,6 +395,55 @@ class SurfaceWaterNetwork(object):
         if polygons is not None:
             obj.catchments = polygons
         return obj
+
+    @property
+    def segments(self):
+        """GeoDataFrame of stream segments derived from the lines input.
+
+        This GeoDataFrame is created by
+        :py:meth:`swn.SurfaceWaterNetwork.from_lines`.
+
+        Attributes
+        ----------
+        index : any
+            Unique index for each segment, with an optional name attribute.
+            Copied from ``lines.index``. This is often defined externally,
+            and is used to relate and exchange stream information.
+        geometry : geometry
+            LineString or LineStringZ geometries, copied from ``lines``.
+        to_segnum : same type as index
+            Index to which segment connects downstream to. If this is an
+            outlet, the value is ``END_SEGNUM``.
+        from_segnums : set
+            A set of zero or more indexes from which a segment connects
+            upstream from. This will be an empty set (pandas displays this
+            as ``{}`` rather than ``set()``), then it is a headwater segment.
+        cat_group : same type as index
+            Catchment group for each outlet.
+        num_to_outlet : int
+            Number of segments to the outlet.
+        dist_to_outlet : float
+            Distance to outlet.
+        sequence : int
+            Unique dowstream sequence.
+        stream_order : int
+            Strahler number.
+        upstream_length : float
+            Total lengths of streams upstream. See
+            :py:meth:`swn.SurfaceWaterNetwork.evaluate_upstream_width`
+            for details.
+        upstream_area : float
+            If catchments are defined, this is the upstream catchment area.
+            See :py:meth:`swn.SurfaceWaterNetwork.evaluate_upstream_area`
+            for details.
+        width : float
+            If upstream_area is defined, this is an estimate of stream width.
+            See :py:meth:`swn.SurfaceWaterNetwork.estimate_width` for details.
+        diversions : set
+            If diversions are defined, this is a set of zero or more indexes
+            to which the segment connects to.
+        """
+        return getattr(self, '_segments')
 
     @property
     def catchments(self):
@@ -1229,7 +1272,7 @@ class SurfaceWaterNetwork(object):
             self.logger.info(
                 'removing %d of %d segments (%.2f%%)', sel.sum(),
                 len(segments_index), sel.sum() * 100.0 / len(segments_index))
-            self.segments = self.segments.loc[~sel]
+            self._segments = self.segments.loc[~sel]
             if self.catchments is not None:
                 self.catchments = self.catchments.loc[~sel]
         return
