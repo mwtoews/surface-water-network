@@ -574,13 +574,13 @@ class SwnModflow(SwnModflowBase):
         # Combine pairs of series for each segment
         swn = self._swn
         more_segment_columns = pd.concat([
-            swn._pair_segment_values(hyd_cond1, hyd_cond_out, "hcond"),
-            swn._pair_segment_values(thickness1, thickness_out, "thickm"),
-            swn._pair_segment_values(width1, width_out, name="width")
+            swn.pair_segments_df(hyd_cond1, hyd_cond_out, "hcond"),
+            swn.pair_segments_df(thickness1, thickness_out, "thickm"),
+            swn.pair_segments_df(width1, width_out, name="width")
         ], axis=1, copy=False)
         for name, series in more_segment_columns.iteritems():
             self.segments[name] = series
-        self.segments["roughch"] = swn._segment_series(roughch)
+        self.segments["roughch"] = swn.segments_series(roughch)
 
         # Interpolate segment properties to each reach
         self.set_reach_data_from_segments(

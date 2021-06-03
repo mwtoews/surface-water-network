@@ -244,7 +244,7 @@ class SwnModflowBase(object):
         # Break up source segments according to the model grid definition
         obj.logger.debug("evaluating reach data on model grid")
         grid_sindex = get_sindex(grid_cells)
-        reach_include = swn._segment_series(reach_include_fraction) * cell_size
+        reach_include = swn.segments_series(reach_include_fraction) * cell_size
         # Make an empty DataFrame for reaches
         obj.reaches = pd.DataFrame(columns=["geometry"])
         obj.reaches.insert(1, column="i", value=pd.Series(dtype=int))
@@ -696,7 +696,7 @@ class SwnModflowBase(object):
         """
         if not isinstance(name, str):
             raise ValueError("'name' must be a str type")
-        segdat = self._swn._pair_segment_values(value, value_out, name)
+        segdat = self._swn.pair_segments_df(value, value_out, name)
         for item in segdat.itertuples():
             sel = self.reaches["segnum"] == item[0]
             if item[1] == item[2]:
