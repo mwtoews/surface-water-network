@@ -16,7 +16,10 @@ import swn.modflow
 from swn.file import gdf_to_shapefile
 from swn.spatial import force_2d, interp_2d_to_3d, wkt_to_geoseries
 
-from .conftest import datadir, matplotlib, plt
+if __name__ != "__main__":
+    from .conftest import datadir, matplotlib, plt
+else:
+    from conftest import datadir, matplotlib, plt
 
 try:
     import flopy
@@ -717,34 +720,33 @@ def test_set_elevations(tmp_path):
     nm.default_segment_data()
     # fix elevations
     _ = nm.set_topbot_elevs_at_reaches()
-    seg_data = nm.flopy_segment_data()
-    reach_data = nm.flopy_reach_data()
-    _ = flopy.modflow.mfsfr2.ModflowSfr2(
-        model=m, reach_data=reach_data, segment_data=seg_data)
     if matplotlib:
         nm.plot_reaches_above(m, "all", plot_bottom=True)
-        plt.close()
+        for seg in nm.reaches.segnum.unique():
+            nm.plot_profile(
+                seg, upstream=True, downstream=True
+            )
+    # Make sure segment ends are sensible relative to model elevations
+    # Also ensure segments flow downstream
+    # and downstream segments are below upstream segments
     _ = nm.fix_segment_elevs(min_incise=0.2, min_slope=1.e-4)
+    # pass segment elevation back to update reach elevations
     _ = nm.reconcile_reach_strtop()
-    seg_data = nm.flopy_segment_data()
-    reach_data = nm.flopy_reach_data()
-    _ = flopy.modflow.mfsfr2.ModflowSfr2(
-        model=m, reach_data=reach_data, segment_data=seg_data)
     if matplotlib:
         nm.plot_reaches_above(m, "all", plot_bottom=True)
-        plt.close()
         nm.plot_reaches_above(m, 1)
-        plt.close()
+        for seg in nm.reaches.segnum.unique():
+            nm.plot_profile(
+                seg, upstream=True, downstream=True
+            )
     _ = nm.set_topbot_elevs_at_reaches()
     nm.fix_reach_elevs()
-    seg_data = nm.flopy_segment_data()
-    reach_data = nm.flopy_reach_data()
-    _ = flopy.modflow.mfsfr2.ModflowSfr2(
-        model=m, reach_data=reach_data, segment_data=seg_data)
     if matplotlib:
         nm.plot_reaches_above(m, "all", plot_bottom=True)
-        plt.close()
-
+        for seg in nm.reaches.segnum.unique():
+            nm.plot_profile(
+                seg, upstream=True, downstream=True
+            )
     nm.set_sfr_obj(ipakcb=52, istcb2=-53)
     # Data set 1c
     assert abs(m.sfr.nstrm) == 7
@@ -943,49 +945,36 @@ def test_coastal_elevations(coastal_swn, coastal_flow_m, tmp_path):
     nm.default_segment_data()
     nm.set_segment_data_inflow(coastal_flow_m)
     _ = nm.set_topbot_elevs_at_reaches()
-    seg_data = nm.flopy_segment_data()
-    reach_data = nm.flopy_reach_data()
-    flopy.modflow.mfsfr2.ModflowSfr2(
-        model=m, reach_data=reach_data, segment_data=seg_data)
     if matplotlib:
-        nm.plot_reaches_above(m, "all", plot_bottom=False)
-        plt.close()
+        nm.plot_reaches_above(m, "all", plot_bottom=True)
     # handy to set a max elevation that a stream can be
     _ = nm.get_seg_ijk()
     tops = nm.get_top_elevs_at_segs().top_up
     max_str_z = tops.describe()["75%"]
     if matplotlib:
-        for seg in nm.segment_data.index[nm.segment_data.index.isin([1, 18])]:
-            nm.plot_reaches_above(m, seg)
-            plt.close()
+        for seg in nm.segment_data.loc[
+            nm.segment_data.index.isin([1, 18]), "segnum"
+        ]:
+            nm.plot_reaches_above(m, seg, plot_bottom=True)
     _ = nm.fix_segment_elevs(min_incise=0.2, min_slope=1.e-4,
                              max_str_z=max_str_z)
     _ = nm.reconcile_reach_strtop()
-    seg_data = nm.flopy_segment_data()
-    reach_data = nm.flopy_reach_data()
-    flopy.modflow.mfsfr2.ModflowSfr2(
-        model=m, reach_data=reach_data, segment_data=seg_data)
     if matplotlib:
-        nm.plot_reaches_above(m, "all", plot_bottom=False)
-        plt.close()
-        for seg in nm.segment_data.index[nm.segment_data.index.isin([1, 18])]:
+        nm.plot_reaches_above(m, "all", plot_bottom=True)
+        for seg in nm.segment_data.loc[
+            nm.segment_data.index.isin([1, 18]), "segnum"
+        ]:
             nm.plot_reaches_above(m, seg)
-            plt.close()
     _ = nm.set_topbot_elevs_at_reaches()
     nm.fix_reach_elevs()
-    seg_data = nm.flopy_segment_data()
-    reach_data = nm.flopy_reach_data()
-    flopy.modflow.mfsfr2.ModflowSfr2(
-        model=m, reach_data=reach_data, segment_data=seg_data)
     if matplotlib:
-        nm.plot_reaches_above(m, "all", plot_bottom=False)
-        plt.close()
-        for seg in nm.segment_data.index[nm.segment_data.index.isin([1, 18])]:
+        nm.plot_reaches_above(m, "all", plot_bottom=True)
+        for seg in nm.segment_data.loc[
+            nm.segment_data.index.isin([1, 18]), "segnum"
+        ]:
             nm.plot_reaches_above(m, seg)
-            plt.close()
+    nm.set_sfr_obj(ipakcb=50, istcb2=-51)
     m.sfr.unit_number = [24]
-    m.sfr.ipakcb = 50
-    m.sfr.istcb2 = -51
     m.add_output_file(51, extension="sfo", binflag=True)
     # Run model
     m.model_ws = str(tmp_path)

@@ -6,6 +6,7 @@ __all__ = ["SwnModflow"]
 import inspect
 from itertools import zip_longest
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
@@ -669,12 +670,12 @@ class SwnModflow(SwnModflowBase):
 
         Adds elevation of model top at
         upstream and downstream ends of each segment
-        :param m: modeflow model with active dis package
+        :param m: modflow model with active dis package
         :return: Adds "top_up" and "top_dn" columns to segment data dataframe
         """
         if m is None:
             m = self.model
-        assert m.sfr is not None, "need sfr package"
+        # assert m.sfr is not None, "need sfr package"
         self.segment_data["top_up"] = m.dis.top.array[
             tuple(self.segment_data[["i_up", "j_up"]].values.T)]
         self.segment_data["top_dn"] = m.dis.top.array[
@@ -857,6 +858,7 @@ class SwnModflow(SwnModflowBase):
         :param min_slope: desired minimum slope for segment
         :param min_incise: desired minimum incision (in model units)
         :return: segment data dataframe
+        TODO: assess if this has not been super-seeded by other functions!
         """
         kijcols = {"k_up", "i_up", "j_up", "k_dn", "i_dn", "j_dn"}
         dif = kijcols - set(self.segment_data.columns)
@@ -922,18 +924,31 @@ class SwnModflow(SwnModflowBase):
 
     def set_topbot_elevs_at_reaches(self, m=None):
         """
-        Get top and bottom elevation of the cell containing a reach.
+        LEGACY
+        old method name to add model top and bottom information as columns
+        in `reaches` data
+        :param m: Modflow model
+        :return: dataframe with reach cell top and bottom elevations
+        """
+        self.logger.warning(
+                '`set_topbot_elevs_at_reaches()` is the old method name,'
+                'changed to `add_model_topbot_to_reaches()`',
+        )
+        if m is None:
+            m = self.model
+        return self.add_model_topbot_to_reaches(m=m)
 
+    def add_model_topbot_to_reaches(self, m=None):
+        """
+        get top and bottom elevation of the cell containing a reach
         :param m: Modflow model
         :return: dataframe with reach cell top and bottom elevations
         """
         if m is None:
             m = self.model
-        self.reaches["top"] = m.dis.top.array[
-            tuple(self.reaches[["i", "j"]].values.T)]
-        self.reaches["bot"] = m.dis.botm[0].array[
-            tuple(self.reaches[["i", "j"]].values.T)]
-        return self.reaches[["top", "bot"]]
+        self.set_reach_data_from_array('top', m.dis.top.array)
+        self.set_reach_data_from_array('bot', m.dis.botm[0].array)
+        return self.reaches[['top', 'bot']]
 
     def fix_reach_elevs(self, minslope=0.0001, fix_dis=True, minthick=0.5):
         """Fix reach elevations.
@@ -970,7 +985,7 @@ class SwnModflow(SwnModflowBase):
         # make sure elevations are up-to-date
         # recalculate REACH strtop elevations
         self.reconcile_reach_strtop()
-        _ = self.set_topbot_elevs_at_reaches()
+        _ = self.add_model_topbot_to_reaches()
         # top read from dis as float32 so comparison need to be with like
         reachsel = self.reaches["top"] <= self.reaches["strtop"]
         reach_ij = tuple(self.reaches[["i", "j"]].values.T)
@@ -1133,59 +1148,115 @@ class SwnModflow(SwnModflowBase):
                 layerbots[k + 1] = layerbots[k] - laythick
             self.model.dis.botm = layerbots
 
-    def sfr_plot(self, model, sfrar, dem, points=None, points2=None,
-                 label=None):
+    def sfr_plot(self, model, sfrar, dem, label=None, lines=None):
         """Plot sfr."""
         from swn.modflow._modelplot import ModelPlot
         p = ModelPlot(model)
         p._add_plotlayer(dem, label="Elevation (m)")
         p._add_sfr(sfrar, cat_cmap=False, cbar=True,
                    label=label)
+        if lines is not None:
+            p._add_lines(lines)
         return p
 
     def plot_reaches_above(self, model, seg, dem=None,
-                           plot_bottom=False, points2=None):
-        """Plot sfr reaches above."""
+                           plot_bottom=False):
+        """
+        Wrapper method to plot the elevation of the MODFLOW model projected
+        streams relative to model top and layer 1 bottom
+
+        Parameters
+        ----------
+        model : flopy MODFLOW model instance
+            With at least dis and bas6 -- so currently <MF6 method
+        seg : int or "all"
+            Specific segment number to plot (sfr iseg/nseg)
+        dem : array
+            For using as plot background -- assumes same (nrow, ncol)
+            dimensions as model layer
+        plot_bottom : bool
+            Also plot stream bed elevation relative to the bottom of layer 1
+
+        Returns
+        -------
+        vtop, vbot : ModelPlot objects containing matplotlib fig and axes
+
+        """
         # ensure reach elevations are up-to-date
-        _ = self.set_topbot_elevs_at_reaches()
+        _ = self.add_model_topbot_to_reaches()  #TODO check required first
         dis = model.dis
-        sfr = model.sfr
+        # sfr = model.sfr
         if dem is None:
             dem = np.ma.array(
                 dis.top.array, mask=model.bas6.ibound.array[0] == 0)
         sfrar = np.ma.zeros(dis.top.array.shape, "f")
         sfrar.mask = np.ones(sfrar.shape)
-        lay1reaches = self.reaches.loc[
-            self.reaches.k.apply(lambda x: x == 1)]
-        points = None
-        if lay1reaches.shape[0] > 0:
-            points = lay1reaches[["i", "j"]]
-        # segsel=reachdata["iseg"].isin(segsabove.index)
         if seg == "all":
             segsel = np.ones((self.reaches.shape[0]), dtype=bool)
         else:
-            segsel = self.reaches["iseg"] == seg
-        sfrar[tuple((self.reaches[segsel][["i", "j"]]
-                     .values.T).tolist())] = \
-            (self.reaches[segsel]["top"] -
-             self.reaches[segsel]["strtop"]).tolist()
+            segsel = self.reaches["segnum"] == seg
+        self.reaches['tmp_tdif'] = (self.reaches["top"] -
+                                    self.reaches["strtop"])
+        sfrar[
+            tuple(self.reaches[segsel][["i", "j"]].values.T.tolist())
+        ] = self.reaches.loc[segsel, 'tmp_tdif'].tolist()
         # .mask = np.ones(sfrar.shape)
-        vtop = self.sfr_plot(model, sfrar, dem, points=points, points2=points2,
-                             label="str below top (m)")
+        vtop = self.sfr_plot(
+            model, sfrar, dem,
+            label="str below\ntop (m)",
+            lines=self.reaches.loc[segsel, ['geometry', 'tmp_tdif']]
+        )
+
         if seg != "all":
-            sfr.plot_path(seg)
+            self.plot_profile(seg, upstream=True, downstream=True)
         if plot_bottom:
             dembot = np.ma.array(dis.botm.array[0],
                                  mask=model.bas6.ibound.array[0] == 0)
             sfrarbot = np.ma.zeros(dis.botm.array[0].shape, "f")
             sfrarbot.mask = np.ones(sfrarbot.shape)
-            sfrarbot[tuple((self.reaches[segsel][["i", "j"]]
-                            .values.T).tolist())] = \
-                (self.reaches[segsel]["strtop"] -
-                 self.reaches[segsel]["bot"]).tolist()
+            self.reaches['tmp_bdif'] = (self.reaches["strtop"] -
+                                        self.reaches["bot"])
+            sfrarbot[
+                tuple(self.reaches.loc[segsel, ["i", "j"]].values.T.tolist())
+            ] = self.reaches.loc[segsel, 'tmp_bdif'].tolist()
             # .mask = np.ones(sfrar.shape)
-            vbot = self.sfr_plot(model, sfrarbot, dembot, points=points,
-                                 points2=points2, label="str above bottom (m)")
+            vbot = self.sfr_plot(
+                model, sfrarbot, dembot,
+                label="str above\nbottom (m)",
+                lines=self.reaches.loc[segsel, ['geometry', 'tmp_bdif']]
+            )
         else:
             vbot = None
         return vtop, vbot
+
+    def plot_profile(self, seg, upstream=False, downstream=False):
+        """
+        Quick wrapper method for plotting stream top profiles vs model grid
+        top and bottom.
+        Parameters
+        ----------
+        seg : int
+            Identifying segment for plots
+        upstream : bool
+            Flag for continuing trace upstream from segnum = `seg`
+        downstream : bool
+            Flag for continuing trace downstream of segnum = `seg`
+
+        Returns
+        -------
+
+        """
+        from swn.modflow._modelplot import _profile_plot
+        usegs = [seg]
+        dsegs = []
+        if upstream:
+            usegs = self._swn.query(upstream=seg)
+        if downstream:
+            dsegs = self._swn.query(downstream=seg)
+        segs = usegs + dsegs
+        assert seg in segs, (f"something has changed in the code, "
+                             f"{seg} not in {segs}")
+        reaches = self.reaches.loc[self.reaches.segnum.isin(segs)].sort_index()
+        reaches['mid_dist'] = reaches.rchlen.cumsum() - reaches.rchlen / 2
+        _profile_plot(reaches, x='mid_dist', cols=['strtop', 'top', 'bot'])
+
