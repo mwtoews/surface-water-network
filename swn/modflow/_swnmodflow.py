@@ -528,8 +528,7 @@ class SwnModflow(SwnModflowBase):
             "width" from "segments", otherwise will use 10.
         width_out : None, float or pandas.Series, optional
             Similar to width1, but for the bottom of each segment outlet.
-            If None (default), the same width1 value for the top of the
-            outlet segment is used for the bottom.
+            If None (default), use a constant width1 value for segment.
         roughch : float or pandas.Series, optional
             Manning's roughness coefficient for the channel. If float, then
             this is a global value, otherwise it is per-segment with a Series.
@@ -574,9 +573,10 @@ class SwnModflow(SwnModflowBase):
         # Combine pairs of series for each segment
         swn = self._swn
         more_segment_columns = pd.concat([
-            swn.pair_segments_df(hyd_cond1, hyd_cond_out, "hcond"),
-            swn.pair_segments_df(thickness1, thickness_out, "thickm"),
-            swn.pair_segments_df(width1, width_out, name="width")
+            swn.pair_segments_frame(hyd_cond1, hyd_cond_out, "hcond"),
+            swn.pair_segments_frame(thickness1, thickness_out, "thickm"),
+            swn.pair_segments_frame(
+                width1, width_out, name="width", method="constant")
         ], axis=1, copy=False)
         for name, series in more_segment_columns.iteritems():
             self.segments[name] = series
@@ -588,7 +588,7 @@ class SwnModflow(SwnModflowBase):
         self.set_reach_data_from_segments(
             "strthick", thickness1, thickness_out)
         self.set_reach_data_from_segments(
-            "strhc1", hyd_cond1, hyd_cond_out, log10=True)
+            "strhc1", hyd_cond1, hyd_cond_out, log=True)
 
         # Get stream values from top of model
         self.set_reach_data_from_array("strtop", self.model.dis.top.array)

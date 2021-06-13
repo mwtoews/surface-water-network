@@ -672,43 +672,82 @@ class SwnModflowBase(object):
         return obj
 
     def set_reach_data_from_segments(
-            self, name, value, value_out=None, log10=False):
+            self, name, value, value_out=None, method=None, log=False):
         """Set reach data based on segment series (or scalar).
-
-        Values are interpolated along lengths of each segment based on a
-        "segndist" attribute for segment normalized distance, between 0 and 1.
 
         Parameters
         ----------
         name : str
-            Name for reach dataset.
-        value : float or pandas.Series
-            Value to assign to the top of each segment. If a float, this value
-            is a constant. If a pandas Series, then this is applied for
-            each segment.
-        value_out : None, float or pandas.Series, optional
-            If None (default), the value used for the bottom of outlet segments
-            is assumed to be the same as the top. Otherwise, a Series
-            for each outlet can be specified.
-        log10 : bool, optional
-            If True, log-10 transformation applied to interpolation, otherwise
-            a linear interpolation is used from start to end of each segment.
+            Name for reach dataset, added to the reaches data frame.
+        value : scalar, list, dict or pandas.Series
+            Value to assign to the upstream or top end of each segment.
+            See :py:meth:`SurfaceWaterNetwork.pair_segments_frame` for details.
+        value_out : None (default), scalar, dict or pandas.Series
+            If None (default), the value used for the bottom is determined
+            using ``method``. This option is normally specified for outlets.
+            See :py:meth:`SurfaceWaterNetwork.pair_segments_frame` for details.
+        method : str, default None
+            This option determines how ``value_out`` values should be
+            determined, if not specified. Choose one of:
+              - None (default): automatically determine method. If value is
+                float-like or ``log=True``, choose ``continious`` with
+                interpolation (if necessary) along reaches, otherwise
+                ``constant`` without any interpolation.
+              - ``continuous`` : downstream value is evaluated to be
+                the same as the upstream value it connects to. This allows a
+                continuous network of values along the networks, such as
+                elevation. Values for each reach are linearly interpolated.
+              - ``constant`` : ``value`` from each segment is used for all
+                reaches. No interpolation is performed along reaches.
+              - ``additive`` : downstream value is evaluated to be a fraction
+                of tributaries that add to the upstream value it connects to.
+                Proportions of values for each tributary are preserved, but
+                lengths of segments are ignored. Segments with
+                different ``value`` and ``value_out`` use interpolation
+                along reaches.
+        log : bool, default False
+            If True and ``method`` is not "constant", apply a log
+            transformation applied to interpolation.
         """
         if not isinstance(name, str):
-            raise ValueError("'name' must be a str type")
-        segdat = self._swn.pair_segments_df(value, value_out, name)
-        for item in segdat.itertuples():
-            sel = self.reaches["segnum"] == item[0]
-            if item[1] == item[2]:
-                value = item[1]
-            else:  # interpolate to mid points of each reach from segment data
-                segndist = self.reaches.loc[sel, "segndist"]
-                if log10:
-                    lvalue1 = np.log10(item[1])
-                    lvalue2 = np.log10(item[2])
-                    value = 10 ** ((lvalue2 - lvalue1) * segndist + lvalue1)
+            raise ValueError("name must be a str type")
+        if np.isscalar(value) and value_out is None:
+            self.logger.debug(
+                "set_reach_data_from_segments: setting scalar %s = %s",
+                name, value)
+            self.reaches[name] = value
+            return
+        if method is None:
+            if log:
+                method = "continuous"
+            else:
+                value = self._swn.segments_series(value)
+                if np.issubdtype(value, np.floating):
+                    method = "continuous"
                 else:
-                    value = (item[2] - item[1]) * segndist + item[1]
+                    method = "constant"
+            self.logger.debug(
+                "set_reach_data_from_segments: choosing method=%r", method)
+        segdat = self._swn.pair_segments_frame(value, value_out, method=method)
+        c1, c2 = segdat.columns
+        res = self.reaches[["segnum"]].join(segdat[c1], on="segnum")
+        self.reaches[name] = res[c1]
+        if method == "constant":
+            return
+        # Determine which segments need to be interpolated
+        interp = segdat[c1] != segdat[c2]
+        self.logger.debug(
+            "set_reach_data_from_segments: interpolating %d segments",
+            interp.sum())
+        if log:
+            segdat = np.log10(segdat)
+        for item in segdat[interp].itertuples():
+            sel = self.reaches["segnum"] == item[0]
+            # interpolate to mid points of each reach from segment data
+            segndist = self.reaches.loc[sel, "segndist"]
+            value = (item[2] - item[1]) * segndist + item[1]
+            if log:
+                value = 10 ** value
             self.reaches.loc[sel, name] = value
 
     def set_reach_data_from_array(self, name, array):

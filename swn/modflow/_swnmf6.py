@@ -523,8 +523,7 @@ class SwnMf6(SwnModflowBase):
             "segments", otherwise will use 10.
         width_out : None, float or pandas.Series, optional
             Similar to width1, but for the bottom of each segment outlet.
-            If None (default), the same width1 value for the top of the
-            outlet segment is used for the bottom.
+            If None (default), use a constant width1 value for segment.
         roughch : float or pandas.Series, optional
             Manning's roughness coefficient for the channel. If float, then
             this is a global value, otherwise it is per-segment with a Series.
@@ -548,7 +547,8 @@ class SwnMf6(SwnModflowBase):
                 action_args = (width1,)
             self.logger.info(
                 "default_packagedata: 'rwd' " + action, *action_args)
-        self.set_reach_data_from_segments("rwid", width1, width_out)
+        self.set_reach_data_from_segments(
+            "rwid", width1, width_out, method="constant")
 
         if "rgrd" not in self.reaches.columns:
             self.logger.info(

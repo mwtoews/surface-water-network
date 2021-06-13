@@ -130,37 +130,83 @@ def test_set_reach_data_from_segments():
     n.segments["upstream_area"] = n.segments["upstream_length"] ** 2 * 100
     n.estimate_width()
     nm = swn.SwnModflow.from_swn_flopy(n, m)
-    nm.set_reach_data_from_segments("const_var", 9)
-    assert list(nm.reaches["const_var"]) == [9.0] * 7
-    nm.set_reach_data_from_segments("width", n.segments.width)
-    np.testing.assert_array_almost_equal(
-        nm.reaches["width"],
-        np.array([
-            1.89765007, 2.07299816, 2.20450922, 1.91205787, 2.19715192,
-            2.29218327, 2.29218327]))
-    nm.set_reach_data_from_segments("width", n.segments.width, pd.Series(5))
-    np.testing.assert_array_almost_equal(
-        nm.reaches["width"],
-        np.array([
-            1.89765007, 2.07299816, 2.20450922, 1.91205787, 2.19715192,
-            2.96913745, 4.32304582]))
+    reach_idx = pd.RangeIndex(7, name="reachID") + 1
     k = pd.Series([1, 10, 100], dtype=float)
+    # scalar
+    nm.set_reach_data_from_segments("const_var", 9)
+    pd.testing.assert_series_equal(
+        nm.reaches["const_var"],
+        pd.Series(9, name="const_var", index=reach_idx))
+    nm.set_reach_data_from_segments("const_var", 9.0)
+    pd.testing.assert_series_equal(
+        nm.reaches["const_var"],
+        pd.Series(9.0, name="const_var", index=reach_idx))
+    nm.set_reach_data_from_segments("const_var", "%SCALE%")
+    pd.testing.assert_series_equal(
+        nm.reaches["const_var"],
+        pd.Series("%SCALE%", name="const_var", index=reach_idx))
+    # series with no interpolation
+    nm.set_reach_data_from_segments("sequence", n.segments.sequence)
+    pd.testing.assert_series_equal(
+        nm.reaches["sequence"],
+        pd.Series([1, 1, 1, 2, 2, 3, 3], name="sequence", index=reach_idx))
+    nm.set_reach_data_from_segments(
+        "boundname", (n.segments.index.to_series() + 100).astype(str))
+    pd.testing.assert_series_equal(
+        nm.reaches["boundname"],
+        pd.Series(["101", "101", "101", "102", "102", "100", "100"],
+                  name="boundname", index=reach_idx))
+    nm.set_reach_data_from_segments(
+        "width", n.segments.width, method="constant")
+    pd.testing.assert_series_equal(
+        nm.reaches["width"],
+        pd.Series([
+            1.766139, 1.766139, 1.766139, 1.721995, 1.721995, 2.292183,
+            2.292183], name="width", index=reach_idx))
+    # series with interpolation
+    nm.set_reach_data_from_segments(
+        "var", n.segments.width, method="continuous")
+    pd.testing.assert_series_equal(
+        nm.reaches["var"],
+        pd.Series([
+            1.89765007, 2.07299816, 2.20450922, 1.91205787, 2.19715192,
+            2.29218327, 2.29218327], name="var", index=reach_idx))
+    nm.set_reach_data_from_segments(
+        "width", n.segments.width, method="additive")
+    pd.testing.assert_series_equal(
+        nm.reaches["width"],
+        pd.Series([
+            1.61475323, 1.41290554, 1.26151976, 1.52519257, 1.229988656,
+            2.29218327, 2.29218327], name="width", index=reach_idx))
+    nm.set_reach_data_from_segments(
+        "width", n.segments.width, pd.Series(5), method="additive")
+    pd.testing.assert_series_equal(
+        nm.reaches["width"],
+        pd.Series([
+            1.61475323, 1.41290554, 1.26151976, 1.52519257, 1.229988656,
+            2.96913745, 4.32304582], name="width", index=reach_idx))
     nm.set_reach_data_from_segments("strhc1", k)
-    np.testing.assert_array_almost_equal(
+    pd.testing.assert_series_equal(
         nm.reaches["strhc1"],
-        np.array([7.75, 4.75, 2.5, 67., 17.5, 1., 1.]))
-    nm.set_reach_data_from_segments("strhc1", k, log10=True)
-    np.testing.assert_array_almost_equal(
+        pd.Series([7.75, 4.75, 2.5, 67., 17.5, 1., 1.],
+                  name="strhc1", index=reach_idx))
+    nm.set_reach_data_from_segments("strhc1", k, log=True)
+    pd.testing.assert_series_equal(
         nm.reaches["strhc1"],
-        np.array([
+        pd.Series([
             5.62341325, 2.61015722, 1.46779927, 21.5443469, 2.15443469,
-            1., 1.]))
-    nm.set_reach_data_from_segments("strhc1", k, pd.Series(1000), log10=True)
-    np.testing.assert_array_almost_equal(
+            1., 1.], name="strhc1", index=reach_idx))
+    nm.set_reach_data_from_segments("strhc1", k.astype(int), 1000, log=True)
+    pd.testing.assert_series_equal(
         nm.reaches["strhc1"],
-        np.array([
+        pd.Series([
             5.62341325, 2.61015722, 1.46779927, 21.5443469, 2.15443469,
-            5.62341325, 177.827941]))
+            5.62341325, 177.827941], name="strhc1", index=reach_idx))
+    # misc errors
+    with pytest.raises(ValueError, match="name must be a str type"):
+        nm.set_reach_data_from_segments(1, 2)
+    with pytest.raises(TypeError, match="unsupported operand type"):
+        nm.set_reach_data_from_segments("width", n.segments.width, "10")
 
 
 @pytest.mark.parametrize(

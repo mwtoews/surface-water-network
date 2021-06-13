@@ -1037,9 +1037,9 @@ class SurfaceWaterNetwork(object):
         else:
             raise ValueError('unknown use for upstream_area')
         if not isinstance(a, (float, int)):
-            a = self.segments_series(a, 'a')
+            a = self.segments_series(a, "a")
         if not isinstance(b, (float, int)):
-            b = self.segments_series(a, 'b')
+            b = self.segments_series(a, "b")
         self.segments['width'] = a + upstream_area_km2 ** b
 
     def segments_series(self, value, name=None):
@@ -1096,15 +1096,12 @@ class SurfaceWaterNetwork(object):
             value.name = name
         return value
 
-    def pair_segments_df(self, value, outlet_value=None, name=None):
-        """Generate a DataFrame of paired values of connected segments.
+    def pair_segments_frame(
+            self, value, value_out=None, name=None, method="continuous"):
+        """Generate a DataFrame of paired values for top/bottom of segments.
 
         The first value applies to the top of each segment, and the bottom
-        value is determined from the top of the value it connects to. This
-        allows for continious values to be assigned to segments, where the
-        value at the top of a segment is the same as the bottom of the
-        segments that connect to it. Special consideration is applied to
-        outlet segments.
+        value is determined from the top of the value it connects to.
 
         Parameters
         ----------
@@ -1114,14 +1111,28 @@ class SurfaceWaterNetwork(object):
             index as :py:attr:`SurfaceWaterNetwork.segments`. Otherwise value
             as a scalar, list or dict is cast as a Series with
             ``segments.index``.
-        outlet_value : None (default), scalar, list, dict or pandas.Series
-            If None (default), the value used for the bottom of outlet segments
-            is assumed to be the same as the top (value). If outlet_value is a
-            Series, it is checked to ensure it is has the same index as
-            :py:attr:`SurfaceWaterNetwork.outlets`. Otherwise outlet_value as a
-            scalar, list or dict is cast as a Series with ``outlets.index``.
+        value_out : None (default), scalar, dict or pandas.Series
+            If None (default), the value used for the bottom is determined
+            using ``method``. Otherwise, ``value_out`` can be directly
+            specified with a Series or dict, indexed by segnum. If
+            ``value_out`` is a scalar, it is cast as a Series with
+            ``outlets.index``. This option is normally specified for outlets,
+            but will overwrite any other values determined by ``method``.
         name : str, default None
-            Base name used for the column names, if provided.
+            Base name used for the column names, if provided. For example,
+            ``name="foo"`` will create columns "foo1" and "foo2".
+        method : str, default "continuous"
+            This option determines how ``value_out`` values should be
+            determined, if not specified. Choose one of:
+              - ``continuous`` (default): downstream value is evaluated to be
+                the same as the upstream value it connects to. This allows a
+                continuous network of values along the networks, such as
+                elevation.
+              - ``constant`` : ``value_out`` is the same as ``value``.
+              - ``additive`` : downstream value is evaluated to be a fraction
+                of tributaries that add to the upstream value it connects to.
+                Proportions of values for each tributary are preserved, but
+                lengths of segments are ignored.
 
         Returns
         -------
@@ -1138,43 +1149,63 @@ class SurfaceWaterNetwork(object):
         ...    "LINESTRING (40 130, 60 100)",
         ...    "LINESTRING (70 130, 60 100)"])
         >>> n = swn.SurfaceWaterNetwork.from_lines(lines)
-        >>> n.pair_segments_df([3, 4, 5])
+        >>> n.pair_segments_frame([3, 4, 5])
            1  2
         0  3  3
         1  4  3
         2  5  3
-        >>> n.pair_segments_df([4.0, 3.0, 5.0], {0: 6.0}, name="width")
-           width1  width2
-        0     4.0     6.0
-        1     3.0     4.0
-        2     5.0     4.0
+        >>> n.pair_segments_frame([4.0, 3.0, 5.0], {0: 6.0}, name="var")
+           var1  var2
+        0   4.0   6.0
+        1   3.0   4.0
+        2   5.0   4.0
+        >>> n.pair_segments_frame([10.0, 2.0, 3.0], name="add",
+        ...                       method="additive")
+           add1  add2
+        0  10.0  10.0
+        1   2.0   4.0
+        2   3.0   6.0
         """
+        supported_methods = ["continuous", "constant", "additive"]
+        if method not in supported_methods:
+            raise ValueError(f"method must be one of {supported_methods}")
         value = self.segments_series(value, name=name)
         df = pd.concat([value, value], axis=1)
         if value.name is not None:
-            df.columns = df.columns.str.cat(['1', '2'])
+            df.columns = df.columns.str.cat(["1", "2"])
         else:
             df.columns += 1
-        to_segnums = self.to_segnums
         c1, c2 = df.columns
-        df.loc[to_segnums.index, c2] = df.loc[to_segnums, c1].values
-        if outlet_value is not None:
-            # generate outlet series
-            outlets_index = self.outlets
-            if np.isscalar(outlet_value):
-                outlet_value = pd.Series(outlet_value, index=outlets_index)
-            elif isinstance(outlet_value, pd.Series):
+        if method == "continuous":
+            to_segnums = self.to_segnums
+            df.loc[to_segnums.index, c2] = df.loc[to_segnums, c1].values
+        elif method == "additive":
+            for segnum, from_segnums in self.from_segnums.iteritems():
+                if len(from_segnums) <= 1:
+                    continue
+                # get proportions of upstream values
+                from_value1 = df.loc[sorted(from_segnums), c1]
+                from_value1_prop = from_value1 / from_value1.sum()
+                from_value2 = df.loc[segnum, c1] * from_value1_prop
+                for from_segnum, v2 in from_value2.iteritems():
+                    df.loc[from_segnum, c2] = v2
+        elif method == "constant":
+            pass
+        if value_out is not None:
+            if np.isscalar(value_out):
+                # generate only for outlets
+                value_out = pd.Series(value_out, index=self.outlets)
+            elif isinstance(value_out, pd.Series):
                 pass
-            elif isinstance(outlet_value, (list, dict)):
-                outlet_value = pd.Series(outlet_value)
+            elif isinstance(value_out, dict):
+                value_out = pd.Series(value_out)
             else:
                 raise ValueError(
-                    "expected outlet_value to be scalar, list, dict or Series")
-            if (len(outlet_value.index) != len(outlets_index) or
-                    not (outlet_value.index == outlets_index).all()):
+                    "expected value_out to be scalar, dict or Series")
+            if not set(value_out.index).issubset(set(df.index)):
                 raise ValueError(
-                    "outlet_value.index is different than for outlets")
-            df.loc[outlet_value.index, c2] = outlet_value
+                    "value_out.index is not a subset of segments.index")
+            df.loc[value_out.index, c2] = value_out
         return df
 
     def adjust_elevation_profile(self, min_slope=1./1000):
@@ -1309,7 +1340,7 @@ class SurfaceWaterNetwork(object):
         None
 
         """
-        condition = self.segments_series(condition, 'condition').astype(bool)
+        condition = self.segments_series(condition, "condition").astype(bool)
         if condition.any():
             self.logger.debug(
                 'selecting %d segnum(s) based on a condition',

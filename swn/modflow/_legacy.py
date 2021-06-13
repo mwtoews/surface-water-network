@@ -532,9 +532,10 @@ class MfSfrNetwork(object):
                 del obj.segments[col]
         # Combine pairs of series for each segment
         more_segment_columns = pd.concat([
-            swn.pair_segments_df(hyd_cond1, hyd_cond_out, 'hcond'),
-            swn.pair_segments_df(thickness1, thickness_out, 'thickm'),
-            swn.pair_segments_df(width1, width_out, name='width')
+            swn.pair_segments_frame(hyd_cond1, hyd_cond_out, 'hcond'),
+            swn.pair_segments_frame(thickness1, thickness_out, 'thickm'),
+            swn.pair_segments_frame(width1, width_out, name='width',
+                                    method="constant")
         ], axis=1, copy=False)
         for name, series in more_segment_columns.iteritems():
             obj.segments[name] = series

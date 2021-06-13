@@ -746,74 +746,102 @@ def test_segments_series(valid_n):
         n.segments_series(object())
 
 
-def test_pair_segments_df(valid_n):
+def test_pair_segments_frame(valid_n):
     n = valid_n
-    errmsg_segments = "index is different than for segments"
-    errmsg_outlets = "outlet_value.index is different than for outlets"
+    errmsg_value = "index is different than for segments"
+    errmsg_value_out = "value_out.index is not a subset of segments.index"
+    errmsg_value_out_expected = "expected value_out to be scalar, dict or Seri"
     # from scalar
     pd.testing.assert_frame_equal(
-        n.pair_segments_df(8.0),
+        n.pair_segments_frame(8.0, method="continuous"),
         pd.DataFrame({1: 8.0, 2: 8.0}, index=[0, 1, 2]))
     pd.testing.assert_frame_equal(
-        n.pair_segments_df(8.0, name="foo"),
+        n.pair_segments_frame(8.0, name="foo"),
         pd.DataFrame({"foo1": 8.0, "foo2": 8.0}, index=[0, 1, 2]))
     pd.testing.assert_frame_equal(
-        n.pair_segments_df(8, 9),
+        n.pair_segments_frame(8, 9),
         pd.DataFrame({1: 8, 2: [9, 8, 8]}))
     pd.testing.assert_frame_equal(
-        n.pair_segments_df(8, 9, name="foo"),
+        n.pair_segments_frame(8, 9, name="foo"),
         pd.DataFrame({"foo1": 8, "foo2": [9, 8, 8]}))
     # from list
     pd.testing.assert_frame_equal(
-        n.pair_segments_df([3, 4, 5]),
+        n.pair_segments_frame([3, 4, 5]),
         pd.DataFrame({1: [3, 4, 5], 2: 3}))
     pd.testing.assert_frame_equal(
-        n.pair_segments_df([3, 4, 5], name="foo"),
+        n.pair_segments_frame([3, 4, 5], name="foo"),
         pd.DataFrame({"foo1": [3, 4, 5], "foo2": 3}))
     pd.testing.assert_frame_equal(
-        n.pair_segments_df([3, 4, 5], [6]),
+        n.pair_segments_frame([3, 4, 5], {0: 6}),
         pd.DataFrame({1: [3, 4, 5], 2: [6, 3, 3]}))
     pd.testing.assert_frame_equal(
-        n.pair_segments_df([3, 4, 5], [6], "foo"),
+        n.pair_segments_frame([3, 4, 5], 6, "foo"),
         pd.DataFrame({"foo1": [3, 4, 5], "foo2": [6, 3, 3]}))
     pd.testing.assert_frame_equal(
-        n.pair_segments_df(["$VAL1$", "$VAL2$", "$VAL3$"]),
+        n.pair_segments_frame(["$VAL1$", "$VAL2$", "$VAL3$"]),
         pd.DataFrame({1: ["$VAL1$", "$VAL2$", "$VAL3$"], 2: "$VAL1$"}))
     pd.testing.assert_frame_equal(
-        n.pair_segments_df(["v1", "v2", "v3"], ["o1"]),
+        n.pair_segments_frame(["v1", "v2", "v3"], "o1"),
         pd.DataFrame({1: ["v1", "v2", "v3"], 2: ["o1", "v1", "v1"]}))
-    with pytest.raises(ValueError, match=errmsg_segments):
-        n.pair_segments_df([3, 4])
-    with pytest.raises(ValueError, match=errmsg_outlets):
-        n.pair_segments_df([3, 4, 5], [6, 7])
+    with pytest.raises(ValueError, match=errmsg_value):
+        n.pair_segments_frame([3, 4])
+    with pytest.raises(ValueError, match=errmsg_value_out_expected):
+        n.pair_segments_frame([3, 4, 5], [6, 7])
     # from Series
     pd.testing.assert_frame_equal(
-        n.pair_segments_df(pd.Series([3, 4, 5])),
+        n.pair_segments_frame(pd.Series([3, 4, 5])),
         pd.DataFrame({1: [3, 4, 5], 2: 3}))
     pd.testing.assert_frame_equal(
-        n.pair_segments_df(pd.Series([3, 4, 5]), name="foo"),
+        n.pair_segments_frame(pd.Series([3, 4, 5]), name="foo"),
         pd.DataFrame({"foo1": [3, 4, 5], "foo2": 3}))
     pd.testing.assert_frame_equal(
-        n.pair_segments_df(pd.Series([3, 4, 5]), pd.Series(6)),
+        n.pair_segments_frame(pd.Series([3, 4, 5]), pd.Series(6)),
         pd.DataFrame({1: [3, 4, 5], 2: [6, 3, 3]}))
     # mixed with dict
     pd.testing.assert_frame_equal(
-        n.pair_segments_df([3, 4, 5], {0: 6}),
+        n.pair_segments_frame([3, 4, 5], {0: 6}),
         pd.DataFrame({1: [3, 4, 5], 2: [6, 3, 3]}))
-    with pytest.raises(ValueError, match=errmsg_outlets):
-        n.pair_segments_df(1, {1: 2})
-    # allow mixed types
+    with pytest.raises(ValueError, match=errmsg_value_out):
+        n.pair_segments_frame(1, {3: 2})
+    # discontinious series
     pd.testing.assert_frame_equal(
-        n.pair_segments_df([3, 4, 5], [6.0]),
-        pd.DataFrame({1: [3, 4, 5], 2: [6.0, 3.0, 3.0]}))
+        n.pair_segments_frame([3, 4, 5], {0: 6, 1: 7, 2: 8}),
+        pd.DataFrame({1: [3, 4, 5], 2: [6, 7, 8]}))
     pd.testing.assert_frame_equal(
-        n.pair_segments_df([3, 4, 5], ["out"]),
-        pd.DataFrame({1: [3, 4, 5], 2: ["out", 3, 3]}))
+        n.pair_segments_frame(1, {0: 2, 2: 3}),
+        pd.DataFrame({1: [1, 1, 1], 2: [2, 1, 3]}))
+    pd.testing.assert_frame_equal(
+        n.pair_segments_frame([3.0, 4.0, 5.0], {1: 7, 2: 8}),
+        pd.DataFrame({1: [3.0, 4.0, 5.0], 2: [3.0, 7.0, 8.0]}))
+    with pytest.raises(ValueError, match=errmsg_value_out):
+        n.pair_segments_frame(1, {0: 6, 3: 8})
+    # constant
+    pd.testing.assert_frame_equal(
+        n.pair_segments_frame(1, method="constant"),
+        pd.DataFrame({1: [1, 1, 1], 2: [1, 1, 1]}))
+    pd.testing.assert_frame_equal(
+        n.pair_segments_frame([3, 2, 1], method="constant"),
+        pd.DataFrame({1: [3, 2, 1], 2: [3, 2, 1]}))
+    pd.testing.assert_frame_equal(
+        n.pair_segments_frame(1, 2, name="x", method="constant"),
+        pd.DataFrame({"x1": [1, 1, 1], "x2": [2, 1, 1]}))
+    # additive
+    pd.testing.assert_frame_equal(
+        n.pair_segments_frame(1, method="additive"),
+        pd.DataFrame({1: [1, 1, 1], 2: [1.0, 0.5, 0.5]}))
+    pd.testing.assert_frame_equal(
+        n.pair_segments_frame(1, {0: 2, 1: 10}, name="foo", method="additive"),
+        pd.DataFrame({"foo1": [1, 1, 1], "foo2": [2.0, 10.0, 0.5]}))
+    pd.testing.assert_frame_equal(
+        n.pair_segments_frame([10.0, 2.0, 3.0], name="foo", method="additive"),
+        pd.DataFrame({"foo1": [10.0, 2.0, 3.0], "foo2": [10.0, 4.0, 6.0]}))
     # misc errors
+    with pytest.raises(ValueError, match="method must be one of "):
+        n.pair_segments_frame(1, method="nope")
     with pytest.raises(ValueError, match="expected value to be scalar, list,"):
-        n.pair_segments_df(object())
-    with pytest.raises(ValueError, match="expected outlet_value to be scalar"):
-        n.pair_segments_df(1, object())
+        n.pair_segments_frame(object())
+    with pytest.raises(ValueError, match=errmsg_value_out_expected):
+        n.pair_segments_frame(1, object())
 
 
 def test_remove_condition():
