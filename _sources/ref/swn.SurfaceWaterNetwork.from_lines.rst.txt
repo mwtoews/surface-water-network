@@ -1,0 +1,6 @@
+﻿swn.SurfaceWaterNetwork.from\_lines
+===================================
+
+.. currentmodule:: swn
+
+.. automethod:: SurfaceWaterNetwork.from_lines

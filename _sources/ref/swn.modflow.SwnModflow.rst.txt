@@ -1,0 +1,59 @@
+﻿swn.modflow.SwnModflow
+======================
+
+.. currentmodule:: swn.modflow
+
+.. autoclass:: SwnModflow
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~SwnModflow.__init__
+      ~SwnModflow.default_segment_data
+      ~SwnModflow.fix_reach_elevs
+      ~SwnModflow.fix_segment_elevs
+      ~SwnModflow.flopy_reach_data
+      ~SwnModflow.flopy_segment_data
+      ~SwnModflow.from_pickle
+      ~SwnModflow.from_swn_flopy
+      ~SwnModflow.get_outseg_elev
+      ~SwnModflow.get_seg_ijk
+      ~SwnModflow.get_segment_incision
+      ~SwnModflow.get_segment_length
+      ~SwnModflow.get_top_elevs_at_segs
+      ~SwnModflow.minslope_seg
+      ~SwnModflow.new_segment_data
+      ~SwnModflow.plot
+      ~SwnModflow.plot_reaches_above
+      ~SwnModflow.reconcile_reach_strtop
+      ~SwnModflow.set_forward_segs
+      ~SwnModflow.set_outseg_elev_for_seg
+      ~SwnModflow.set_reach_data_from_array
+      ~SwnModflow.set_reach_data_from_segments
+      ~SwnModflow.set_reach_slope
+      ~SwnModflow.set_seg_minincise
+      ~SwnModflow.set_segment_data_from_diversions
+      ~SwnModflow.set_segment_data_from_scalar
+      ~SwnModflow.set_segment_data_from_segments
+      ~SwnModflow.set_segment_data_inflow
+      ~SwnModflow.set_sfr_obj
+      ~SwnModflow.set_topbot_elevs_at_reaches
+      ~SwnModflow.sfr_plot
+      ~SwnModflow.to_pickle
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+   
+      ~SwnModflow.model
+   
+   

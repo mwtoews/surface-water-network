@@ -1,0 +1,6 @@
+﻿swn.SurfaceWaterNetwork.has\_z
+==============================
+
+.. currentmodule:: swn
+
+.. autoproperty:: SurfaceWaterNetwork.has_z

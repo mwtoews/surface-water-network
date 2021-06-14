@@ -1,0 +1,6 @@
+﻿swn.SurfaceWaterNetwork.accumulate\_values
+==========================================
+
+.. currentmodule:: swn
+
+.. automethod:: SurfaceWaterNetwork.accumulate_values

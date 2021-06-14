@@ -1,0 +1,46 @@
+﻿swn.modflow.SwnMf6
+==================
+
+.. currentmodule:: swn.modflow
+
+.. autoclass:: SwnMf6
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~SwnMf6.__init__
+      ~SwnMf6.connectiondata_series
+      ~SwnMf6.default_packagedata
+      ~SwnMf6.flopy_connectiondata
+      ~SwnMf6.flopy_diversions
+      ~SwnMf6.flopy_packagedata
+      ~SwnMf6.from_pickle
+      ~SwnMf6.from_swn_flopy
+      ~SwnMf6.packagedata_frame
+      ~SwnMf6.plot
+      ~SwnMf6.set_reach_data_from_array
+      ~SwnMf6.set_reach_data_from_segments
+      ~SwnMf6.set_reach_slope
+      ~SwnMf6.set_sfr_obj
+      ~SwnMf6.set_tsvar_from_segments
+      ~SwnMf6.to_pickle
+      ~SwnMf6.write_connectiondata
+      ~SwnMf6.write_diversions
+      ~SwnMf6.write_packagedata
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+   
+      ~SwnMf6.model
+   
+   

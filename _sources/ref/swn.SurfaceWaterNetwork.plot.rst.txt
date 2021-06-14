@@ -1,0 +1,6 @@
+﻿swn.SurfaceWaterNetwork.plot
+============================
+
+.. currentmodule:: swn
+
+.. automethod:: SurfaceWaterNetwork.plot

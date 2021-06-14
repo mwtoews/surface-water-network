@@ -1,0 +1,6 @@
+﻿swn.modflow.SwnModflow.from\_pickle
+===================================
+
+.. currentmodule:: swn.modflow
+
+.. automethod:: SwnModflow.from_pickle

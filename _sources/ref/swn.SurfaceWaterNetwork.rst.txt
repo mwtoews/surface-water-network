@@ -1,0 +1,50 @@
+﻿swn.SurfaceWaterNetwork
+=======================
+
+.. currentmodule:: swn
+
+.. autoclass:: SurfaceWaterNetwork
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~SurfaceWaterNetwork.__init__
+      ~SurfaceWaterNetwork.accumulate_values
+      ~SurfaceWaterNetwork.adjust_elevation_profile
+      ~SurfaceWaterNetwork.aggregate
+      ~SurfaceWaterNetwork.estimate_width
+      ~SurfaceWaterNetwork.evaluate_upstream_area
+      ~SurfaceWaterNetwork.evaluate_upstream_length
+      ~SurfaceWaterNetwork.from_lines
+      ~SurfaceWaterNetwork.from_pickle
+      ~SurfaceWaterNetwork.pair_segments_frame
+      ~SurfaceWaterNetwork.plot
+      ~SurfaceWaterNetwork.query
+      ~SurfaceWaterNetwork.remove
+      ~SurfaceWaterNetwork.segments_series
+      ~SurfaceWaterNetwork.set_diversions
+      ~SurfaceWaterNetwork.to_pickle
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+   
+      ~SurfaceWaterNetwork.catchments
+      ~SurfaceWaterNetwork.diversions
+      ~SurfaceWaterNetwork.from_segnums
+      ~SurfaceWaterNetwork.has_z
+      ~SurfaceWaterNetwork.headwater
+      ~SurfaceWaterNetwork.outlets
+      ~SurfaceWaterNetwork.segments
+      ~SurfaceWaterNetwork.to_segnums
+   
+   

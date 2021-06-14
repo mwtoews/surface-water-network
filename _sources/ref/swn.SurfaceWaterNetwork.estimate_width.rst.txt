@@ -1,0 +1,6 @@
+﻿swn.SurfaceWaterNetwork.estimate\_width
+=======================================
+
+.. currentmodule:: swn
+
+.. automethod:: SurfaceWaterNetwork.estimate_width

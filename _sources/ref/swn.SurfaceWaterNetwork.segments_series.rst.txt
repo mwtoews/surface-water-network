@@ -1,0 +1,6 @@
+﻿swn.SurfaceWaterNetwork.segments\_series
+========================================
+
+.. currentmodule:: swn
+
+.. automethod:: SurfaceWaterNetwork.segments_series

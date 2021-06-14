@@ -1,0 +1,6 @@
+﻿swn.SurfaceWaterNetwork.diversions
+==================================
+
+.. currentmodule:: swn
+
+.. autoproperty:: SurfaceWaterNetwork.diversions
