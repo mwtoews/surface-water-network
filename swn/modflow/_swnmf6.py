@@ -228,7 +228,8 @@ class SwnMf6(SwnModflowBase):
         self.time_index = pd.DatetimeIndex(stress_df["start"]).copy()
         self.time_index.name = None
 
-    def packagedata_df(self, style: str, auxiliary: list = [], boundname=None):
+    def packagedata_frame(
+            self, style: str, auxiliary: list = [], boundname=None):
         """Return DataFrame of PACKAGEDATA for MODFLOW 6 SFR.
 
         This DataFrame is derived from the reaches DataFrame.
@@ -250,7 +251,50 @@ class SwnMf6(SwnModflowBase):
         -------
         DataFrame
 
-        """
+        See also
+        --------
+        SwnMf6.write_packagedata : Write native file.
+        SwnMf6.flopy_packagedata : List of lists for flopy.
+
+        Examples
+        --------
+        >>> import flopy
+        >>> import swn
+        >>> from swn.spatial import wkt_to_geoseries
+        >>> lines = wkt_to_geoseries([
+        ...    "LINESTRING (60 100, 60  80)",
+        ...    "LINESTRING (40 130, 60 100)",
+        ...    "LINESTRING (70 130, 60 100)"])
+        >>> n = swn.SurfaceWaterNetwork.from_lines(lines)
+        >>> sim = flopy.mf6.MFSimulation()
+        >>> _ = flopy.mf6.ModflowTdis(sim, nper=1, time_units="days")
+        >>> gwf = flopy.mf6.ModflowGwf(sim)
+        >>> _ = flopy.mf6.ModflowGwfdis(
+        ...     gwf, nrow=3, ncol=2, delr=20.0, delc=20.0, idomain=1,
+        ...     length_units="meters", xorigin=30.0, yorigin=70.0)
+        >>> nm = swn.SwnMf6.from_swn_flopy(n, gwf)
+        >>> nm.default_packagedata()
+        >>> nm.packagedata_frame("native")
+             k  i  j       rlen  rwid   rgrd  rtp  rbth  rhk    man  ncon  ustrf  ndv
+        rno                                                                          
+        1    1  1  1  18.027756  10.0  0.001  1.0   1.0  1.0  0.024     1    1.0    0
+        2    1  1  2   6.009252  10.0  0.001  1.0   1.0  1.0  0.024     2    1.0    0
+        3    1  2  2  12.018504  10.0  0.001  1.0   1.0  1.0  0.024     2    1.0    0
+        4    1  1  2  21.081851  10.0  0.001  1.0   1.0  1.0  0.024     1    1.0    0
+        5    1  2  2  10.540926  10.0  0.001  1.0   1.0  1.0  0.024     2    1.0    0
+        6    1  2  2  10.000000  10.0  0.001  1.0   1.0  1.0  0.024     3    1.0    0
+        7    1  3  2  10.000000  10.0  0.001  1.0   1.0  1.0  0.024     1    1.0    0
+        >>> nm.packagedata_frame("flopy")
+                cellid       rlen  rwid   rgrd  rtp  rbth  rhk    man  ncon  ustrf  ndv
+        rno                                                                            
+        0    (0, 0, 0)  18.027756  10.0  0.001  1.0   1.0  1.0  0.024     1    1.0    0
+        1    (0, 0, 1)   6.009252  10.0  0.001  1.0   1.0  1.0  0.024     2    1.0    0
+        2    (0, 1, 1)  12.018504  10.0  0.001  1.0   1.0  1.0  0.024     2    1.0    0
+        3    (0, 0, 1)  21.081851  10.0  0.001  1.0   1.0  1.0  0.024     1    1.0    0
+        4    (0, 1, 1)  10.540926  10.0  0.001  1.0   1.0  1.0  0.024     2    1.0    0
+        5    (0, 1, 1)  10.000000  10.0  0.001  1.0   1.0  1.0  0.024     3    1.0    0
+        6    (0, 2, 1)  10.000000  10.0  0.001  1.0   1.0  1.0  0.024     1    1.0    0
+        """  # noqa
         from flopy.mf6 import ModflowGwfsfr as Mf6Sfr
         defcols_names = list(Mf6Sfr.packagedata.empty(self.model).dtype.names)
         defcols_names.remove("rno")  # this is the index
@@ -336,7 +380,7 @@ class SwnMf6(SwnModflowBase):
         None
 
         """
-        pn = self.packagedata_df(
+        pn = self.packagedata_frame(
             "native", auxiliary=auxiliary, boundname=boundname)
         pn.index.name = "# rno"
         formatters = None
@@ -371,7 +415,7 @@ class SwnMf6(SwnModflowBase):
         list
 
         """
-        df = self.packagedata_df(
+        df = self.packagedata_frame(
             "flopy", auxiliary=auxiliary, boundname=boundname)
         return [list(x) for x in df.itertuples()]
 
