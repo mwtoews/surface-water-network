@@ -24,6 +24,10 @@ var/
 *.egg
 .eggs/
 
+# Docs
+docs/source/savefig/
+docs/source/ref/*.rst
+
 # Installer logs
 pip-log.txt
 pip-delete-this-directory.txt
