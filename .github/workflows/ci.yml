@@ -34,7 +34,7 @@ jobs:
         shell: bash
         run: |
           python -m pip install pip --upgrade --disable-pip-version-check
-          pip install pytest flake8 requests
+          pip install pytest pytest-xdist flake8 requests
           python ci/get-usgs-executables.py --bindir="$HOME/.local/bin"
           echo "$HOME/.local/bin" >> $GITHUB_PATH
           pip install -e .
@@ -50,7 +50,7 @@ jobs:
       - name: Run tests with optional packages
         run: |
           pip install flopy netcdf4
-          pytest -v
+          pytest -v -n2
 
       - name: Run doctest
         run: |
