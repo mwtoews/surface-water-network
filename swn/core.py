@@ -212,6 +212,9 @@ class SurfaceWaterNetwork(object):
         if not (polygons is None or isinstance(polygons, geopandas.GeoSeries)):
             raise ValueError('polygons must be a GeoSeries or None')
         if polygons is not None:
+            # sort index before comparing
+            lines.sort_index(inplace=True)
+            polygons.sort_index(inplace=True)
             if (len(polygons.index) != len(lines.index) or
                     not (polygons.index == lines.index).all()):
                 raise ValueError(
