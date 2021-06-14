@@ -265,6 +265,7 @@ class SwnMf6(SwnModflowBase):
         ...    "LINESTRING (60 100, 60  80)",
         ...    "LINESTRING (40 130, 60 100)",
         ...    "LINESTRING (70 130, 60 100)"])
+        >>> lines.index += 100
         >>> n = swn.SurfaceWaterNetwork.from_lines(lines)
         >>> sim = flopy.mf6.MFSimulation()
         >>> _ = flopy.mf6.ModflowTdis(sim, nper=1, time_units="days")
@@ -274,17 +275,21 @@ class SwnMf6(SwnModflowBase):
         ...     length_units="meters", xorigin=30.0, yorigin=70.0)
         >>> nm = swn.SwnMf6.from_swn_flopy(n, gwf)
         >>> nm.default_packagedata()
-        >>> nm.packagedata_frame("native")
-             k  i  j       rlen  rwid   rgrd  rtp  rbth  rhk    man  ncon  ustrf  ndv
-        rno                                                                          
-        1    1  1  1  18.027756  10.0  0.001  1.0   1.0  1.0  0.024     1    1.0    0
-        2    1  1  2   6.009252  10.0  0.001  1.0   1.0  1.0  0.024     2    1.0    0
-        3    1  2  2  12.018504  10.0  0.001  1.0   1.0  1.0  0.024     2    1.0    0
-        4    1  1  2  21.081851  10.0  0.001  1.0   1.0  1.0  0.024     1    1.0    0
-        5    1  2  2  10.540926  10.0  0.001  1.0   1.0  1.0  0.024     2    1.0    0
-        6    1  2  2  10.000000  10.0  0.001  1.0   1.0  1.0  0.024     3    1.0    0
-        7    1  3  2  10.000000  10.0  0.001  1.0   1.0  1.0  0.024     1    1.0    0
-        >>> nm.packagedata_frame("flopy")
+        >>> nm.reaches["boundname"] = nm.reaches["segnum"]
+        >>> nm.reaches["aux1"] = 2.0 + nm.reaches.index / 10.0
+        >>> nm.packagedata_frame("native", auxiliary="aux1")
+             k  i  j       rlen  rwid   rgrd  ...    man  ncon  ustrf  ndv  aux1  boundname
+        rno                                   ...                                          
+        1    1  1  1  18.027756  10.0  0.001  ...  0.024     1    1.0    0   2.1        101
+        2    1  1  2   6.009252  10.0  0.001  ...  0.024     2    1.0    0   2.2        101
+        3    1  2  2  12.018504  10.0  0.001  ...  0.024     2    1.0    0   2.3        101
+        4    1  1  2  21.081851  10.0  0.001  ...  0.024     1    1.0    0   2.4        102
+        5    1  2  2  10.540926  10.0  0.001  ...  0.024     2    1.0    0   2.5        102
+        6    1  2  2  10.000000  10.0  0.001  ...  0.024     3    1.0    0   2.6        100
+        7    1  3  2  10.000000  10.0  0.001  ...  0.024     1    1.0    0   2.7        100
+        <BLANKLINE>
+        [7 rows x 15 columns]
+        >>> nm.packagedata_frame("flopy", boundname=False)
                 cellid       rlen  rwid   rgrd  rtp  rbth  rhk    man  ncon  ustrf  ndv
         rno                                                                            
         0    (0, 0, 0)  18.027756  10.0  0.001  1.0   1.0  1.0  0.024     1    1.0    0
