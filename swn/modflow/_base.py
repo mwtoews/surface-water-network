@@ -793,6 +793,8 @@ class SwnModflowBase(object):
             - "zcoord_ab": if surface water network has Z information,
               use the start/end elevations to determine elevation drop.
             - "grid_top": evaluate the slope from the top grid of the model.
+            - "top_len": calc dz from slope of top model grid
+              calc rgrd as dz/rlen
         min_slope : float or pandas.Series, optional
             Minimum downwards slope imposed on segments. If float, then this is
             a global value, otherwise it is per-segment with a Series.
@@ -800,7 +802,7 @@ class SwnModflowBase(object):
             minimum of series.
         """
         has_z = self._swn.has_z
-        supported_methods = ["auto", "zcoord_ab", "grid_top"]
+        supported_methods = ["auto", "zcoord_ab", "grid_top","top_len"]
         if method not in supported_methods:
             raise ValueError(f"{method} not in {supported_methods}")
         if method == "auto":
@@ -872,6 +874,16 @@ class SwnModflowBase(object):
             px, py = np.gradient(dis.top.array, col_size, row_size)
             grid_slope = np.sqrt(px ** 2 + py ** 2)
             self.set_reach_data_from_array(grid_name, grid_slope)
+        elif method == "top_len":
+            # Estimate slope from top and grid spacing
+            dis = self.model.dis
+            col_size = np.median(dis.delr.array)
+            row_size = np.median(dis.delc.array)
+            px, py = np.gradient(dis.top.array, col_size, row_size)
+            #grid_slope = np.sqrt(px ** 2 + py ** 2)
+            dz=np.mean([np.abs(px)*col_size,np.abs(py)*row_size],axis=0)
+            self.reaches.loc[:,grid_name]= \
+                dz[self.reaches['i'],self.reaches['j']]/self.reaches['rlen']
         # Enforce min_slope when less than min_slop or is NaN
         sel = (rchs[grid_name] < rchs["min_slope"]) | rchs[grid_name].isna()
         if sel.any():
