@@ -222,7 +222,7 @@ class MfSfrNetwork(object):
             grid_df, geometry=[Polygon(r) for r in cell_verts], crs=crs)
         obj.logger.debug('evaluating reach data on model grid')
         grid_sindex = get_sindex(grid_cells)
-        reach_include = swn._segment_series(reach_include_fraction) * cell_size
+        reach_include = swn.segments_series(reach_include_fraction) * cell_size
         # Make an empty DataFrame for reaches
         obj.reaches = pd.DataFrame(columns=['geometry'])
         obj.reaches.insert(1, column='row', value=pd.Series(dtype=int))
@@ -518,7 +518,7 @@ class MfSfrNetwork(object):
                 obj.reaches, geometry='geometry', crs=crs)
 
         # Assign segment data
-        obj.segments['min_slope'] = swn._segment_series(min_slope)
+        obj.segments['min_slope'] = swn.segments_series(min_slope)
         if (obj.segments['min_slope'] < 0.0).any():
             raise ValueError('min_slope must be greater than zero')
         # Column names common to segments and segment_data
@@ -532,13 +532,14 @@ class MfSfrNetwork(object):
                 del obj.segments[col]
         # Combine pairs of series for each segment
         more_segment_columns = pd.concat([
-            swn._pair_segment_values(hyd_cond1, hyd_cond_out, 'hcond'),
-            swn._pair_segment_values(thickness1, thickness_out, 'thickm'),
-            swn._pair_segment_values(width1, width_out, name='width')
+            swn.pair_segments_frame(hyd_cond1, hyd_cond_out, 'hcond'),
+            swn.pair_segments_frame(thickness1, thickness_out, 'thickm'),
+            swn.pair_segments_frame(width1, width_out, name='width',
+                                    method="constant")
         ], axis=1, copy=False)
         for name, series in more_segment_columns.iteritems():
             obj.segments[name] = series
-        obj.segments['roughch'] = swn._segment_series(roughch)
+        obj.segments['roughch'] = swn.segments_series(roughch)
         # Mark segments that are not used
         obj.segments['in_model'] = True
         outside_model = \

@@ -177,10 +177,10 @@ def test_n3d_defaults(tmp_path):
     assert list(r.from_rnos) == [set(), {1}, {2}, set(), {4}, {3, 5}, {6}]
     assert list(r.to_div) == [0, 0, 0, 0, 0, 0, 0]
     with pytest.raises(KeyError, match="missing 6 reach dataset"):
-        nm.packagedata_df("native")
+        nm.packagedata_frame("native")
     nm.set_reach_slope()
     with pytest.raises(KeyError, match="missing 5 reach dataset"):
-        nm.packagedata_df("native")
+        nm.packagedata_frame("native")
     nm.default_packagedata(hyd_cond1=1e-4)
     np.testing.assert_array_almost_equal(
         nm.reaches["rlen"],
@@ -363,8 +363,8 @@ def test_packagedata(tmp_path):
         ["rno", "cellid"] + partial_expected_cols
 
     # Check pandas frames
-    rn = nm.packagedata_df("native")
-    rf = nm.packagedata_df("flopy")
+    rn = nm.packagedata_frame("native")
+    rf = nm.packagedata_frame("flopy")
     assert list(rn.columns) == ["k", "i", "j"] + partial_expected_cols
     assert list(rf.columns) == ["cellid"] + partial_expected_cols
     assert list(rn.ncon) == [1, 2, 2, 1, 2, 3, 1]

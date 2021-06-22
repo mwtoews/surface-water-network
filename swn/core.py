@@ -23,28 +23,9 @@ class SurfaceWaterNetwork(object):
 
     Attributes
     ----------
-    segments : geopandas.GeoDataFrame
-        Primary GeoDataFrame created from 'lines' input, containing
-        attributes evaluated during initialisation. Index is treated as a
-        segment number or ID.
-    catchments : geopandas.GeoSeries
-        Catchments created from optional 'polygons' input, containing only
-        the catchment polygon. Index must match segments.
-    diversions : geopandas.GeoDataFrame or pd.DataFrame
-        [Geo]DataFrame created from 'diversions' input, containing geometry
-        (if available) for a surface water abstraction location, and the
-        connected segment number from where the diversion occurs.
     END_SEGNUM : int
         Special segment number that indicates a line end, default is
         usually 0. This number is not part of segments.index.
-    has_z : bool
-        Property that indicates all segment lines have Z dimension coordinates.
-    headwater : pandas.core.index.Int64Index
-        Head water segment numbers at top of cachment.
-    outlets : pandas.core.index.Int64Index
-        Index segment numbers for each outlet.
-    to_segnums : pandas.core.series.Series
-        Series of segnum identifiers that connect downstream.
     logger : logging.Logger
         Logger to show messages.
     warnings : list
@@ -53,16 +34,6 @@ class SurfaceWaterNetwork(object):
         List of error messages.
 
     """
-
-    END_SEGNUM = None
-    segments = None
-    logger = None
-    warnings = None
-    errors = None
-
-    def __len__(self):
-        """Return number of segments."""
-        return len(self.segments.index)
 
     def __init__(self, segments, END_SEGNUM=0, logger=None):
         """
@@ -93,19 +64,110 @@ class SurfaceWaterNetwork(object):
             raise ValueError(
                 'segments must be a GeoDataFrame; found {!r}'
                 .format(type(segments)))
-        self.segments = segments
+        self._segments = segments
         self.END_SEGNUM = END_SEGNUM
         if self.END_SEGNUM in self.segments.index:
             self.logger.error(
                 "END_SEGNUM %r found in segments.index", self.END_SEGNUM)
         notin = ~self.to_segnums.isin(self.segments.index)
         if notin.any():
-            self.segments = self.segments.copy()
+            self._segments = self._segments.copy()
             self.logger.warning(
                 "correcting %d to_segnum not found in segments.index",
                 notin.sum())
             self.segments.loc[notin, "to_segnum"] = self.END_SEGNUM
         # all other properties added afterwards
+
+    def __len__(self):
+        """Return number of segments."""
+        return len(self._segments.index)
+
+    def __repr__(self):
+        """Return string representation of surface water network."""
+        modifiers = []
+        if self.has_z:
+            modifiers.append('Z coordinates')
+        if self.catchments is not None:
+            modifiers.append('catchment polygons')
+        if modifiers:
+            with_modifiers = ' with ' + modifiers[0]
+            if len(modifiers) == 2:
+                with_modifiers += ' and ' + modifiers[1]
+        else:
+            with_modifiers = ''
+        segments = list(self.segments.index)
+        hw_l = list(self.headwater)
+        out_l = list(self.outlets)
+        diversions = self.diversions
+        if diversions is None:
+            diversions_line = 'no diversions'
+        else:
+            div_l = list(diversions.index)
+            diversions_line = '{} diversions (as {}): {}'.format(
+                len(div_l), diversions.__class__.__name__, abbr_str(div_l, 4))
+        return dedent('''\
+            <{}:{}
+              {} segments: {}
+              {} headwater: {}
+              {} outlets: {}
+              {} />'''.format(
+            self.__class__.__name__, with_modifiers,
+            len(segments), abbr_str(segments, 4),
+            len(hw_l), abbr_str(hw_l, 4),
+            len(out_l), abbr_str(out_l, 4),
+            diversions_line))
+
+    def __eq__(self, other):
+        """Return true if objects are equal."""
+        try:
+            for (ak, av), (bk, bv) in zip_longest(iter(self), iter(other)):
+                if ak != bk:
+                    return False
+                is_none = (av is None, bv is None)
+                if all(is_none):
+                    continue
+                elif any(is_none):
+                    return False
+                elif type(av) != type(bv):
+                    return False
+                elif isinstance(av, pd.DataFrame):
+                    pd.testing.assert_frame_equal(av, bv)
+                elif isinstance(av, pd.Series):
+                    pd.testing.assert_series_equal(av, bv)
+                else:
+                    assert av == bv
+            return True
+        except (AssertionError, TypeError, ValueError):
+            return False
+
+    def __iter__(self):
+        """Return object datasets with an iterator."""
+        yield "class", self.__class__.__name__
+        yield "segments", self.segments
+        yield "END_SEGNUM", self.END_SEGNUM
+        yield "catchments", self.catchments
+        yield "diversions", self.diversions
+
+    def __getstate__(self):
+        """Serialize object attributes for pickle dumps."""
+        return dict(self)
+
+    def __setstate__(self, state):
+        """Set object attributes from pickle loads."""
+        if not isinstance(state, dict):
+            raise ValueError("expected 'dict'; found {!r}".format(type(state)))
+        elif "class" not in state:
+            raise KeyError("state does not have 'class' key")
+        elif state["class"] != self.__class__.__name__:
+            raise ValueError("expected state class {!r}; found {!r}"
+                             .format(state["class"], self.__class__.__name__))
+        self.__init__(state["segments"], state["END_SEGNUM"])
+        catchments = state["catchments"]
+        if catchments is not None:
+            self.catchments = catchments
+        diversions = state["diversions"]
+        if diversions is not None:
+            self.set_diversions(diversions)
 
     @classmethod
     def from_lines(cls, lines, polygons=None):
@@ -121,6 +183,22 @@ class SurfaceWaterNetwork(object):
         polygons : geopandas.GeoSeries, optional
             Optional input polygons of surface water catchments. Geometries
             must be 'POLYGON'. Index must be the same as segments.index.
+
+        Examples
+        --------
+        >>> import swn
+        >>> from swn.spatial import wkt_to_geoseries
+        >>> lines = wkt_to_geoseries([
+        ...    "LINESTRING (60 100, 60  80)",
+        ...    "LINESTRING (40 130, 60 100)",
+        ...    "LINESTRING (70 130, 60 100)"])
+        >>> n = swn.SurfaceWaterNetwork.from_lines(lines)
+        >>> n
+        <SurfaceWaterNetwork:
+          3 segments: [0, 1, 2]
+          2 headwater: [1, 2]
+          1 outlets: [0]
+          no diversions />
 
         """
         if not isinstance(lines, geopandas.GeoSeries):
@@ -334,171 +412,64 @@ class SurfaceWaterNetwork(object):
             obj.catchments = polygons
         return obj
 
-    def __repr__(self):
-        """Return string representation of surface water network."""
-        modifiers = []
-        if self.has_z:
-            modifiers.append('Z coordinates')
-        if self.catchments is not None:
-            modifiers.append('catchment polygons')
-        if modifiers:
-            with_modifiers = ' with ' + modifiers[0]
-            if len(modifiers) == 2:
-                with_modifiers += ' and ' + modifiers[1]
-        else:
-            with_modifiers = ''
-        segments = list(self.segments.index)
-        hw_l = list(self.headwater)
-        out_l = list(self.outlets)
-        diversions = self.diversions
-        if diversions is None:
-            diversions_line = 'no diversions'
-        else:
-            div_l = list(diversions.index)
-            diversions_line = '{} diversions (as {}): {}'.format(
-                len(div_l), diversions.__class__.__name__, abbr_str(div_l, 4))
-        return dedent('''\
-            <{}:{}
-              {} segments: {}
-              {} headwater: {}
-              {} outlets: {}
-              {} />'''.format(
-            self.__class__.__name__, with_modifiers,
-            len(segments), abbr_str(segments, 4),
-            len(hw_l), abbr_str(hw_l, 4),
-            len(out_l), abbr_str(out_l, 4),
-            diversions_line))
+    @property
+    def segments(self):
+        """GeoDataFrame of stream segments derived from the lines input.
 
-    def __eq__(self, other):
-        """Return true if objects are equal."""
-        try:
-            for (ak, av), (bk, bv) in zip_longest(iter(self), iter(other)):
-                if ak != bk:
-                    return False
-                is_none = (av is None, bv is None)
-                if all(is_none):
-                    continue
-                elif any(is_none):
-                    return False
-                elif type(av) != type(bv):
-                    return False
-                elif isinstance(av, pd.DataFrame):
-                    pd.testing.assert_frame_equal(av, bv)
-                elif isinstance(av, pd.Series):
-                    pd.testing.assert_series_equal(av, bv)
-                else:
-                    assert av == bv
-            return True
-        except (AssertionError, TypeError, ValueError):
-            return False
+        This GeoDataFrame is created by
+        :py:meth:`swn.SurfaceWaterNetwork.from_lines`.
 
-    def __iter__(self):
-        """Return object datasets with an iterator."""
-        yield "class", self.__class__.__name__
-        yield "segments", self.segments
-        yield "END_SEGNUM", self.END_SEGNUM
-        yield "catchments", self.catchments
-        yield "diversions", self.diversions
-
-    def __getstate__(self):
-        """Serialize object attributes for pickle dumps."""
-        return dict(self)
-
-    def __setstate__(self, state):
-        """Set object attributes from pickle loads."""
-        if not isinstance(state, dict):
-            raise ValueError("expected 'dict'; found {!r}".format(type(state)))
-        elif "class" not in state:
-            raise KeyError("state does not have 'class' key")
-        elif state["class"] != self.__class__.__name__:
-            raise ValueError("expected state class {!r}; found {!r}"
-                             .format(state["class"], self.__class__.__name__))
-        self.__init__(state["segments"], state["END_SEGNUM"])
-        catchments = state["catchments"]
-        if catchments is not None:
-            self.catchments = catchments
-        diversions = state["diversions"]
-        if diversions is not None:
-            self.set_diversions(diversions)
-
-    def plot(self, column='stream_order', sort_column='sequence',
-             cmap='viridis_r', legend=False):
-        """Plot map of surface water network.
-
-        Shows map of surface water network lines, with points showing,
-        headwater (green dots), outlets (navy dots), and if present, diversion
-        locations with a blue dashed line to the diversion location at the
-        end of the segment line.
-
-        Parameters
+        Attributes
         ----------
-        column : str
-            Column from segments to use with 'cmap'; default 'stream_order'.
-            See also 'legend' to help interpret values.
-        sort_column : str
-            Column from segments to sort values; default 'sequence'.
-        cmap : str
-            Matplotlib color map; default 'viridis_r',
-        legend : bool
-            Show legend for 'column'; default False.
-
-        Returns
-        -------
-        AxesSubplot
-
+        index : any
+            Unique index for each segment, with an optional name attribute.
+            Copied from ``lines.index``. This is often defined externally,
+            and is used to relate and exchange stream information.
+        geometry : geometry
+            LineString or LineStringZ geometries, copied from ``lines``.
+        to_segnum : same type as index
+            Index to which segment connects downstream to. If this is an
+            outlet, the value is ``END_SEGNUM``.
+        from_segnums : set
+            A set of zero or more indexes from which a segment connects
+            upstream from. This will be an empty set (pandas displays this
+            as ``{}`` rather than ``set()``), then it is a headwater segment.
+        cat_group : same type as index
+            Catchment group for each outlet.
+        num_to_outlet : int
+            Number of segments to the outlet.
+        dist_to_outlet : float
+            Distance to outlet.
+        sequence : int
+            Unique dowstream sequence.
+        stream_order : int
+            Strahler number.
+        upstream_length : float
+            Total lengths of streams upstream. See
+            :py:meth:`swn.SurfaceWaterNetwork.evaluate_upstream_width`
+            for details.
+        upstream_area : float
+            If catchments are defined, this is the upstream catchment area.
+            See :py:meth:`swn.SurfaceWaterNetwork.evaluate_upstream_area`
+            for details.
+        width : float
+            If upstream_area is defined, this is an estimate of stream width.
+            See :py:meth:`swn.SurfaceWaterNetwork.estimate_width` for details.
+        diversions : set
+            If diversions are defined, this is a set of zero or more indexes
+            to which the segment connects to.
         """
-        import matplotlib.pyplot as plt
-
-        fig, ax = plt.subplots()
-        ax.set_aspect('equal')
-
-        segments = self.segments
-        if sort_column:
-            segments = self.segments.sort_values(sort_column)
-        segments.plot(
-            column=column, label='segments', legend=legend, ax=ax, cmap=cmap)
-
-        outet_points = geopandas.GeoSeries(
-            self.segments.loc[self.outlets].geometry.apply(
-                lambda g: Point(g.coords[-1])))
-        outet_points.plot(
-            ax=ax, label='outlet', marker='o', color='navy')
-
-        headwater_points = geopandas.GeoSeries(
-            self.segments.loc[self.headwater].geometry.apply(
-                lambda g: Point(g.coords[0])))
-        headwater_points.plot(
-            ax=ax, label='headwater', marker='.', color='green')
-
-        diversions = self.diversions
-        if diversions is not None:
-            diversions_is_spatial = (
-                isinstance(diversions, geopandas.GeoDataFrame) and
-                'geometry' in diversions.columns and
-                (~diversions.is_empty).all())
-            if diversions_is_spatial:
-                diversion_points = diversions.geometry
-            else:
-                diversion_points = self.segments.loc[
-                    self.diversions['from_segnum']].geometry.apply(
-                        lambda g: Point(g.coords[-1]))
-            diversion_points.plot(
-                ax=ax, label='diversion', marker='+', color='red')
-            if diversions_is_spatial:
-                diversion_lines = []
-                for item in self.diversions.itertuples():
-                    p = self.segments.loc[item.from_segnum].geometry.coords[-1]
-                    diversion_lines.append(
-                        LineString([item.geometry.coords[0], p]))
-                diversion_lines = geopandas.GeoSeries(diversion_lines)
-                diversion_lines.plot(
-                    ax=ax, label='diversion lines',
-                    linestyle='--', color='deepskyblue')
-        return ax
+        return getattr(self, '_segments')
 
     @property
     def catchments(self):
-        """Return Polygon GeoSeries of surface water catchments or None."""
+        """Polygon GeoSeries of surface water catchments.
+
+        Catchment polygons are optional, and are set with a GeoSeries with
+        a matching index to ``segments.index``.
+
+        To unset this property, use ``n.catchments = None``.
+        """
         return getattr(self, '_catchments', None)
 
     @catchments.setter
@@ -525,7 +496,28 @@ class SurfaceWaterNetwork(object):
 
     @property
     def diversions(self):
-        """Return [Geo]DataFrame of surface water diversions or None."""
+        """[Geo]DataFrame of surface water diversions.
+
+        Use :py:meth:`swn.SurfaceWaterNetwork.set_diversions` to set this
+        property.
+
+        Attributes
+        ----------
+        index : any
+            Unique index for each diversion, with an optional name attribute.
+            Copied from ``lines.index``. This is often defined externally,
+            and is used to relate and exchange stream information.
+        geometry : geometry
+            If a GeoDataFrame was used to define diversions, this is a copy
+            of the GeoSeries.
+        from_segnum : same type as segments.index
+            Index of upstream segment from which diversion is connected to.
+        dist_end : float
+            Distance to most-downstream-end of segment described by
+            ``from_segnum``.
+        dist_end : float
+            Distance to segment line described by ``from_segnum``.
+        """
         return getattr(self, '_diversions', None)
 
     @diversions.setter
@@ -539,11 +531,11 @@ class SurfaceWaterNetwork(object):
         flow from, and adds other columns to the diversions and segments data
         frames.
 
-        If a 'from_segnum' column exists, these values are checked against the
-        index for segments, and adds/updates 'dist' (where possible) to
+        If a ``from_segnum`` column exists, these values are checked against
+        the index for segments, and adds/updates ``dist`` (where possible) to
         describe the distance from the diversion to the end of the segment.
 
-        If 'from_segnum' is not provided and a GeoDataFrame is provided, then
+        If ``from_segnum`` is not provided and a GeoDataFrame is provided, then
         the closest segment end is identified, using optional min_stream_order
         preferentially select higher-order stream segments.
 
@@ -677,13 +669,19 @@ class SurfaceWaterNetwork(object):
 
     @property
     def outlets(self):
-        """Return index of outlets."""
+        """Return index of outlets.
+
+        Determined where ``n.segments.to_segnum == n.END_SEGNUM`
+        """
         return self.segments.index[
                 self.segments['to_segnum'] == self.END_SEGNUM]
 
     @property
     def to_segnums(self):
-        """Return Series of segnum to connect downstream."""
+        """Return Series of segnum to connect downstream.
+
+        Determined from ``n.segments.to_segnum``.
+        """
         return self.segments.loc[
             self.segments['to_segnum'] != self.END_SEGNUM, 'to_segnum']
 
@@ -1039,76 +1037,102 @@ class SurfaceWaterNetwork(object):
         else:
             raise ValueError('unknown use for upstream_area')
         if not isinstance(a, (float, int)):
-            a = self._segment_series(a, 'a')
+            a = self.segments_series(a, "a")
         if not isinstance(b, (float, int)):
-            b = self._segment_series(a, 'b')
+            b = self.segments_series(a, "b")
         self.segments['width'] = a + upstream_area_km2 ** b
 
-    def _segment_series(self, value, name=None):
-        """Return a pandas.Series along the segment index.
+    def segments_series(self, value, name=None):
+        """Generate a Series along the segments index.
 
         Parameters
         ----------
-        value : float or pandas.Series
-            If value is a float, it is repated for each segment, otherwise
-            a Series is used, with a check to ensure it is the same index.
-        name : str, optional
-            Name used for series, if provided. Default is None.
+        value : scalar, list, dict or pandas.Series
+            If value is a Series, it is checked to ensure it is has the same
+            index as :py:attr:`SurfaceWaterNetwork.segments`. Otherwise value
+            as a scalar, list or dict is cast as a Series with
+            ``segments.index``.
+        name : str or None (default)
+            Name used for series, if provided.
 
         Returns
         -------
         pandas.Series
 
+        Examples
+        --------
+        >>> import swn
+        >>> from swn.spatial import wkt_to_geoseries
+        >>> lines = wkt_to_geoseries([
+        ...    "LINESTRING (60 100, 60  80)",
+        ...    "LINESTRING (40 130, 60 100)",
+        ...    "LINESTRING (70 130, 60 100)"])
+        >>> n = swn.SurfaceWaterNetwork.from_lines(lines)
+        >>> n.segments_series(1.2)
+        0    1.2
+        1    1.2
+        2    1.2
+        dtype: float64
+        >>> n.segments_series([3, 2, 1], "codes")
+        0    3
+        1    2
+        2    1
+        Name: codes, dtype: int64
         """
         segments_index = self.segments.index
-        if not isinstance(value, pd.Series):
+        if np.isscalar(value):
             value = pd.Series(value, index=segments_index)
-        elif (len(value.index) != len(segments_index) or
+        elif isinstance(value, pd.Series):
+            pass
+        elif isinstance(value, (list, dict)):
+            value = pd.Series(value)
+        else:
+            raise ValueError(
+                "expected value to be scalar, list, dict or Series")
+        if (len(value.index) != len(segments_index) or
                 not (value.index == segments_index).all()):
             raise ValueError('index is different than for segments')
         if name is not None:
             value.name = name
         return value
 
-    def _outlet_series(self, value):
-        """Return a pandas.Series along the outlet index.
-
-        Parameters
-        ----------
-        value : float or pandas.Series
-            If value is a float, it is repated for each outlet, otherwise
-            a Series is used, with a check to ensure it is the same index.
-
-        Returns
-        -------
-        pandas.Series
-
-        """
-        outlets_index = self.outlets
-        if not isinstance(value, pd.Series):
-            value = pd.Series(value, index=outlets_index)
-        elif (len(value.index) != len(outlets_index) or
-                not (value.index == outlets_index).all()):
-            raise ValueError('index is different than for outlets')
-        return value
-
-    def _pair_segment_values(self, value1, outlet_value=None, name=None):
-        """Return a pair of values that connect the segments.
+    def pair_segments_frame(
+            self, value, value_out=None, name=None, method="continuous"):
+        """Generate a DataFrame of paired values for top/bottom of segments.
 
         The first value applies to the top of each segment, and the bottom
-        value is determined from the top of the value it connects to. Special
-        consideration is applied to outlet segments.
+        value is determined from the top of the value it connects to.
 
         Parameters
         ----------
-        value1 : float or pandas.Series
-            Value to assign to the top of each segment.
-        outlet_value : None, float or pandas.Series
-            If None (default), the value used for the bottom of outlet segments
-            is assumed to be the same as the top. Otherwise, a Series
-            for each outlet can be specified.
-        name : str, optional
-            Base name used for each series pair, if provided. Default is None.
+        value : scalar, list, dict or pandas.Series
+            Value to assign to the upstream or top end of each segment.
+            If value is a Series, it is checked to ensure it is has the same
+            index as :py:attr:`SurfaceWaterNetwork.segments`. Otherwise value
+            as a scalar, list or dict is cast as a Series with
+            ``segments.index``.
+        value_out : None (default), scalar, dict or pandas.Series
+            If None (default), the value used for the bottom is determined
+            using ``method``. Otherwise, ``value_out`` can be directly
+            specified with a Series or dict, indexed by segnum. If
+            ``value_out`` is a scalar, it is cast as a Series with
+            ``outlets.index``. This option is normally specified for outlets,
+            but will overwrite any other values determined by ``method``.
+        name : str, default None
+            Base name used for the column names, if provided. For example,
+            ``name="foo"`` will create columns "foo1" and "foo2".
+        method : str, default "continuous"
+            This option determines how ``value_out`` values should be
+            determined, if not specified. Choose one of:
+              - ``continuous`` (default): downstream value is evaluated to be
+                the same as the upstream value it connects to. This allows a
+                continuous network of values along the networks, such as
+                elevation.
+              - ``constant`` : ``value_out`` is the same as ``value``.
+              - ``additive`` : downstream value is evaluated to be a fraction
+                of tributaries that add to the upstream value it connects to.
+                Proportions of values for each tributary are preserved, but
+                lengths of segments are ignored.
 
         Returns
         -------
@@ -1116,19 +1140,72 @@ class SurfaceWaterNetwork(object):
             Resulting DataFrame has two columns for top (1) and bottom (2) of
             each segment.
 
+        Examples
+        --------
+        >>> import swn
+        >>> from swn.spatial import wkt_to_geoseries
+        >>> lines = wkt_to_geoseries([
+        ...    "LINESTRING (60 100, 60  80)",
+        ...    "LINESTRING (40 130, 60 100)",
+        ...    "LINESTRING (70 130, 60 100)"])
+        >>> n = swn.SurfaceWaterNetwork.from_lines(lines)
+        >>> n.pair_segments_frame([3, 4, 5])
+           1  2
+        0  3  3
+        1  4  3
+        2  5  3
+        >>> n.pair_segments_frame([4.0, 3.0, 5.0], {0: 6.0}, name="var")
+           var1  var2
+        0   4.0   6.0
+        1   3.0   4.0
+        2   5.0   4.0
+        >>> n.pair_segments_frame([10.0, 2.0, 3.0], name="add",
+        ...                       method="additive")
+           add1  add2
+        0  10.0  10.0
+        1   2.0   4.0
+        2   3.0   6.0
         """
-        value1 = self._segment_series(value1, name=name)
-        df = pd.concat([value1, value1], axis=1)
-        if value1.name is not None:
-            df.columns = df.columns.str.cat(['1', '2'])
+        supported_methods = ["continuous", "constant", "additive"]
+        if method not in supported_methods:
+            raise ValueError(f"method must be one of {supported_methods}")
+        value = self.segments_series(value, name=name)
+        df = pd.concat([value, value], axis=1)
+        if value.name is not None:
+            df.columns = df.columns.str.cat(["1", "2"])
         else:
             df.columns += 1
-        to_segnums = self.to_segnums
         c1, c2 = df.columns
-        df.loc[to_segnums.index, c2] = df.loc[to_segnums, c1].values
-        if outlet_value is not None:
-            outlet_value = self._outlet_series(outlet_value)
-            df.loc[outlet_value.index, c2] = outlet_value
+        if method == "continuous":
+            to_segnums = self.to_segnums
+            df.loc[to_segnums.index, c2] = df.loc[to_segnums, c1].values
+        elif method == "additive":
+            for segnum, from_segnums in self.from_segnums.iteritems():
+                if len(from_segnums) <= 1:
+                    continue
+                # get proportions of upstream values
+                from_value1 = df.loc[sorted(from_segnums), c1]
+                from_value1_prop = from_value1 / from_value1.sum()
+                from_value2 = df.loc[segnum, c1] * from_value1_prop
+                for from_segnum, v2 in from_value2.iteritems():
+                    df.loc[from_segnum, c2] = v2
+        elif method == "constant":
+            pass
+        if value_out is not None:
+            if np.isscalar(value_out):
+                # generate only for outlets
+                value_out = pd.Series(value_out, index=self.outlets)
+            elif isinstance(value_out, pd.Series):
+                pass
+            elif isinstance(value_out, dict):
+                value_out = pd.Series(value_out)
+            else:
+                raise ValueError(
+                    "expected value_out to be scalar, dict or Series")
+            if not set(value_out.index).issubset(set(df.index)):
+                raise ValueError(
+                    "value_out.index is not a subset of segments.index")
+            df.loc[value_out.index, c2] = value_out
         return df
 
     def adjust_elevation_profile(self, min_slope=1./1000):
@@ -1142,7 +1219,7 @@ class SurfaceWaterNetwork(object):
             Default 1./1000 (or 0.001).
 
         """
-        min_slope = self._segment_series(min_slope)
+        min_slope = self.segments_series(min_slope)
         if (min_slope <= 0.0).any():
             raise ValueError('min_slope must be greater than zero')
         elif not self.has_z:
@@ -1263,7 +1340,7 @@ class SurfaceWaterNetwork(object):
         None
 
         """
-        condition = self._segment_series(condition, 'condition').astype(bool)
+        condition = self.segments_series(condition, "condition").astype(bool)
         if condition.any():
             self.logger.debug(
                 'selecting %d segnum(s) based on a condition',
@@ -1290,10 +1367,85 @@ class SurfaceWaterNetwork(object):
             self.logger.info(
                 'removing %d of %d segments (%.2f%%)', sel.sum(),
                 len(segments_index), sel.sum() * 100.0 / len(segments_index))
-            self.segments = self.segments.loc[~sel]
+            self._segments = self.segments.loc[~sel]
             if self.catchments is not None:
                 self.catchments = self.catchments.loc[~sel]
         return
+
+    def plot(self, column='stream_order', sort_column='sequence',
+             cmap='viridis_r', legend=False):
+        """Plot map of surface water network.
+
+        Shows map of surface water network lines, with points showing,
+        headwater (green dots), outlets (navy dots), and if present, diversion
+        locations with a blue dashed line to the diversion location at the
+        end of the segment line.
+
+        Parameters
+        ----------
+        column : str, default "stream_order"
+            Column from segments to use with ``map``.
+            See also ``legend`` to help interpret values.
+        sort_column : str, default "sequence"
+            Column from segments to sort values.
+        cmap : str, default "viridis_r"
+            Matplotlib color map.
+        legend : bool, default False
+            Show legend for `column`.
+
+        Returns
+        -------
+        AxesSubplot
+
+        """
+        import matplotlib.pyplot as plt
+
+        fig, ax = plt.subplots()
+        ax.set_aspect('equal')
+
+        segments = self.segments
+        if sort_column:
+            segments = self.segments.sort_values(sort_column)
+        segments.plot(
+            column=column, label='segments', legend=legend, ax=ax, cmap=cmap)
+
+        outet_points = geopandas.GeoSeries(
+            self.segments.loc[self.outlets].geometry.apply(
+                lambda g: Point(g.coords[-1])))
+        outet_points.plot(
+            ax=ax, label='outlet', marker='o', color='navy')
+
+        headwater_points = geopandas.GeoSeries(
+            self.segments.loc[self.headwater].geometry.apply(
+                lambda g: Point(g.coords[0])))
+        headwater_points.plot(
+            ax=ax, label='headwater', marker='.', color='green')
+
+        diversions = self.diversions
+        if diversions is not None:
+            diversions_is_spatial = (
+                isinstance(diversions, geopandas.GeoDataFrame) and
+                'geometry' in diversions.columns and
+                (~diversions.is_empty).all())
+            if diversions_is_spatial:
+                diversion_points = diversions.geometry
+            else:
+                diversion_points = self.segments.loc[
+                    self.diversions['from_segnum']].geometry.apply(
+                        lambda g: Point(g.coords[-1]))
+            diversion_points.plot(
+                ax=ax, label='diversion', marker='+', color='red')
+            if diversions_is_spatial:
+                diversion_lines = []
+                for item in self.diversions.itertuples():
+                    p = self.segments.loc[item.from_segnum].geometry.coords[-1]
+                    diversion_lines.append(
+                        LineString([item.geometry.coords[0], p]))
+                diversion_lines = geopandas.GeoSeries(diversion_lines)
+                diversion_lines.plot(
+                    ax=ax, label='diversion lines',
+                    linestyle='--', color='deepskyblue')
+        return ax
 
     def to_pickle(self, path, protocol=pickle.HIGHEST_PROTOCOL):
         """Pickle (serialize) object to file.
@@ -1305,6 +1457,9 @@ class SurfaceWaterNetwork(object):
         protocol : int
             Default is pickle.HIGHEST_PROTOCOL.
 
+        See also
+        --------
+        SurfaceWaterNetwork.from_pickle : Read file.
         """
         with open(path, "wb") as f:
             pickle.dump(self, f, protocol=protocol)
@@ -1318,6 +1473,9 @@ class SurfaceWaterNetwork(object):
         path : str
             File path where the pickled object will be stored.
 
+        See also
+        --------
+        SurfaceWaterNetwork.to_pickle : Save file.
         """
         with open(path, "rb") as f:
             obj = pickle.load(f)

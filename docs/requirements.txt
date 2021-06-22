@@ -1,0 +1,7 @@
+sphinx
+geopandas
+rtree
+ipython
+numpydoc
+matplotlib
+pydata-sphinx-theme

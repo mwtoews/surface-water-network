@@ -532,7 +532,7 @@ def test_default_segment_data(has_z):
     np.testing.assert_array_almost_equal(
         sd.width1, [1.4456947376374667, 1.439700753532406, 1.4615011177787172])
     np.testing.assert_array_almost_equal(
-        sd.width2, [1.4615011177787172, 1.461501117778717, 1.4615011177787172])
+        sd.width2, [1.4456947376374667, 1.439700753532406, 1.4615011177787172])
 
 
 @requires_mf2005
@@ -541,7 +541,7 @@ def test_n3d_vars(tmp_path):
     n = get_basic_swn()
     # manually add outside flow from extra segnums, referenced with inflow
     n.segments.at[1, "from_segnums"] = {3, 4}
-    m = get_basic_modflow(str(tmp_path), hk=1.0, rech=0.01)
+    m = get_basic_modflow(tmp_path, hk=1.0, rech=0.01)
     nm = swn.SwnModflow.from_swn_flopy(n, m)
     nm.set_reach_slope(min_slope=0.03)
     nm.default_segment_data(hyd_cond1=2, thickness1=2.0)
@@ -631,7 +631,7 @@ def test_n3d_vars(tmp_path):
 def test_n2d_defaults(tmp_path):
     # similar to 3D version, but getting information from model
     n = get_basic_swn(has_z=False)
-    m = get_basic_modflow(str(tmp_path), with_top=True, hk=1.0, rech=0.01)
+    m = get_basic_modflow(tmp_path, with_top=True, hk=1.0, rech=0.01)
     nm = swn.SwnModflow.from_swn_flopy(n, m)
     nm.default_segment_data()
     nm.set_sfr_obj(ipakcb=52, istcb2=-53)
@@ -678,7 +678,7 @@ def test_n2d_defaults(tmp_path):
 @requires_mf2005
 def test_n2d_min_slope(tmp_path):
     n = get_basic_swn(has_z=False)
-    m = get_basic_modflow(str(tmp_path), with_top=True, hk=1.0, rech=0.01)
+    m = get_basic_modflow(tmp_path, with_top=True, hk=1.0, rech=0.01)
     nm = swn.SwnModflow.from_swn_flopy(n, m)
     nm.set_reach_slope(min_slope=0.03)
     nm.default_segment_data()
@@ -715,7 +715,7 @@ def test_n2d_min_slope(tmp_path):
 @requires_mf2005
 def test_set_elevations(tmp_path):
     n = get_basic_swn(has_z=False)
-    m = get_basic_modflow(str(tmp_path), with_top=True, hk=1.0, rech=0.01)
+    m = get_basic_modflow(tmp_path, with_top=True, hk=1.0, rech=0.01)
     nm = swn.SwnModflow.from_swn_flopy(n, m)
     nm.default_segment_data()
     # fix elevations
@@ -885,6 +885,7 @@ def test_coastal(tmp_path, coastal_lines_gdf, coastal_flow_m):
     sd = m.sfr.segment_data[0]
     assert sd.flow.sum() > 0.0
     assert sd.pptsw.sum() == 0.0
+    np.testing.assert_array_equal(sd.width1, sd.width2)
     # check_number_sum_hex(
     #    sd.nseg, 17020, "55968016ecfb4e995fb5591bce55fea0")
     # check_number_sum_hex(
