@@ -880,10 +880,9 @@ class SwnModflowBase(object):
             col_size = np.median(dis.delr.array)
             row_size = np.median(dis.delc.array)
             px, py = np.gradient(dis.top.array, col_size, row_size)
-            #grid_slope = np.sqrt(px ** 2 + py ** 2)
-            dz=np.mean([np.abs(px)*col_size,np.abs(py)*row_size],axis=0)
+            grid_dz = np.sqrt((px*col_size) ** 2 + (py*row_size) ** 2)
             self.reaches.loc[:,grid_name]= \
-                dz[self.reaches['i'],self.reaches['j']]/self.reaches['rlen']
+                grid_dz[self.reaches['i'],self.reaches['j']]/self.reaches['rlen']
         # Enforce min_slope when less than min_slop or is NaN
         sel = (rchs[grid_name] < rchs["min_slope"]) | rchs[grid_name].isna()
         if sel.any():
