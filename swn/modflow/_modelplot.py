@@ -329,6 +329,16 @@ def _profile_plot(
         ax.text(s[x], 1, s.segnum, transform=trans)
 
 
+def sfr_plot(model, sfrar, dem, label=None, lines=None):
+    """Plot sfr."""
+    p = ModelPlot(model)
+    p._add_plotlayer(dem, label="Elevation (m)")
+    p._add_sfr(sfrar, cat_cmap=False, cbar=True,
+               label=label)
+    if lines is not None:
+        p._add_lines(lines)
+    return p
+
 if matplotlib:
     class MidpointNormalize(matplotlib.colors.Normalize):
         """Mid-point normalize class."""

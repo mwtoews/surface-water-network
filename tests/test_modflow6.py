@@ -538,6 +538,31 @@ def test_coastal_elevations(coastal_swn, coastal_flow_m, tmp_path):
     nm = swn.SwnMf6.from_swn_flopy(coastal_swn, m)
     nm.default_packagedata(hyd_cond1=2.0, thickness1=2.0)
     # TODO: inflow=coastal_flow_m
+    _ = nm.add_model_topbot_to_reaches()
+    if matplotlib:
+        nm.plot_reaches_vs_model("all", plot_bottom=True)
+    # handy to set a max elevation that a stream can be
+    # MF^ no longer segment based so this is not approp:
+    # _ = nm.get_seg_ijk()
+    # tops = nm.get_top_elevs_at_segs().top_up
+    # max_str_z = tops.describe()["75%"]
+    # if matplotlib:
+    #     for seg in nm.segment_data.loc[
+    #         nm.segment_data.index.isin([1, 18]), "segnum"
+    #     ]:
+    #         nm.plot_reaches_above(m, seg, plot_bottom=True)
+    # _ = nm.fix_segment_elevs(min_incise=0.2, min_slope=1.e-4,
+    #                          max_str_z=max_str_z)
+    # _ = nm.reconcile_reach_strtop()
+    # if matplotlib:
+    #     nm.plot_reaches_above(m, "all", plot_bottom=True)
+    #     for seg in nm.segment_data.loc[
+    #         nm.segment_data.index.isin([1, 18]), "segnum"
+    #     ]:
+    #         nm.plot_reaches_above(m, seg)
+    # _ = nm.set_topbot_elevs_at_reaches()
+    nm.fix_reach_elevs()
+    pass
     # TODO: complete elevation adjustments; see older MODFLOW methods
 
 

@@ -640,7 +640,14 @@ class SwnModflow(SwnModflowBase):
             **kwds)
 
     def get_seg_ijk(self):
-        """Get the upstream and downstream segment k,i,j."""
+        """
+        Get the k,i,j location of upstream and downstream segments
+        for each segment
+
+        Returns
+        -------
+        pandas DataFrame with
+        """
         topidx = self.reaches["ireach"] == 1
         kij_df = self.reaches[topidx][["iseg", "k", "i", "j"]].sort_values(
             "iseg")
@@ -936,19 +943,7 @@ class SwnModflow(SwnModflowBase):
         )
         if m is None:
             m = self.model
-        return self.add_model_topbot_to_reaches(m=m)
-
-    def add_model_topbot_to_reaches(self, m=None):
-        """
-        get top and bottom elevation of the cell containing a reach
-        :param m: Modflow model
-        :return: dataframe with reach cell top and bottom elevations
-        """
-        if m is None:
-            m = self.model
-        self.set_reach_data_from_array('top', m.dis.top.array)
-        self.set_reach_data_from_array('bot', m.dis.botm[0].array)
-        return self.reaches[['top', 'bot']]
+        return self.add_model_topbot_to_reaches(m)
 
     def fix_reach_elevs(self, minslope=0.0001, fix_dis=True, minthick=0.5):
         """Fix reach elevations.
@@ -1148,20 +1143,10 @@ class SwnModflow(SwnModflowBase):
                 layerbots[k + 1] = layerbots[k] - laythick
             self.model.dis.botm = layerbots
 
-    def sfr_plot(self, model, sfrar, dem, label=None, lines=None):
-        """Plot sfr."""
-        from swn.modflow._modelplot import ModelPlot
-        p = ModelPlot(model)
-        p._add_plotlayer(dem, label="Elevation (m)")
-        p._add_sfr(sfrar, cat_cmap=False, cbar=True,
-                   label=label)
-        if lines is not None:
-            p._add_lines(lines)
-        return p
-
-    def plot_reaches_above(self, model, seg, dem=None,
+    def plot_reaches_above(self, model=None, seg='all', dem=None,
                            plot_bottom=False):
         """
+        LEGACY ---- USE `plot_reaches_vs_model()
         Wrapper method to plot the elevation of the MODFLOW model projected
         streams relative to model top and layer 1 bottom
 
@@ -1182,6 +1167,22 @@ class SwnModflow(SwnModflowBase):
         vtop, vbot : ModelPlot objects containing matplotlib fig and axes
 
         """
+        self.logger.warning(
+                '`plot_reaches_above()` is the old method name,'
+                'changed to `plot_reaches_vs_model()`',
+        )
+        if model is not None:
+            self.logger.warning(
+                'no longer using `model` parameter. Instead using model'
+                'associated with swnmodflow class object,'
+                'changed to `plot_reaches_vs_model()`',
+            )
+        vtop, vbot = self.plot_reaches_vs_model(
+            seg,
+            dem,
+            plot_bottom
+        )
+        return vtop, vbot
         # ensure reach elevations are up-to-date
         _ = self.add_model_topbot_to_reaches()  #TODO check required first
         dis = model.dis
@@ -1228,35 +1229,4 @@ class SwnModflow(SwnModflowBase):
         else:
             vbot = None
         return vtop, vbot
-
-    def plot_profile(self, seg, upstream=False, downstream=False):
-        """
-        Quick wrapper method for plotting stream top profiles vs model grid
-        top and bottom.
-        Parameters
-        ----------
-        seg : int
-            Identifying segment for plots
-        upstream : bool
-            Flag for continuing trace upstream from segnum = `seg`
-        downstream : bool
-            Flag for continuing trace downstream of segnum = `seg`
-
-        Returns
-        -------
-
-        """
-        from swn.modflow._modelplot import _profile_plot
-        usegs = [seg]
-        dsegs = []
-        if upstream:
-            usegs = self._swn.query(upstream=seg)
-        if downstream:
-            dsegs = self._swn.query(downstream=seg)
-        segs = usegs + dsegs
-        assert seg in segs, (f"something has changed in the code, "
-                             f"{seg} not in {segs}")
-        reaches = self.reaches.loc[self.reaches.segnum.isin(segs)].sort_index()
-        reaches['mid_dist'] = reaches.rchlen.cumsum() - reaches.rchlen / 2
-        _profile_plot(reaches, x='mid_dist', cols=['strtop', 'top', 'bot'])
 
