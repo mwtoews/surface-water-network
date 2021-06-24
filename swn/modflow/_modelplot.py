@@ -302,6 +302,7 @@ class ModelPlot(object):
 
 def _profile_plot(
         sorted_df,
+        lentag='rchlen',
         x='rchlen',
         cols=['strtop', 'top', 'bot']
 ):
@@ -314,7 +315,7 @@ def _profile_plot(
         x = 'csum'
     else:
         # will use this for seg dividers anyway
-        sorted_df['csum'] = sorted_df['rchlen'].cumsum()
+        sorted_df['csum'] = sorted_df[lentag].cumsum()
     fig, ax = plt.subplots(figsize=(8, 6))
     sorted_df[[x] + cols].append(  # make sure we include end of final reach
         sorted_df.iloc[[-1]][['csum']+cols].rename(

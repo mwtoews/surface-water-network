@@ -1173,7 +1173,7 @@ class SwnModflow(SwnModflowBase):
         )
         if model is not None:
             self.logger.warning(
-                'no longer using `model` parameter. Instead using model'
+                'no longer using `model` parameter. Instead using model '
                 'associated with swnmodflow class object,'
                 'changed to `plot_reaches_vs_model()`',
             )

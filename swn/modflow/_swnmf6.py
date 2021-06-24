@@ -653,8 +653,11 @@ class SwnMf6(SwnModflowBase):
             nreaches=len(self.reaches),
             **kwds)
 
-    def fix_reach_elevs(self, minslope=0.0001, fix_dis=True, minthick=0.5):
-        """Fix reach elevations.
+    def _segbyseg_elevs(self, minslope=0.0001, fix_dis=True, minthick=0.5,
+                        min_incise=0.2, max_str_z=None):
+        """
+        Fix reach elevations but by using segment definition and setting sane
+        segment elevations first.
 
         Need to ensure reach elevation is:
             0. below the top
@@ -682,29 +685,36 @@ class SwnMf6(SwnModflowBase):
                       .format(new_elev, r.i, r.j))
                 botms[0, r.i, r.j] = new_elev
             return botms
-
+        # fix segments first
+        # 0. Segments are below the model top
+        # 1. Segments flow downstream
+        # 2. Downstream segments are below upstream segments
+        _ = self.fix_segment_elevs(min_incise=min_incise,
+                                   min_slope=minslope,
+                                   max_str_z=max_str_z)
+        _ = self.reconcile_reach_strtop()
         buffer = 1.0  # 1 m (buffer to leave at the base of layer 1 -
         # also helps with precision issues)
         # make sure elevations are up-to-date
         # recalculate REACH strtop elevations
-        # self.reconcile_reach_strtop()
+        self.reconcile_reach_strtop()
         _ = self.add_model_topbot_to_reaches()
         # top read from dis as float32 so comparison need to be with like
-        reachsel = self.reaches["top"] <= self.reaches["rtp"]
+        reachsel = self.reaches["top"] <= self.reaches["strtop"]
         reach_ij = tuple(self.reaches[["i", "j"]].values.T)
-        print("{} reaches above model top".format(reachsel.sum()))
+        print("{} segments with reaches above model top".format(
+            self.reaches[reachsel]["iseg"].unique().shape[0]))
         # get segments with reaches above the top surface
-        # segsabove = self.reaches[reachsel].groupby(
-        #     "iseg").size().sort_values(ascending=False)
+        segsabove = self.reaches[reachsel].groupby(
+            "iseg").size().sort_values(ascending=False)
         # get incision gradient from segment elevups and elevdns
         # ("diff_up" and "diff_dn" are the incisions of the top and
         # bottom reaches from the segment data)
-        # self.segment_data["incgrad"] = \
-        #     ((self.segment_data["diff_up"] - self.segment_data["diff_dn"]) /
-        #      self.segment_data["seglen"])
+        self.segment_data["incgrad"] = \
+            ((self.segment_data["diff_up"] - self.segment_data["diff_dn"]) /
+             self.segment_data["seglen"])
         # copy of layer 1 bottom (for updating to fit in stream reaches)
         layerbots = self.model.dis.botm.array.copy()
-        # through reaches DF
         # loop over each segment
         for seg in self.segment_data.index:  # (all segs)
             # selection for segment in reachdata and seg data
@@ -850,4 +860,237 @@ class SwnMf6(SwnModflowBase):
                 laythick[thincells] = minthick
                 layerbots[k + 1] = layerbots[k] - laythick
             self.model.dis.botm = layerbots
+
+    def _reachbyreach_elevs(self, minslope=0.0001, fix_dis=True, minthick=0.5,
+                            minincise=0.2):
+        """Fix reach elevations.
+
+        Need to ensure reach elevation is:
+            0. below the top
+            1. below the upstream reach
+            2. above the minimum slope to the bottom reach elevation
+            3. above the base of layer 1
+        segment by segment, reach by reach! Fun!
+
+        :return:
+        """
+        def _check_reach_v_laybot(r, botms, buffer=1.0, rbed_elev=None):
+            if rbed_elev is None:
+                rbed_elev = r.rtp - r.rbth
+            if (rbed_elev - buffer) < r.bot:
+                # if new strtop is below layer one
+                # drop bottom of layer one to accomodate stream
+                # (top, bed thickness and buffer)
+                new_elev = rbed_elev - buffer
+                print("reach {} @ {} "
+                      "is below layer 1 bottom @ {}"
+                      .format(r.Index, rbed_elev, r.bot))
+                print("    dropping layer 1 bottom to {} "
+                      "to accommodate stream @ i = {}, j = {}"
+                      .format(new_elev, r.i, r.j))
+                botms[0, r.i, r.j] = new_elev
+            return botms
+        buffer = 1.0  # 1 m (buffer to leave at the base of layer 1 -
+        # also helps with precision issues)
+        # make sure elevations are up-to-date
+        # recalculate REACH strtop elevations
+        # self.reconcile_reach_strtop()
+        _ = self.add_model_topbot_to_reaches()
+        # top read from dis as float32 so comparison need to be with like
+        reachsel = self.reaches["top"] <= self.reaches["rtp"]
+        reach_ij = tuple(self.reaches[["i", "j"]].values.T)
+        print("{} reaches above model top".format(reachsel.sum()))
+        # get segments with reaches above the top surface
+        # segsabove = self.reaches[reachsel].groupby(
+        #     "iseg").size().sort_values(ascending=False)
+        # get incision gradient from segment elevups and elevdns
+        # ("diff_up" and "diff_dn" are the incisions of the top and
+        # bottom reaches from the segment data)
+        # self.segment_data["incgrad"] = \
+        #     ((self.segment_data["diff_up"] - self.segment_data["diff_dn"]) /
+        #      self.segment_data["seglen"])
+        # copy of layer 1 bottom (for updating to fit in stream reaches)
+        layerbots = self.model.dis.botm.array.copy()
+        headreaches = self.reaches.loc[self.reaches.from_rnos == set()]
+        # through reaches DF
+        for hdrch in headreaches.itertuples():
+            # check if head reach above model top
+            if hdrch.rtp > hdrch.top - minincise:
+                # set to below model top
+                upreach_rtp = hdrch.top - minincise
+                self.reaches.at[hdrch.Index, "rtp"] = upreach_rtp
+            else:
+                upreach_rtp = hdrch.rtp
+            inc_up = hdrch.top - upreach_rtp
+            # get profile of reaches from this headwater
+            dsegs = self._swn.query(downstream=hdrch.segnum)
+            segs = [hdrch.segnum] + dsegs
+            reaches = self.reaches.loc[self.reaches.segnum.isin(segs)].sort_index()
+            # get mid length for each reach
+            reaches['mid_dist'] = reaches['rlen'].cumsum() - reaches['rlen'] / 2
+            upreach_mid = reaches.iloc[0].mid_dist
+            # get outflow reach for this profile
+            # maybe can't rely on it being the last one
+            # the sort_index() should order (assuming rno increases downstream)
+            # so last should be to_rno == 0
+            assert reaches.iloc[-1].to_rno == 0, ("reach numbers possibly not "
+                                                  "increasing downstream")
+            outflow = reaches.iloc[-1]
+            # check if outflow above model top
+            if outflow.rtp > outflow.top - minincise:
+                # set below model top
+                botreach_rtp = outflow.top - minincise
+                self.reaches.at[outflow.name, "rtp"] = botreach_rtp
+            else:
+                botreach_rtp = outflow.rtp
+            inc_dn = outflow.top - botreach_rtp
+            # total profile length
+            totlen = reaches.rlen.sum()
+            # get incision gradient from headwater and outflow incision
+            # ("inc_up" and "inc_dn" are the incisions of the top and
+            # bottom reaches) # TODO is this stil meaningfull?
+            incgrad = ((inc_up - inc_dn) / totlen)
+            # apparent optimised incision based
+            # on the incision gradient for the segment
+            reaches["strtop_incopt"] = (
+                    (reaches.top - inc_up) +
+                    ((reaches.mid_dist - upreach_mid) * incgrad)
+            )
+            layerbots = _check_reach_v_laybot(reaches.iloc[0], layerbots, buffer)
+            # loop over current profile from second to penultimate
+            # (dont want to move endpoints)
+            for reach in reaches.iloc[1:].itertuples():  # TODO maybe more flexibility on bottom reach incision
+                # strtop that would result from minimum slope
+                # from upstream reach
+                rtp = reach.rtp
+                strtop_withminslope = upreach_rtp - (
+                        (reach.mid_dist - upreach_mid) * minslope)
+                if rtp > reach.top - minincise:
+                    # current reach rtp is above the model top
+                    print(f"reach {reach.Index}, rtp is: /\\ above model top")
+                    if reach.strtop_incopt > strtop_withminslope:
+                        # incision according to incision gradient would be
+                        # above upstream or give too shallow a slope from upstream
+                        print(f"--reach {reach.Index}, incopt is: /\\ "
+                              f"above upstream")
+                        print("--setting elevation to minslope from "
+                              "upstream")
+                        # set to minimum slope from upstream reach
+                        self.reaches.at[reach.Index, "rtp"] = strtop_withminslope
+                        # update upreach for next iteration
+                    else:
+                        # rtp might be ok to set to "optimum incision"
+                        print(f"--reach {reach.Index}, incopt is: -- below upstream")
+                        # CHECK FIRST:
+                        # if optimium incision would place it
+                        # below the bottom of layer 1
+                        if (reach.strtop_incopt - reach.rbth) < reach.bot + buffer:
+                            # opt - stream thickness lower than layer 1 bottom
+                            # (with a buffer)
+                            print(f"----reach {reach.Index}, incopt is: x\\/ "
+                                  "below layer 1 bottom")
+                            if reach.bot + reach.rbth + buffer > strtop_withminslope:
+                                # if layer bottom would put reach above
+                                # upstream reach we can only set to
+                                # minimum slope from upstream
+                                print("------setting elevation to minslope "
+                                      "from upstream")
+                                self.reaches.at[
+                                    reach.Index, "rtp"] = strtop_withminslope
+                                # this may still leave us below the
+                                # bottom of layer
+                            else:
+                                # otherwise we can move reach so that it
+                                # fits into layer 1
+                                new_elev = reach.bot + reach.rbth + buffer
+                                print(f"------setting elevation to {new_elev}, "
+                                      f"above layer 1 bottom")
+                                # set reach top so that it is above layer 1
+                                # bottom with a buffer
+                                # (allowing for bed thickness)
+                                self.reaches.at[reach.Index, "rtp"] = new_elev
+                        else:
+                            # strtop ok to set to "optimum incision"
+                            # set to "optimum incision"
+                            print("----setting elevation to incopt")
+                            self.reaches.at[
+                                reach.Index, "rtp"] = reach.strtop_incopt
+                else:
+                    print(f"reach {reach.Index}, rtp is: -- below model top")
+                    if (rtp - reach.rbth) < reach.bot + buffer:
+                        # rtp is below the bottom of layer 1
+                        print(f"--reach {reach.Index}, rtp is: x\\/ "
+                              "below layer 1 bottom")
+                        if reach.bot + reach.rbth + buffer > strtop_withminslope:
+                            # if layer bottom would put reach above
+                            # upstream reach we can only set to
+                            # minimum slope from upstream
+                            print("----setting elevation to minslope "
+                                  "from upstream")
+                            self.reaches.at[
+                                reach.Index, "rtp"] = strtop_withminslope
+                            # this may still leave us below the
+                            # bottom of layer
+                        else:
+                            # otherwise we can move reach so that it
+                            # fits into layer 1
+                            new_elev = reach.bot + reach.rbth + buffer
+                            print(f"----setting elevation to {new_elev}, "
+                                  f"above layer 1 bottom")
+                            # set reach top so that it is above layer 1
+                            # bottom with a buffer
+                            # (allowing for bed thickness)
+                            self.reaches.at[reach.Index, "rtp"] = new_elev
+                    elif rtp > strtop_withminslope:
+                        # below top but above minslope from upstream
+                        print(f"--reach {reach.Index}, rtp is: /\\ "
+                              f"above upstream")
+                        print("----setting elevation to minslope from upstream")
+                        # set to minimum slope from upstream reach
+                        self.reaches.at[reach.Index, "rtp"] = strtop_withminslope
+                    # else it is above above bottom, below top and downstream
+                # update upreach for next iteration
+                upreach_rtp = self.reaches.at[reach.Index, "rtp"]
+                # check if new stream top is above layer 1 with a buffer
+                # (allowing for bed thickness)
+                reachbed_elev = upreach_rtp - reach.rbth
+                layerbots = _check_reach_v_laybot(reach, layerbots, buffer,
+                                                  reachbed_elev)
+                upreach_mid = reach.mid_dist
+                # upreach_slope=reach.slope
+            self.reaches["bot"] = layerbots[0][reach_ij]
+        if fix_dis:
+            # fix dis for incised reaches
+            for k in range(self.model.dis.nlay.data - 1):
+                laythick = layerbots[k] - layerbots[
+                    k + 1]  # first one is layer 1 bottom - layer 2 bottom
+                print("checking layer {} thicknesses".format(k + 2))
+                thincells = laythick < minthick
+                print("{} cells less than {}"
+                      .format(thincells.sum(), minthick))
+                laythick[thincells] = minthick
+                layerbots[k + 1] = layerbots[k] - laythick
+            self.model.dis.botm = layerbots
+
+    def fix_reach_elevs(self, minslope=0.0001, fix_dis=True, minthick=0.5,
+                        segbyseg=False):
+        """Fix reach elevations.
+
+        Need to ensure reach elevation is:
+            0. below the top
+            1. below the upstream reach
+            2. above the minimum slope to the bottom reach elevation
+            3. above the base of layer 1
+        in modflow6 only reaches so maybe we should go just reach by reach
+        (nwt method went seg-by-seg reach-by-reach
+
+        :return:
+        """
+        if segbyseg:
+            raise NotImplementedError
+            self._segbyseg_elevs(minslope, fix_dis, minthick)
+        else:
+            self._reachbyreach_elevs(minslope, fix_dis, minthick)
+        return
+
 

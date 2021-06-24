@@ -778,132 +778,6 @@ class SwnModflowBase(object):
             raise ValueError("'array' must have shape (nrow, ncol)")
         self.reaches.loc[:, name] = array[self.reaches["i"], self.reaches["j"]]
 
-    def add_model_topbot_to_reaches(self, m=None):
-        """
-        get top and bottom elevation of the model cell containing each
-        surface water network reach
-        :param m: Modflow model
-        :return: dataframe with reach cell top and bottom elevations
-        """
-        if m is None:
-            m = self.model
-        self.set_reach_data_from_array('top', m.dis.top.array)
-        self.set_reach_data_from_array('bot', m.dis.botm[0].array)
-        return self.reaches[['top', 'bot']]
-
-    def plot_reaches_vs_model(self, seg, dem=None,
-                              plot_bottom=False):
-        """
-        Wrapper method to plot the elevation of the MODFLOW model projected
-        streams relative to model top and layer 1 bottom
-
-        Parameters
-        ----------
-        seg : int or "all"
-            Specific segment number to plot (sfr iseg/nseg)
-        dem : array
-            For using as plot background -- assumes same (nrow, ncol)
-            dimensions as model layer
-        plot_bottom : bool
-            Also plot stream bed elevation relative to the bottom of layer 1
-
-        Returns
-        -------
-        vtop, vbot : ModelPlot objects containing matplotlib fig and axes
-
-        """
-        from swn.modflow._modelplot import sfr_plot
-        model = self.model  # inherit model from class object
-        if self.__class__.__name__ == "SwnModflow":
-            ib = model.bas6.ibound.array[0]
-            strtoptag = 'strtop'
-        elif self.__class__.__name__ == "SwnMf6":
-            ib = model.dis.idomain.array[0]
-            strtoptag = 'rtp'
-
-        # Ensure reach elevations are up-to-date
-        _ = self.add_model_topbot_to_reaches()  #TODO check required first
-        # Plot model top (or dem on background)
-        dis = model.dis
-        if dem is None:
-            dem = np.ma.array(dis.top.array, mask=ib == 0)
-        # Build sfr raster array from reaches data
-        sfrar = np.ma.zeros(dis.top.array.shape, "f")
-        sfrar.mask = np.ones(sfrar.shape)
-        if seg == "all":
-            segsel = np.ones((self.reaches.shape[0]), dtype=bool)
-        else:
-            # TODO multiple segs?
-            segsel = self.reaches["segnum"] == seg
-        # Reach elevation relative to model top
-        self.reaches['tmp_tdif'] = (self.reaches["top"] -
-                                    self.reaches[strtoptag])
-        # TODO group by ij first?
-        sfrar[
-            tuple(self.reaches[segsel][["i", "j"]].values.T.tolist())
-        ] = self.reaches.loc[segsel, 'tmp_tdif'].tolist()
-        # .mask = np.ones(sfrar.shape)
-        # Plot reach elevation relative to model top
-        vtop = sfr_plot(
-            model, sfrar, dem,
-            label="str below\ntop (m)",
-            lines=self.reaches.loc[segsel, ['geometry', 'tmp_tdif']]
-        )
-        # If just single segment can plot profile quickly
-        if seg != "all":
-            self.plot_profile(seg, upstream=True, downstream=True)
-
-        # Same for bottom
-        if plot_bottom:
-            dembot = np.ma.array(dis.botm.array[0], mask=ib == 0)
-            sfrarbot = np.ma.zeros(dis.botm.array[0].shape, "f")
-            sfrarbot.mask = np.ones(sfrarbot.shape)
-            self.reaches['tmp_bdif'] = (self.reaches[strtoptag] -
-                                        self.reaches["bot"])
-            sfrarbot[
-                tuple(self.reaches.loc[segsel, ["i", "j"]].values.T.tolist())
-            ] = self.reaches.loc[segsel, 'tmp_bdif'].tolist()
-            # .mask = np.ones(sfrar.shape)
-            vbot = sfr_plot(
-                model, sfrarbot, dembot,
-                label="str above\nbottom (m)",
-                lines=self.reaches.loc[segsel, ['geometry', 'tmp_bdif']]
-            )
-        else:
-            vbot = None
-        return vtop, vbot
-
-    def plot_profile(self, seg, upstream=False, downstream=False):
-        """
-        Quick wrapper method for plotting stream top profiles vs model grid
-        top and bottom.
-        Parameters
-        ----------
-        seg : int
-            Identifying segment for plots
-        upstream : bool
-            Flag for continuing trace upstream from segnum = `seg`
-        downstream : bool
-            Flag for continuing trace downstream of segnum = `seg`
-
-        Returns
-        -------
-
-        """
-        from swn.modflow._modelplot import _profile_plot
-        usegs = [seg]
-        dsegs = []
-        if upstream:
-            usegs = self._swn.query(upstream=seg)
-        if downstream:
-            dsegs = self._swn.query(downstream=seg)
-        segs = usegs + dsegs
-        assert seg in segs, (f"something has changed in the code, "
-                             f"{seg} not in {segs}")
-        reaches = self.reaches.loc[self.reaches.segnum.isin(segs)].sort_index()
-        reaches['mid_dist'] = reaches.rchlen.cumsum() - reaches.rchlen / 2
-        _profile_plot(reaches, x='mid_dist', cols=['strtop', 'top', 'bot'])
-
     def set_reach_slope(self, method: str = "auto", min_slope=1./1000):
         """Set slope for reaches.
 
@@ -1143,3 +1017,140 @@ class SwnModflowBase(object):
                 ax=ax, label="diversion", marker="D", color="red")
 
         return ax
+
+    # __________________ SOME ELEVATION METHODS_________________________
+    def add_model_topbot_to_reaches(self, m=None):
+        """
+        get top and bottom elevation of the model cell containing each
+        surface water network reach
+        :param m: Modflow model
+        :return: dataframe with reach cell top and bottom elevations
+        """
+        if m is None:
+            m = self.model
+        self.set_reach_data_from_array('top', m.dis.top.array)
+        self.set_reach_data_from_array('bot', m.dis.botm[0].array)
+        return self.reaches[['top', 'bot']]
+
+    def plot_reaches_vs_model(self, seg, dem=None,
+                              plot_bottom=False):
+        """
+        Wrapper method to plot the elevation of the MODFLOW model projected
+        streams relative to model top and layer 1 bottom
+
+        Parameters
+        ----------
+        seg : int or "all"
+            Specific segment number to plot (sfr iseg/nseg)
+        dem : array
+            For using as plot background -- assumes same (nrow, ncol)
+            dimensions as model layer
+        plot_bottom : bool
+            Also plot stream bed elevation relative to the bottom of layer 1
+
+        Returns
+        -------
+        vtop, vbot : ModelPlot objects containing matplotlib fig and axes
+
+        """
+        from swn.modflow._modelplot import sfr_plot
+        model = self.model  # inherit model from class object
+        if self.__class__.__name__ == "SwnModflow":
+            ib = model.bas6.ibound.array[0]
+            strtoptag = 'strtop'
+            lentag = "rchlen"
+        elif self.__class__.__name__ == "SwnMf6":
+            ib = model.dis.idomain.array[0]
+            strtoptag = 'rtp'
+            lentag = "rlen"
+
+        # Ensure reach elevations are up-to-date
+        _ = self.add_model_topbot_to_reaches()  #TODO check required first
+        # Plot model top (or dem on background)
+        dis = model.dis
+        if dem is None:
+            dem = np.ma.array(dis.top.array, mask=ib == 0)
+        # Build sfr raster array from reaches data
+        sfrar = np.ma.zeros(dis.top.array.shape, "f")
+        sfrar.mask = np.ones(sfrar.shape)
+        if seg == "all":
+            segsel = np.ones((self.reaches.shape[0]), dtype=bool)
+        else:
+            # TODO multiple segs?
+            segsel = self.reaches["segnum"] == seg
+        # Reach elevation relative to model top
+        self.reaches['tmp_tdif'] = (self.reaches["top"] -
+                                    self.reaches[strtoptag])
+        # TODO group by ij first?
+        sfrar[
+            tuple(self.reaches[segsel][["i", "j"]].values.T.tolist())
+        ] = self.reaches.loc[segsel, 'tmp_tdif'].tolist()
+        # .mask = np.ones(sfrar.shape)
+        # Plot reach elevation relative to model top
+        vtop = sfr_plot(
+            model, sfrar, dem,
+            label="str below\ntop (m)",
+            lines=self.reaches.loc[segsel, ['geometry', 'tmp_tdif']]
+        )
+        # If just single segment can plot profile quickly
+        if seg != "all":
+            self.plot_profile(seg, upstream=True, downstream=True)
+
+        # Same for bottom
+        if plot_bottom:
+            dembot = np.ma.array(dis.botm.array[0], mask=ib == 0)
+            sfrarbot = np.ma.zeros(dis.botm.array[0].shape, "f")
+            sfrarbot.mask = np.ones(sfrarbot.shape)
+            self.reaches['tmp_bdif'] = (self.reaches[strtoptag] -
+                                        self.reaches["bot"])
+            sfrarbot[
+                tuple(self.reaches.loc[segsel, ["i", "j"]].values.T.tolist())
+            ] = self.reaches.loc[segsel, 'tmp_bdif'].tolist()
+            # .mask = np.ones(sfrar.shape)
+            vbot = sfr_plot(
+                model, sfrarbot, dembot,
+                label="str above\nbottom (m)",
+                lines=self.reaches.loc[segsel, ['geometry', 'tmp_bdif']]
+            )
+        else:
+            vbot = None
+        return vtop, vbot
+
+    def plot_profile(self, seg, upstream=False, downstream=False):
+        """
+        Quick wrapper method for plotting stream top profiles vs model grid
+        top and bottom.
+        Parameters
+        ----------
+        seg : int
+            Identifying segment for plots
+        upstream : bool
+            Flag for continuing trace upstream from segnum = `seg`
+        downstream : bool
+            Flag for continuing trace downstream of segnum = `seg`
+
+        Returns
+        -------
+
+        """
+        from swn.modflow._modelplot import _profile_plot
+        if self.__class__.__name__ == "SwnModflow":
+            strtoptag = 'strtop'
+            lentag = "rchlen"
+        elif self.__class__.__name__ == "SwnMf6":
+            strtoptag = 'rtp'
+            lentag = "rlen"
+        usegs = [seg]
+        dsegs = []
+        if upstream:
+            usegs = self._swn.query(upstream=seg)
+        if downstream:
+            dsegs = self._swn.query(downstream=seg)
+        segs = usegs + dsegs
+        assert seg in segs, (f"something has changed in the code, "
+                             f"{seg} not in {segs}")
+        reaches = self.reaches.loc[self.reaches.segnum.isin(segs)].sort_index()
+        reaches['mid_dist'] = reaches[lentag].cumsum() - reaches[lentag] / 2
+        _profile_plot(reaches, lentag=lentag, x='mid_dist',
+                      cols=[strtoptag, 'top', 'bot'])
+
