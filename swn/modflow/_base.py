@@ -151,6 +151,9 @@ class SwnModflowBase(object):
             reaches outside the active grid should be included to a cell.
             Based on the furthest distance of the line and cell geometries.
             Default 0.2 (e.g. for a 100 m grid cell, this is 20 m).
+        TODO: It may be beneficial to enforce a min reach length in each cell
+            by splitting the longer reaches in adjacent cells and adding them to
+            small reaches, thereby faciliating GW-SW exchanges in orthogonal cells.
 
         Returns
         -------
@@ -281,7 +284,7 @@ class SwnModflowBase(object):
             if reach_geom.length > threshold:
                 return
             cell_lengths = reach_df.groupby(["i", "j"])["length"].sum()
-            this_ij = reach["i"], reach["j"]
+            this_a = reach["i"], reach["j"]
             this_cell_length = cell_lengths[this_ij]
             if this_cell_length > threshold:
                 return
@@ -477,7 +480,7 @@ class SwnModflowBase(object):
             gb = reach_df.groupby(["i", "j"])["geometry"].apply(list)
             for ij, geoms in gb.copy().iteritems():
                 i, j = ij
-                if len(geoms) > 1:
+                if len(geoms) > 1: #more than 1 reach in cell ij
                     geom = linemerge(geoms)
                     if geom.geom_type == "MultiLineString":
                         # workaround for odd floating point issue
