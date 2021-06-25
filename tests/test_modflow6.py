@@ -491,7 +491,7 @@ def test_coastal(
     )
     sim.write_simulation()
     success, buff = sim.run_simulation()
-    assert not success
+    assert not success   # TODO: really?!
     # Check dataframes
     assert len(nm.segments) == 304
     assert nm.segments["in_model"].sum() == 184
@@ -559,7 +559,9 @@ def test_coastal_elevations(coastal_swn, coastal_flow_m, tmp_path):
     # _make_plot_sequence()
     #
     # _ = nm.set_topbot_elevs_at_reaches()
-    nm.fix_reach_elevs()
+    nm.fix_reach_elevs(direction='upstream')
+    _make_plot_sequence()
+    nm.fix_reach_elevs(direction='downstream')
     _make_plot_sequence()
     nm.set_sfr_obj(
         save_flows=True,
@@ -567,7 +569,10 @@ def test_coastal_elevations(coastal_swn, coastal_flow_m, tmp_path):
         budget_filerecord="h.sfr.bud",
         maximum_iterations=100,
         maximum_picard_iterations=10,
+        unit_conversion=86400,
     )
+    # sim.ims.outer_dvclose = 1e-2
+    # sim.ims.inner_dvclose = 1e-3
     sim.write_simulation()
     success, buff = sim.run_simulation()
     assert success

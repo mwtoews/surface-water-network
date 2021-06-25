@@ -861,18 +861,49 @@ class SwnMf6(SwnModflowBase):
                 layerbots[k + 1] = layerbots[k] - laythick
             self.model.dis.botm = layerbots
 
-    def _reachbyreach_elevs(self, minslope=0.0001, fix_dis=True, minthick=0.5,
-                            minincise=0.2):
-        """Fix reach elevations.
-
+    def _reachbyreach_elevs(self, minslope=0.0001, minincise=0.2, minthick=0.5,
+                            fix_dis=True, direction='downstream'):
+        """
+        Fix reach elevations by just working from headwater to outlet
+        (ignoring segment divisions).
         Need to ensure reach elevation is:
             0. below the top
             1. below the upstream reach
             2. above the minimum slope to the bottom reach elevation
             3. above the base of layer 1
-        segment by segment, reach by reach! Fun!
+        (nwt method went seg-by-seg then reach-by-reach)
 
-        :return:
+        Parameters
+        ----------
+        minslope : float,
+            The minimum allowable slope between adjacent reaches
+            (to be considered flowing downstream).
+            Default: 1e-4
+        minincise : float,
+            The minimum allowable incision of a reach below the model top.
+            Default : 0.2
+        minthick : float,
+            The minimum thickness of stream bed. Will try to ensure that this is
+            available below stream top before layer bottom.
+            Default: 0.5
+        fix_dis : bool,
+            Move layer elevations down where it is not possible to honor
+            minimum slope without going below layer 1 bottom.
+            Default: True
+        direction : `str`, 'upstream' or 'downstream',
+            NOT IMPLEMENTED
+            Select whether elevations are set from ensuring a minimum slope
+            in a upstream or downstream direction.
+            If 'upstream' will honor elevation at outlet reach
+                (if in model layer) and work upstream ensuring minimum slope.
+            If 'downstream' will honor elevation at headwater reach
+                (if in model layer) and work downstream ensuring minimum slope.
+            Default: 'downstream',
+            set elevations from headwaters to outlets.
+
+        Returns
+        -------
+
         """
         def _check_reach_v_laybot(r, botms, buffer=1.0, rbed_elev=None):
             if rbed_elev is None:
@@ -890,6 +921,11 @@ class SwnMf6(SwnModflowBase):
                       .format(new_elev, r.i, r.j))
                 botms[0, r.i, r.j] = new_elev
             return botms
+
+        if direction == 'upstream':
+            ustrm = True
+        else:
+            ustrm = False
         buffer = 1.0  # 1 m (buffer to leave at the base of layer 1 -
         # also helps with precision issues)
         # make sure elevations are up-to-date
@@ -900,15 +936,6 @@ class SwnMf6(SwnModflowBase):
         reachsel = self.reaches["top"] <= self.reaches["rtp"]
         reach_ij = tuple(self.reaches[["i", "j"]].values.T)
         print("{} reaches above model top".format(reachsel.sum()))
-        # get segments with reaches above the top surface
-        # segsabove = self.reaches[reachsel].groupby(
-        #     "iseg").size().sort_values(ascending=False)
-        # get incision gradient from segment elevups and elevdns
-        # ("diff_up" and "diff_dn" are the incisions of the top and
-        # bottom reaches from the segment data)
-        # self.segment_data["incgrad"] = \
-        #     ((self.segment_data["diff_up"] - self.segment_data["diff_dn"]) /
-        #      self.segment_data["seglen"])
         # copy of layer 1 bottom (for updating to fit in stream reaches)
         layerbots = self.model.dis.botm.array.copy()
         headreaches = self.reaches.loc[self.reaches.from_rnos == set()]
@@ -926,9 +953,6 @@ class SwnMf6(SwnModflowBase):
             dsegs = self._swn.query(downstream=hdrch.segnum)
             segs = [hdrch.segnum] + dsegs
             reaches = self.reaches.loc[self.reaches.segnum.isin(segs)].sort_index()
-            # get mid length for each reach
-            reaches['mid_dist'] = reaches['rlen'].cumsum() - reaches['rlen'] / 2
-            upreach_mid = reaches.iloc[0].mid_dist
             # get outflow reach for this profile
             # maybe can't rely on it being the last one
             # the sort_index() should order (assuming rno increases downstream)
@@ -946,6 +970,17 @@ class SwnMf6(SwnModflowBase):
             inc_dn = outflow.top - botreach_rtp
             # total profile length
             totlen = reaches.rlen.sum()
+            reaches['mid_dist'] = reaches['rlen'].cumsum() - reaches['rlen'] / 2
+            if ustrm:  # switch order
+                reaches = reaches.sort_index(ascending=False)
+                prevreach_top = botreach_rtp
+                # get mid length for each reach
+                prevreach_mid = reaches.iloc[0].mid_dist
+            else:
+                prevreach_top = upreach_rtp
+                prevreach_mid = reaches.iloc[0].mid_dist
+
+
             # get incision gradient from headwater and outflow incision
             # ("inc_up" and "inc_dn" are the incisions of the top and
             # bottom reaches) # TODO is this stil meaningfull?
@@ -954,7 +989,7 @@ class SwnMf6(SwnModflowBase):
             # on the incision gradient for the segment
             reaches["strtop_incopt"] = (
                     (reaches.top - inc_up) +
-                    ((reaches.mid_dist - upreach_mid) * incgrad)
+                    ((reaches.mid_dist - prevreach_mid) * incgrad)
             )
             layerbots = _check_reach_v_laybot(reaches.iloc[0], layerbots, buffer)
             # loop over current profile from second to penultimate
@@ -963,24 +998,30 @@ class SwnMf6(SwnModflowBase):
                 # strtop that would result from minimum slope
                 # from upstream reach
                 rtp = reach.rtp
-                strtop_withminslope = upreach_rtp - (
-                        (reach.mid_dist - upreach_mid) * minslope)
+                strtop_withminslope = prevreach_top - (
+                        (reach.mid_dist - prevreach_mid) * minslope)
                 if rtp > reach.top - minincise:
                     # current reach rtp is above the model top
                     print(f"reach {reach.Index}, rtp is: /\\ above model top")
-                    if reach.strtop_incopt > strtop_withminslope:
+                    minslope_cond = (
+                        reach.strtop_incopt < strtop_withminslope
+                        if ustrm else
+                        reach.strtop_incopt > strtop_withminslope
+                    )
+                    if minslope_cond:
                         # incision according to incision gradient would be
-                        # above upstream or give too shallow a slope from upstream
-                        print(f"--reach {reach.Index}, incopt is: /\\ "
-                              f"above upstream")
+                        # above upstream/below downstream or give too shallow
+                        # a slope from previous:
+                        s = '\\/ below downstream' if ustrm else '/\\ above upstream'
+                        print(f"--reach {reach.Index}, incopt is: {s}")
                         print("--setting elevation to minslope from "
-                              "upstream")
-                        # set to minimum slope from upstream reach
+                              "previous")
+                        # set to minimum slope from previous reach
                         self.reaches.at[reach.Index, "rtp"] = strtop_withminslope
-                        # update upreach for next iteration
                     else:
                         # rtp might be ok to set to "optimum incision"
-                        print(f"--reach {reach.Index}, incopt is: -- below upstream")
+                        s = '-- above downstream' if ustrm else '-- below upstream'
+                        print(f"--reach {reach.Index}, incopt is: {s}")
                         # CHECK FIRST:
                         # if optimium incision would place it
                         # below the bottom of layer 1
@@ -989,12 +1030,17 @@ class SwnMf6(SwnModflowBase):
                             # (with a buffer)
                             print(f"----reach {reach.Index}, incopt is: x\\/ "
                                   "below layer 1 bottom")
-                            if reach.bot + reach.rbth + buffer > strtop_withminslope:
+                            minslope_cond = (
+                                reach.bot + reach.rbth + buffer < strtop_withminslope
+                                if ustrm else
+                                reach.bot + reach.rbth + buffer > strtop_withminslope
+                            )
+                            if minslope_cond:
                                 # if layer bottom would put reach above
-                                # upstream reach we can only set to
-                                # minimum slope from upstream
+                                # upstream reach/below downstream reach
+                                # we can only set to minimum slope from previous
                                 print("------setting elevation to minslope "
-                                      "from upstream")
+                                      "from previous")
                                 self.reaches.at[
                                     reach.Index, "rtp"] = strtop_withminslope
                                 # this may still leave us below the
@@ -1017,11 +1063,21 @@ class SwnMf6(SwnModflowBase):
                                 reach.Index, "rtp"] = reach.strtop_incopt
                 else:
                     print(f"reach {reach.Index}, rtp is: -- below model top")
+                    minslope_cond = (
+                        rtp < strtop_withminslope
+                        if ustrm else
+                        rtp > strtop_withminslope
+                    )
                     if (rtp - reach.rbth) < reach.bot + buffer:
                         # rtp is below the bottom of layer 1
                         print(f"--reach {reach.Index}, rtp is: x\\/ "
                               "below layer 1 bottom")
-                        if reach.bot + reach.rbth + buffer > strtop_withminslope:
+                        minslope_cond = (
+                            reach.bot + reach.rbth + buffer < strtop_withminslope
+                            if ustrm else
+                            reach.bot + reach.rbth + buffer > strtop_withminslope
+                        )
+                        if minslope_cond:
                             # if layer bottom would put reach above
                             # upstream reach we can only set to
                             # minimum slope from upstream
@@ -1041,22 +1097,26 @@ class SwnMf6(SwnModflowBase):
                             # bottom with a buffer
                             # (allowing for bed thickness)
                             self.reaches.at[reach.Index, "rtp"] = new_elev
-                    elif rtp > strtop_withminslope:
-                        # below top but above minslope from upstream
+                    elif minslope_cond:
+                        # (rtp < strtop_withminslope
+                        # if ustrm
+                        # else rtp > strtop_withminslope)
+                        # below top but above/below minslope from
+                        # upstream/downstream
                         print(f"--reach {reach.Index}, rtp is: /\\ "
                               f"above upstream")
                         print("----setting elevation to minslope from upstream")
-                        # set to minimum slope from upstream reach
+                        # set to minimum slope from previous reach
                         self.reaches.at[reach.Index, "rtp"] = strtop_withminslope
                     # else it is above above bottom, below top and downstream
                 # update upreach for next iteration
-                upreach_rtp = self.reaches.at[reach.Index, "rtp"]
+                prevreach_top = self.reaches.at[reach.Index, "rtp"]
                 # check if new stream top is above layer 1 with a buffer
                 # (allowing for bed thickness)
-                reachbed_elev = upreach_rtp - reach.rbth
+                reachbed_elev = prevreach_top - reach.rbth
                 layerbots = _check_reach_v_laybot(reach, layerbots, buffer,
                                                   reachbed_elev)
-                upreach_mid = reach.mid_dist
+                prevreach_mid = reach.mid_dist
                 # upreach_slope=reach.slope
             self.reaches["bot"] = layerbots[0][reach_ij]
         if fix_dis:
@@ -1072,25 +1132,71 @@ class SwnMf6(SwnModflowBase):
                 layerbots[k + 1] = layerbots[k] - laythick
             self.model.dis.botm = layerbots
 
-    def fix_reach_elevs(self, minslope=0.0001, fix_dis=True, minthick=0.5,
-                        segbyseg=False):
-        """Fix reach elevations.
-
+    def fix_reach_elevs(self, minslope=0.0001, minincise=0.2, minthick=0.5,
+                        fix_dis=True, direction='downstream', segbyseg=False):
+        """
+        Fix reach elevations.
         Need to ensure reach elevation is:
             0. below the top
             1. below the upstream reach
             2. above the minimum slope to the bottom reach elevation
             3. above the base of layer 1
         in modflow6 only reaches so maybe we should go just reach by reach
-        (nwt method went seg-by-seg reach-by-reach
+        (nwt method went seg-by-seg then reach-by-reach)
 
-        :return:
+        Parameters
+        ----------
+        minslope : float,
+            The minimum allowable slope between adjacent reaches
+            (to be considered flowing downstream).
+            Default: 1e-4
+        minincise : float,
+            The minimum allowable incision of a reach below the model top.
+            Default : 0.2
+        minthick : float,
+            The minimum thickness of stream bed. Will try to ensure that this is
+            available below stream top before layer bottom.
+            Default: 0.5
+        fix_dis : bool,
+            Move layer elevations down where it is not possible to honor
+            minimum slope without going below layer 1 bottom.
+            Default: True
+        direction : `str`, 'upstream', 'downstream' or 'both'
+            Select whether elevations are set from ensuring a minimum slope
+            in a upstream or downstream direction.
+            If 'upstream' will honor elevation at outlet reach
+                (if in model layer) and work upstream ensuring minimum slope.
+            If 'downstream' will honor elevation at headwater reach
+                (if in model layer) and work downstream ensuring minimum slope.
+            If 'both' will iterate 'upstream' first and then 'downstrem',
+                handy is no constraint on stream elevations.
+            Default: 'downstream',
+            set elevations from headwaters to outlets.
+        segbyseg : bool,
+            NOT IMPLEMENTED
+            Sets elevation of reaches segment by segment.
+            If True, will attempt to honor the elevations specified at the
+            upstream and downstream ends of each input line segment
+            (if they are in the top model layer and appropriately downstream).
+            If False will only attempt to honor elevations/incision at
+            headwaters and outlets. Default: False
+            Default is
+
+        Returns
+        -------
+
         """
         if segbyseg:
             raise NotImplementedError
             self._segbyseg_elevs(minslope, fix_dis, minthick)
         else:
-            self._reachbyreach_elevs(minslope, fix_dis, minthick)
+            if direction == 'both':
+                direction = ['upstream', 'downstream']
+            else:
+                direction = [direction]
+            for d in direction:
+                self._reachbyreach_elevs(minslope, minincise, minthick, fix_dis,
+                                         d)
         return
 
 
