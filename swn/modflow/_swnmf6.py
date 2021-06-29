@@ -1133,7 +1133,8 @@ class SwnMf6(SwnModflowBase):
             self.model.dis.botm = layerbots
 
     def fix_reach_elevs(self, minslope=0.0001, minincise=0.2, minthick=0.5,
-                        fix_dis=True, direction='downstream', segbyseg=False):
+                        fix_dis=True, direction='downstream', segbyseg=False,
+                        wes_style=False):
         """
         Fix reach elevations.
         Need to ensure reach elevation is:
@@ -1189,6 +1190,9 @@ class SwnMf6(SwnModflowBase):
         if segbyseg:
             raise NotImplementedError
             self._segbyseg_elevs(minslope, fix_dis, minthick)
+        elif wes_style:
+            self._wes_reachbyreach_elevs(minslope, minincise, minthick, fix_dis,
+                                         d)
         else:
             if direction == 'both':
                 direction = ['upstream', 'downstream']
@@ -1199,4 +1203,48 @@ class SwnMf6(SwnModflowBase):
                                          d)
         return
 
+    def _wes_reachbyreach_elevs(self, minslope=0.0001, minincise=0.2, minthick=0.5,
+                            fix_dis=True, direction='downstream'):
+        """
+        Wes's hacky attempt to set reach elevations. Doesn't really ensure anything,
+        but the goal is:
+        
+            0. drop rtp of downstream reach (to_rno) when higher than rtp (of rno)
+            1. adjust top, up only, to accomodate minincision
+            2. above the minimum slope to the bottom reach elevation
+            3. above the base of layer 1
+        (nwt method went seg-by-seg then reach-by-reach)
+
+        Parameters
+        ----------
+        minslope : float,
+            The minimum allowable slope between adjacent reaches
+            (to be considered flowing downstream).
+            Default: 1e-4
+        minincise : float,
+            The minimum allowable incision of a reach below the model top.
+            Default : 0.2
+        minthick : float,
+            The minimum thickness of stream bed. Will try to ensure that this is
+            available below stream top before layer bottom.
+            Default: 0.5
+        fix_dis : bool,
+            Move layer elevations down where it is not possible to honor
+            minimum slope without going below layer 1 bottom.
+            Default: True
+        direction : `str`, 'upstream' or 'downstream',
+            NOT IMPLEMENTED
+            Select whether elevations are set from ensuring a minimum slope
+            in a upstream or downstream direction.
+            If 'upstream' will honor elevation at outlet reach
+                (if in model layer) and work upstream ensuring minimum slope.
+            If 'downstream' will honor elevation at headwater reach
+                (if in model layer) and work downstream ensuring minimum slope.
+            Default: 'downstream',
+            set elevations from headwaters to outlets.
+
+        Returns
+        -------
+
+        """
 
