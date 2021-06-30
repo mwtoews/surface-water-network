@@ -1132,7 +1132,7 @@ class SwnMf6(SwnModflowBase):
                 layerbots[k + 1] = layerbots[k] - laythick
             self.model.dis.botm = layerbots
 
-    def _auto_reach_elevs(self, minslope=0.0001, minincise=0.2, minthick=0.5,
+    def _to_rno_elevs(self, minslope=0.0001, minincise=0.2, minthick=0.5,
                             buffer=0.5, fix_dis=True):
         """
         Wes's hacky attempt to set reach elevations. Doesn't really ensure anything,
@@ -1182,26 +1182,32 @@ class SwnMf6(SwnModflowBase):
 
         # add some columns to rdf
         rdf['ij']=rdf.apply(lambda x: (int(x['i']),int(x['j'])),axis=1)
+        # hopefully this sort of addresses local grid refinement?
         rdf['mindz']=minslope*(delr[rdf.loc[:,'j']]+delc[rdf.loc[:,'i']])/2
         if 'rbth' not in rdf.columns:                
             rdf['rbth']=minthick
             icols.append('rbth')
-        # potentially reach specific props        
+        if 'rtp' not in rdf.columns:
+            rdf['rtp']=np.nan
+            # add to list of columns to be returned
+            icols.append('rtp')
+        if 'incise' not in rdf.columns:
+            rdf['incise']=minincise
+            icols.append('incise')
+        # reach specific so iterrows?    
         for idx,r in rdf.iterrows():
-            if 'rtp' not in rdf.columns:
-                rdf.loc[idx,'rtp']=top[r['ij']]
-                icols.append('rtp')
-            rdf.loc[idx,'rbth']=np.max([r['rbth'],minthick])
+            if np.isnan(r['rtp']):
+                rdf.loc[idx,'rbth']=np.max([r['rbth'],minthick])
+                rdf.loc[idx,'rtp']=top[r['ij']]-minincise                          
+        for idx,r in rdf.iterrows():
             trno=int(r['to_rno'])
             if trno!=0:
                 rdf.loc[idx,'to_rtp']=rdf.loc[trno,'rtp']
-        
         # start loop
         loop=0
         cont=True
         while cont:
-            bad_reaches=[i for i in rdf.index if rdf.loc[i,'to_rtp'] > \
-                        rdf.loc[i,'rtp']-rdf.loc[i,'mindz']]
+            bad_reaches=[i for i in rdf.index if rdf.loc[i,'to_rtp'] > rdf.loc[i,'rtp']-rdf.loc[i,'mindz']]
             loop=loop+1
             chg=0
             for br in bad_reaches:
@@ -1211,27 +1217,28 @@ class SwnMf6(SwnModflowBase):
                 if trno!=0:
                     #count how many downstream reaches offend                    
                     # keep track of changes in elev
-                    dzlist=[rdf.loc[rno,'mindz']]
-                    while trno!=0 and rdf.loc[trno,'rtp']>rdf.loc[rno,'rtp']-np.sum(dzlist):
+                    dz=rdf.loc[rno,'mindz']
+                    while trno!=0 and rdf.loc[trno,'rtp']>rdf.loc[rno,'rtp']-dz:
                         # keep list of dz in case another inflowing stream is even lower
                         chglist.append(trno)
-                        nelev=rdf.loc[rno,'rtp']-np.sum(dzlist)
+                        nelev=rdf.loc[rno,'rtp']-dz
                         # set to_rtp and rtp
                         rdf.loc[rno,'to_rtp']=nelev                
                         rdf.loc[trno,'rtp']=nelev
-                        # get new to_rno 
+                        # move downstream
                         rno=trno
                         trno=rdf.loc[rno,'to_rno']
-                        dzlist.append(rdf.loc[rno,'mindz'])
+                        dz=rdf.loc[rno,'mindz']
                         
                     # now adjust layering if necessary
                     if len(chglist)>0 and fix_dis:
+                        # print('adjusting top for {} reaches'.format(len(chglist)))
                         for r in chglist:                            
-                            # bump top elev up to rtp+minincise if need be
-                            if top[rdf.loc[r,'ij']]<rdf.loc[r,'rtp']:
-                                top[rdf.loc[r,'ij']]=rdf.loc[r,'rtp']+minincise
+                            # bump top elev up to rtp+incise if need be
+                            if top[rdf.loc[r,'ij']]<rdf.loc[r,'rtp']+rdf.loc[r,'incise']:
+                                top[rdf.loc[r,'ij']]=rdf.loc[r,'rtp']+rdf.loc[r,'incise']
                             # bump bottoms down if needed
-                            maxbot=rdf.loc[r,'rtp']--buffer
+                            maxbot=rdf.loc[r,'rtp']-buffer
                             if botm[0][rdf.loc[r,'ij']]>=maxbot:
                                 botdz=botm[0][rdf.loc[r,'ij']]-maxbot
                                 for b in range(0,botm.shape[0]):
@@ -1242,12 +1249,13 @@ class SwnMf6(SwnModflowBase):
                 cont=False
             else:
                 print('{} changed in loop {}'.format(chg,loop))
-        setattr(self,'reaches',rdf[icols])
-
+        setattr(self,'reaches',rdf[icols+['to_rtp','mindz']])
+        self.model.dis.botm=botm
+        self.model.dis.top=top
 
     def fix_reach_elevs(self, minslope=0.0001, minincise=0.2, minthick=0.5, buffer=0.1,
                         fix_dis=True, direction='downstream', segbyseg=False,
-                        autoreach=False):
+                        to_rno_elevs=False):
         """
         Fix reach elevations.
         Need to ensure reach elevation is:
@@ -1299,9 +1307,8 @@ class SwnMf6(SwnModflowBase):
             If False will only attempt to honor elevations/incision at
             headwaters and outlets. Default: False
             Default is
-        autoreach : bool,
-            likely a better name and many improvements to be made
-            Wes's attempt to quickly ensure rtp of the downstream reach
+        to_rno_elevs : bool,
+            attempt to quickly ensure rtp of the downstream reach
             is lower than rtp of the upstream reach
 
         Returns
@@ -1311,8 +1318,8 @@ class SwnMf6(SwnModflowBase):
         if segbyseg:
             raise NotImplementedError
             self._segbyseg_elevs(minslope, fix_dis, minthick)
-        elif autoreach:
-            self._auto_reach_elevs(minslope, minincise, minthick, buffer, fix_dis)
+        elif to_rno_elevs:
+            self._to_rno_elevs(minslope, minincise, minthick, buffer, fix_dis)
         else:
             if direction == 'both':
                 direction = ['upstream', 'downstream']
