@@ -1238,7 +1238,7 @@ class SwnMf6(SwnModflowBase):
                             if top[rdf.loc[r,'ij']]<rdf.loc[r,'rtp']+rdf.loc[r,'incise']:
                                 top[rdf.loc[r,'ij']]=rdf.loc[r,'rtp']+rdf.loc[r,'incise']
                             # bump bottoms down if needed
-                            maxbot=rdf.loc[r,'rtp']-buffer
+                            maxbot=rdf.loc[r,'rtp']-rdf.loc[r,'rbth']-buffer
                             if botm[0][rdf.loc[r,'ij']]>=maxbot:
                                 botdz=botm[0][rdf.loc[r,'ij']]-maxbot
                                 for b in range(0,botm.shape[0]):
