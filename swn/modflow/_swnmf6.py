@@ -1250,7 +1250,6 @@ class SwnMf6(SwnModflowBase):
             else:
                 print('{} changed in loop {}'.format(chg,loop))
         setattr(self,'reaches',rdf[icols+['to_rtp','mindz']])
-        # full reset of dis package to update arrays?
         self.model.dis.top.set_data(top)
         self.model.dis.botm.set_data(botm)
 
