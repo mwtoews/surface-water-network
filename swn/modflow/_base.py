@@ -24,6 +24,8 @@ class SwnModflowBase(object):
 
     Attributes
     ----------
+    swn : swn.SurfaceWaterNetwork
+        Instance of a SurfaceWaterNetwork.
     model : flopy.modflow.Modflow or flopy.mf6.ModflowGwf
         Reference to flopy model object.
     reaches : geopandas.GeoDataFrame
@@ -64,6 +66,7 @@ class SwnModflowBase(object):
     def __iter__(self):
         """Return object datasets with an iterator."""
         yield "class", self.__class__.__name__
+        yield "swn", self.swn
         yield "model", self.model
         yield "segments", self.segments
         yield "diversions", self.diversions
@@ -71,22 +74,27 @@ class SwnModflowBase(object):
 
     def __setstate__(self, state):
         """Set object attributes from pickle loads."""
+        self.__init__()
         if not isinstance(state, dict):
             raise ValueError("expected 'dict'; found {!r}".format(type(state)))
-        elif "class" not in state:
-            raise KeyError("state does not have 'class' key")
-        elif state["class"] != self.__class__.__name__:
+        state_class = getattr(state, "class", None)
+        if state_class != self.__class__.__name__:
             raise ValueError("expected state class {!r}; found {!r}"
-                             .format(state["class"], self.__class__.__name__))
-        self.__init__()
-        # Note: model must be set outsie of this method
-        self.segments = state["segments"]
-        self.diversions = state["diversions"]
-        self.reaches = state["reaches"]
+                             .format(state_class, self.__class__.__name__))
+        # Note: swn and model must be set outside of this method
+        self.segments = state.pop("segments")
+        self.diversions = state.pop("diversions")
+        self.reaches = state.pop("reaches")
+        print(state.keys())
 
     def __getstate__(self):
         """Serialize object attributes for pickle dumps."""
-        return dict(self)
+        obj = {}
+        for k, v in self:
+            if k in ("swn", "model"):
+                continue
+            obj[k] = v
+        return obj
 
     def to_pickle(self, path, protocol=pickle.HIGHEST_PROTOCOL):
         """Pickle (serialize) non-flopy object data to file.
@@ -103,21 +111,40 @@ class SwnModflowBase(object):
             pickle.dump(self, f, protocol=protocol)
 
     @classmethod
-    def from_pickle(cls, path, model):
+    def from_pickle(cls, path, swn, model):
         """Read a pickled format from a file.
 
         Parameters
         ----------
         path : str
             File path where the pickled object will be stored.
+        swn : swn.SurfaceWaterNetwork
+            Instance of a SurfaceWaterNetwork.
         model : flopy.modflow.Modflow or flopy.mf6.ModflowGwf
             Instance of a flopy MODFLOW model.
 
         """
         with open(path, "rb") as f:
             obj = pickle.load(f)
+        obj.swn = swn
         obj.model = model
         return obj
+
+    @property
+    def swn(self):
+        """Return surface water network object."""
+        try:
+            return getattr(self, "_swn", None)
+        except AttributeError:
+            self.logger.error("swn property not set")
+
+    @swn.setter
+    def swn(self, swn):
+        prev_swn = getattr(self, "_swn", None)
+        if prev_swn is None and isinstance(swn, SurfaceWaterNetwork):
+            self._swn = swn
+        else:
+            raise AttributeError("swn property can only be set once")
 
     @property
     def model(self):

@@ -693,7 +693,9 @@ def test_pickle(tmp_path):
     data = pickle.dumps(nm1)
     nm2 = pickle.loads(data)
     assert nm1 != nm2
+    assert nm2.swn is None
     assert nm2.model is None
+    nm2.swn = n
     nm2.model = m
     assert nm1 == nm2
     # use to_pickle / from_pickle methods
@@ -702,5 +704,5 @@ def test_pickle(tmp_path):
     n.set_diversions(diversions=diversions)
     nm3 = swn.SwnMf6.from_swn_flopy(n, m)
     nm3.to_pickle(tmp_path / "nm4.pickle")
-    nm4 = swn.SwnMf6.from_pickle(tmp_path / "nm4.pickle", m)
+    nm4 = swn.SwnMf6.from_pickle(tmp_path / "nm4.pickle", n, m)
     assert nm3 == nm4

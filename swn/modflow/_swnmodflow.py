@@ -24,6 +24,8 @@ class SwnModflow(SwnModflowBase):
 
     Attributes
     ----------
+    swn : swn.SurfaceWaterNetwork
+        Instance of a SurfaceWaterNetwork.
     model : flopy.modflow.Modflow
         Instance of flopy.modflow.Modflow
     segments : geopandas.GeoDataFrame
