@@ -77,15 +77,14 @@ class SwnModflowBase(object):
         self.__init__()
         if not isinstance(state, dict):
             raise ValueError("expected 'dict'; found {!r}".format(type(state)))
-        state_class = getattr(state, "class", None)
+        state_class = state.get("class")
         if state_class != self.__class__.__name__:
             raise ValueError("expected state class {!r}; found {!r}"
-                             .format(state_class, self.__class__.__name__))
+                             .format(self.__class__.__name__, state_class))
         # Note: swn and model must be set outside of this method
         self.segments = state.pop("segments")
         self.diversions = state.pop("diversions")
         self.reaches = state.pop("reaches")
-        print(state.keys())
 
     def __getstate__(self):
         """Serialize object attributes for pickle dumps."""
@@ -96,7 +95,7 @@ class SwnModflowBase(object):
             obj[k] = v
         return obj
 
-    def to_pickle(self, path, protocol=pickle.HIGHEST_PROTOCOL):
+    def to_pickle(self, path, protocol=4):
         """Pickle (serialize) non-flopy object data to file.
 
         Parameters
@@ -104,30 +103,32 @@ class SwnModflowBase(object):
         path : str
             File path where the pickled object will be stored.
         protocol : int
-            Default is pickle.HIGHEST_PROTOCOL.
+            Default is 4, added in Python 3.4.
 
         """
         with open(path, "wb") as f:
             pickle.dump(self, f, protocol=protocol)
 
     @classmethod
-    def from_pickle(cls, path, swn, model):
+    def from_pickle(cls, path, swn=None, model=None):
         """Read a pickled format from a file.
 
         Parameters
         ----------
         path : str
             File path where the pickled object will be stored.
-        swn : swn.SurfaceWaterNetwork
+        swn : swn.SurfaceWaterNetwork, optional
             Instance of a SurfaceWaterNetwork.
-        model : flopy.modflow.Modflow or flopy.mf6.ModflowGwf
+        model : flopy.modflow.Modflow or flopy.mf6.ModflowGwf, optional
             Instance of a flopy MODFLOW model.
 
         """
         with open(path, "rb") as f:
             obj = pickle.load(f)
-        obj.swn = swn
-        obj.model = model
+        if swn is not None:
+            obj.swn = swn
+        if model is not None:
+            obj.model = model
         return obj
 
     @property
