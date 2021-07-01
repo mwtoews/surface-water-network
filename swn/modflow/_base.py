@@ -2,6 +2,7 @@
 """Abstract base class for a surface water network for MODFLOW."""
 
 import pickle
+from hashlib import md5
 from itertools import combinations
 
 import geopandas
@@ -124,11 +125,140 @@ class SwnModflowBase(object):
         try:
             return getattr(self, "_model", None)
         except AttributeError:
-            self.logger.error("'model' property not set")
+            self.logger.error("model property not set")
 
     @model.setter
     def model(self, model):
-        raise NotImplementedError()
+        import flopy
+
+        if model is None:
+            self.logger.info("unsetting model properry")
+            self._model = None
+            return
+
+        this_class = self.__class__.__name__
+        if this_class == "SwnModflow":
+            if not isinstance(model, flopy.modflow.Modflow):
+                raise ValueError(
+                    "model must be a flopy Modflow object; found " +
+                    str(type(model)))
+            elif not model.has_package("DIS"):
+                raise ValueError("DIS package required")
+            elif not model.has_package("BAS6"):
+                raise ValueError("BAS6 package required")
+        elif this_class == "SwnMf6":
+            if not (isinstance(model, flopy.mf6.mfmodel.MFModel)):
+                raise ValueError(
+                    "model must be a flopy.mf6.MFModel object; found " +
+                    str(type(model)))
+            sim = model.simulation
+            if "tdis" not in sim.package_key_dict.keys():
+                raise ValueError("TDIS package required")
+            if "dis" not in model.package_type_dict.keys():
+                raise ValueError("DIS package required")
+            if not model.dis.idomain.has_data():
+                raise ValueError("DIS idomain has no data")
+        else:
+            raise NotImplementedError(this_class)
+        _model = getattr(self, "_model", None)
+        if _model is model:
+            self.logger.info("model is same object, checking other metadata")
+        elif _model is not None:
+            self.logger.info("swapping model object, checking other metadata")
+        self._model = model
+
+        # Use a model cache to determine if the rest needs to be evaulated
+        dis = model.dis
+        modelgrid = model.modelgrid
+        modeltime = model.modeltime
+        if this_class == "SwnModflow":
+            domain_label = "ibound"
+            domain = model.bas6.ibound[0].array.copy()
+            perlen = pd.Series(model.dis.perlen.array)
+        elif this_class == "SwnMf6":
+            domain_label = "idomain"
+            domain = dis.idomain.array[0].copy()
+            perlen = pd.Series(sim.tdis.perioddata.array.perlen)
+        else:
+            raise NotImplementedError(this_class)
+        modelcache = {
+            "perlen": str(np.array(perlen)),
+            "time_units": str(modeltime.time_units),
+            "domain": bytes(domain),
+            "modelgrid": str(modelgrid),
+        }
+        prev_modelcache = getattr(self, "_modelcache", None)
+        if prev_modelcache is not None:
+            prev_md5 = md5(str(prev_modelcache).encode()).digest()
+            this_md5 = md5(str(modelcache).encode()).digest()
+            if prev_md5 == this_md5:
+                self.logger.info(
+                    "model properties are the same, no update required")
+                return
+            self.logger.info(
+                "model properties are different; rebuilding metadata")
+
+        # Build stress period DataFrame from modflow model
+        stress_df = pd.DataFrame({"perlen": perlen})
+        stress_df["duration"] = pd.TimedeltaIndex(perlen, modeltime.time_units)
+        stress_df["start"] = pd.to_datetime(modeltime.start_datetime)
+        stress_df["end"] = stress_df["duration"] + stress_df.at[0, "start"]
+        stress_df.loc[1:, "start"] = stress_df["end"].iloc[:-1].values
+        self._stress_df = stress_df  # keep this for debugging
+        self.time_index = pd.DatetimeIndex(stress_df["start"]).copy()
+        self.time_index.name = None
+
+        # Determine which CRS to use
+        self_crs = getattr(self, "crs", None)
+        modelgrid_crs = None
+        epsg = modelgrid.epsg
+        proj4_str = modelgrid.proj4
+        if epsg is not None:
+            segments_crs, modelgrid_crs, same = compare_crs(self_crs, epsg)
+        else:
+            segments_crs, modelgrid_crs, same = compare_crs(self_crs,
+                                                            proj4_str)
+        if (segments_crs is not None and modelgrid_crs is not None and
+                not same):
+            self.logger.warning(
+                "CRS for modelgrid is different: {0} vs. {1}"
+                .format(segments_crs, modelgrid_crs))
+        crs = segments_crs or modelgrid_crs
+        if getattr(self, "segments", None) is not None:
+            # Make sure their extents overlap
+            minx, maxx, miny, maxy = modelgrid.extent
+            model_bbox = box(minx, miny, maxx, maxy)
+            rstats = self.segments.bounds.describe()
+            segments_bbox = box(
+                    rstats.loc["min", "minx"], rstats.loc["min", "miny"],
+                    rstats.loc["max", "maxx"], rstats.loc["max", "maxy"])
+            if model_bbox.disjoint(segments_bbox):
+                raise ValueError(
+                    "modelgrid extent does not cover segments extent")
+        # More careful check of overlap of lines with grid polygons
+        self.logger.debug("building model grid cell geometries")
+        nrow, ncol = domain.shape
+        cols, rows = np.meshgrid(np.arange(ncol), np.arange(nrow))
+        grid_df = pd.DataFrame({"i": rows.flatten(), "j": cols.flatten()})
+        grid_df.set_index(["i", "j"], inplace=True)
+        grid_df[domain_label] = domain.flatten()
+        # Note: modelgrid.get_cell_vertices(i, j) is slow!
+        xv = modelgrid.xvertices
+        yv = modelgrid.yvertices
+        i, j = [np.array(s[1])
+                for s in grid_df.reset_index()[["i", "j"]].iteritems()]
+        cell_verts = zip(
+            zip(xv[i, j], yv[i, j]),
+            zip(xv[i, j + 1], yv[i, j + 1]),
+            zip(xv[i + 1, j + 1], yv[i + 1, j + 1]),
+            zip(xv[i + 1, j], yv[i + 1, j])
+        )
+        # Add dataframe of model grid cells to object
+        self.grid_cells = geopandas.GeoDataFrame(
+            grid_df, geometry=[Polygon(r) for r in cell_verts], crs=crs)
+
+        # Keep the for next time
+        self._modelcache = modelcache
 
     @classmethod
     def from_swn_flopy(
@@ -156,9 +286,10 @@ class SwnModflowBase(object):
         -------
         obj
         """
-        if cls.__name__ == "SwnModflow":
+        this_class = cls.__name__
+        if this_class == "SwnModflow":
             domain_label = "ibound"
-        elif cls.__name__ == "SwnMf6":
+        elif this_class == "SwnMf6":
             domain_label = "idomain"
         else:
             raise TypeError("unsupported subclass " + repr(cls))
@@ -167,56 +298,31 @@ class SwnModflowBase(object):
         elif domain_action not in ("freeze", "modify"):
             raise ValueError("domain_action must be one of freeze or modify")
         obj = cls()
+
+        # Assume CRS from swn.segments
+        obj.crs = getattr(swn.segments.geometry, "crs", None)
         # Attach a few things to the fresh object
-        obj.model = model
         obj.segments = swn.segments.copy()
+        obj.model = model
         obj._swn = swn
-        # Make sure model CRS and segments CRS are the same (if defined)
-        crs = None
-        segments_crs = getattr(obj.segments.geometry, "crs", None)
-        modelgrid_crs = None
-        modelgrid = obj.model.modelgrid
-        epsg = modelgrid.epsg
-        proj4_str = modelgrid.proj4
-        if epsg is not None:
-            segments_crs, modelgrid_crs, same = compare_crs(segments_crs, epsg)
-        else:
-            segments_crs, modelgrid_crs, same = compare_crs(segments_crs,
-                                                            proj4_str)
-        if (segments_crs is not None and modelgrid_crs is not None and
-                not same):
-            obj.logger.warning(
-                "CRS for segments and modelgrid are different: {0} vs. {1}"
-                .format(segments_crs, modelgrid_crs))
-        crs = segments_crs or modelgrid_crs
-        # Make sure their extents overlap
-        minx, maxx, miny, maxy = modelgrid.extent
-        model_bbox = box(minx, miny, maxx, maxy)
-        rstats = obj.segments.bounds.describe()
-        segments_bbox = box(
-                rstats.loc["min", "minx"], rstats.loc["min", "miny"],
-                rstats.loc["max", "maxx"], rstats.loc["max", "maxy"])
-        if model_bbox.disjoint(segments_bbox):
-            raise ValueError("modelgrid extent does not cover segments extent")
-        # More careful check of overlap of lines with grid polygons
-        obj.logger.debug("building model grid cell geometries")
-        dis = obj.model.dis
-        if domain_label == "ibound":
-            domain = obj.model.bas6.ibound[0].array.copy()
-            ncol = dis.ncol
-            nrow = dis.nrow
-        else:
-            domain = dis.idomain.array[0].copy()
-            ncol = dis.ncol.data
-            nrow = dis.nrow.data
-        cols, rows = np.meshgrid(np.arange(ncol), np.arange(nrow))
+        # Copy grid_cells generated from 'model' setter
+        dis = model.dis
+        grid_cells = obj.grid_cells.copy()
+        if domain_action == "freeze":
+            sel = grid_cells[domain_label] != 0
+            if sel.any():
+                # Remove any inactive grid cells from analysis
+                grid_cells = grid_cells.loc[sel]
         num_domain_modified = 0
-        grid_df = pd.DataFrame({"i": rows.flatten(), "j": cols.flatten()})
-        grid_df.set_index(["i", "j"], inplace=True)
-        grid_df[domain_label] = domain.flatten()
-        if domain_action == "freeze" and (domain == 0).any():
-            # Remove any inactive grid cells from analysis
-            grid_df = grid_df.loc[grid_df[domain_label] != 0]
+        if this_class == "SwnModflow":
+            domain_label = "ibound"
+            domain = model.bas6.ibound[0].array.copy()
+        elif this_class == "SwnMf6":
+            domain_label = "idomain"
+            domain = dis.idomain.array[0].copy()
+        else:
+            raise TypeError("unsupported subclass " + repr(cls))
+
         # Determine grid cell size
         col_size = np.median(dis.delr.array)
         if dis.delr.array.min() != dis.delr.array.max():
@@ -227,20 +333,7 @@ class SwnModflowBase(object):
             obj.logger.warning(
                 "assuming constant row spacing %s", row_size)
         cell_size = (row_size + col_size) / 2.0
-        # Note: modelgrid.get_cell_vertices(i, j) is slow!
-        xv = modelgrid.xvertices
-        yv = modelgrid.yvertices
-        i, j = [np.array(s[1])
-                for s in grid_df.reset_index()[["i", "j"]].iteritems()]
-        cell_verts = zip(
-            zip(xv[i, j], yv[i, j]),
-            zip(xv[i, j + 1], yv[i, j + 1]),
-            zip(xv[i + 1, j + 1], yv[i + 1, j + 1]),
-            zip(xv[i + 1, j], yv[i + 1, j])
-        )
-        # Add dataframe of model grid cells to object
-        obj.grid_cells = grid_cells = geopandas.GeoDataFrame(
-            grid_df, geometry=[Polygon(r) for r in cell_verts], crs=crs)
+
         # Break up source segments according to the model grid definition
         obj.logger.debug("evaluating reach data on model grid")
         grid_sindex = get_sindex(grid_cells)
@@ -532,7 +625,7 @@ class SwnModflowBase(object):
                 elif domain_label == "idomain":
                     obj.model.dis.idomain.set_data(domain, layer=0)
                 obj.reaches = obj.reaches.merge(
-                    grid_df[[domain_label]],
+                    grid_cells[[domain_label]],
                     left_on=["i", "j"], right_index=True)
                 obj.reaches.rename(
                     columns={domain_label: "prev_" + domain_label},
@@ -631,7 +724,7 @@ class SwnModflowBase(object):
 
         # Now convert from DataFrame to GeoDataFrame
         obj.reaches = geopandas.GeoDataFrame(
-                obj.reaches, geometry="geometry", crs=crs)
+                obj.reaches, geometry="geometry", crs=obj.crs)
 
         # Add information to reaches from segments
         obj.reaches = obj.reaches.merge(

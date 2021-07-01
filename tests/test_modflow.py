@@ -309,8 +309,8 @@ def test_n3d_defaults(tmp_path):
 def test_model_property():
     nm = swn.SwnModflow()
     with pytest.raises(
-            ValueError, match="'model' must be a flopy Modflow object"):
-        nm.model = None
+            ValueError, match="model must be a flopy Modflow object"):
+        nm.model = 0
 
     m = flopy.modflow.Modflow()
     with pytest.raises(ValueError, match="DIS package required"):
@@ -325,12 +325,16 @@ def test_model_property():
 
     _ = flopy.modflow.ModflowBas(m, strt=15.0, stoper=5.0)
 
+    assert not hasattr(nm, "time_index")
+    assert not hasattr(nm, "grid_cells")
+
     # Success!
     nm.model = m
 
     pd.testing.assert_index_equal(
         nm.time_index,
         pd.DatetimeIndex(["2001-02-03"], dtype="datetime64[ns]"))
+    assert nm.grid_cells.shape == (6, 2)
 
     # Swap model with same and with another
     nm.model = m

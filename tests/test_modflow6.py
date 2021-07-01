@@ -262,8 +262,8 @@ def test_n3d_defaults(tmp_path):
 def test_model_property():
     nm = swn.SwnMf6()
     with pytest.raises(
-            ValueError, match="'model' must be a flopy.mf6.MFModel object"):
-        nm.model = None
+            ValueError, match="model must be a flopy.mf6.MFModel object"):
+        nm.model = 0
 
     sim = flopy.mf6.MFSimulation(exe_name=mf6_exe)
     m = flopy.mf6.MFModel(sim)
@@ -280,8 +280,16 @@ def test_model_property():
     _ = flopy.mf6.ModflowGwfdis(
         m, nlay=1, nrow=3, ncol=2,
         delr=20.0, delc=20.0, length_units="meters",
-        idomain=1, top=15.0, botm=10.0,
+        top=15.0, botm=10.0,
         xorigin=30.0, yorigin=70.0)
+
+    with pytest.raises(ValueError, match="DIS idomain has no data"):
+        nm.model = m
+
+    m.dis.idomain.set_data(1)
+
+    assert not hasattr(nm, "time_index")
+    assert not hasattr(nm, "grid_cells")
 
     # Success!
     nm.model = m
@@ -289,10 +297,11 @@ def test_model_property():
     pd.testing.assert_index_equal(
         nm.time_index,
         pd.DatetimeIndex(["2001-02-03"], dtype="datetime64[ns]"))
+    assert nm.grid_cells.shape == (6, 2)
 
     # Swap model with same and with another
     m2 = flopy.mf6.ModflowGwf(sim, modelname="another")
-    _ = flopy.mf6.ModflowGwfdis(m2)
+    _ = flopy.mf6.ModflowGwfdis(m2, idomain=1)
     nm.model = m2
 
 

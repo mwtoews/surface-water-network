@@ -198,36 +198,6 @@ class SwnMf6(SwnModflowBase):
         super().__setstate__(state)
         self.tsvar = state["tsvar"]
 
-    @SwnModflowBase.model.setter
-    def model(self, model):
-        """Set model property."""
-        import flopy
-        if not (isinstance(model, flopy.mf6.mfmodel.MFModel)):
-            raise ValueError(
-                "'model' must be a flopy.mf6.MFModel object; found " +
-                str(type(model)))
-        sim = model.simulation
-        if "tdis" not in sim.package_key_dict.keys():
-            raise ValueError("TDIS package required")
-        if "dis" not in model.package_type_dict.keys():
-            raise ValueError("DIS package required")
-        _model = getattr(self, "_model", None)
-        if _model is not None and _model is not model:
-            self.logger.info("swapping 'model' object")
-        self._model = model
-        # Build stress period DataFrame from modflow model
-        stress_df = pd.DataFrame(
-            {"perlen": sim.tdis.perioddata.array.perlen})
-        modeltime = self.model.modeltime
-        stress_df["duration"] = pd.TimedeltaIndex(
-            stress_df["perlen"].cumsum(), modeltime.time_units)
-        stress_df["start"] = pd.to_datetime(modeltime.start_datetime)
-        stress_df["end"] = stress_df["duration"] + stress_df.at[0, "start"]
-        stress_df.loc[1:, "start"] = stress_df["end"].iloc[:-1].values
-        self._stress_df = stress_df  # keep this for debugging
-        self.time_index = pd.DatetimeIndex(stress_df["start"]).copy()
-        self.time_index.name = None
-
     def packagedata_frame(
             self, style: str, auxiliary: list = [], boundname=None):
         """Return DataFrame of PACKAGEDATA for MODFLOW 6 SFR.
