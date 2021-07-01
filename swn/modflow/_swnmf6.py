@@ -859,7 +859,7 @@ class SwnMf6(SwnModflowBase):
                       .format(thincells.sum(), minthick))
                 laythick[thincells] = minthick
                 layerbots[k + 1] = layerbots[k] - laythick
-            self.model.dis.botm = layerbots
+            self.model.dis.botm.set_data(layerbots)
 
     def _reachbyreach_elevs(self, minslope=0.0001, minincise=0.2, minthick=0.5,
                             fix_dis=True, direction='downstream'):
@@ -1130,7 +1130,7 @@ class SwnMf6(SwnModflowBase):
                       .format(thincells.sum(), minthick))
                 laythick[thincells] = minthick
                 layerbots[k + 1] = layerbots[k] - laythick
-            self.model.dis.botm = layerbots
+            self.model.dis.botm.set_data(layerbots)
 
     def _to_rno_elevs(self, minslope=0.0001, minincise=0.2, minthick=0.5,
                             buffer=0.5, fix_dis=True):
@@ -1250,8 +1250,9 @@ class SwnMf6(SwnModflowBase):
             else:
                 print('{} changed in loop {}'.format(chg,loop))
         setattr(self,'reaches',rdf[icols+['to_rtp','mindz']])
-        self.model.dis.botm=botm
-        self.model.dis.top=top
+        # full reset of dis package to update arrays?
+        self.model.dis.top.set_data(top)
+        self.model.dis.botm.set_data(botm)
 
     def fix_reach_elevs(self, minslope=0.0001, minincise=0.2, minthick=0.5, buffer=0.1,
                         fix_dis=True, direction='downstream', segbyseg=False,
