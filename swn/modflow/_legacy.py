@@ -24,7 +24,7 @@ except ImportError:
     matplotlib = False
 
 
-class MfSfrNetwork(object):
+class MfSfrNetwork:
     """MODFLOW SFR network class.
 
     Attributes

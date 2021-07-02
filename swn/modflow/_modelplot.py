@@ -8,7 +8,7 @@ except ImportError:
     matplotlib = False
 
 
-class ModelPlot(object):
+class ModelPlot:
     """Object for plotting array style results."""
 
     def __init__(self, model, domain_extent=None, fig=None, ax=None,
