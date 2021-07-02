@@ -265,7 +265,7 @@ def test_model_property():
             ValueError, match="model must be a flopy.mf6.MFModel object"):
         nm.model = 0
 
-    sim = flopy.mf6.MFSimulation(exe_name=mf6_exe)
+    sim = flopy.mf6.MFSimulation()
     m = flopy.mf6.MFModel(sim)
 
     with pytest.raises(ValueError, match="TDIS package required"):
@@ -300,9 +300,47 @@ def test_model_property():
     assert nm.grid_cells.shape == (6, 2)
 
     # Swap model with same and with another
-    m2 = flopy.mf6.ModflowGwf(sim, modelname="another")
-    _ = flopy.mf6.ModflowGwfdis(m2, idomain=1)
-    nm.model = m2
+    # same object
+    nm.model = m
+
+    tdis_args = {
+        "nper": 1, "time_units": "days", "start_date_time": "2001-02-03"}
+    dis_args = {
+        "nlay": 1, "nrow": 3, "ncol": 2, "delr": 20.0, "delc": 20.0,
+        "length_units": "meters", "xorigin": 30.0, "yorigin": 70.0,
+        "idomain": 1}
+    sim = flopy.mf6.MFSimulation()
+    m = flopy.mf6.MFModel(sim)
+    _ = flopy.mf6.ModflowTdis(sim, **tdis_args)
+    _ = flopy.mf6.ModflowGwfdis(m, **dis_args)
+    # this is allowed
+    nm.model = m
+
+    tdis_args_replace = {"nper": 2}
+    for vn, vr in tdis_args_replace.items():
+        print(f"{vn}: {vr}")
+        tdis_args_use = tdis_args.copy()
+        tdis_args_use[vn] = vr
+        sim = flopy.mf6.MFSimulation()
+        m = flopy.mf6.MFModel(sim)
+        _ = flopy.mf6.ModflowTdis(sim, **tdis_args_use)
+        _ = flopy.mf6.ModflowGwfdis(m, **dis_args)
+        # this is not allowed
+        with pytest.raises(AttributeError, match="properties are too differe"):
+            nm.model = m
+    dis_args_replace = {
+        "nrow": 4, "ncol": 3, "delr": 30.0, "delc": 40.0,
+        "xorigin": 20.0, "yorigin": 60.0}
+    for vn, vr in dis_args_replace.items():
+        dis_args_use = dis_args.copy()
+        dis_args_use[vn] = vr
+        sim = flopy.mf6.MFSimulation()
+        m = flopy.mf6.MFModel(sim)
+        _ = flopy.mf6.ModflowTdis(sim, **tdis_args)
+        _ = flopy.mf6.ModflowGwfdis(m, **dis_args_use)
+        # this is not allowed
+        with pytest.raises(AttributeError, match="properties are too differe"):
+            nm.model = m
 
 
 def test_set_reach_data_from_array():

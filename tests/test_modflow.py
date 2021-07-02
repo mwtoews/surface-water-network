@@ -337,11 +337,31 @@ def test_model_property():
     assert nm.grid_cells.shape == (6, 2)
 
     # Swap model with same and with another
+    # same object
     nm.model = m
-    m2 = flopy.modflow.Modflow()
-    _ = flopy.modflow.ModflowDis(m2)
-    _ = flopy.modflow.ModflowBas(m2)
-    nm.model = m2
+
+    dis_args = {
+        "nper": 1, "nlay": 1, "nrow": 3, "ncol": 2, "delr": 20.0, "delc": 20.0,
+        "xul": 30.0, "yul": 130.0, "start_datetime": "2001-03-02"}
+    m = flopy.modflow.Modflow()
+    _ = flopy.modflow.ModflowDis(m, **dis_args)
+    _ = flopy.modflow.ModflowBas(m)
+    # this is allowed
+    nm.model = m
+
+    dis_args_replace = {
+        "nper": 2, "nrow": 4, "ncol": 3, "delr": 30.0, "delc": 40.0,
+        "xul": 20.0, "yul": 120.0}
+    for vn, vr in dis_args_replace.items():
+        # print(f"{vn}: {vr}")
+        dis_args_use = dis_args.copy()
+        dis_args_use[vn] = vr
+        m = flopy.modflow.Modflow()
+        _ = flopy.modflow.ModflowDis(m, **dis_args_use)
+        _ = flopy.modflow.ModflowBas(m)
+        # this is not allowed
+        with pytest.raises(AttributeError, match="properties are too differe"):
+            nm.model = m
 
 
 def test_set_segment_data_from_scalar():

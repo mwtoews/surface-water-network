@@ -2,7 +2,6 @@
 """Abstract base class for a surface water network for MODFLOW."""
 
 import pickle
-from hashlib import md5
 from itertools import combinations
 
 import geopandas
@@ -133,7 +132,14 @@ class SwnModflowBase(object):
 
     @property
     def swn(self):
-        """Return surface water network object."""
+        """Surface water network object.
+
+        This propery can only be set once.
+
+        See Also
+        --------
+        from_pickle : Read object from file.
+        """
         try:
             return getattr(self, "_swn", None)
         except AttributeError:
@@ -149,7 +155,16 @@ class SwnModflowBase(object):
 
     @property
     def model(self):
-        """Return flopy model object."""
+        """Flopy model object.
+
+        This propery can be set more than once, but time and most grid
+        properties must match. Setting this method also generates
+        ``time_index`` and ``grid_cells`` attributes from the model.
+
+        See Also
+        --------
+        from_pickle : Read object from file.
+        """
         try:
             return getattr(self, "_model", None)
         except AttributeError:
@@ -206,25 +221,33 @@ class SwnModflowBase(object):
         elif this_class == "SwnMf6":
             domain_label = "idomain"
             domain = dis.idomain.array[0].copy()
+            nper = sim.tdis.nper.data
             perlen = pd.Series(sim.tdis.perioddata.array.perlen)
+            if len(perlen) == 1 and nper > 1:
+                perlen = perlen.repeat(nper).reset_index(drop=True)
         else:
             raise NotImplementedError(this_class)
         modelcache = {
-            "perlen": str(np.array(perlen)),
+            "perlen": np.array(perlen).tobytes(),
             "time_units": str(modeltime.time_units),
-            "domain": bytes(domain),
+            "domain": domain.tobytes(),
             "modelgrid": str(modelgrid),
+            "delr": modelgrid.delr.tobytes(),
+            "delc": modelgrid.delc.tobytes(),
         }
         prev_modelcache = getattr(self, "_modelcache", None)
         if prev_modelcache is not None:
-            prev_md5 = md5(str(prev_modelcache).encode()).digest()
-            this_md5 = md5(str(modelcache).encode()).digest()
-            if prev_md5 == this_md5:
+            is_same = True
+            for key in modelcache.keys():
+                if prev_modelcache[key] != modelcache[key]:
+                    is_same = False
+                    self.logger.debug("model setter: %s is different", key)
+            if is_same:
                 self.logger.info(
                     "model properties are the same, no update required")
                 return
-            self.logger.info(
-                "model properties are different; rebuilding metadata")
+            raise AttributeError(
+                "model spatial and/or temporal properties are too different")
 
         # Build stress period DataFrame from modflow model
         stress_df = pd.DataFrame({"perlen": perlen})
