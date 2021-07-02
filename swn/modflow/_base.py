@@ -1102,7 +1102,16 @@ class SwnModflowBase(object):
         reaches[reaches.geom_type == "LineString"].plot(
             column=column, label="reaches", legend=colorbar, ax=ax, cmap=cmap)
 
-        self.grid_cells.plot(ax=ax, color="whitesmoke", edgecolor="gainsboro")
+        grid_cells = getattr(self, "grid_cells", None)
+        if grid_cells is not None:
+            domain_label = {
+                "SwnModflow": "ibound",
+                "SwnMf6": "idomain",
+            }[self.__class__.__name__]
+            sel = self.grid_cells[domain_label] != 0
+            if sel.any():
+                self.grid_cells.loc[sel].plot(
+                    ax=ax, color="whitesmoke", edgecolor="gainsboro")
 
         def getpt(g, idx):
             if g.geom_type == "LineString":
@@ -1118,10 +1127,12 @@ class SwnModflowBase(object):
         def firstpt(g):
             return getpt(g, 0)
 
-        reaches_idx = reaches[reaches.segnum.isin(self._swn.outlets)]\
-            .groupby(["segnum"]).ireach.idxmax().values
-        outlet_pt = reaches.loc[reaches_idx, "geometry"].apply(lastpt)
-        outlet_pt.plot(ax=ax, label="outlet", marker="o", color="navy")
+        swn = getattr(self, "swn", None)
+        if swn is not None:
+            reaches_idx = reaches[reaches.segnum.isin(self._swn.outlets)]\
+                .groupby(["segnum"]).ireach.idxmax().values
+            outlet_pt = reaches.loc[reaches_idx, "geometry"].apply(lastpt)
+            outlet_pt.plot(ax=ax, label="outlet", marker="o", color="navy")
 
         if "inflow_segnums" in self.segments.columns:
             segnums = self.segments.index[
