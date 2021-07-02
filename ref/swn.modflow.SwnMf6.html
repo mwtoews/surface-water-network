@@ -454,7 +454,9 @@
 <dl class="field-list simple">
 <dt class="field-odd">Attributes</dt>
 <dd class="field-odd"><dl class="simple">
-<dt><a class="reference internal" href="swn.modflow.SwnMf6.model.html#swn.modflow.SwnMf6.model" title="swn.modflow.SwnMf6.model"><code class="xref py py-obj docutils literal notranslate"><span class="pre">model</span></code></a><span class="classifier">flopy.mf6.ModflowGwf</span></dt><dd><p>Return flopy model object.</p>
+<dt><a class="reference internal" href="../reference.html#module-swn" title="swn"><code class="xref py py-obj docutils literal notranslate"><span class="pre">swn</span></code></a><span class="classifier">swn.SurfaceWaterNetwork</span></dt><dd><p>Surface water network object.</p>
+</dd>
+<dt><a class="reference internal" href="swn.modflow.SwnMf6.model.html#swn.modflow.SwnMf6.model" title="swn.modflow.SwnMf6.model"><code class="xref py py-obj docutils literal notranslate"><span class="pre">model</span></code></a><span class="classifier">flopy.mf6.ModflowGwf</span></dt><dd><p>Flopy model object.</p>
 </dd>
 <dt><strong>segments</strong><span class="classifier">geopandas.GeoDataFrame</span></dt><dd><p>Copied from swn.segments, but with additional columns added</p>
 </dd>
@@ -493,7 +495,7 @@ not used by flopy.</p>
 <tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">flopy_packagedata</span></code>([auxiliary, boundname])</p></td>
 <td><p>Return list of lists for flopy.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="swn.modflow.SwnMf6.from_pickle.html#swn.modflow.SwnMf6.from_pickle" title="swn.modflow.SwnMf6.from_pickle"><code class="xref py py-obj docutils literal notranslate"><span class="pre">from_pickle</span></code></a>(path, model)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="swn.modflow.SwnMf6.from_pickle.html#swn.modflow.SwnMf6.from_pickle" title="swn.modflow.SwnMf6.from_pickle"><code class="xref py py-obj docutils literal notranslate"><span class="pre">from_pickle</span></code></a>(path[, swn, model])</p></td>
 <td><p>Read a pickled format from a file.</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="swn.modflow.SwnMf6.from_swn_flopy.html#swn.modflow.SwnMf6.from_swn_flopy" title="swn.modflow.SwnMf6.from_swn_flopy"><code class="xref py py-obj docutils literal notranslate"><span class="pre">from_swn_flopy</span></code></a>(swn, model[, idomain_action, …])</p></td>
@@ -573,7 +575,7 @@ not used by flopy.</p>
 <tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">flopy_packagedata</span></code>([auxiliary, boundname])</p></td>
 <td><p>Return list of lists for flopy.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="swn.modflow.SwnMf6.from_pickle.html#swn.modflow.SwnMf6.from_pickle" title="swn.modflow.SwnMf6.from_pickle"><code class="xref py py-obj docutils literal notranslate"><span class="pre">from_pickle</span></code></a>(path, model)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="swn.modflow.SwnMf6.from_pickle.html#swn.modflow.SwnMf6.from_pickle" title="swn.modflow.SwnMf6.from_pickle"><code class="xref py py-obj docutils literal notranslate"><span class="pre">from_pickle</span></code></a>(path[, swn, model])</p></td>
 <td><p>Read a pickled format from a file.</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="swn.modflow.SwnMf6.from_swn_flopy.html#swn.modflow.SwnMf6.from_swn_flopy" title="swn.modflow.SwnMf6.from_swn_flopy"><code class="xref py py-obj docutils literal notranslate"><span class="pre">from_swn_flopy</span></code></a>(swn, model[, idomain_action, …])</p></td>
@@ -622,7 +624,10 @@ not used by flopy.</p>
 </colgroup>
 <tbody>
 <tr class="row-odd"><td><p><a class="reference internal" href="swn.modflow.SwnMf6.model.html#swn.modflow.SwnMf6.model" title="swn.modflow.SwnMf6.model"><code class="xref py py-obj docutils literal notranslate"><span class="pre">model</span></code></a></p></td>
-<td><p>Return flopy model object.</p></td>
+<td><p>Flopy model object.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">swn</span></code></p></td>
+<td><p>Surface water network object.</p></td>
 </tr>
 </tbody>
 </table>

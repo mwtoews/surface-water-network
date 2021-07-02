@@ -55,5 +55,6 @@
    .. autosummary::
    
       ~SwnModflow.model
+      ~SwnModflow.swn
    
    

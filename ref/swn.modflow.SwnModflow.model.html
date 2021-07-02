@@ -450,7 +450,17 @@
 <dl class="py property">
 <dt class="sig sig-object py" id="swn.modflow.SwnModflow.model">
 <em class="property"><span class="pre">property</span> </em><span class="sig-prename descclassname"><span class="pre">SwnModflow.</span></span><span class="sig-name descname"><span class="pre">model</span></span><a class="headerlink" href="#swn.modflow.SwnModflow.model" title="Permalink to this definition">¶</a></dt>
-<dd><p>Return flopy model object.</p>
+<dd><p>Flopy model object.</p>
+<p>This propery can be set more than once, but time and most grid
+properties must match. Setting this method also generates
+<code class="docutils literal notranslate"><span class="pre">time_index</span></code> and <code class="docutils literal notranslate"><span class="pre">grid_cells</span></code> attributes from the model.</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<dl class="simple">
+<dt><a class="reference internal" href="swn.modflow.SwnModflow.from_pickle.html#swn.modflow.SwnModflow.from_pickle" title="swn.modflow.SwnModflow.from_pickle"><code class="xref py py-obj docutils literal notranslate"><span class="pre">from_pickle</span></code></a></dt><dd><p>Read object from file.</p>
+</dd>
+</dl>
+</div>
 </dd></dl>
 
 </div>

@@ -449,14 +449,16 @@
 <h1>swn.modflow.SwnMf6.from_pickle<a class="headerlink" href="#swn-modflow-swnmf6-from-pickle" title="Permalink to this headline">¶</a></h1>
 <dl class="py method">
 <dt class="sig sig-object py" id="swn.modflow.SwnMf6.from_pickle">
-<em class="property"><span class="pre">classmethod</span> </em><span class="sig-prename descclassname"><span class="pre">SwnMf6.</span></span><span class="sig-name descname"><span class="pre">from_pickle</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">model</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#swn.modflow.SwnMf6.from_pickle" title="Permalink to this definition">¶</a></dt>
+<em class="property"><span class="pre">classmethod</span> </em><span class="sig-prename descclassname"><span class="pre">SwnMf6.</span></span><span class="sig-name descname"><span class="pre">from_pickle</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">swn</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">model</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#swn.modflow.SwnMf6.from_pickle" title="Permalink to this definition">¶</a></dt>
 <dd><p>Read a pickled format from a file.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><dl class="simple">
 <dt><strong>path</strong><span class="classifier">str</span></dt><dd><p>File path where the pickled object will be stored.</p>
 </dd>
-<dt><strong>model</strong><span class="classifier">flopy.modflow.Modflow or flopy.mf6.ModflowGwf</span></dt><dd><p>Instance of a flopy MODFLOW model.</p>
+<dt><strong>swn</strong><span class="classifier">swn.SurfaceWaterNetwork, optional</span></dt><dd><p>Instance of a SurfaceWaterNetwork.</p>
+</dd>
+<dt><strong>model</strong><span class="classifier">flopy.modflow.Modflow or flopy.mf6.ModflowGwf, optional</span></dt><dd><p>Instance of a flopy MODFLOW model.</p>
 </dd>
 </dl>
 </dd>
