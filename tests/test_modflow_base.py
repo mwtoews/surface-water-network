@@ -67,6 +67,17 @@ def get_basic_modflow(with_top: bool = False, nper: int = 1):
     return m
 
 
+def test_swn_property():
+    n = get_basic_swn(False)
+    nm = swn.SwnModflow()
+    assert nm.swn is None
+    nm.swn = n
+    assert nm.swn is not None
+    assert nm.swn is n
+    with pytest.raises(AttributeError, match="swn property can only be set o"):
+        nm.swn = n
+
+
 @pytest.mark.parametrize(
     "has_z", [False, True], ids=["n2d", "n3d"])
 def test_from_swn_flopy_defaults(has_z):
