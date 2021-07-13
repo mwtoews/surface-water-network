@@ -470,8 +470,8 @@ class SwnModflowBase:
                 if len(reach_c) == 2:
                     # If this is a simple line with two coords, split it
                     reach_c.index = [0, 2]
-                    reach_c.loc[1] = {
-                        "pt": reach_geom.interpolate(0.5, normalized=True)}
+                    reach_c.loc[1] = pd.Series({
+                        "pt": reach_geom.interpolate(0.5, normalized=True)})
                     reach_c.sort_index(inplace=True)
                     reach_geom = LineString(list(reach_c["pt"]))  # rebuild
                 # first match assumed to be touching the start of the line
