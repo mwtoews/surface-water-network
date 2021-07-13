@@ -547,8 +547,8 @@ class SwnModflowBase:
                     if len(rem_c) == 2:
                         # If this is a simple line with two coords, split it
                         rem_c.index = [0, 2]
-                        rem_c.loc[1] = {
-                            "pt": rem.interpolate(0.5, normalized=True)}
+                        rem_c.loc[1] = pd.Series({
+                            "pt": rem.interpolate(0.5, normalized=True)})
                         rem_c.sort_index(inplace=True)
                         rem = LineString(list(rem_c["pt"]))  # rebuild
                     # first match assumed to be touching the start of the line
