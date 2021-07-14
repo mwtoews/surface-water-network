@@ -73,28 +73,36 @@ def gdf_to_shapefile(gdf, shp_fname, **kwargs):
 
     """
     if not isinstance(gdf, geopandas.GeoDataFrame):
-        raise ValueError('expected gdf to be a GeoDataFrame')
+        raise ValueError("expected gdf to be a GeoDataFrame")
     gdf = gdf.copy()
     geom_name = gdf.geometry.name
+
+
     for col, dtype in gdf.dtypes.iteritems():
         if col == geom_name:
             continue
-        is_none = gdf[col].map(lambda x: x is None)
         if dtype == object:
+            is_none = gdf[col].map(lambda x: x is None)
             gdf[col] = gdf[col].astype(str)
-            gdf.loc[is_none, col] = ''
+            gdf.loc[is_none, col] = ""
         elif dtype == bool:
             gdf[col] = gdf[col].astype(int)
     # potential names that need to be shortened to <= 10 characters for DBF
     colname10 = {
-        'to_segnum': 'to_seg',
-        'from_segnums': 'from_seg',
-        'num_to_outlet': 'num_to_out',
-        'dist_to_outlet': 'dst_to_out',
-        'stream_order': 'strm_order',
-        'upstream_length': 'upstr_len',
-        'upstream_area': 'upstr_area',
-        'inflow_segnums': 'inflow_seg',
+        "to_segnum": "to_seg",
+        "from_segnums": "from_seg",
+        "num_to_outlet": "num_to_out",
+        "dist_to_outlet": "dst_to_out",
+        "stream_order": "strm_order",
+        "upstream_length": "upstr_len",
+        "upstream_area": "upstr_area",
+        "inflow_segnums": "inflow_seg",
+        "zcoord_count": "zcoord_num",
+        "zcoord_first": "zcoordfrst",
+        "zcoord_last": "zcoordlast",
+        "strtop_incopt": "stpincopt",
+        "prev_ibound": "previbound",
+        "prev_idomain": "prevdomain",
     }
     for k, v in list(colname10.items()):
         assert len(v) <= 10, v

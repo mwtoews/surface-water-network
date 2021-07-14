@@ -285,8 +285,8 @@ def test_n3d_defaults(tmp_path):
     sf = read_budget(tmp_path / "modflowtest.sfr.bin",
                      "STREAMFLOW OUT", nm.reaches, "sfr_Q")
     # Write some files
-    nm.reaches.to_file(tmp_path / "reaches.shp")
     nm.grid_cells.to_file(tmp_path / "grid_cells.shp")
+    gdf_to_shapefile(nm.reaches, tmp_path / "reaches.shp")
     gdf_to_shapefile(nm.segments, tmp_path / "segments.shp")
     # Check results
     assert heads.shape == (1, 3, 2)
@@ -627,8 +627,8 @@ def test_n3d_vars(tmp_path):
     sf = read_budget(tmp_path / "modflowtest.sfr.bin",
                      "STREAMFLOW OUT", nm.reaches, "sfr_Q")
     # Write some files
-    nm.reaches.to_file(tmp_path / "reaches.shp")
     nm.grid_cells.to_file(tmp_path / "grid_cells.shp")
+    gdf_to_shapefile(nm.reaches, tmp_path / "reaches.shp")
     gdf_to_shapefile(nm.segments, tmp_path / "segments.shp")
     # Check results
     assert heads.shape == (1, 3, 2)
@@ -691,8 +691,8 @@ def test_n2d_defaults(tmp_path):
     assert not success
     # Error/warning: upstream elevation is equal to downstream, slope is zero
     # TODO: improve processing to correct elevation errors
-    nm.reaches.to_file(tmp_path / "reaches.shp")
     nm.grid_cells.to_file(tmp_path / "grid_cells.shp")
+    gdf_to_shapefile(nm.reaches, tmp_path / "reaches.shp")
     gdf_to_shapefile(nm.segments, tmp_path / "segments.shp")
 
 
@@ -728,8 +728,8 @@ def test_n2d_min_slope(tmp_path):
     assert not success
     # Error/warning: upstream elevation is equal to downstream, slope is zero
     # TODO: improve processing to correct elevation errors
-    nm.reaches.to_file(tmp_path / "reaches.shp")
     nm.grid_cells.to_file(tmp_path / "grid_cells.shp")
+    gdf_to_shapefile(nm.reaches, tmp_path / "reaches.shp")
     gdf_to_shapefile(nm.segments, tmp_path / "segments.shp")
 
 
@@ -801,8 +801,8 @@ def test_set_elevations(tmp_path):
     sf = read_budget(tmp_path / "modflowtest.sfr.bin",
                      "STREAMFLOW OUT", nm.reaches, "sfr_Q")
     # Write some files
-    nm.reaches.to_file(tmp_path / "reaches.shp")
     nm.grid_cells.to_file(tmp_path / "grid_cells.shp")
+    gdf_to_shapefile(nm.reaches, tmp_path / "reaches.shp")
     gdf_to_shapefile(nm.segments, tmp_path / "segments.shp")
     # Check results
     assert heads.shape == (1, 3, 2)
@@ -954,7 +954,7 @@ def test_coastal(tmp_path, coastal_lines_gdf, coastal_flow_m):
         plt.close()
     # Write output files
     nm.grid_cells.to_file(tmp_path / "grid_cells.shp")
-    nm.reaches.to_file(tmp_path / "reaches.shp")
+    gdf_to_shapefile(nm.reaches, tmp_path / "reaches.shp")
     gdf_to_shapefile(nm.segments, tmp_path / "segments.shp")
 
 
@@ -1137,7 +1137,7 @@ def test_coastal_reduced(coastal_lines_gdf, coastal_flow_m, tmp_path):
     # Error/warning: upstream elevation is equal to downstream, slope is zero
     # TODO: improve processing to correct elevation errors
     nm.grid_cells.to_file(tmp_path / "grid_cells.shp")
-    nm.reaches.to_file(tmp_path / "reaches.shp")
+    gdf_to_shapefile(nm.reaches, tmp_path / "reaches.shp")
     gdf_to_shapefile(nm.segments, tmp_path / "segments.shp")
 
 
@@ -1251,8 +1251,8 @@ def test_coastal_ibound_modify(coastal_swn, coastal_flow_m, tmp_path):
     assert not success
     # Error/warning: upstream elevation is equal to downstream, slope is zero
     # TODO: improve processing to correct elevation errors
-    nm.reaches.to_file(tmp_path / "reaches.shp")
     nm.grid_cells.to_file(tmp_path / "grid_cells.shp")
+    gdf_to_shapefile(nm.reaches, tmp_path / "reaches.shp")
     gdf_to_shapefile(nm.segments, tmp_path / "segments.shp")
 
 
@@ -1319,8 +1319,9 @@ def test_diversions(tmp_path):
     sl = read_budget(cbc_fname, "STREAM LEAKAGE", nm.reaches, "sfrleakage")
     sfl = read_sfl(sfl_fname, nm.reaches)
     # Write some files
-    nm.reaches[~nm.reaches.diversion].to_file(tmp_path / "reaches.shp")
     nm.grid_cells.to_file(tmp_path / "grid_cells.shp")
+    gdf_to_shapefile(nm.reaches[~nm.reaches.diversion],
+                     tmp_path / "reaches.shp")
     gdf_to_shapefile(nm.segments, tmp_path / "segments.shp")
     # Check results
     assert (sl["q"] == 0.0).all()
