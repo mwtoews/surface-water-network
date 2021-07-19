@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-import os
 import pickle
 
 import geopandas
@@ -35,8 +34,7 @@ def test_topnet2ts(coastal_flow_ts):
     pytest.importorskip("netCDF4")
     nc_fname = "streamq_20170115_20170128_topnet_03046727_strahler1.nc"
     # read variable, and convert from m3/s to m3/day
-    flow = swn.file.topnet2ts(os.path.join(
-        datadir, nc_fname), "mod_flow", 86400)
+    flow = swn.file.topnet2ts(datadir / nc_fname, "mod_flow", 86400)
     assert flow.shape == (14, 304)
     assert list(pd.unique(flow.dtypes)) == [np.float32]
     # remove time and truncat to closest day

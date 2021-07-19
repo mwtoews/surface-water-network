@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-import os
 import pickle
 from hashlib import md5
 from shutil import which
@@ -514,8 +513,7 @@ def test_coastal(
         tmp_path, coastal_lines_gdf, coastal_flow_m):
     # Load a MODFLOW model
     sim = flopy.mf6.MFSimulation.load(
-        "mfsim.nam", sim_ws=os.path.join(datadir, "mf6_coastal"),
-        exe_name=mf6_exe)
+        "mfsim.nam", sim_ws=str(datadir / "mf6_coastal"), exe_name=mf6_exe)
     sim.set_sim_path(str(tmp_path))
     m = sim.get_model("h")
     # this model runs without SFR
@@ -578,8 +576,7 @@ def test_coastal(
 def test_coastal_elevations(coastal_swn, coastal_flow_m, tmp_path):
     # Load a MODFLOW model
     sim = flopy.mf6.MFSimulation.load(
-        "mfsim.nam", sim_ws=os.path.join(datadir, "mf6_coastal"),
-        exe_name=mf6_exe)
+        "mfsim.nam", sim_ws=str(datadir / "mf6_coastal"), exe_name=mf6_exe)
     sim.set_sim_path(str(tmp_path))
     m = sim.get_model("h")
     nm = swn.SwnMf6.from_swn_flopy(coastal_swn, m)
@@ -600,8 +597,7 @@ def test_coastal_reduced(
     assert len(n) == 130
     # Load a MODFLOW model
     sim = flopy.mf6.MFSimulation.load(
-        "mfsim.nam", sim_ws=os.path.join(datadir, "mf6_coastal"),
-        exe_name=mf6_exe)
+        "mfsim.nam", sim_ws=str(datadir / "mf6_coastal"), exe_name=mf6_exe)
     sim.set_sim_path(str(tmp_path))
     m = sim.get_model("h")
     nm = swn.SwnMf6.from_swn_flopy(n, m)
@@ -651,8 +647,7 @@ def test_coastal_reduced(
 def test_coastal_idomain_modify(coastal_swn, coastal_flow_m, tmp_path):
     # Load a MODFLOW model
     sim = flopy.mf6.MFSimulation.load(
-        "mfsim.nam", sim_ws=os.path.join(datadir, "mf6_coastal"),
-        exe_name=mf6_exe)
+        "mfsim.nam", sim_ws=str(datadir / "mf6_coastal"), exe_name=mf6_exe)
     sim.set_sim_path(str(tmp_path))
     m = sim.get_model("h")
     nm = swn.SwnMf6.from_swn_flopy(
