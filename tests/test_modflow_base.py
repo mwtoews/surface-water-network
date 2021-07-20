@@ -321,6 +321,44 @@ def test_reach_barely_outside_ibound():
         plt.close()
 
 
+def test_linemerge_reaches():
+    n = swn.SurfaceWaterNetwork.from_lines(wkt_to_geoseries([
+        "LINESTRING (30 180, 80 170, 120 210, 140 210, 190 110, "
+        "205 90, 240 60, 255 35)"
+    ]))
+    m = flopy.modflow.Modflow()
+    _ = flopy.modflow.ModflowDis(
+        m, nrow=3, ncol=3, delr=100.0, delc=100.0, xul=0.0, yul=300.0)
+    _ = flopy.modflow.ModflowBas(m)
+    nm = swn.SwnModflow.from_swn_flopy(n, m)
+
+    assert len(nm.reaches) == 5
+    assert list(nm.reaches.segnum) == [0, 0, 0, 0, 0]
+    assert list(nm.reaches.i) == [1, 1, 0, 1, 2]
+    assert list(nm.reaches.j) == [0, 1, 1, 1, 2]
+    assert list(nm.reaches.iseg) == [1, 1, 1, 1, 1]
+    assert list(nm.reaches.ireach) == [1, 2, 3, 4, 5]
+    np.testing.assert_array_almost_equal(
+        nm.reaches.rchlen,
+        [79.274, 14.142, 45.322, 115.206, 85.669], 3)
+    expected_reaches_geom = wkt_to_geoseries([
+        "LINESTRING (30 180, 80 170, 100 190)",
+        "LINESTRING (100 190, 110 200)",
+        "LINESTRING (110 200, 120 210, 140 210, 145 200)",
+        "LINESTRING (145 200, 190 110, 197.5 100, 198.75 98.33333333333334)",
+        "LINESTRING (198.75 98.33333333333334, 200 96.66666666666667, "
+        "205 90, 240 60, 255 35)"])
+    expected_reaches_geom.index += 1
+    assert nm.reaches.geom_almost_equals(expected_reaches_geom, 0).all()
+    assert repr(nm) == dedent("""\
+        <SwnModflow: flopy mf2005 'modflowtest'
+          5 in reaches (reachID): [1, 2, ..., 4, 5]
+          1 stress period with perlen: [1.0] />""")
+    if matplotlib:
+        _ = nm.plot()
+        plt.close()
+
+
 def check_number_sum_hex(a, n, h):
     a = np.ceil(a).astype(np.int64)
     assert a.sum() == n

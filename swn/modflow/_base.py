@@ -589,6 +589,32 @@ class SwnModflowBase:
             else:
                 raise NotImplementedError(rem.geom_type)
 
+        def do_linemerge(ij, df, drop_reach_ids):
+            geom = linemerge(df["geometry"])
+            if geom.geom_type == "MultiLineString":
+                # workaround for odd floating point issue
+                geom = linemerge(
+                    [wkt.loads(g.wkt) for g in df["geometry"]])
+            if geom.geom_type == "LineString":
+                drop_reach_ids += list(df.index)
+                obj.logger.debug(
+                    "merging %d reaches for segnum %s at %s",
+                    len(df), segnum, ij)
+                i, j = ij
+                append_reach_df(reach_df, i, j, geom)
+            elif geom.geom_type == "MultiLineString":
+                for part in geom.geoms:
+                    part_covers = df.geometry.apply(part.covers)
+                    if part_covers.sum() > 1: # recurse
+                        do_linemerge(ij, df[part_covers], drop_reach_ids)
+                    elif part_covers.sum() == 0:
+                        obj.logger.warning(
+                            "part %s does not cover any segnum %s at %s",
+                            part, segnum, ij)
+            else:
+                obj.logger.warning(
+                    "failed to merge segnum %s at %s: %s", segnum, ij, geom)
+
         # Looping over each segment breaking down into reaches
         for segnum, line in obj.segments.geometry.iteritems():
             remaining_line = line
@@ -605,6 +631,8 @@ class SwnModflowBase:
                 reach_geom = grid_geom.intersection(line)
                 if reach_geom.is_empty or reach_geom.geom_type == "Point":
                     continue
+                # erase some odd floating point issues
+                reach_geom = wkt.loads(reach_geom.wkt)
                 remaining_line = remaining_line.difference(grid_geom)
                 append_reach_df(reach_df, i, j, reach_geom)
             # Determine if any remaining portions of the line can be used
@@ -618,27 +646,9 @@ class SwnModflowBase:
                 assign_short_reach(reach_df, idx, segnum)
             # Potentially merge a few reaches for each i,j of this segnum
             drop_reach_ids = []
-            gb = reach_df.groupby(["i", "j"])["geometry"].apply(list)
-            for ij, geoms in gb.copy().iteritems():
-                i, j = ij
-                if len(geoms) > 1:
-                    geom = linemerge(geoms)
-                    if geom.geom_type == "MultiLineString":
-                        # workaround for odd floating point issue
-                        geom = linemerge([wkt.loads(g.wkt) for g in geoms])
-                    if geom.geom_type == "LineString":
-                        sel = ((reach_df["i"] == i) & (reach_df["j"] == j))
-                        drop_reach_ids += list(sel.index[sel])
-                        obj.logger.debug(
-                            "merging %d reaches for segnum %s at %s",
-                            sel.sum(), segnum, ij)
-                        append_reach_df(reach_df, i, j, geom)
-                    elif any(a.distance(b) < 1e-6
-                             for a, b in combinations(geoms, 2)):
-                        obj.logger.warning(
-                            "failed to merge segnum %s at %s: %s",
-                            segnum, ij, geom.wkt)
-                    # else: this is probably a meandering MultiLineString
+            for ij, gb in reach_df.copy().groupby(["i", "j"]):
+                if len(gb) > 1:
+                    do_linemerge(ij, gb, drop_reach_ids)
             if drop_reach_ids:
                 reach_df.drop(drop_reach_ids, axis=0, inplace=True)
             # TODO: Some reaches match multiple cells if they share a border
