@@ -359,6 +359,34 @@ def test_linemerge_reaches():
         plt.close()
 
 
+def test_linemerge_reaches_2():
+    n = swn.SurfaceWaterNetwork.from_lines(wkt_to_geoseries([
+        "LINESTRING(103.48 235.46,103.48 179.46,95.48 171.46,95.48 163.46,"
+        "103.48 155.46,103.48 139.46,119.48 123.46,199.48 123.46,"
+        "207.48 115.46,215.48 115.46,223.48 107.46,239.48 107.46,247.48 99.46,"
+        "255.48 99.46,271.48 83.46,271.48 75.46,279.48 67.46,279.48 59.46,"
+        "287.48 51.46,287.48 43.46,295.48 35.46,295.48 3.46,303.48 -4.54)"]))
+    m = flopy.modflow.Modflow()
+    _ = flopy.modflow.ModflowDis(
+        m, nrow=2, ncol=3, delr=100.0, delc=100.0, xul=0, yul=200)
+    _ = flopy.modflow.ModflowBas(m, ibound=np.array([[1, 1, 0], [1, 1, 1]]))
+    nm = swn.SwnModflow.from_swn_flopy(n, m)
+
+    assert len(nm.reaches) == 4
+    assert list(nm.reaches.i) == [0, 0, 0, 1]
+    assert list(nm.reaches.j) == [1, 0, 1, 2]
+    np.testing.assert_array_almost_equal(
+        nm.reaches.rchlen,
+        [25.461, 20.784, 134.863, 178.51], 3)
+    assert repr(nm) == dedent("""\
+        <SwnModflow: flopy mf2005 'modflowtest'
+          4 in reaches (reachID): [1, 2, 3, 4]
+          1 stress period with perlen: [1.0] />""")
+    if matplotlib:
+        _ = nm.plot()
+        plt.close()
+
+
 def check_number_sum_hex(a, n, h):
     a = np.ceil(a).astype(np.int64)
     assert a.sum() == n

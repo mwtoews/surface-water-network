@@ -2,7 +2,6 @@
 """Abstract base class for a surface water network for MODFLOW."""
 
 import pickle
-from itertools import combinations
 
 import geopandas
 import numpy as np
@@ -15,7 +14,7 @@ from swn.core import SurfaceWaterNetwork
 from swn.modflow._misc import (
     tile_series_as_frame, transform_data_to_series_or_frame
 )
-from swn.spatial import compare_crs, get_sindex
+from swn.spatial import compare_crs, get_sindex, visible_wkt
 
 
 class SwnModflowBase:
@@ -594,7 +593,7 @@ class SwnModflowBase:
             if geom.geom_type == "MultiLineString":
                 # workaround for odd floating point issue
                 geom = linemerge(
-                    [wkt.loads(g.wkt) for g in df["geometry"]])
+                    [visible_wkt(g) for g in df["geometry"]])
             if geom.geom_type == "LineString":
                 drop_reach_ids += list(df.index)
                 obj.logger.debug(
@@ -632,7 +631,7 @@ class SwnModflowBase:
                 if reach_geom.is_empty or reach_geom.geom_type == "Point":
                     continue
                 # erase some odd floating point issues
-                reach_geom = wkt.loads(reach_geom.wkt)
+                reach_geom = visible_wkt(reach_geom)
                 remaining_line = remaining_line.difference(grid_geom)
                 append_reach_df(reach_df, i, j, reach_geom)
             # Determine if any remaining portions of the line can be used
@@ -648,6 +647,7 @@ class SwnModflowBase:
             drop_reach_ids = []
             for ij, gb in reach_df.copy().groupby(["i", "j"]):
                 if len(gb) > 1:
+                    gb["geometry"] = gb["geometry"].apply(visible_wkt)
                     do_linemerge(ij, gb, drop_reach_ids)
             if drop_reach_ids:
                 reach_df.drop(drop_reach_ids, axis=0, inplace=True)

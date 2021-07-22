@@ -160,6 +160,9 @@ def round_coords(gs, rounding_precision=3):
     return wkt_to_geoseries(
             gs.apply(wkt.dumps, rounding_precision=rounding_precision))
 
+def visible_wkt(geom):
+    """Re-generate geometry to only visible WKT, erase machine precision."""
+    return wkt.loads(geom.wkt)
 
 def compare_crs(sr1, sr2):
     """Compare two crs, flexible on crs type."""
