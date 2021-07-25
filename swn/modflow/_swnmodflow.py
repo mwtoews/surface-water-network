@@ -25,6 +25,8 @@ class SwnModflow(SwnModflowBase):
 
     Attributes
     ----------
+    swn : swn.SurfaceWaterNetwork
+        Instance of a SurfaceWaterNetwork.
     model : flopy.modflow.Modflow
         Instance of flopy.modflow.Modflow
     segments : geopandas.GeoDataFrame
@@ -189,34 +191,6 @@ class SwnModflow(SwnModflowBase):
         super().__setstate__(state)
         self.segment_data = state["segment_data"]
         self.segment_data_ts = state["segment_data_ts"]
-
-    @SwnModflowBase.model.setter
-    def model(self, model):
-        """Set model property from flopy.modflow.Modflow."""
-        import flopy
-        if not isinstance(model, flopy.modflow.Modflow):
-            raise ValueError(
-                "'model' must be a flopy Modflow object; found " +
-                str(type(model)))
-        elif not model.has_package("DIS"):
-            raise ValueError("DIS package required")
-        elif not model.has_package("BAS6"):
-            raise ValueError("BAS6 package required")
-        _model = getattr(self, "_model", None)
-        if _model is not None and _model is not model:
-            self.logger.info("swapping 'model' object")
-        self._model = model
-        # Build stress period DataFrame from modflow model
-        stress_df = pd.DataFrame({"perlen": self.model.dis.perlen.array})
-        modeltime = self.model.modeltime
-        stress_df["duration"] = pd.TimedeltaIndex(
-            stress_df["perlen"].cumsum(), modeltime.time_units)
-        stress_df["start"] = pd.to_datetime(modeltime.start_datetime)
-        stress_df["end"] = stress_df["duration"] + stress_df.at[0, "start"]
-        stress_df.loc[1:, "start"] = stress_df["end"].iloc[:-1].values
-        self._stress_df = stress_df  # keep this for debugging
-        self.time_index = pd.DatetimeIndex(stress_df["start"]).copy()
-        self.time_index.name = None
 
     def new_segment_data(self):
         """Generate an empty segment_data DataFrame.

@@ -20,7 +20,7 @@ setup(
     author_email="mwtoews@gmail.com",
     url='https://github.com/mwtoews/surface-water-network',
     license='BSD',
-    packages=['swn'],
+    packages=['swn', 'swn.modflow'],
     package_data={'': ['tests/data/*']},
     python_requires='>=3.6',
     install_requires=['geopandas', 'pyproj>=2.2', 'rtree', 'shapely'],

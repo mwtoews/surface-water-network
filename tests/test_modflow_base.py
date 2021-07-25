@@ -67,6 +67,17 @@ def get_basic_modflow(with_top: bool = False, nper: int = 1):
     return m
 
 
+def test_swn_property():
+    n = get_basic_swn(False)
+    nm = swn.SwnModflow()
+    assert nm.swn is None
+    nm.swn = n
+    assert nm.swn is not None
+    assert nm.swn is n
+    with pytest.raises(AttributeError, match="swn property can only be set o"):
+        nm.swn = n
+
+
 @pytest.mark.parametrize(
     "has_z", [False, True], ids=["n2d", "n3d"])
 def test_from_swn_flopy_defaults(has_z):
@@ -307,6 +318,113 @@ def test_reach_barely_outside_ibound():
           1 stress period with perlen: [1.0] />""")
     if matplotlib:
         _ = nm.plot()
+        plt.close()
+
+
+def test_linemerge_reaches():
+    n = swn.SurfaceWaterNetwork.from_lines(wkt_to_geoseries([
+        "LINESTRING (30 180, 80 170, 120 210, 140 210, 190 110, "
+        "205 90, 240 60, 255 35)"
+    ]))
+    m = flopy.modflow.Modflow()
+    _ = flopy.modflow.ModflowDis(
+        m, nrow=3, ncol=3, delr=100.0, delc=100.0, xul=0.0, yul=300.0)
+    _ = flopy.modflow.ModflowBas(m)
+    nm = swn.SwnModflow.from_swn_flopy(n, m)
+
+    assert len(nm.reaches) == 5
+    assert list(nm.reaches.i) == [1, 1, 0, 1, 2]
+    assert list(nm.reaches.j) == [0, 1, 1, 1, 2]
+    np.testing.assert_array_almost_equal(
+        nm.reaches.rchlen,
+        [79.274, 14.142, 45.322, 115.206, 85.669], 3)
+    expected_reaches_geom = wkt_to_geoseries([
+        "LINESTRING (30 180, 80 170, 100 190)",
+        "LINESTRING (100 190, 110 200)",
+        "LINESTRING (110 200, 120 210, 140 210, 145 200)",
+        "LINESTRING (145 200, 190 110, 197.5 100, 198.75 98.33333333333334)",
+        "LINESTRING (198.75 98.33333333333334, 200 96.66666666666667, "
+        "205 90, 240 60, 255 35)"])
+    expected_reaches_geom.index += 1
+    assert nm.reaches.geom_almost_equals(expected_reaches_geom, 0).all()
+    assert repr(nm) == dedent("""\
+        <SwnModflow: flopy mf2005 'modflowtest'
+          5 in reaches (reachID): [1, 2, ..., 4, 5]
+          1 stress period with perlen: [1.0] />""")
+    if matplotlib:
+        _ = nm.plot()
+        plt.close()
+
+
+def test_linemerge_reaches_2():
+    n = swn.SurfaceWaterNetwork.from_lines(wkt_to_geoseries([
+        "LINESTRING(103.48 235.46,103.48 179.46,95.48 171.46,95.48 163.46,"
+        "103.48 155.46,103.48 139.46,119.48 123.46,199.48 123.46,"
+        "207.48 115.46,215.48 115.46,223.48 107.46,239.48 107.46,247.48 99.46,"
+        "255.48 99.46,271.48 83.46,271.48 75.46,279.48 67.46,279.48 59.46,"
+        "287.48 51.46,287.48 43.46,295.48 35.46,295.48 3.46,303.48 -4.54)"]))
+    m = flopy.modflow.Modflow()
+    _ = flopy.modflow.ModflowDis(
+        m, nrow=2, ncol=3, delr=100.0, delc=100.0, xul=0, yul=200)
+    _ = flopy.modflow.ModflowBas(m, ibound=np.array([[1, 1, 0], [1, 1, 1]]))
+    nm = swn.SwnModflow.from_swn_flopy(n, m)
+
+    assert len(nm.reaches) == 4
+    assert list(nm.reaches.i) == [0, 0, 0, 1]
+    assert list(nm.reaches.j) == [1, 0, 1, 2]
+    np.testing.assert_array_almost_equal(
+        nm.reaches.rchlen, [25.461, 20.784, 134.863, 178.51], 3)
+    assert repr(nm) == dedent("""\
+        <SwnModflow: flopy mf2005 'modflowtest'
+          4 in reaches (reachID): [1, 2, 3, 4]
+          1 stress period with perlen: [1.0] />""")
+    if matplotlib:
+        _ = nm.plot()
+        plt.close()
+
+def test_linemerge_reaches_3():
+    lines = wkt_to_geoseries([
+        "LINESTRING(-9 295,63 295,71 303,87 303,95 295,119 295,143 271,"
+        "143 255,151 247,167 247,175 239,183 239,191 247,255 247,263 255,"
+        "271 255,279 247,295 247,303 239,303 207,271 175,255 175,247 167,"
+        "239 167,215 143,215 135,207 127,207 119,199 111,199 87,191 79,"
+        "191 39,207 23,223 23,231 31,239 31,255 47,263 47,271 55,279 55,"
+        "287 63,295 63,303 71,311 71,319 79,327 79,335 87,343 87,351 95,"
+        "367 95,375 103,391 103,399 111,423 111,439 95)",
+        "LINESTRING(431 415,391 375,391 303,383 295,383 287,375 279,375 263,"
+        "383 255,391 255,399 247,431 247,439 255,447 255,455 263,463 263,"
+        "471 271,495 271,527 239,527 231,535 223,535 215,527 207,527 199,"
+        "503 175,495 175,487 167,479 167,447 135,447 119,439 111,439 95)",
+        "LINESTRING(439 95,439 71,471 39,503 39,511 47,551 47,607 -9)",
+    ])
+    lines.index += 100
+    n = swn.SurfaceWaterNetwork.from_lines(lines)
+    m = flopy.modflow.Modflow()
+    _ = flopy.modflow.ModflowDis(
+        m, nrow=4, ncol=6, delr=100.0, delc=100.0, xul=0, yul=400)
+    _ = flopy.modflow.ModflowBas(m)
+    nm = swn.SwnModflow.from_swn_flopy(n, m)
+
+    assert len(nm.reaches) == 22
+    assert list(nm.reaches.segnum) == [100] * 13 + [101] * 7 + [102] * 2
+    assert list(nm.reaches.i) == \
+        [1, 0, 1, 1, 1, 1, 1, 2, 3, 3, 3, 2, 2, 0, 0, 1, 1, 1, 2, 2, 3, 3]
+    assert list(nm.reaches.j) == \
+        [0, 0, 0, 1, 2, 3, 2, 2, 1, 2, 3, 3, 4, 4, 3, 3, 4, 5, 5, 4, 4, 5]
+    assert list(nm.reaches.iseg) == [1] * 13 + [2] * 7 + [3] * 2
+    assert list(nm.reaches.ireach) == \
+        [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 1, 2, 3, 4, 5, 6, 7, 1, 2]
+    np.testing.assert_array_almost_equal(
+        nm.reaches.rchlen,
+        [79.1, 24.5, 12.1, 135.9, 108.7, 40.5, 5.7, 143.2, 88.0, 121.5, 85.3,
+         32.6, 45.6, 43.8, 89.0, 74.0, 112.0, 83.8, 37.9, 112.9, 98.3, 133.5],
+        1)
+    assert repr(nm) == dedent("""\
+        <SwnModflow: flopy mf2005 'modflowtest'
+          22 in reaches (reachID): [1, 2, ..., 21, 22]
+          1 stress period with perlen: [1.0] />""")
+    if matplotlib:
+        _ = nm.plot(cmap='nipy_spectral')
         plt.close()
 
 

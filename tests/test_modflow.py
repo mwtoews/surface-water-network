@@ -290,8 +290,8 @@ def test_n3d_defaults(tmp_path):
     sf = read_budget(tmp_path / "modflowtest.sfr.bin",
                      "STREAMFLOW OUT", nm.reaches, "sfr_Q")
     # Write some files
-    nm.reaches.to_file(tmp_path / "reaches.shp")
     nm.grid_cells.to_file(tmp_path / "grid_cells.shp")
+    gdf_to_shapefile(nm.reaches, tmp_path / "reaches.shp")
     gdf_to_shapefile(nm.segments, tmp_path / "segments.shp")
     # Check results
     assert heads.shape == (1, 3, 2)
@@ -314,8 +314,8 @@ def test_n3d_defaults(tmp_path):
 def test_model_property():
     nm = swn.SwnModflow()
     with pytest.raises(
-            ValueError, match="'model' must be a flopy Modflow object"):
-        nm.model = None
+            ValueError, match="model must be a flopy Modflow object"):
+        nm.model = 0
 
     m = flopy.modflow.Modflow()
     with pytest.raises(ValueError, match="DIS package required"):
@@ -330,19 +330,43 @@ def test_model_property():
 
     _ = flopy.modflow.ModflowBas(m, strt=15.0, stoper=5.0)
 
+    assert not hasattr(nm, "time_index")
+    assert not hasattr(nm, "grid_cells")
+
     # Success!
     nm.model = m
 
     pd.testing.assert_index_equal(
         nm.time_index,
         pd.DatetimeIndex(["2001-02-03"], dtype="datetime64[ns]"))
+    assert nm.grid_cells.shape == (6, 2)
 
     # Swap model with same and with another
+    # same object
     nm.model = m
-    m2 = flopy.modflow.Modflow()
-    _ = flopy.modflow.ModflowDis(m2)
-    _ = flopy.modflow.ModflowBas(m2)
-    nm.model = m2
+
+    dis_args = {
+        "nper": 1, "nlay": 1, "nrow": 3, "ncol": 2, "delr": 20.0, "delc": 20.0,
+        "xul": 30.0, "yul": 130.0, "start_datetime": "2001-03-02"}
+    m = flopy.modflow.Modflow()
+    _ = flopy.modflow.ModflowDis(m, **dis_args)
+    _ = flopy.modflow.ModflowBas(m)
+    # this is allowed
+    nm.model = m
+
+    dis_args_replace = {
+        "nper": 2, "nrow": 4, "ncol": 3, "delr": 30.0, "delc": 40.0,
+        "xul": 20.0, "yul": 120.0}
+    for vn, vr in dis_args_replace.items():
+        # print(f"{vn}: {vr}")
+        dis_args_use = dis_args.copy()
+        dis_args_use[vn] = vr
+        m = flopy.modflow.Modflow()
+        _ = flopy.modflow.ModflowDis(m, **dis_args_use)
+        _ = flopy.modflow.ModflowBas(m)
+        # this is not allowed
+        with pytest.raises(AttributeError, match="properties are too differe"):
+            nm.model = m
 
 
 def test_set_segment_data_from_scalar():
@@ -608,8 +632,8 @@ def test_n3d_vars(tmp_path):
     sf = read_budget(tmp_path / "modflowtest.sfr.bin",
                      "STREAMFLOW OUT", nm.reaches, "sfr_Q")
     # Write some files
-    nm.reaches.to_file(tmp_path / "reaches.shp")
     nm.grid_cells.to_file(tmp_path / "grid_cells.shp")
+    gdf_to_shapefile(nm.reaches, tmp_path / "reaches.shp")
     gdf_to_shapefile(nm.segments, tmp_path / "segments.shp")
     # Check results
     assert heads.shape == (1, 3, 2)
@@ -672,8 +696,8 @@ def test_n2d_defaults(tmp_path):
     assert not success
     # Error/warning: upstream elevation is equal to downstream, slope is zero
     # TODO: improve processing to correct elevation errors
-    nm.reaches.to_file(tmp_path / "reaches.shp")
     nm.grid_cells.to_file(tmp_path / "grid_cells.shp")
+    gdf_to_shapefile(nm.reaches, tmp_path / "reaches.shp")
     gdf_to_shapefile(nm.segments, tmp_path / "segments.shp")
 
 
@@ -709,8 +733,8 @@ def test_n2d_min_slope(tmp_path):
     assert not success
     # Error/warning: upstream elevation is equal to downstream, slope is zero
     # TODO: improve processing to correct elevation errors
-    nm.reaches.to_file(tmp_path / "reaches.shp")
     nm.grid_cells.to_file(tmp_path / "grid_cells.shp")
+    gdf_to_shapefile(nm.reaches, tmp_path / "reaches.shp")
     gdf_to_shapefile(nm.segments, tmp_path / "segments.shp")
 
 
@@ -781,8 +805,8 @@ def test_set_elevations(tmp_path):
     sf = read_budget(tmp_path / "modflowtest.sfr.bin",
                      "STREAMFLOW OUT", nm.reaches, "sfr_Q")
     # Write some files
-    nm.reaches.to_file(tmp_path / "reaches.shp")
     nm.grid_cells.to_file(tmp_path / "grid_cells.shp")
+    gdf_to_shapefile(nm.reaches, tmp_path / "reaches.shp")
     gdf_to_shapefile(nm.segments, tmp_path / "segments.shp")
     # Check results
     assert heads.shape == (1, 3, 2)
@@ -934,7 +958,7 @@ def test_coastal(tmp_path, coastal_lines_gdf, coastal_flow_m):
         plt.close()
     # Write output files
     nm.grid_cells.to_file(tmp_path / "grid_cells.shp")
-    nm.reaches.to_file(tmp_path / "reaches.shp")
+    gdf_to_shapefile(nm.reaches, tmp_path / "reaches.shp")
     gdf_to_shapefile(nm.segments, tmp_path / "segments.shp")
 
 
@@ -1099,7 +1123,7 @@ def test_coastal_reduced(coastal_lines_gdf, coastal_flow_m, tmp_path):
     # Error/warning: upstream elevation is equal to downstream, slope is zero
     # TODO: improve processing to correct elevation errors
     nm.grid_cells.to_file(tmp_path / "grid_cells.shp")
-    nm.reaches.to_file(tmp_path / "reaches.shp")
+    gdf_to_shapefile(nm.reaches, tmp_path / "reaches.shp")
     gdf_to_shapefile(nm.segments, tmp_path / "segments.shp")
 
 
@@ -1213,8 +1237,8 @@ def test_coastal_ibound_modify(coastal_swn, coastal_flow_m, tmp_path):
     assert not success
     # Error/warning: upstream elevation is equal to downstream, slope is zero
     # TODO: improve processing to correct elevation errors
-    nm.reaches.to_file(tmp_path / "reaches.shp")
     nm.grid_cells.to_file(tmp_path / "grid_cells.shp")
+    gdf_to_shapefile(nm.reaches, tmp_path / "reaches.shp")
     gdf_to_shapefile(nm.segments, tmp_path / "segments.shp")
 
 
@@ -1281,8 +1305,9 @@ def test_diversions(tmp_path):
     sl = read_budget(cbc_fname, "STREAM LEAKAGE", nm.reaches, "sfrleakage")
     sfl = read_sfl(sfl_fname, nm.reaches)
     # Write some files
-    nm.reaches[~nm.reaches.diversion].to_file(tmp_path / "reaches.shp")
     nm.grid_cells.to_file(tmp_path / "grid_cells.shp")
+    gdf_to_shapefile(nm.reaches[~nm.reaches.diversion],
+                     tmp_path / "reaches.shp")
     gdf_to_shapefile(nm.segments, tmp_path / "segments.shp")
     # Check results
     assert (sl["q"] == 0.0).all()
@@ -1376,7 +1401,9 @@ def test_pickle(tmp_path):
     data = pickle.dumps(nm1)
     nm2 = pickle.loads(data)
     assert nm1 != nm2
+    assert nm2.swn is None
     assert nm2.model is None
+    nm2.swn = n
     nm2.model = m
     assert nm1 == nm2
     # use to_pickle / from_pickle methods
@@ -1386,5 +1413,5 @@ def test_pickle(tmp_path):
     nm3 = swn.SwnModflow.from_swn_flopy(n, m)
     nm3.default_segment_data(hyd_cond1=0.0)
     nm3.to_pickle(tmp_path / "nm4.pickle")
-    nm4 = swn.SwnModflow.from_pickle(tmp_path / "nm4.pickle", m)
+    nm4 = swn.SwnModflow.from_pickle(tmp_path / "nm4.pickle", n, m)
     assert nm3 == nm4
