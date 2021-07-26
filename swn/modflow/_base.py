@@ -1216,7 +1216,8 @@ class SwnModflowBase:
         self.set_reach_data_from_array('bot', m.dis.botm[0].array)
         return self.reaches[['top', 'bot']]
 
-    def plot_reaches_vs_model(self, seg, dem=None, plot_bottom=False):
+    def plot_reaches_vs_model(
+            self, seg, dem=None, plot_bottom=False, draw_lines=True):
         """Plot map of stream elevations relative to model surfaces.
 
         The elevation of the MODFLOW model projected streams relative to model
@@ -1231,6 +1232,8 @@ class SwnModflowBase:
             dimensions as model layer
         plot_bottom : bool, default False
             Also plot stream bed elevation relative to the bottom of layer 1
+        draw_lines: bool, default True
+            Draw lines around SFR cells.
 
         Returns
         -------
@@ -1256,7 +1259,7 @@ class SwnModflowBase:
         sfrar = np.ma.zeros(dis.top.array.shape, "f")
         sfrar.mask = np.ones(sfrar.shape)
         if seg == "all":
-            segsel = np.ones((self.reaches.shape[0]), dtype=bool)
+            segsel = self.reaches.geom_type == "LineString"
         else:
             # TODO multiple segs?
             segsel = self.reaches["segnum"] == seg
@@ -1269,10 +1272,14 @@ class SwnModflowBase:
         ] = self.reaches.loc[segsel, 'tmp_tdif'].tolist()
         # .mask = np.ones(sfrar.shape)
         # Plot reach elevation relative to model top
+        if draw_lines:
+            lines = self.reaches.loc[segsel, ["geometry", "tmp_tdif"]]
+        else:
+            lines = None
         vtop = sfr_plot(
             model, sfrar, dem,
             label="str below\ntop (m)",
-            lines=self.reaches.loc[segsel, ['geometry', 'tmp_tdif']]
+            lines=lines,
         )
         # If just single segment can plot profile quickly
         if seg != "all":
@@ -1289,22 +1296,26 @@ class SwnModflowBase:
                 tuple(self.reaches.loc[segsel, ["i", "j"]].values.T.tolist())
             ] = self.reaches.loc[segsel, 'tmp_bdif'].tolist()
             # .mask = np.ones(sfrar.shape)
+            if draw_lines:
+                lines = self.reaches.loc[segsel, ["geometry", "tmp_bdif"]]
+            else:
+                lines = None
             vbot = sfr_plot(
                 model, sfrarbot, dembot,
                 label="str above\nbottom (m)",
-                lines=self.reaches.loc[segsel, ['geometry', 'tmp_bdif']]
+                lines=lines,
             )
         else:
             vbot = None
         return vtop, vbot
 
-    def plot_profile(self, seg, upstream=False, downstream=False):
+    def plot_profile(self, segnum, upstream=False, downstream=False):
         """Plot stream top profiles vs model grid top and bottom.
 
         Parameters
         ----------
-        seg : int
-            Identifying segment for plots, counting from 1.
+        segnum : int
+            Identifying segment number for plots.
         upstream : bool, default False
             Flag for continuing trace upstream from segnum = `seg`
         downstream : bool, default False
@@ -1321,16 +1332,17 @@ class SwnModflowBase:
         elif self.__class__.__name__ == "SwnMf6":
             strtoptag = 'rtp'
             lentag = "rlen"
-        usegs = [seg]
+        usegs = [segnum]
         dsegs = []
         if upstream:
-            usegs = self._swn.query(upstream=seg)
+            usegs = self._swn.query(upstream=segnum)
         if downstream:
-            dsegs = self._swn.query(downstream=seg)
+            dsegs = self._swn.query(downstream=segnum)
         segs = usegs + dsegs
-        assert seg in segs, (f"something has changed in the code, "
-                             f"{seg} not in {segs}")
+        if segnum not in segs:
+            self.logger.error(
+                f"something has changed in the code, {segnum} not in {segs}")
         reaches = self.reaches.loc[self.reaches.segnum.isin(segs)].sort_index()
-        reaches['mid_dist'] = reaches[lentag].cumsum() - reaches[lentag] / 2
+        reaches['mid_dist'] = reaches[lentag].cumsum() - reaches[lentag] / 2.0
         _profile_plot(reaches, lentag=lentag, x='mid_dist',
                       cols=[strtoptag, 'top', 'bot'])

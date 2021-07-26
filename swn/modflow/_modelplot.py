@@ -206,7 +206,7 @@ class ModelPlot:
         hax = self.ax.imshow(ar, zorder=zorder, vmin=vmin, vmax=vmax,
                              extent=self.extent, origin="upper",
                              transform=transform, norm=norm,
-                             alpha=alpha, cmap=cmap)
+                             alpha=alpha, cmap=cmap, interpolation="none")
         if cbar:
             if label is None:
                 print("No label passed for colour bar")
