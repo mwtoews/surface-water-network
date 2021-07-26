@@ -581,6 +581,7 @@ def test_coastal_elevations(coastal_swn, coastal_flow_m, tmp_path):
             nm.plot_reaches_vs_model("all", plot_bottom=True)
             for seg in [3049818, 3049378]:
                 nm.plot_reaches_vs_model(seg, plot_bottom=True)
+                plt.close()
 
     # Load a MODFLOW model
     sim = flopy.mf6.MFSimulation.load(
@@ -620,7 +621,8 @@ def test_coastal_elevations(coastal_swn, coastal_flow_m, tmp_path):
     sim.write_simulation()
     success, buff = sim.run_simulation()
     assert success
-    plt.close()
+    if matplotlib:
+        plt.close()
     # TODO: complete elevation adjustments; see older MODFLOW methods
 
 
