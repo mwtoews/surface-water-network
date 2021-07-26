@@ -971,6 +971,7 @@ def test_coastal_elevations(coastal_swn, coastal_flow_m, tmp_path):
                 nm.segment_data.index.isin([1, 18]), "segnum"
             ]:
                 nm.plot_reaches_vs_model(seg, plot_bottom=True)
+            plt.close()
 
     m = flopy.modflow.Modflow.load(
         "h.nam", version="mfnwt", exe_name=mfnwt_exe, model_ws=datadir,
@@ -1002,7 +1003,6 @@ def test_coastal_elevations(coastal_swn, coastal_flow_m, tmp_path):
     m.write_input()
     success, buff = m.run_model()
     assert success
-    plt.close()
 
 
 @requires_mfnwt
