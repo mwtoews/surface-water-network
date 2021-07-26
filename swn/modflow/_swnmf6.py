@@ -832,7 +832,7 @@ class SwnMf6(SwnModflowBase):
                       .format(thincells.sum(), minthick))
                 laythick[thincells] = minthick
                 layerbots[k + 1] = layerbots[k] - laythick
-            self.model.dis.botm = layerbots
+            self.model.dis.botm.set_data(layerbots)
 
     def _reachbyreach_elevs(self, minslope=0.0001, minincise=0.2, minthick=0.5,
                             fix_dis=True, direction='downstream'):
@@ -1106,7 +1106,7 @@ class SwnMf6(SwnModflowBase):
                       .format(thincells.sum(), minthick))
                 laythick[thincells] = minthick
                 layerbots[k + 1] = layerbots[k] - laythick
-            self.model.dis.botm = layerbots
+            self.model.dis.botm.set_data(layerbots)
 
     def _to_rno_elevs(
             self, minslope=0.0001, minincise=0.2, minthick=0.5, buffer=0.5,
@@ -1218,7 +1218,7 @@ class SwnMf6(SwnModflowBase):
                             if top[rdf.loc[r, "ij"]] < new_top:
                                 top[rdf.loc[r, "ij"]] = new_top
                             # bump bottoms down if needed
-                            maxbot = rdf.loc[r, "rtp"] - buffer
+                            maxbot = rdf.loc[r, "rtp"] - rdf.loc[r, "rbth"] - buffer
                             if botm[0][rdf.loc[r, "ij"]] >= maxbot:
                                 botdz = botm[0][rdf.loc[r, "ij"]] - maxbot
                                 for b in range(botm.shape[0]):
