@@ -602,7 +602,7 @@ def test_coastal_elevations(coastal_swn, coastal_flow_m, tmp_path):
     # _ = nm.reconcile_reach_strtop()
     # _make_plot_sequence()
     #
-    # _ = nm.set_topbot_elevs_at_reaches()
+    # _ = nm.add_model_topbot_to_reaches()
     nm.fix_reach_elevs(direction='upstream')
     _make_plot_sequence()
     nm.fix_reach_elevs(direction='downstream')

@@ -6,7 +6,6 @@ __all__ = ["SwnModflow"]
 import inspect
 from itertools import zip_longest
 
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
@@ -849,17 +848,17 @@ class SwnModflow(SwnModflowBase):
             others = kijcols - dif
             self.segment_data.drop(others, axis=0, inplace=True)
             # get model locations for segments ends
-            _ = self.get_seg_ijk()
+            self.get_seg_ijk()
         # get model cell elevations at seg ends
-        _ = self.get_top_elevs_at_segs()
+        self.get_top_elevs_at_segs()
         # get current segment incision at seg ends
-        _ = self.get_segment_incision()
+        self.get_segment_incision()
         # move segments end elevation down to achieve minimum incision
-        _ = self.set_seg_minincise(minincise=min_incise, max_str_z=max_str_z)
+        self.set_seg_minincise(minincise=min_incise, max_str_z=max_str_z)
         # get the elevations of downstream segments
-        _ = self.get_outseg_elev()
+        self.get_outseg_elev()
         # get segment length from reach lengths
-        _ = self.get_segment_length()
+        self.get_segment_length()
         # ensure downstream ends are below upstream ends
         # and reconcile upstream elevation of downstream segments
         self.set_forward_segs(min_slope=min_slope)
@@ -905,16 +904,27 @@ class SwnModflow(SwnModflowBase):
 
     def set_topbot_elevs_at_reaches(self, m=None):
         """
-        LEGACY
-        old method name to add model top and bottom information as columns
-        in `reaches` data
-        :param m: Modflow model
-        :return: dataframe with reach cell top and bottom elevations
+        Legacy method to add model top and bottom information to reaches.
+
+        .. deprecated:: 1.0
+            Use :py:meth:`add_model_topbot_to_reaches` instead.
+
+        Parameters
+        ----------
+        m : flopy.modflow.Modflow
+            Modeflow model object.
+
+        Returns
+        -------
+        pandas.DataFrame
+            with reach cell top and bottom elevations
         """
-        self.logger.warning(
-                '`set_topbot_elevs_at_reaches()` is the old method name,'
-                'changed to `add_model_topbot_to_reaches()`',
-        )
+        import warnings
+
+        msg = ("`set_topbot_elevs_at_reaches()` is deprecated, "
+               "use `add_model_topbot_to_reaches()`")
+        warnings.warn(msg, DeprecationWarning, stacklevel=2)
+        self.logger.warning(msg)
         if m is None:
             m = self.model
         return self.add_model_topbot_to_reaches(m)
@@ -954,7 +964,7 @@ class SwnModflow(SwnModflowBase):
         # make sure elevations are up-to-date
         # recalculate REACH strtop elevations
         self.reconcile_reach_strtop()
-        _ = self.add_model_topbot_to_reaches()
+        self.add_model_topbot_to_reaches()
         # top read from dis as float32 so comparison need to be with like
         reachsel = self.reaches["top"] <= self.reaches["strtop"]
         reach_ij = tuple(self.reaches[["i", "j"]].values.T)
@@ -1117,23 +1127,23 @@ class SwnModflow(SwnModflowBase):
                 layerbots[k + 1] = layerbots[k] - laythick
             self.model.dis.botm = layerbots
 
-    def plot_reaches_above(self, model=None, seg='all', dem=None,
-                           plot_bottom=False):
-        """
-        LEGACY ---- USE `plot_reaches_vs_model()
-        Wrapper method to plot the elevation of the MODFLOW model projected
-        streams relative to model top and layer 1 bottom
+    def plot_reaches_above(
+            self, model=None, seg="all", dem=None, plot_bottom=False):
+        """Plot map of stream elevations relative to model surfaces.
+
+        .. deprecated:: 1.0
+            Use :py:meth:`plot_reaches_vs_model` instead.
 
         Parameters
         ----------
-        model : flopy MODFLOW model instance
+        model : flopy MODFLOW model instance, default None
             With at least dis and bas6 -- so currently <MF6 method
-        seg : int or "all"
+        seg : int or str, default "all"
             Specific segment number to plot (sfr iseg/nseg)
-        dem : array
+        dem : array_like, default None
             For using as plot background -- assumes same (nrow, ncol)
             dimensions as model layer
-        plot_bottom : bool
+        plot_bottom : bool, default False
             Also plot stream bed elevation relative to the bottom of layer 1
 
         Returns
@@ -1141,14 +1151,16 @@ class SwnModflow(SwnModflowBase):
         vtop, vbot : ModelPlot objects containing matplotlib fig and axes
 
         """
-        self.logger.warning(
-                '`plot_reaches_above()` is the old method name,'
-                'changed to `plot_reaches_vs_model()`',
-        )
+        import warnings
+
+        msg = ("`plot_reaches_above()` is deprecated, "
+               "use `plot_reaches_vs_model()`")
+        warnings.warn(msg, DeprecationWarning, stacklevel=2)
+        self.logger.warning(msg)
         if model is not None:
             self.logger.warning(
                 'no longer using `model` parameter. Instead using model '
-                'associated with swnmodflow class object,'
+                'associated with swnmodflow class object, '
                 'changed to `plot_reaches_vs_model()`',
             )
         vtop, vbot = self.plot_reaches_vs_model(
@@ -1158,7 +1170,7 @@ class SwnModflow(SwnModflowBase):
         )
         return vtop, vbot
         # ensure reach elevations are up-to-date
-        _ = self.add_model_topbot_to_reaches()  #TODO check required first
+        self.add_model_topbot_to_reaches()  # TODO: check required first
         dis = model.dis
         # sfr = model.sfr
         if dem is None:
@@ -1203,4 +1215,3 @@ class SwnModflow(SwnModflowBase):
         else:
             vbot = None
         return vtop, vbot
-

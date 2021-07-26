@@ -492,7 +492,7 @@ def test_coastal_elevations(coastal_swn):
     max_str_z = tops.describe()["75%"]
     if matplotlib:
         for seg in nm.segment_data.index[nm.segment_data.index.isin([1, 18])]:
-            nm.plot_reaches_above(m, seg)
+            nm.plot_reaches_vs_model(seg)
             plt.close()
     _ = nm.fix_segment_elevs(min_incise=0.2, min_slope=1.e-4,
                              max_str_z=max_str_z)
@@ -502,22 +502,22 @@ def test_coastal_elevations(coastal_swn):
     flopy.modflow.mfsfr2.ModflowSfr2(
         model=m, reach_data=reach_data, segment_data=seg_data)
     if matplotlib:
-        nm.plot_reaches_above(m, "all", plot_bottom=False)
+        nm.plot_reaches_vs_model("all", plot_bottom=False)
         plt.close()
         for seg in nm.segment_data.index[nm.segment_data.index.isin([1, 18])]:
-            nm.plot_reaches_above(m, seg)
+            nm.plot_reaches_vs_model(seg)
             plt.close()
-    _ = nm.set_topbot_elevs_at_reaches()
+    _ = nm.add_model_topbot_to_reaches()
     nm.fix_reach_elevs()
     seg_data = nm.flopy_segment_data()
     reach_data = nm.flopy_reach_data()
     flopy.modflow.mfsfr2.ModflowSfr2(
         model=m, reach_data=reach_data, segment_data=seg_data)
     if matplotlib:
-        nm.plot_reaches_above(m, "all", plot_bottom=False)
+        nm.plot_reaches_vs_model("all", plot_bottom=False)
         plt.close()
         for seg in nm.segment_data.index[nm.segment_data.index.isin([1, 18])]:
-            nm.plot_reaches_above(m, seg)
+            nm.plot_reaches_vs_model(seg)
             plt.close()
 
 

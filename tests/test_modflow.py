@@ -745,9 +745,9 @@ def test_set_elevations(tmp_path):
     nm = swn.SwnModflow.from_swn_flopy(n, m)
     nm.default_segment_data()
     # fix elevations
-    _ = nm.set_topbot_elevs_at_reaches()
+    _ = nm.add_model_topbot_to_reaches()
     if matplotlib:
-        nm.plot_reaches_above(m, "all", plot_bottom=True)
+        nm.plot_reaches_vs_model("all", plot_bottom=True)
         for seg in nm.reaches.segnum.unique():
             nm.plot_profile(
                 seg, upstream=True, downstream=True
@@ -759,16 +759,16 @@ def test_set_elevations(tmp_path):
     # pass segment elevation back to update reach elevations
     _ = nm.reconcile_reach_strtop()
     if matplotlib:
-        nm.plot_reaches_above(m, "all", plot_bottom=True)
-        nm.plot_reaches_above(m, 1)
+        nm.plot_reaches_vs_model("all", plot_bottom=True)
+        nm.plot_reaches_vs_model(1)
         for seg in nm.reaches.segnum.unique():
             nm.plot_profile(
                 seg, upstream=True, downstream=True
             )
-    _ = nm.set_topbot_elevs_at_reaches()
+    _ = nm.add_model_topbot_to_reaches()
     nm.fix_reach_elevs()
     if matplotlib:
-        nm.plot_reaches_above(m, "all", plot_bottom=True)
+        nm.plot_reaches_vs_model("all", plot_bottom=True)
         for seg in nm.reaches.segnum.unique():
             nm.plot_profile(
                 seg, upstream=True, downstream=True
@@ -966,11 +966,11 @@ def test_coastal(tmp_path, coastal_lines_gdf, coastal_flow_m):
 def test_coastal_elevations(coastal_swn, coastal_flow_m, tmp_path):
     def _make_plot_sequence():
         if matplotlib:
-            nm.plot_reaches_above(m, "all", plot_bottom=True)
+            nm.plot_reaches_vs_model("all", plot_bottom=True)
             for seg in nm.segment_data.loc[
                 nm.segment_data.index.isin([1, 18]), "segnum"
             ]:
-                nm.plot_reaches_above(m, seg, plot_bottom=True)
+                nm.plot_reaches_vs_model(seg, plot_bottom=True)
 
     m = flopy.modflow.Modflow.load(
         "h.nam", version="mfnwt", exe_name=mfnwt_exe, model_ws=datadir,
@@ -979,7 +979,7 @@ def test_coastal_elevations(coastal_swn, coastal_flow_m, tmp_path):
     nm = swn.SwnModflow.from_swn_flopy(coastal_swn, m)
     nm.default_segment_data()
     nm.set_segment_data_inflow(coastal_flow_m)
-    _ = nm.set_topbot_elevs_at_reaches()
+    _ = nm.add_model_topbot_to_reaches()
     _make_plot_sequence()
     # handy to set a max elevation that a stream can be
     _ = nm.get_seg_ijk()
@@ -990,7 +990,7 @@ def test_coastal_elevations(coastal_swn, coastal_flow_m, tmp_path):
     _ = nm.reconcile_reach_strtop()
     _make_plot_sequence()
 
-    _ = nm.set_topbot_elevs_at_reaches()
+    _ = nm.add_model_topbot_to_reaches()
     nm.fix_reach_elevs()
     _make_plot_sequence()
 

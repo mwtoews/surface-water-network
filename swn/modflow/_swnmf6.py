@@ -661,16 +661,17 @@ class SwnMf6(SwnModflowBase):
         # 0. Segments are below the model top
         # 1. Segments flow downstream
         # 2. Downstream segments are below upstream segments
-        _ = self.fix_segment_elevs(min_incise=min_incise,
-                                   min_slope=minslope,
-                                   max_str_z=max_str_z)
-        _ = self.reconcile_reach_strtop()
+        self.fix_segment_elevs(
+            min_incise=min_incise,
+            min_slope=minslope,
+            max_str_z=max_str_z)
+        self.reconcile_reach_strtop()
         buffer = 1.0  # 1 m (buffer to leave at the base of layer 1 -
         # also helps with precision issues)
         # make sure elevations are up-to-date
         # recalculate REACH strtop elevations
         self.reconcile_reach_strtop()
-        _ = self.add_model_topbot_to_reaches()
+        self.add_model_topbot_to_reaches()
         # top read from dis as float32 so comparison need to be with like
         reachsel = self.reaches["top"] <= self.reaches["strtop"]
         reach_ij = tuple(self.reaches[["i", "j"]].values.T)
@@ -903,7 +904,7 @@ class SwnMf6(SwnModflowBase):
         # make sure elevations are up-to-date
         # recalculate REACH strtop elevations
         # self.reconcile_reach_strtop()
-        _ = self.add_model_topbot_to_reaches()
+        self.add_model_topbot_to_reaches()
         # top read from dis as float32 so comparison need to be with like
         reachsel = self.reaches["top"] <= self.reaches["rtp"]
         reach_ij = tuple(self.reaches[["i", "j"]].values.T)
@@ -924,7 +925,8 @@ class SwnMf6(SwnModflowBase):
             # get profile of reaches from this headwater
             dsegs = self._swn.query(downstream=hdrch.segnum)
             segs = [hdrch.segnum] + dsegs
-            reaches = self.reaches.loc[self.reaches.segnum.isin(segs)].sort_index()
+            reaches = self.reaches.loc[
+                self.reaches.segnum.isin(segs)].sort_index()
             # get outflow reach for this profile
             # maybe can't rely on it being the last one
             # the sort_index() should order (assuming rno increases downstream)
@@ -942,7 +944,8 @@ class SwnMf6(SwnModflowBase):
             inc_dn = outflow.top - botreach_rtp
             # total profile length
             totlen = reaches.rlen.sum()
-            reaches['mid_dist'] = reaches['rlen'].cumsum() - reaches['rlen'] / 2
+            reaches['mid_dist'] = \
+                reaches['rlen'].cumsum() - reaches['rlen'] / 2.0
             if ustrm:  # switch order
                 reaches = reaches.sort_index(ascending=False)
                 prevreach_top = botreach_rtp
@@ -951,7 +954,6 @@ class SwnMf6(SwnModflowBase):
             else:
                 prevreach_top = upreach_rtp
                 prevreach_mid = reaches.iloc[0].mid_dist
-
 
             # get incision gradient from headwater and outflow incision
             # ("inc_up" and "inc_dn" are the incisions of the top and
@@ -963,10 +965,12 @@ class SwnMf6(SwnModflowBase):
                     (reaches.top - inc_up) +
                     ((reaches.mid_dist - prevreach_mid) * incgrad)
             )
-            layerbots = _check_reach_v_laybot(reaches.iloc[0], layerbots, buffer)
+            layerbots = _check_reach_v_laybot(
+                reaches.iloc[0], layerbots, buffer)
             # loop over current profile from second to penultimate
             # (dont want to move endpoints)
-            for reach in reaches.iloc[1:].itertuples():  # TODO maybe more flexibility on bottom reach incision
+            # TODO maybe more flexibility on bottom reach incision
+            for reach in reaches.iloc[1:].itertuples():
                 # strtop that would result from minimum slope
                 # from upstream reach
                 rtp = reach.rtp
@@ -1104,132 +1108,140 @@ class SwnMf6(SwnModflowBase):
                 layerbots[k + 1] = layerbots[k] - laythick
             self.model.dis.botm = layerbots
 
-    def _to_rno_elevs(self, minslope=0.0001, minincise=0.2, minthick=0.5,
-                            buffer=0.5, fix_dis=True):
+    def _to_rno_elevs(
+            self, minslope=0.0001, minincise=0.2, minthick=0.5, buffer=0.5,
+            fix_dis=True):
         """
-        Wes's hacky attempt to set reach elevations. Doesn't really ensure anything,
-        but the goal is:
-        
+        Wes's hacky attempt to set reach elevations. Doesn't really ensure
+        anything, but the goal is:
+
             0. get a list of cells with to_rtp > rtp-minslope*(delr+delc)/2
-            1. drop rtp of downstream reach (to_rno) when higher than rtp (of rno)
+            1. drop rtp of downstream reach (to_rno) when higher than rtp
+               (of rno)
             2. grab all offensive reaches downstream of rno
             3. check and fix all layer bottoms to be above minthick+buffer
-            4. adjust top, up only, to accomodate minincision or rtp above cell top
+            4. adjust top, up only, to accomodate minincision or rtp above
+               cell top
 
         Parameters
         ----------
-        minslope : float,
+        minslope : float, default 1e-4
             The minimum allowable slope between adjacent reaches
             (to be considered flowing downstream).
-            Default: 1e-4
-        minincise : float,
+        minincise : float, default 0.2
             The minimum allowable incision of a reach below the model top.
-            Default : 0.2
-        minthick : float,
-            The minimum thickness of stream bed. Will try to ensure that this is
-            available below stream top before layer bottom.
-            Default: 0.5
-        buffer : float,
-            The minimum cell thickness between the bottom of stream bed (rtp-minthick)
-            and the bottom of the layer 1 cell
-            default: 0.5
-        fix_dis : bool,
+        minthick : float, default 0.5
+            The minimum thickness of stream bed. Will try to ensure that this
+            is available below stream top before layer bottom.
+        buffer : float, default 0.5
+            The minimum cell thickness between the bottom of stream bed
+            (rtp-minthick) and the bottom of the layer 1 cell
+        fix_dis : bool, default True
             Move layer elevations down where it is not possible to honor
             minimum slope without going below layer 1 bottom.
-            Default: True
 
         Returns
         -------
+        None
 
         """
 
         # copy some data
-        top=self.model.dis.top.array.copy()
-        botm=self.model.dis.botm.array.copy()
-        delr=self.model.dis.delr.data.copy()
-        delc=self.model.dis.delc.data.copy()
-        rdf=self.reaches.copy()
-        icols=rdf.columns.to_list()
-        
+        top = self.model.dis.top.array.copy()
+        botm = self.model.dis.botm.array.copy()
+        delr = self.model.dis.delr.data.copy()
+        delc = self.model.dis.delc.data.copy()
+        rdf = self.reaches.copy()
+        icols = rdf.columns.to_list()
 
         # add some columns to rdf
-        rdf['ij']=rdf.apply(lambda x: (int(x['i']),int(x['j'])),axis=1)
+        rdf["ij"] = rdf.apply(lambda x: (int(x["i"]), int(x["j"])), axis=1)
         # hopefully this sort of addresses local grid refinement?
-        rdf['mindz']=minslope*(delr[rdf.loc[:,'j']]+delc[rdf.loc[:,'i']])/2
-        if 'rbth' not in rdf.columns:                
-            rdf['rbth']=minthick
-            icols.append('rbth')
-        if 'rtp' not in rdf.columns:
-            rdf['rtp']=np.nan
+        rdf["mindz"] = minslope * \
+            (delr[rdf.loc[:, "j"]] + delc[rdf.loc[:, "i"]]) / 2.0
+        if "rbth" not in rdf.columns:
+            rdf["rbth"] = minthick
+            icols.append("rbth")
+        if "rtp" not in rdf.columns:
+            rdf["rtp"] = np.nan
             # add to list of columns to be returned
-            icols.append('rtp')
-        if 'incise' not in rdf.columns:
-            rdf['incise']=minincise
-            icols.append('incise')
-        # reach specific so iterrows?    
-        for idx,r in rdf.iterrows():
-            if np.isnan(r['rtp']):
-                rdf.loc[idx,'rbth']=np.max([r['rbth'],minthick])
-                rdf.loc[idx,'rtp']=top[r['ij']]-minincise                          
-        for idx,r in rdf.iterrows():
-            trno=int(r['to_rno'])
-            if trno!=0:
-                rdf.loc[idx,'to_rtp']=rdf.loc[trno,'rtp']
+            icols.append("rtp")
+        if "incise" not in rdf.columns:
+            rdf["incise"] = minincise
+            icols.append("incise")
+        # reach specific so iterrows?
+        for idx, r in rdf.iterrows():
+            if np.isnan(r["rtp"]):
+                rdf.loc[idx, "rbth"] = np.max([r["rbth"], minthick])
+                rdf.loc[idx, "rtp"] = top[r["ij"]]-minincise
+        for idx, r in rdf.iterrows():
+            trno = int(r["to_rno"])
+            if trno != 0:
+                rdf.loc[idx, "to_rtp"] = rdf.loc[trno, "rtp"]
         # start loop
-        loop=0
-        cont=True
+        loop = 0
+        cont = True
         while cont:
-            bad_reaches=[i for i in rdf.index if rdf.loc[i,'to_rtp'] > rdf.loc[i,'rtp']-rdf.loc[i,'mindz']]
-            loop=loop+1
-            chg=0
+            bad_reaches = [i for i in rdf.index
+                           if rdf.loc[i, "to_rtp"] > rdf.loc[i, "rtp"] -
+                           rdf.loc[i, "mindz"]]
+            loop += 1
+            chg = 0
             for br in bad_reaches:
-                rno=br
-                trno=int(rdf.loc[br,'to_rno'])
-                chglist=[]
-                if trno!=0:
-                    #count how many downstream reaches offend                    
+                rno = br
+                trno = int(rdf.loc[br, "to_rno"])
+                chglist = []
+                if trno != 0:
+                    # count how many downstream reaches offend
                     # keep track of changes in elev
-                    dz=rdf.loc[rno,'mindz']
-                    while trno!=0 and rdf.loc[trno,'rtp']>rdf.loc[rno,'rtp']-dz:
-                        # keep list of dz in case another inflowing stream is even lower
+                    dz = rdf.loc[rno, "mindz"]
+                    check = rdf.loc[trno, "rtp"] > rdf.loc[rno, "rtp"] - dz
+                    while trno != 0 and check:
+                        # keep list of dz in case another inflowing stream is
+                        # even lower
                         chglist.append(trno)
-                        nelev=rdf.loc[rno,'rtp']-dz
+                        nelev = rdf.loc[rno, "rtp"] - dz
                         # set to_rtp and rtp
-                        rdf.loc[rno,'to_rtp']=nelev                
-                        rdf.loc[trno,'rtp']=nelev
+                        rdf.loc[rno, "to_rtp"] = nelev
+                        rdf.loc[trno, "rtp"] = nelev
                         # move downstream
-                        rno=trno
-                        trno=rdf.loc[rno,'to_rno']
-                        dz=rdf.loc[rno,'mindz']
-                        
-                    # now adjust layering if necessary
-                    if len(chglist)>0 and fix_dis:
-                        # print('adjusting top for {} reaches'.format(len(chglist)))
-                        for r in chglist:                            
-                            # bump top elev up to rtp+incise if need be
-                            if top[rdf.loc[r,'ij']]<rdf.loc[r,'rtp']+rdf.loc[r,'incise']:
-                                top[rdf.loc[r,'ij']]=rdf.loc[r,'rtp']+rdf.loc[r,'incise']
-                            # bump bottoms down if needed
-                            maxbot=rdf.loc[r,'rtp']-buffer
-                            if botm[0][rdf.loc[r,'ij']]>=maxbot:
-                                botdz=botm[0][rdf.loc[r,'ij']]-maxbot
-                                for b in range(0,botm.shape[0]):
-                                    botm[b][rdf.loc[r,'ij']]=botm[b][rdf.loc[r,'ij']]-botdz
-                                
-                chg=chg+len(chglist)
-            if chg==0:
-                cont=False
-            else:
-                print('{} changed in loop {}'.format(chg,loop))
-        setattr(self,'reaches',rdf[icols+['to_rtp','mindz']])
-        self.model.dis.botm=botm
-        self.model.dis.top=top
+                        rno = trno
+                        trno = rdf.loc[rno, "to_rno"]
+                        dz = rdf.loc[rno, "mindz"]
 
-    def fix_reach_elevs(self, minslope=0.0001, minincise=0.2, minthick=0.5, buffer=0.1,
-                        fix_dis=True, direction='downstream', segbyseg=False,
-                        to_rno_elevs=False):
-        """
-        Fix reach elevations.
+                    # now adjust layering if necessary
+                    if len(chglist) > 0 and fix_dis:
+                        # print(f"adjusting top for {len(chglist)} reaches")
+                        for r in chglist:
+                            # bump top elev up to rtp+incise if need be
+                            new_top = rdf.loc[r, "rtp"] + rdf.loc[r, "incise"]
+                            if top[rdf.loc[r, "ij"]] < new_top:
+                                top[rdf.loc[r, "ij"]] = new_top
+                            # bump bottoms down if needed
+                            maxbot = rdf.loc[r, "rtp"] - buffer
+                            if botm[0][rdf.loc[r, "ij"]] >= maxbot:
+                                botdz = botm[0][rdf.loc[r, "ij"]] - maxbot
+                                for b in range(botm.shape[0]):
+                                    botm[b][rdf.loc[r, "ij"]] = \
+                                        botm[b][rdf.loc[r, "ij"]] - botdz
+
+                chg += len(chglist)
+            if chg == 0:
+                cont = False
+            else:
+                print("{} changed in loop {}".format(chg, loop))
+        setattr(self, "reaches", rdf[icols + ["to_rtp", "mindz"]])
+        self.model.dis.botm = botm
+        self.model.dis.top = top
+
+    def fix_reach_elevs(
+            self, minslope=0.0001, minincise=0.2, minthick=0.5, buffer=0.1,
+            fix_dis=True, direction="downstream", segbyseg=False,
+            to_rno_elevs=False):
+        """Fix reach elevations.
+
+        Notes
+        -----
         Need to ensure reach elevation is:
             0. below the top
             1. below the upstream reach
@@ -1240,51 +1252,44 @@ class SwnMf6(SwnModflowBase):
 
         Parameters
         ----------
-        minslope : float,
+        minslope : float, default 1e-4
             The minimum allowable slope between adjacent reaches
             (to be considered flowing downstream).
-            Default: 1e-4
-        minincise : float,
+        minincise : float, default 0.2
             The minimum allowable incision of a reach below the model top.
-            Default : 0.2
-        minthick : float,
-            The minimum thickness of stream bed. Will try to ensure that this is
-            available below stream top before layer bottom.
-            Default: 0.5
-        buffer : float,
-            The minimum cell thickness between the bottom of stream bed (rtp-minthick)
-            and the bottom of the layer 1 cell
-            default: 0.5
-        fix_dis : bool,
+        minthick : float, default 0.5
+            The minimum thickness of stream bed. Will try to ensure that this
+            is available below stream top before layer bottom.
+        buffer : float, default 0.5
+            The minimum cell thickness between the bottom of stream bed
+            (rtp-minthick) and the bottom of the layer 1 cell
+        fix_dis : bool, default True
             Move layer elevations down where it is not possible to honor
             minimum slope without going below layer 1 bottom.
-            Default: True
-        direction : `str`, 'upstream', 'downstream' or 'both'
+        direction : str, "upstream", "downstream" (defaut) or "both"
             Select whether elevations are set from ensuring a minimum slope
             in a upstream or downstream direction.
-            If 'upstream' will honor elevation at outlet reach
+            If "upstream" will honor elevation at outlet reach
                 (if in model layer) and work upstream ensuring minimum slope.
-            If 'downstream' will honor elevation at headwater reach
+            If "downstream" will honor elevation at headwater reach
                 (if in model layer) and work downstream ensuring minimum slope.
-            If 'both' will iterate 'upstream' first and then 'downstrem',
+            If "both" will iterate "upstream" first and then "downstream",
                 handy is no constraint on stream elevations.
-            Default: 'downstream',
-            set elevations from headwaters to outlets.
-        segbyseg : bool,
+        segbyseg : bool, default False
             NOT IMPLEMENTED
             Sets elevation of reaches segment by segment.
             If True, will attempt to honor the elevations specified at the
             upstream and downstream ends of each input line segment
             (if they are in the top model layer and appropriately downstream).
             If False will only attempt to honor elevations/incision at
-            headwaters and outlets. Default: False
-            Default is
-        to_rno_elevs : bool,
+            headwaters and outlets.
+        to_rno_elevs : bool, default False
             attempt to quickly ensure rtp of the downstream reach
             is lower than rtp of the upstream reach
 
         Returns
         -------
+        None
 
         """
         if segbyseg:
@@ -1298,6 +1303,6 @@ class SwnMf6(SwnModflowBase):
             else:
                 direction = [direction]
             for d in direction:
-                self._reachbyreach_elevs(minslope, minincise, minthick, fix_dis,
-                                         d)
+                self._reachbyreach_elevs(
+                    minslope, minincise, minthick, fix_dis, d)
         return

@@ -956,7 +956,7 @@ class SwnModflowBase:
             minimum of series.
         """
         has_z = self._swn.has_z
-        supported_methods = ["auto", "zcoord_ab", "grid_top","rch_len"]
+        supported_methods = ["auto", "zcoord_ab", "grid_top", "rch_len"]
         if method not in supported_methods:
             raise ValueError(f"{method} not in {supported_methods}")
         if method == "auto":
@@ -1035,8 +1035,9 @@ class SwnModflowBase:
             row_size = np.median(dis.delc.array)
             px, py = np.gradient(dis.top.array, col_size, row_size)
             grid_dz = np.sqrt((px*col_size) ** 2 + (py*row_size) ** 2)
-            self.reaches.loc[:,grid_name]= \
-                grid_dz[self.reaches['i'],self.reaches['j']]/self.reaches['rlen']
+            self.reaches.loc[:, grid_name] = (
+                grid_dz[self.reaches['i'], self.reaches['j']] /
+                self.reaches['rlen'])
         # Enforce min_slope when less than min_slop or is NaN
         sel = (rchs[grid_name] < rchs["min_slope"]) | rchs[grid_name].isna()
         if sel.any():
@@ -1197,10 +1198,17 @@ class SwnModflowBase:
     # __________________ SOME ELEVATION METHODS_________________________
     def add_model_topbot_to_reaches(self, m=None):
         """
-        get top and bottom elevation of the model cell containing each
-        surface water network reach
-        :param m: Modflow model
-        :return: dataframe with reach cell top and bottom elevations
+        Get top and bottom elevation of the model cell containing each reach.
+
+        Parameters
+        ----------
+        m : flopy.modflow.Modflow or flopy.mf6.ModflowGwf
+            Modeflow model object.
+
+        Returns
+        -------
+        pandas.DataFrame
+            with reach cell top and bottom elevations
         """
         if m is None:
             m = self.model
@@ -1208,20 +1216,20 @@ class SwnModflowBase:
         self.set_reach_data_from_array('bot', m.dis.botm[0].array)
         return self.reaches[['top', 'bot']]
 
-    def plot_reaches_vs_model(self, seg, dem=None,
-                              plot_bottom=False):
-        """
-        Wrapper method to plot the elevation of the MODFLOW model projected
-        streams relative to model top and layer 1 bottom
+    def plot_reaches_vs_model(self, seg, dem=None, plot_bottom=False):
+        """Plot map of stream elevations relative to model surfaces.
+
+        The elevation of the MODFLOW model projected streams relative to model
+        top and layer 1 bottom.
 
         Parameters
         ----------
-        seg : int or "all"
+        seg : int or str, default "all"
             Specific segment number to plot (sfr iseg/nseg)
-        dem : array
+        dem : array_like, default None
             For using as plot background -- assumes same (nrow, ncol)
             dimensions as model layer
-        plot_bottom : bool
+        plot_bottom : bool, default False
             Also plot stream bed elevation relative to the bottom of layer 1
 
         Returns
@@ -1233,15 +1241,13 @@ class SwnModflowBase:
         model = self.model  # inherit model from class object
         if self.__class__.__name__ == "SwnModflow":
             ib = model.bas6.ibound.array[0]
-            strtoptag = 'strtop'
-            lentag = "rchlen"
+            strtoptag = "strtop"
         elif self.__class__.__name__ == "SwnMf6":
             ib = model.dis.idomain.array[0]
-            strtoptag = 'rtp'
-            lentag = "rlen"
+            strtoptag = "rtp"
 
         # Ensure reach elevations are up-to-date
-        _ = self.add_model_topbot_to_reaches()  #TODO check required first
+        self.add_model_topbot_to_reaches()  # TODO check required first
         # Plot model top (or dem on background)
         dis = model.dis
         if dem is None:
@@ -1293,21 +1299,20 @@ class SwnModflowBase:
         return vtop, vbot
 
     def plot_profile(self, seg, upstream=False, downstream=False):
-        """
-        Quick wrapper method for plotting stream top profiles vs model grid
-        top and bottom.
+        """Plot stream top profiles vs model grid top and bottom.
+
         Parameters
         ----------
         seg : int
-            Identifying segment for plots
-        upstream : bool
+            Identifying segment for plots, counting from 1.
+        upstream : bool, default False
             Flag for continuing trace upstream from segnum = `seg`
-        downstream : bool
+        downstream : bool, default False
             Flag for continuing trace downstream of segnum = `seg`
 
         Returns
         -------
-
+        None
         """
         from swn.modflow._modelplot import _profile_plot
         if self.__class__.__name__ == "SwnModflow":
@@ -1329,4 +1334,3 @@ class SwnModflowBase:
         reaches['mid_dist'] = reaches[lentag].cumsum() - reaches[lentag] / 2
         _profile_plot(reaches, lentag=lentag, x='mid_dist',
                       cols=[strtoptag, 'top', 'bot'])
-

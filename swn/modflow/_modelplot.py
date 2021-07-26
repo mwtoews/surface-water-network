@@ -180,7 +180,7 @@ class ModelPlot:
     def _add_plotlayer(self, ar, vmin=None, vmax=None, norm=None, cmap=None,
                        zorder=10, alpha=0.8, cbar=True, label=None):
         """
-        Add image for layer array
+        Add image for layer array.
 
         :param ar: 2D numpy array to plot
         :param vmin: minimum value to clip
@@ -192,7 +192,6 @@ class ModelPlot:
         :param cbar: flag to plot with colorbar for layer
         :param label: label for colorbar
         """
-
         if self.ax is None:
             return
         if cmap is None:
@@ -228,7 +227,6 @@ class ModelPlot:
         :param x: 2D numpy array
         :param zorder: mpl overlay order
         """
-
         vmin = x.min()
         vmax = x.max()
         if cat_cmap:
@@ -293,7 +291,6 @@ class ModelPlot:
                                            axes_class=plt.Axes,
                                            **divider_props)
             cbar1 = self.fig.colorbar(sm, cax=cax)
-        test=None
         # divider_props, props = vtop._get_cbar_props()
         # cax = vtop.divider.append_axes("right", size="5%",
         #                                axes_class=plt.Axes,
@@ -306,7 +303,6 @@ def _profile_plot(
         x='rchlen',
         cols=['strtop', 'top', 'bot']
 ):
-    import pandas as pd
     if not sorted_df[x].is_monotonic_increasing:
         print(f"Expected x column of `sorted_df` ({x}) to be "
               "monotonically increasing but it isn't, "
@@ -339,6 +335,7 @@ def sfr_plot(model, sfrar, dem, label=None, lines=None):
     if lines is not None:
         p._add_lines(lines)
     return p
+
 
 if matplotlib:
     class MidpointNormalize(matplotlib.colors.Normalize):
