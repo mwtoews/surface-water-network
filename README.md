@@ -80,13 +80,11 @@ upstream/downstream from certain locations:
 n.remove(n.segments.stream_order == 1, segnums=n.query(upstream=3047927))
 ```
 
-Read flow data from a TopNet netCDF file:
+Read flow data from a TopNet netCDF file, convert from m3/s to m3/day:
 ```python
 
 nc_path = 'tests/data/streamq_20170115_20170128_topnet_03046727_strahler1.nc'
-flow = swn.file.topnet2ts(nc_path, 'mod_flow')
-# convert from m3/s to m3/day
-flow *= 24 * 60 * 60
+flow = swn.file.topnet2ts(nc_path, 'mod_flow', 86400)
 # remove time and truncate to closest day
 flow.index = flow.index.floor('d')
 
@@ -107,7 +105,7 @@ nm.default_segment_data()
 nm.set_segment_data_inflow(flow_m)
 nm.plot()
 nm.to_pickle('sfr_network.pkl')
-nm = swn.SwnModflow.from_pickle('sfr_network.pkl', m)
+nm = swn.SwnModflow.from_pickle('sfr_network.pkl', n, m)
 nm.set_sfr_obj()
 m.sfr.write_file('file.sfr')
 nm.grid_cells.to_file('grid_cells.shp')

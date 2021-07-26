@@ -18,7 +18,7 @@ from swn.spatial import get_sindex
 from swn.util import abbr_str
 
 
-class SurfaceWaterNetwork(object):
+class SurfaceWaterNetwork:
     """Surface water network class.
 
     Attributes

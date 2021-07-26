@@ -33,7 +33,7 @@ rtree_threshold = 100
 def get_sindex(gdf):
     """Get or build an R-Tree spatial index.
 
-    Particularly useful for geopandas<0.2.0;>0.7.0
+    Particularly useful for geopandas<0.2.0;>0.7.0;0.9.0
     """
     sindex = None
     if (hasattr(gdf, '_rtree_sindex')):
@@ -44,12 +44,13 @@ def get_sindex(gdf):
     elif isinstance(gdf, geopandas.GeoSeries) and hasattr(gdf, 'sindex'):
         sindex = gdf.sindex
     if sindex is not None:
-        if hasattr(sindex, 'nearest'):
-            # probably rtree.index.Index or future PyGEOSSTRTreeIndex method
+        if (hasattr(sindex, "nearest") and
+                sindex.__class__.__name__ != "PyGEOSSTRTreeIndex"):
+            # probably rtree.index.Index
             return sindex
         else:
-            # probably PyGEOSSTRTreeIndex from geopandas>=0.7.0
-            # but unfortunately, 'nearest' is required
+            # probably PyGEOSSTRTreeIndex but unfortunately, 'nearest'
+            # with 'num_results' is required
             sindex = None
     if rtree and len(gdf) >= rtree_threshold:
         # Manually populate a 2D spatial index for speed
@@ -159,6 +160,9 @@ def round_coords(gs, rounding_precision=3):
     return wkt_to_geoseries(
             gs.apply(wkt.dumps, rounding_precision=rounding_precision))
 
+def visible_wkt(geom):
+    """Re-generate geometry to only visible WKT, erase machine precision."""
+    return wkt.loads(geom.wkt)
 
 def compare_crs(sr1, sr2):
     """Compare two crs, flexible on crs type."""

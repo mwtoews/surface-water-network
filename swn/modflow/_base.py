@@ -2,7 +2,6 @@
 """Abstract base class for a surface water network for MODFLOW."""
 
 import pickle
-from itertools import combinations
 
 import geopandas
 import numpy as np
@@ -15,14 +14,16 @@ from swn.core import SurfaceWaterNetwork
 from swn.modflow._misc import (
     tile_series_as_frame, transform_data_to_series_or_frame
 )
-from swn.spatial import compare_crs, get_sindex
+from swn.spatial import compare_crs, get_sindex, visible_wkt
 
 
-class SwnModflowBase(object):
+class SwnModflowBase:
     """Abstract class for a surface water network adaptor for MODFLOW.
 
     Attributes
     ----------
+    swn : swn.SurfaceWaterNetwork
+        Instance of a SurfaceWaterNetwork.
     model : flopy.modflow.Modflow or flopy.mf6.ModflowGwf
         Reference to flopy model object.
     reaches : geopandas.GeoDataFrame
@@ -63,6 +64,7 @@ class SwnModflowBase(object):
     def __iter__(self):
         """Return object datasets with an iterator."""
         yield "class", self.__class__.__name__
+        yield "swn", self.swn
         yield "model", self.model
         yield "segments", self.segments
         yield "diversions", self.diversions
@@ -70,24 +72,28 @@ class SwnModflowBase(object):
 
     def __setstate__(self, state):
         """Set object attributes from pickle loads."""
+        self.__init__()
         if not isinstance(state, dict):
             raise ValueError("expected 'dict'; found {!r}".format(type(state)))
-        elif "class" not in state:
-            raise KeyError("state does not have 'class' key")
-        elif state["class"] != self.__class__.__name__:
+        state_class = state.get("class")
+        if state_class != self.__class__.__name__:
             raise ValueError("expected state class {!r}; found {!r}"
-                             .format(state["class"], self.__class__.__name__))
-        self.__init__()
-        # Note: model must be set outsie of this method
-        self.segments = state["segments"]
-        self.diversions = state["diversions"]
-        self.reaches = state["reaches"]
+                             .format(self.__class__.__name__, state_class))
+        # Note: swn and model must be set outside of this method
+        self.segments = state.pop("segments")
+        self.diversions = state.pop("diversions")
+        self.reaches = state.pop("reaches")
 
     def __getstate__(self):
         """Serialize object attributes for pickle dumps."""
-        return dict(self)
+        obj = {}
+        for k, v in self:
+            if k in ("swn", "model"):
+                continue
+            obj[k] = v
+        return obj
 
-    def to_pickle(self, path, protocol=pickle.HIGHEST_PROTOCOL):
+    def to_pickle(self, path, protocol=4):
         """Pickle (serialize) non-flopy object data to file.
 
         Parameters
@@ -95,40 +101,214 @@ class SwnModflowBase(object):
         path : str
             File path where the pickled object will be stored.
         protocol : int
-            Default is pickle.HIGHEST_PROTOCOL.
+            Default is 4, added in Python 3.4.
 
         """
         with open(path, "wb") as f:
             pickle.dump(self, f, protocol=protocol)
 
     @classmethod
-    def from_pickle(cls, path, model):
+    def from_pickle(cls, path, swn=None, model=None):
         """Read a pickled format from a file.
 
         Parameters
         ----------
         path : str
             File path where the pickled object will be stored.
-        model : flopy.modflow.Modflow or flopy.mf6.ModflowGwf
+        swn : swn.SurfaceWaterNetwork, optional
+            Instance of a SurfaceWaterNetwork.
+        model : flopy.modflow.Modflow or flopy.mf6.ModflowGwf, optional
             Instance of a flopy MODFLOW model.
 
         """
         with open(path, "rb") as f:
             obj = pickle.load(f)
-        obj.model = model
+        if swn is not None:
+            obj.swn = swn
+        if model is not None:
+            obj.model = model
         return obj
 
     @property
+    def swn(self):
+        """Surface water network object.
+
+        This propery can only be set once.
+
+        See Also
+        --------
+        from_pickle : Read object from file.
+        """
+        try:
+            return getattr(self, "_swn", None)
+        except AttributeError:
+            self.logger.error("swn property not set")
+
+    @swn.setter
+    def swn(self, swn):
+        prev_swn = getattr(self, "_swn", None)
+        if prev_swn is None and isinstance(swn, SurfaceWaterNetwork):
+            self._swn = swn
+        else:
+            raise AttributeError("swn property can only be set once")
+
+    @property
     def model(self):
-        """Return flopy model object."""
+        """Flopy model object.
+
+        This propery can be set more than once, but time and most grid
+        properties must match. Setting this method also generates
+        ``time_index`` and ``grid_cells`` attributes from the model.
+
+        See Also
+        --------
+        from_pickle : Read object from file.
+        """
         try:
             return getattr(self, "_model", None)
         except AttributeError:
-            self.logger.error("'model' property not set")
+            self.logger.error("model property not set")
 
     @model.setter
     def model(self, model):
-        raise NotImplementedError()
+        import flopy
+
+        if model is None:
+            self.logger.info("unsetting model properry")
+            self._model = None
+            return
+
+        this_class = self.__class__.__name__
+        if this_class == "SwnModflow":
+            if not isinstance(model, flopy.modflow.Modflow):
+                raise ValueError(
+                    "model must be a flopy Modflow object; found " +
+                    str(type(model)))
+            elif not model.has_package("DIS"):
+                raise ValueError("DIS package required")
+            elif not model.has_package("BAS6"):
+                raise ValueError("BAS6 package required")
+        elif this_class == "SwnMf6":
+            if not (isinstance(model, flopy.mf6.mfmodel.MFModel)):
+                raise ValueError(
+                    "model must be a flopy.mf6.MFModel object; found " +
+                    str(type(model)))
+            sim = model.simulation
+            if "tdis" not in sim.package_key_dict.keys():
+                raise ValueError("TDIS package required")
+            if "dis" not in model.package_type_dict.keys():
+                raise ValueError("DIS package required")
+            if not model.dis.idomain.has_data():
+                raise ValueError("DIS idomain has no data")
+        else:
+            raise NotImplementedError(this_class)
+        _model = getattr(self, "_model", None)
+        if _model is model:
+            self.logger.info("model is same object, checking other metadata")
+        elif _model is not None:
+            self.logger.info("swapping model object, checking other metadata")
+        self._model = model
+
+        # Use a model cache to determine if the rest needs to be evaulated
+        dis = model.dis
+        modelgrid = model.modelgrid
+        modeltime = model.modeltime
+        if this_class == "SwnModflow":
+            domain_label = "ibound"
+            domain = model.bas6.ibound[0].array.copy()
+            perlen = pd.Series(model.dis.perlen.array)
+        elif this_class == "SwnMf6":
+            domain_label = "idomain"
+            domain = dis.idomain.array[0].copy()
+            nper = sim.tdis.nper.data
+            perlen = pd.Series(sim.tdis.perioddata.array.perlen)
+            if len(perlen) == 1 and nper > 1:
+                perlen = perlen.repeat(nper).reset_index(drop=True)
+        else:
+            raise NotImplementedError(this_class)
+        modelcache = {
+            "perlen": np.array(perlen).tobytes(),
+            "time_units": str(modeltime.time_units),
+            "domain": domain.tobytes(),
+            "modelgrid": str(modelgrid),
+            "delr": modelgrid.delr.tobytes(),
+            "delc": modelgrid.delc.tobytes(),
+        }
+        prev_modelcache = getattr(self, "_modelcache", None)
+        if prev_modelcache is not None:
+            is_same = True
+            for key in modelcache.keys():
+                if prev_modelcache[key] != modelcache[key]:
+                    is_same = False
+                    self.logger.debug("model setter: %s is different", key)
+            if is_same:
+                self.logger.info(
+                    "model properties are the same, no update required")
+                return
+            raise AttributeError(
+                "model spatial and/or temporal properties are too different")
+
+        # Build stress period DataFrame from modflow model
+        stress_df = pd.DataFrame({"perlen": perlen})
+        stress_df["duration"] = pd.TimedeltaIndex(perlen, modeltime.time_units)
+        stress_df["start"] = pd.to_datetime(modeltime.start_datetime)
+        stress_df["end"] = stress_df["duration"] + stress_df.at[0, "start"]
+        stress_df.loc[1:, "start"] = stress_df["end"].iloc[:-1].values
+        self._stress_df = stress_df  # keep this for debugging
+        self.time_index = pd.DatetimeIndex(stress_df["start"]).copy()
+        self.time_index.name = None
+
+        # Determine which CRS to use
+        self_crs = getattr(self, "crs", None)
+        modelgrid_crs = None
+        epsg = modelgrid.epsg
+        proj4_str = modelgrid.proj4
+        if epsg is not None:
+            segments_crs, modelgrid_crs, same = compare_crs(self_crs, epsg)
+        else:
+            segments_crs, modelgrid_crs, same = compare_crs(self_crs,
+                                                            proj4_str)
+        if (segments_crs is not None and modelgrid_crs is not None and
+                not same):
+            self.logger.warning(
+                "CRS for modelgrid is different: {0} vs. {1}"
+                .format(segments_crs, modelgrid_crs))
+        crs = segments_crs or modelgrid_crs
+        if getattr(self, "segments", None) is not None:
+            # Make sure their extents overlap
+            minx, maxx, miny, maxy = modelgrid.extent
+            model_bbox = box(minx, miny, maxx, maxy)
+            rstats = self.segments.bounds.describe()
+            segments_bbox = box(
+                    rstats.loc["min", "minx"], rstats.loc["min", "miny"],
+                    rstats.loc["max", "maxx"], rstats.loc["max", "maxy"])
+            if model_bbox.disjoint(segments_bbox):
+                raise ValueError(
+                    "modelgrid extent does not cover segments extent")
+        # More careful check of overlap of lines with grid polygons
+        self.logger.debug("building model grid cell geometries")
+        nrow, ncol = domain.shape
+        cols, rows = np.meshgrid(np.arange(ncol), np.arange(nrow))
+        grid_df = pd.DataFrame({"i": rows.flatten(), "j": cols.flatten()})
+        grid_df.set_index(["i", "j"], inplace=True)
+        grid_df[domain_label] = domain.flatten()
+        # Note: modelgrid.get_cell_vertices(i, j) is slow!
+        xv = modelgrid.xvertices
+        yv = modelgrid.yvertices
+        i, j = [np.array(s[1])
+                for s in grid_df.reset_index()[["i", "j"]].iteritems()]
+        cell_verts = zip(
+            zip(xv[i, j], yv[i, j]),
+            zip(xv[i, j + 1], yv[i, j + 1]),
+            zip(xv[i + 1, j + 1], yv[i + 1, j + 1]),
+            zip(xv[i + 1, j], yv[i + 1, j])
+        )
+        # Add dataframe of model grid cells to object
+        self.grid_cells = geopandas.GeoDataFrame(
+            grid_df, geometry=[Polygon(r) for r in cell_verts], crs=crs)
+
+        # Keep the for next time
+        self._modelcache = modelcache
 
     @classmethod
     def from_swn_flopy(
@@ -156,9 +336,10 @@ class SwnModflowBase(object):
         -------
         obj
         """
-        if cls.__name__ == "SwnModflow":
+        this_class = cls.__name__
+        if this_class == "SwnModflow":
             domain_label = "ibound"
-        elif cls.__name__ == "SwnMf6":
+        elif this_class == "SwnMf6":
             domain_label = "idomain"
         else:
             raise TypeError("unsupported subclass " + repr(cls))
@@ -167,56 +348,31 @@ class SwnModflowBase(object):
         elif domain_action not in ("freeze", "modify"):
             raise ValueError("domain_action must be one of freeze or modify")
         obj = cls()
+
+        # Assume CRS from swn.segments
+        obj.crs = getattr(swn.segments.geometry, "crs", None)
         # Attach a few things to the fresh object
-        obj.model = model
         obj.segments = swn.segments.copy()
+        obj.model = model
         obj._swn = swn
-        # Make sure model CRS and segments CRS are the same (if defined)
-        crs = None
-        segments_crs = getattr(obj.segments.geometry, "crs", None)
-        modelgrid_crs = None
-        modelgrid = obj.model.modelgrid
-        epsg = modelgrid.epsg
-        proj4_str = modelgrid.proj4
-        if epsg is not None:
-            segments_crs, modelgrid_crs, same = compare_crs(segments_crs, epsg)
-        else:
-            segments_crs, modelgrid_crs, same = compare_crs(segments_crs,
-                                                            proj4_str)
-        if (segments_crs is not None and modelgrid_crs is not None and
-                not same):
-            obj.logger.warning(
-                "CRS for segments and modelgrid are different: {0} vs. {1}"
-                .format(segments_crs, modelgrid_crs))
-        crs = segments_crs or modelgrid_crs
-        # Make sure their extents overlap
-        minx, maxx, miny, maxy = modelgrid.extent
-        model_bbox = box(minx, miny, maxx, maxy)
-        rstats = obj.segments.bounds.describe()
-        segments_bbox = box(
-                rstats.loc["min", "minx"], rstats.loc["min", "miny"],
-                rstats.loc["max", "maxx"], rstats.loc["max", "maxy"])
-        if model_bbox.disjoint(segments_bbox):
-            raise ValueError("modelgrid extent does not cover segments extent")
-        # More careful check of overlap of lines with grid polygons
-        obj.logger.debug("building model grid cell geometries")
-        dis = obj.model.dis
-        if domain_label == "ibound":
-            domain = obj.model.bas6.ibound[0].array.copy()
-            ncol = dis.ncol
-            nrow = dis.nrow
-        else:
-            domain = dis.idomain.array[0].copy()
-            ncol = dis.ncol.data
-            nrow = dis.nrow.data
-        cols, rows = np.meshgrid(np.arange(ncol), np.arange(nrow))
+        # Copy grid_cells generated from 'model' setter
+        dis = model.dis
+        grid_cells = obj.grid_cells.copy()
+        if domain_action == "freeze":
+            sel = grid_cells[domain_label] != 0
+            if sel.any():
+                # Remove any inactive grid cells from analysis
+                grid_cells = grid_cells.loc[sel]
         num_domain_modified = 0
-        grid_df = pd.DataFrame({"i": rows.flatten(), "j": cols.flatten()})
-        grid_df.set_index(["i", "j"], inplace=True)
-        grid_df[domain_label] = domain.flatten()
-        if domain_action == "freeze" and (domain == 0).any():
-            # Remove any inactive grid cells from analysis
-            grid_df = grid_df.loc[grid_df[domain_label] != 0]
+        if this_class == "SwnModflow":
+            domain_label = "ibound"
+            domain = model.bas6.ibound[0].array.copy()
+        elif this_class == "SwnMf6":
+            domain_label = "idomain"
+            domain = dis.idomain.array[0].copy()
+        else:
+            raise TypeError("unsupported subclass " + repr(cls))
+
         # Determine grid cell size
         col_size = np.median(dis.delr.array)
         if dis.delr.array.min() != dis.delr.array.max():
@@ -227,20 +383,7 @@ class SwnModflowBase(object):
             obj.logger.warning(
                 "assuming constant row spacing %s", row_size)
         cell_size = (row_size + col_size) / 2.0
-        # Note: modelgrid.get_cell_vertices(i, j) is slow!
-        xv = modelgrid.xvertices
-        yv = modelgrid.yvertices
-        i, j = [np.array(s[1])
-                for s in grid_df.reset_index()[["i", "j"]].iteritems()]
-        cell_verts = zip(
-            zip(xv[i, j], yv[i, j]),
-            zip(xv[i, j + 1], yv[i, j + 1]),
-            zip(xv[i + 1, j + 1], yv[i + 1, j + 1]),
-            zip(xv[i + 1, j], yv[i + 1, j])
-        )
-        # Add dataframe of model grid cells to object
-        obj.grid_cells = grid_cells = geopandas.GeoDataFrame(
-            grid_df, geometry=[Polygon(r) for r in cell_verts], crs=crs)
+
         # Break up source segments according to the model grid definition
         obj.logger.debug("evaluating reach data on model grid")
         grid_sindex = get_sindex(grid_cells)
@@ -326,8 +469,8 @@ class SwnModflowBase(object):
                 if len(reach_c) == 2:
                     # If this is a simple line with two coords, split it
                     reach_c.index = [0, 2]
-                    reach_c.loc[1] = {
-                        "pt": reach_geom.interpolate(0.5, normalized=True)}
+                    reach_c.loc[1] = pd.Series({
+                        "pt": reach_geom.interpolate(0.5, normalized=True)})
                     reach_c.sort_index(inplace=True)
                     reach_geom = LineString(list(reach_c["pt"]))  # rebuild
                 # first match assumed to be touching the start of the line
@@ -403,8 +546,8 @@ class SwnModflowBase(object):
                     if len(rem_c) == 2:
                         # If this is a simple line with two coords, split it
                         rem_c.index = [0, 2]
-                        rem_c.loc[1] = {
-                            "pt": rem.interpolate(0.5, normalized=True)}
+                        rem_c.loc[1] = pd.Series({
+                            "pt": rem.interpolate(0.5, normalized=True)})
                         rem_c.sort_index(inplace=True)
                         rem = LineString(list(rem_c["pt"]))  # rebuild
                     # first match assumed to be touching the start of the line
@@ -445,6 +588,32 @@ class SwnModflowBase(object):
             else:
                 raise NotImplementedError(rem.geom_type)
 
+        def do_linemerge(ij, df, drop_reach_ids):
+            geom = linemerge(df["geometry"])
+            if geom.geom_type == "MultiLineString":
+                # workaround for odd floating point issue
+                geom = linemerge(
+                    [visible_wkt(g) for g in df["geometry"]])
+            if geom.geom_type == "LineString":
+                drop_reach_ids += list(df.index)
+                obj.logger.debug(
+                    "merging %d reaches for segnum %s at %s",
+                    len(df), segnum, ij)
+                i, j = ij
+                append_reach_df(reach_df, i, j, geom)
+            elif geom.geom_type == "MultiLineString":
+                for part in geom.geoms:
+                    part_covers = df.geometry.apply(part.covers)
+                    if part_covers.sum() > 1: # recurse
+                        do_linemerge(ij, df[part_covers], drop_reach_ids)
+                    elif part_covers.sum() == 0:
+                        obj.logger.warning(
+                            "part %s does not cover any segnum %s at %s",
+                            part, segnum, ij)
+            else:
+                obj.logger.warning(
+                    "failed to merge segnum %s at %s: %s", segnum, ij, geom)
+
         # Looping over each segment breaking down into reaches
         for segnum, line in obj.segments.geometry.iteritems():
             remaining_line = line
@@ -461,6 +630,8 @@ class SwnModflowBase(object):
                 reach_geom = grid_geom.intersection(line)
                 if reach_geom.is_empty or reach_geom.geom_type == "Point":
                     continue
+                # erase some odd floating point issues
+                reach_geom = visible_wkt(reach_geom)
                 remaining_line = remaining_line.difference(grid_geom)
                 append_reach_df(reach_df, i, j, reach_geom)
             # Determine if any remaining portions of the line can be used
@@ -474,27 +645,10 @@ class SwnModflowBase(object):
                 assign_short_reach(reach_df, idx, segnum)
             # Potentially merge a few reaches for each i,j of this segnum
             drop_reach_ids = []
-            gb = reach_df.groupby(["i", "j"])["geometry"].apply(list)
-            for ij, geoms in gb.copy().iteritems():
-                i, j = ij
-                if len(geoms) > 1:
-                    geom = linemerge(geoms)
-                    if geom.geom_type == "MultiLineString":
-                        # workaround for odd floating point issue
-                        geom = linemerge([wkt.loads(g.wkt) for g in geoms])
-                    if geom.geom_type == "LineString":
-                        sel = ((reach_df["i"] == i) & (reach_df["j"] == j))
-                        drop_reach_ids += list(sel.index[sel])
-                        obj.logger.debug(
-                            "merging %d reaches for segnum %s at %s",
-                            sel.sum(), segnum, ij)
-                        append_reach_df(reach_df, i, j, geom)
-                    elif any(a.distance(b) < 1e-6
-                             for a, b in combinations(geoms, 2)):
-                        obj.logger.warning(
-                            "failed to merge segnum %s at %s: %s",
-                            segnum, ij, geom.wkt)
-                    # else: this is probably a meandering MultiLineString
+            for ij, gb in reach_df.copy().groupby(["i", "j"]):
+                if len(gb) > 1:
+                    gb["geometry"] = gb["geometry"].apply(visible_wkt)
+                    do_linemerge(ij, gb, drop_reach_ids)
             if drop_reach_ids:
                 reach_df.drop(drop_reach_ids, axis=0, inplace=True)
             # TODO: Some reaches match multiple cells if they share a border
@@ -532,7 +686,7 @@ class SwnModflowBase(object):
                 elif domain_label == "idomain":
                     obj.model.dis.idomain.set_data(domain, layer=0)
                 obj.reaches = obj.reaches.merge(
-                    grid_df[[domain_label]],
+                    grid_cells[[domain_label]],
                     left_on=["i", "j"], right_index=True)
                 obj.reaches.rename(
                     columns={domain_label: "prev_" + domain_label},
@@ -631,7 +785,7 @@ class SwnModflowBase(object):
 
         # Now convert from DataFrame to GeoDataFrame
         obj.reaches = geopandas.GeoDataFrame(
-                obj.reaches, geometry="geometry", crs=crs)
+                obj.reaches, geometry="geometry", crs=obj.crs)
 
         # Add information to reaches from segments
         obj.reaches = obj.reaches.merge(
@@ -802,7 +956,7 @@ class SwnModflowBase(object):
             minimum of series.
         """
         has_z = self._swn.has_z
-        supported_methods = ["auto", "zcoord_ab", "grid_top","rch_len"]
+        supported_methods = ["auto", "zcoord_ab", "grid_top", "rch_len"]
         if method not in supported_methods:
             raise ValueError(f"{method} not in {supported_methods}")
         if method == "auto":
@@ -881,8 +1035,9 @@ class SwnModflowBase(object):
             row_size = np.median(dis.delc.array)
             px, py = np.gradient(dis.top.array, col_size, row_size)
             grid_dz = np.sqrt((px*col_size) ** 2 + (py*row_size) ** 2)
-            self.reaches.loc[:,grid_name]= \
-                grid_dz[self.reaches['i'],self.reaches['j']]/self.reaches['rlen']
+            self.reaches.loc[:, grid_name] = (
+                grid_dz[self.reaches['i'], self.reaches['j']] /
+                self.reaches['rlen'])
         # Enforce min_slope when less than min_slop or is NaN
         sel = (rchs[grid_name] < rchs["min_slope"]) | rchs[grid_name].isna()
         if sel.any():
@@ -992,7 +1147,16 @@ class SwnModflowBase(object):
         reaches[reaches.geom_type == "LineString"].plot(
             column=column, label="reaches", legend=colorbar, ax=ax, cmap=cmap)
 
-        self.grid_cells.plot(ax=ax, color="whitesmoke", edgecolor="gainsboro")
+        grid_cells = getattr(self, "grid_cells", None)
+        if grid_cells is not None:
+            domain_label = {
+                "SwnModflow": "ibound",
+                "SwnMf6": "idomain",
+            }[self.__class__.__name__]
+            sel = self.grid_cells[domain_label] != 0
+            if sel.any():
+                self.grid_cells.loc[sel].plot(
+                    ax=ax, color="whitesmoke", edgecolor="gainsboro")
 
         def getpt(g, idx):
             if g.geom_type == "LineString":
@@ -1008,10 +1172,12 @@ class SwnModflowBase(object):
         def firstpt(g):
             return getpt(g, 0)
 
-        reaches_idx = reaches[reaches.segnum.isin(self._swn.outlets)]\
-            .groupby(["segnum"]).ireach.idxmax().values
-        outlet_pt = reaches.loc[reaches_idx, "geometry"].apply(lastpt)
-        outlet_pt.plot(ax=ax, label="outlet", marker="o", color="navy")
+        swn = getattr(self, "swn", None)
+        if swn is not None:
+            reaches_idx = reaches[reaches.segnum.isin(self._swn.outlets)]\
+                .groupby(["segnum"]).ireach.idxmax().values
+            outlet_pt = reaches.loc[reaches_idx, "geometry"].apply(lastpt)
+            outlet_pt.plot(ax=ax, label="outlet", marker="o", color="navy")
 
         if "inflow_segnums" in self.segments.columns:
             segnums = self.segments.index[
@@ -1032,10 +1198,17 @@ class SwnModflowBase(object):
     # __________________ SOME ELEVATION METHODS_________________________
     def add_model_topbot_to_reaches(self, m=None):
         """
-        get top and bottom elevation of the model cell containing each
-        surface water network reach
-        :param m: Modflow model
-        :return: dataframe with reach cell top and bottom elevations
+        Get top and bottom elevation of the model cell containing each reach.
+
+        Parameters
+        ----------
+        m : flopy.modflow.Modflow or flopy.mf6.ModflowGwf
+            Modeflow model object.
+
+        Returns
+        -------
+        pandas.DataFrame
+            with reach cell top and bottom elevations
         """
         if m is None:
             m = self.model
@@ -1043,20 +1216,20 @@ class SwnModflowBase(object):
         self.set_reach_data_from_array('bot', m.dis.botm[0].array)
         return self.reaches[['top', 'bot']]
 
-    def plot_reaches_vs_model(self, seg, dem=None,
-                              plot_bottom=False):
-        """
-        Wrapper method to plot the elevation of the MODFLOW model projected
-        streams relative to model top and layer 1 bottom
+    def plot_reaches_vs_model(self, seg, dem=None, plot_bottom=False):
+        """Plot map of stream elevations relative to model surfaces.
+
+        The elevation of the MODFLOW model projected streams relative to model
+        top and layer 1 bottom.
 
         Parameters
         ----------
-        seg : int or "all"
+        seg : int or str, default "all"
             Specific segment number to plot (sfr iseg/nseg)
-        dem : array
+        dem : array_like, default None
             For using as plot background -- assumes same (nrow, ncol)
             dimensions as model layer
-        plot_bottom : bool
+        plot_bottom : bool, default False
             Also plot stream bed elevation relative to the bottom of layer 1
 
         Returns
@@ -1068,15 +1241,13 @@ class SwnModflowBase(object):
         model = self.model  # inherit model from class object
         if self.__class__.__name__ == "SwnModflow":
             ib = model.bas6.ibound.array[0]
-            strtoptag = 'strtop'
-            lentag = "rchlen"
+            strtoptag = "strtop"
         elif self.__class__.__name__ == "SwnMf6":
             ib = model.dis.idomain.array[0]
-            strtoptag = 'rtp'
-            lentag = "rlen"
+            strtoptag = "rtp"
 
         # Ensure reach elevations are up-to-date
-        _ = self.add_model_topbot_to_reaches()  #TODO check required first
+        self.add_model_topbot_to_reaches()  # TODO check required first
         # Plot model top (or dem on background)
         dis = model.dis
         if dem is None:
@@ -1128,21 +1299,20 @@ class SwnModflowBase(object):
         return vtop, vbot
 
     def plot_profile(self, seg, upstream=False, downstream=False):
-        """
-        Quick wrapper method for plotting stream top profiles vs model grid
-        top and bottom.
+        """Plot stream top profiles vs model grid top and bottom.
+
         Parameters
         ----------
         seg : int
-            Identifying segment for plots
-        upstream : bool
+            Identifying segment for plots, counting from 1.
+        upstream : bool, default False
             Flag for continuing trace upstream from segnum = `seg`
-        downstream : bool
+        downstream : bool, default False
             Flag for continuing trace downstream of segnum = `seg`
 
         Returns
         -------
-
+        None
         """
         from swn.modflow._modelplot import _profile_plot
         if self.__class__.__name__ == "SwnModflow":
@@ -1164,4 +1334,3 @@ class SwnModflowBase(object):
         reaches['mid_dist'] = reaches[lentag].cumsum() - reaches[lentag] / 2
         _profile_plot(reaches, lentag=lentag, x='mid_dist',
                       cols=[strtoptag, 'top', 'bot'])
-
