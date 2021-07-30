@@ -251,11 +251,14 @@ class SwnModflowBase:
         # Build stress period DataFrame from modflow model
         stress_df = pd.DataFrame({"perlen": perlen})
         stress_df["duration"] = pd.TimedeltaIndex(perlen, modeltime.time_units)
-        stress_df["start"] = pd.to_datetime(modeltime.start_datetime)
-        stress_df["end"] = stress_df["duration"] + stress_df.at[0, "start"]
-        stress_df.loc[1:, "start"] = stress_df["end"].iloc[:-1].values
+        end_time = stress_df["duration"].cumsum()
+        stress_df["start_time"] = end_time - end_time.iloc[0]
+        stress_df["end_time"] = end_time
+        model_start_date = pd.to_datetime(modeltime.start_datetime)
+        stress_df["start_date"] = model_start_date + stress_df["start_time"]
+        stress_df["end_date"] = model_start_date + end_time
         self._stress_df = stress_df  # keep this for debugging
-        self.time_index = pd.DatetimeIndex(stress_df["start"]).copy()
+        self.time_index = pd.DatetimeIndex(stress_df["start_date"]).copy()
         self.time_index.name = None
 
         # Determine which CRS to use
