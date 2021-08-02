@@ -364,6 +364,18 @@ def test_model_property():
             nm.model = m
 
 
+def test_time_index():
+    n = get_basic_swn()
+    m = get_basic_modflow(nper=12)
+    m.dis.start_datetime = "1999-07-01"
+    m.dis.perlen = [31, 31, 30, 31, 30, 31, 31, 29, 31, 30, 31, 30]
+    nm = swn.SwnModflow.from_swn_flopy(n, m)
+    assert nm.time_index.freqstr == "MS"  # "month start" or <MonthBegin>
+    assert list(nm.time_index.day) == [1] * 12
+    assert list(nm.time_index.month) == list((np.arange(12) + 6) % 12 + 1)
+    assert list(nm.time_index.year) == [1999] * 6 + [2000] * 6
+
+
 def test_set_segment_data_from_scalar():
     n = get_basic_swn(has_diversions=True)
     m = get_basic_modflow(nper=2)

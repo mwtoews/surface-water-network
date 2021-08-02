@@ -342,6 +342,20 @@ def test_model_property():
             nm.model = m
 
 
+def test_time_index():
+    n = get_basic_swn()
+    sim, m = get_basic_modflow(nper=12)
+    sim.tdis.start_date_time.set_data("1999-07-01")
+    perioddata = np.ones(12, dtype=sim.tdis.perioddata.dtype)
+    perioddata["perlen"] = [31, 31, 30, 31, 30, 31, 31, 29, 31, 30, 31, 30]
+    sim.tdis.perioddata.set_data(perioddata)
+    nm = swn.SwnMf6.from_swn_flopy(n, m)
+    assert nm.time_index.freqstr == "MS"  # "month start" or <MonthBegin>
+    assert list(nm.time_index.day) == [1] * 12
+    assert list(nm.time_index.month) == list((np.arange(12) + 6) % 12 + 1)
+    assert list(nm.time_index.year) == [1999] * 6 + [2000] * 6
+
+
 def test_set_reach_data_from_array():
     n = get_basic_swn()
     sim, m = get_basic_modflow(with_top=False)
