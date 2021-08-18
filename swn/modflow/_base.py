@@ -971,11 +971,14 @@ class SwnModflowBase:
                     "does not contain Z coordinates")
         if self.__class__.__name__ == "SwnModflow":
             grid_name = "slope"
+            lentag = "rchlen"
         elif self.__class__.__name__ == "SwnMf6":
             grid_name = "rgrd"
+            lentag = "rlen"
         else:
             raise TypeError(
                 "unsupported subclass " + repr(self.__class__.__name__))
+
         self.logger.debug(
             "setting reaches['%s'] with %s method", grid_name, method)
         rchs = self.reaches
@@ -1020,24 +1023,20 @@ class SwnModflowBase:
                  rchs.loc[sel, "zcoord_last"]) /
                 rchs.loc[sel, "geometry"].length
             )
-        elif method == "grid_top":
+        elif method in ("grid_top", "rch_len"):
             # Estimate slope from top and grid spacing
             dis = self.model.dis
             col_size = np.median(dis.delr.array)
             row_size = np.median(dis.delc.array)
             px, py = np.gradient(dis.top.array, col_size, row_size)
-            grid_slope = np.sqrt(px ** 2 + py ** 2)
-            self.set_reach_data_from_array(grid_name, grid_slope)
-        elif method == "rch_len":
-            # Estimate slope from top and grid spacing
-            dis = self.model.dis
-            col_size = np.median(dis.delr.array)
-            row_size = np.median(dis.delc.array)
-            px, py = np.gradient(dis.top.array, col_size, row_size)
-            grid_dz = np.sqrt((px*col_size) ** 2 + (py*row_size) ** 2)
-            self.reaches.loc[:, grid_name] = (
-                grid_dz[self.reaches['i'], self.reaches['j']] /
-                self.reaches['rlen'])
+            if method == "grid_top":
+                grid_slope = np.sqrt(px ** 2 + py ** 2)
+                self.set_reach_data_from_array(grid_name, grid_slope)
+            elif method == "rch_len":
+                grid_dz = np.sqrt((px * col_size) ** 2 + (py * row_size) ** 2)
+                self.reaches.loc[:, grid_name] = (
+                    grid_dz[self.reaches["i"], self.reaches["j"]] /
+                    self.reaches[lentag])
         # Enforce min_slope when less than min_slop or is NaN
         sel = (rchs[grid_name] < rchs["min_slope"]) | rchs[grid_name].isna()
         if sel.any():
