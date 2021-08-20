@@ -741,10 +741,18 @@ class SwnModflow(SwnModflowBase):
 
         Moves downstream end down (vertically, more incision)
         to acheive minimum slope.
-        :param seg: Pandas Series containing one row of seg_data dataframe
-        :param args: desired minumum slope
-        :return: Pandas Series with new downstream elevation and
-        associated outseg_elevup
+
+        Parameters
+        ----------
+        seg : pandas.Series
+            Series containing one row of seg_data dataframe
+        *args: tuple
+            Desired minumum slope
+
+        Returns
+        -------
+        pandas.Series:
+            Series with new downstream elevation and associated outseg_elevup
         """
         # segdata_df = args[0]
         minslope = args[0]
@@ -764,10 +772,10 @@ class SwnModflow(SwnModflowBase):
                 # downstream elevation too high
                 dn = up - (seg.seglen * prefslope)  # set to minslope
                 outseg_up = up - (seg.seglen * prefslope) - downstreambuffer
-                print("Segment {}, outseg = {}, old outseg_elevup = {}, "
-                      "new outseg_elevup = {}"
-                      .format(seg.name, seg.outseg,
-                              seg.outseg_elevup, outseg_up))
+                self.logger.debug(
+                    "segment %s, outseg = %s, old outseg_elevup = %s, "
+                    "new outseg_elevup = %s",
+                    seg.name, seg.outseg, seg.outseg_elevup, outseg_up)
             else:
                 dn = down
                 outseg_up = down - downstreambuffer
@@ -776,30 +784,41 @@ class SwnModflow(SwnModflowBase):
             down = seg.elevdn
             if down > up - (seg.seglen * prefslope):
                 dn = up - (seg.seglen * prefslope)
-                print("Outflow Segment {}, outseg = {}, old elevdn = {}, "
-                      "new elevdn = {}"
-                      .format(seg.name, seg.outseg, seg.elevdn, dn))
+                self.logger.debug(
+                    "outflow segment %s, outseg = %s, old elevdn = %s, "
+                    "new elevdn = %s", seg.name, seg.outseg, seg.elevdn, dn)
             else:
                 dn = down
         # this returns a DF once the apply is done!
         return pd.Series({"nseg": seg.name, "elevdn": dn,
                           "outseg_elevup": outseg_up})
 
-    def set_forward_segs(self, min_slope=1.e-4):
+    def set_forward_segs(self, min_slope=1e-4):
         """Set minimum slope in forwards direction.
 
+        Notes
+        -----
         Ensure slope of all segment is at least min_slope
         in the downstream direction.
         Moves down the network correcting downstream elevations if necessary
-        :param min_slope: Desired minimum slope
-        :return: and updated segment data df
+
+        Parameters
+        ----------
+        min_slope : float, default 1e-4
+            Desired minimum slope
+
+        Returns
+        -------
+        pandas.DataFrame
+            segment_data with updated values
         """
         # upper most segments (not referenced as outsegs)
         # segdata_df = self.segment_data.sort_index(axis=1)
         segsel = ~self.segment_data.index.isin(self.segment_data["outseg"])
         while segsel.sum() > 0:
-            print("Checking elevdn and outseg_elevup for {} segments"
-                  .format(segsel.sum()))
+            self.logger.info(
+                "Checking elevdn and outseg_elevup for {} segments",
+                segsel.sum())
             # get elevdn and outseg_elevups with a minimum slope constraint
             # index should align with self.segment_data index
             # not applying directly allows us to filter out nans
@@ -825,7 +844,7 @@ class SwnModflow(SwnModflowBase):
                 self.segment_data.loc[segsel, "outseg"])
         return self.segment_data
 
-    def fix_segment_elevs(self, min_incise=0.2, min_slope=1.e-4,
+    def fix_segment_elevs(self, min_incise=0.2, min_slope=1e-4,
                           max_str_z=None):
         """
         Provide wrapper function for calculating SFR segment elevations.
@@ -929,9 +948,11 @@ class SwnModflow(SwnModflowBase):
             m = self.model
         return self.add_model_topbot_to_reaches(m)
 
-    def fix_reach_elevs(self, minslope=0.0001, fix_dis=True, minthick=0.5):
+    def fix_reach_elevs(self, minslope=1e-4, fix_dis=True, minthick=0.5):
         """Fix reach elevations.
 
+        Notes
+        -----
         Need to ensure reach elevation is:
             0. below the top
             1. below the upstream reach
@@ -939,7 +960,22 @@ class SwnModflow(SwnModflowBase):
             3. above the base of layer 1
         segment by segment, reach by reach! Fun!
 
-        :return:
+        Parameters
+        ----------
+        minslope : float, default 1e-4
+            The minimum allowable slope between adjacent reaches
+            (to be considered flowing downstream).
+        fix_dis : bool, default True
+            Move layer elevations down where it is not possible to honor
+            minimum slope without going below layer 1 bottom.
+        minthick : float, default 0.5
+            The minimum thickness of stream bed. Will try to ensure that this
+            is available below stream top before layer bottom.
+
+        Returns
+        -------
+        None
+
         """
         def _check_reach_v_laybot(r, botms, buffer=1.0, rbed_elev=None):
             if rbed_elev is None:
@@ -949,13 +985,12 @@ class SwnModflow(SwnModflowBase):
                 # drop bottom of layer one to accomodate stream
                 # (top, bed thickness and buffer)
                 new_elev = rbed_elev - buffer
-                print("seg {} reach {} @ {} "
-                      "is below layer 1 bottom @ {}"
-                      .format(seg, r.ireach, rbed_elev,
-                              r.bot))
-                print("    dropping layer 1 bottom to {} "
-                      "to accommodate stream @ i = {}, j = {}"
-                      .format(new_elev, r.i, r.j))
+                self.logger.debug(
+                    "seg %s reach %s @ %s is below layer 1 bottom @ %s",
+                    seg, r.ireach, rbed_elev, r.bot)
+                self.logger.debug(
+                    "dropping layer 1 bottom to %s to accommodate stream "
+                    "@ i = %s, j = %s", new_elev, r.i, r.j)
                 botms[0, r.i, r.j] = new_elev
             return botms
 
@@ -968,8 +1003,9 @@ class SwnModflow(SwnModflowBase):
         # top read from dis as float32 so comparison need to be with like
         reachsel = self.reaches["top"] <= self.reaches["strtop"]
         reach_ij = tuple(self.reaches[["i", "j"]].values.T)
-        print("{} segments with reaches above model top".format(
-            self.reaches[reachsel]["iseg"].unique().shape[0]))
+        self.logger.info(
+            "%s segments with reaches above model top",
+            self.reaches[reachsel]["iseg"].unique().shape[0])
         # get segments with reaches above the top surface
         segsabove = self.reaches[reachsel].groupby(
             "iseg").size().sort_values(ascending=False)
@@ -1029,10 +1065,12 @@ class SwnModflow(SwnModflowBase):
                     if reach.strtop_incopt < strtop_min2bot:
                         # strtop would give too shallow a slope to
                         # the bottom reach (not moving bottom reach)
-                        print("seg {} reach {}, incopt is \\/ below minimum "
-                              "slope from bottom reach elevation"
-                              .format(seg, reach.ireach))
-                        print("    setting elevation to minslope from bottom")
+                        self.logger.debug(
+                            "seg %s reach %s, incopt is \\/ below minimum "
+                            "slope from bottom reach elevation",
+                            seg, reach.ireach)
+                        self.logger.debug(
+                            "setting elevation to minslope from bottom")
                         # set to minimum slope from outreach
                         self.reaches.at[
                             reach.Index, "strtop"] = strtop_min2bot
@@ -1041,10 +1079,11 @@ class SwnModflow(SwnModflowBase):
                     elif reach.strtop_incopt > strtop_withminslope:
                         # strtop would be above upstream or give
                         # too shallow a slope from upstream
-                        print("seg {} reach {}, incopt /\\ above upstream"
-                              .format(seg, reach.ireach))
-                        print("    setting elevation to minslope from "
-                              "upstream")
+                        self.logger.debug(
+                            "seg %s reach %s, incopt /\\ above upstream",
+                            seg, reach.ireach)
+                        self.logger.debug(
+                            "setting elevation to minslope from upstream")
                         # set to minimum slope from upstream reach
                         self.reaches.at[
                             reach.Index, "strtop"] = strtop_withminslope
@@ -1052,9 +1091,10 @@ class SwnModflow(SwnModflowBase):
                         upreach_strtop = strtop_withminslope
                     else:
                         # strtop might be ok to set to "optimum incision"
-                        print("seg {} reach {}, incopt is -- below upstream "
-                              "reach and above the bottom reach"
-                              .format(seg, reach.ireach))
+                        self.logger.debug(
+                            "seg %s reach %s, incopt is -- below upstream "
+                            "reach and above the bottom reach",
+                            seg, reach.ireach)
                         # CHECK FIRST:
                         # if optimium incision would place it
                         # below the bottom of layer 1
@@ -1062,16 +1102,17 @@ class SwnModflow(SwnModflowBase):
                                 reach.bot + buffer:
                             # opt - stream thickness lower than layer 1 bottom
                             # (with a buffer)
-                            print("seg {} reach {}, incopt - bot is x\\/ "
-                                  "below layer 1 bottom"
-                                  .format(seg, reach.ireach))
+                            self.logger.debug(
+                                "seg %s reach %s, incopt - bot is x\\/ "
+                                "below layer 1 bottom", seg, reach.ireach)
                             if reach.bot + reach.strthick + buffer > \
                                     strtop_withminslope:
                                 # if layer bottom would put reach above
                                 # upstream reach we can only set to
                                 # minimum slope from upstream
-                                print("    setting elevation to minslope "
-                                      "from upstream")
+                                self.logger.debug(
+                                    "setting elevation to minslope "
+                                    "from upstream")
                                 self.reaches.at[reach.Index, "strtop"] = \
                                     strtop_withminslope
                                 upreach_strtop = strtop_withminslope
@@ -1079,8 +1120,9 @@ class SwnModflow(SwnModflowBase):
                                 # otherwise we can move reach so that it
                                 # fits into layer 1
                                 new_elev = reach.bot + reach.strthick + buffer
-                                print("    setting elevation to {}, above "
-                                      "layer 1 bottom".format(new_elev))
+                                self.logger.debug(
+                                    "setting elevation to %s, above "
+                                    "layer 1 bottom", new_elev)
                                 # set reach top so that it is above layer 1
                                 # bottom with a buffer
                                 # (allowing for bed thickness)
@@ -1090,7 +1132,7 @@ class SwnModflow(SwnModflowBase):
                         else:
                             # strtop ok to set to "optimum incision"
                             # set to "optimum incision"
-                            print("    setting elevation to incopt")
+                            self.logger.debug("setting elevation to incopt")
                             self.reaches.at[
                                 reach.Index, "strtop"] = reach.strtop_incopt
                             upreach_strtop = reach.strtop_incopt
@@ -1104,8 +1146,8 @@ class SwnModflow(SwnModflowBase):
             else:
                 # For segments that do not have reaches above top
                 # check if reaches are below layer 1
-                print("seg {} is always downstream and below the top"
-                      .format(seg))
+                self.logger.debug(
+                    "seg %s is always downstream and below the top", seg)
                 for reach in self.reaches[rsel].itertuples():
                     reachbed_elev = reach.strtop - reach.strthick
                     layerbots = _check_reach_v_laybot(reach, layerbots, buffer,
@@ -1119,10 +1161,10 @@ class SwnModflow(SwnModflowBase):
             for k in range(self.model.dis.nlay - 1):
                 laythick = layerbots[k] - layerbots[
                     k + 1]  # first one is layer 1 bottom - layer 2 bottom
-                print("checking layer {} thicknesses".format(k + 2))
+                self.logger.debug("checking layer %s thicknesses", k + 2)
                 thincells = laythick < minthick
-                print("{} cells less than {}"
-                      .format(thincells.sum(), minthick))
+                self.logger.debug(
+                    "%s cells less than %s", thincells.sum(), minthick)
                 laythick[thincells] = minthick
                 layerbots[k + 1] = layerbots[k] - laythick
             self.model.dis.botm = layerbots
