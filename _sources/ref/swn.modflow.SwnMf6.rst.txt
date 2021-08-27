@@ -14,8 +14,10 @@
    .. autosummary::
    
       ~SwnMf6.__init__
+      ~SwnMf6.add_model_topbot_to_reaches
       ~SwnMf6.connectiondata_series
       ~SwnMf6.default_packagedata
+      ~SwnMf6.fix_reach_elevs
       ~SwnMf6.flopy_connectiondata
       ~SwnMf6.flopy_diversions
       ~SwnMf6.flopy_packagedata
@@ -23,6 +25,8 @@
       ~SwnMf6.from_swn_flopy
       ~SwnMf6.packagedata_frame
       ~SwnMf6.plot
+      ~SwnMf6.plot_profile
+      ~SwnMf6.plot_reaches_vs_model
       ~SwnMf6.set_reach_data_from_array
       ~SwnMf6.set_reach_data_from_segments
       ~SwnMf6.set_reach_slope

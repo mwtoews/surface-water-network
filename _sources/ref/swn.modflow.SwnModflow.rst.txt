@@ -14,6 +14,7 @@
    .. autosummary::
    
       ~SwnModflow.__init__
+      ~SwnModflow.add_model_topbot_to_reaches
       ~SwnModflow.default_segment_data
       ~SwnModflow.fix_reach_elevs
       ~SwnModflow.fix_segment_elevs
@@ -29,7 +30,9 @@
       ~SwnModflow.minslope_seg
       ~SwnModflow.new_segment_data
       ~SwnModflow.plot
+      ~SwnModflow.plot_profile
       ~SwnModflow.plot_reaches_above
+      ~SwnModflow.plot_reaches_vs_model
       ~SwnModflow.reconcile_reach_strtop
       ~SwnModflow.set_forward_segs
       ~SwnModflow.set_outseg_elev_for_seg
@@ -43,7 +46,6 @@
       ~SwnModflow.set_segment_data_inflow
       ~SwnModflow.set_sfr_obj
       ~SwnModflow.set_topbot_elevs_at_reaches
-      ~SwnModflow.sfr_plot
       ~SwnModflow.to_pickle
    
    

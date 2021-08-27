@@ -480,11 +480,17 @@ not used by flopy.</p>
 <col style="width: 90%" />
 </colgroup>
 <tbody>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">connectiondata_series</span></code>(style)</p></td>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">add_model_topbot_to_reaches</span></code>()</p></td>
+<td><p>Get top and bottom elevation of the model cell containing each reach.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">connectiondata_series</span></code>(style)</p></td>
 <td><p>Return Series of CONNECTIONDATA for MODFLOW 6 SFR.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">default_packagedata</span></code>([hyd_cond1, …])</p></td>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">default_packagedata</span></code>([hyd_cond1, …])</p></td>
 <td><p>High-level function to set MODFLOW 6 SFR PACKAGEDATA defaults.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">fix_reach_elevs</span></code>([minslope, minincise, …])</p></td>
+<td><p>Fix reach elevations.</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">flopy_connectiondata</span></code>()</p></td>
 <td><p>Return list of lists for flopy.</p></td>
@@ -506,6 +512,12 @@ not used by flopy.</p>
 </tr>
 <tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">plot</span></code>([column, cmap, colorbar])</p></td>
 <td><p>Show map of reaches with inflow segments in royalblue.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">plot_profile</span></code>(segnum[, upstream, downstream])</p></td>
+<td><p>Plot stream top profiles vs model grid top and bottom.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">plot_reaches_vs_model</span></code>(seg[, dem, …])</p></td>
+<td><p>Plot map of stream elevations relative to model surfaces.</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_reach_data_from_array</span></code>(name, array)</p></td>
 <td><p>Set reach data from an array that matches the model (nrow, ncol).</p></td>
@@ -560,11 +572,17 @@ not used by flopy.</p>
 <tr class="row-odd"><td><p><a class="reference internal" href="#swn.modflow.SwnMf6.__init__" title="swn.modflow.SwnMf6.__init__"><code class="xref py py-obj docutils literal notranslate"><span class="pre">__init__</span></code></a>([logger])</p></td>
 <td><p>Initialise SwnMf6.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">connectiondata_series</span></code>(style)</p></td>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">add_model_topbot_to_reaches</span></code>()</p></td>
+<td><p>Get top and bottom elevation of the model cell containing each reach.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">connectiondata_series</span></code>(style)</p></td>
 <td><p>Return Series of CONNECTIONDATA for MODFLOW 6 SFR.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">default_packagedata</span></code>([hyd_cond1, …])</p></td>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">default_packagedata</span></code>([hyd_cond1, …])</p></td>
 <td><p>High-level function to set MODFLOW 6 SFR PACKAGEDATA defaults.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">fix_reach_elevs</span></code>([minslope, minincise, …])</p></td>
+<td><p>Fix reach elevations.</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">flopy_connectiondata</span></code>()</p></td>
 <td><p>Return list of lists for flopy.</p></td>
@@ -586,6 +604,12 @@ not used by flopy.</p>
 </tr>
 <tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">plot</span></code>([column, cmap, colorbar])</p></td>
 <td><p>Show map of reaches with inflow segments in royalblue.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">plot_profile</span></code>(segnum[, upstream, downstream])</p></td>
+<td><p>Plot stream top profiles vs model grid top and bottom.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">plot_reaches_vs_model</span></code>(seg[, dem, …])</p></td>
+<td><p>Plot map of stream elevations relative to model surfaces.</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_reach_data_from_array</span></code>(name, array)</p></td>
 <td><p>Set reach data from an array that matches the model (nrow, ncol).</p></td>
