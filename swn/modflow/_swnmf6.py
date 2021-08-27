@@ -638,6 +638,8 @@ class SwnMf6(SwnModflowBase):
             3. above the base of layer 1
         segment by segment, reach by reach! Fun!
         """
+        raise NotImplementedError("method not finished")
+
         def _check_reach_v_laybot(r, botms, buffer=1.0, rbed_elev=None):
             if rbed_elev is None:
                 rbed_elev = r.strtop - r.strthick
@@ -1311,7 +1313,7 @@ class SwnMf6(SwnModflowBase):
 
         """
         if segbyseg:
-            raise NotImplementedError
+            raise NotImplementedError("option 'segbyseg=True' not finished")
             self._segbyseg_elevs(minslope, fix_dis, minthick)
         elif to_rno_elevs:
             self._to_rno_elevs(minslope, minincise, minthick, buffer, fix_dis)

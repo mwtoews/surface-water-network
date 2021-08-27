@@ -1195,24 +1195,18 @@ class SwnModflowBase:
         return ax
 
     # __________________ SOME ELEVATION METHODS_________________________
-    def add_model_topbot_to_reaches(self, m=None):
+    def add_model_topbot_to_reaches(self):
         """
         Get top and bottom elevation of the model cell containing each reach.
-
-        Parameters
-        ----------
-        m : flopy.modflow.Modflow or flopy.mf6.ModflowGwf
-            Modeflow model object.
 
         Returns
         -------
         pandas.DataFrame
             with reach cell top and bottom elevations
         """
-        if m is None:
-            m = self.model
-        self.set_reach_data_from_array('top', m.dis.top.array)
-        self.set_reach_data_from_array('bot', m.dis.botm[0].array)
+        dis = self.model.dis
+        self.set_reach_data_from_array('top', dis.top.array)
+        self.set_reach_data_from_array('bot', dis.botm[0].array)
         return self.reaches[['top', 'bot']]
 
     def plot_reaches_vs_model(

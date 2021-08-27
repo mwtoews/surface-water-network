@@ -644,21 +644,22 @@ class SwnModflow(SwnModflowBase):
         return self.segment_data[[
             "k_up", "i_up", "j_up", "k_dn", "i_dn", "j_dn"]]
 
-    def get_top_elevs_at_segs(self, m=None):
+    def get_top_elevs_at_segs(self):
         """
         Get topsurface elevations associated with segment up and dn elevations.
 
-        Adds elevation of model top at
-        upstream and downstream ends of each segment
-        :param m: modflow model with active dis package
-        :return: Adds "top_up" and "top_dn" columns to segment data dataframe
+        Returns
+        -------
+        pandas.DataFrame
+            With "top_up" and "top_dn" series for the elevation model top
+            at upstream and downstream ends of each segment.
+
         """
-        if m is None:
-            m = self.model
+        dis = self.model.dis
         # assert m.sfr is not None, "need sfr package"
-        self.segment_data["top_up"] = m.dis.top.array[
+        self.segment_data["top_up"] = dis.top.array[
             tuple(self.segment_data[["i_up", "j_up"]].values.T)]
-        self.segment_data["top_dn"] = m.dis.top.array[
+        self.segment_data["top_dn"] = dis.top.array[
             tuple(self.segment_data[["i_dn", "j_dn"]].values.T)]
         return self.segment_data[["top_up", "top_dn"]]
 
@@ -666,7 +667,10 @@ class SwnModflow(SwnModflowBase):
         """
         Calculate the upstream and downstream incision of the segment.
 
-        :return:
+        Returns
+        -------
+        pandas.DataFrame
+            with "diff_up" and "diff_dn" series.
         """
         self.segment_data["diff_up"] = (self.segment_data["top_up"] -
                                         self.segment_data["elevup"])
@@ -678,10 +682,18 @@ class SwnModflow(SwnModflowBase):
         """
         Set segment elevation to have the minumum incision from the top.
 
-        :param minincise: Desired minimum incision
-        :param max_str_z: Optional parameter to prevent streams at
-        high elevations (forces incision to max_str_z)
-        :return: incisions at the upstream and downstream end of each segment
+        Parameters
+        ----------
+        minincise : float, default 0.2
+            Desired minimum incision
+        max_str_z : float, default None
+            Optional parameter to prevent streams at high elevations
+            (forces incision to max_str_z)
+
+        Returns
+        -------
+        pandas.DataFrame
+            incisions at the upstream and downstream end of each segment
         """
         sel = self.segment_data["diff_up"] < minincise
         self.segment_data.loc[sel, "elevup"] = (self.segment_data.loc[
@@ -921,17 +933,12 @@ class SwnModflow(SwnModflowBase):
         self.reaches = segs.apply(reach_elevs)
         return self.reaches
 
-    def set_topbot_elevs_at_reaches(self, m=None):
+    def set_topbot_elevs_at_reaches(self):
         """
         Legacy method to add model top and bottom information to reaches.
 
         .. deprecated:: 1.0
             Use :py:meth:`add_model_topbot_to_reaches` instead.
-
-        Parameters
-        ----------
-        m : flopy.modflow.Modflow
-            Modeflow model object.
 
         Returns
         -------
@@ -944,9 +951,7 @@ class SwnModflow(SwnModflowBase):
                "use `add_model_topbot_to_reaches()`")
         warnings.warn(msg, DeprecationWarning, stacklevel=2)
         self.logger.warning(msg)
-        if m is None:
-            m = self.model
-        return self.add_model_topbot_to_reaches(m)
+        return self.add_model_topbot_to_reaches()
 
     def fix_reach_elevs(self, minslope=1e-4, fix_dis=True, minthick=0.5):
         """Fix reach elevations.
