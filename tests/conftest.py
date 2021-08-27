@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """Common code for testing."""
+import sys
 from pathlib import Path
 
 import geopandas
@@ -13,9 +14,11 @@ except ImportError:
     matplotlib = False
     plt = None
 
-# Import this local package for tests
-import sys
+if matplotlib and sys.platform == "darwin":
+    matplotlib.use("qt5agg")
 
+
+# Import this local package for tests
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import swn  # noqa: E402
 

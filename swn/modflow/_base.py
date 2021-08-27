@@ -951,6 +951,8 @@ class SwnModflowBase:
             - "zcoord_ab": if surface water network has Z information,
               use the start/end elevations to determine elevation drop.
             - "grid_top": evaluate the slope from the top grid of the model.
+            - "rch_len": calc dz from slope of top model grid
+              calc rgrd as dz/rlen
         min_slope : float or pandas.Series, optional
             Minimum downwards slope imposed on segments. If float, then this is
             a global value, otherwise it is per-segment with a Series.
@@ -958,7 +960,7 @@ class SwnModflowBase:
             minimum of series.
         """
         has_z = self._swn.has_z
-        supported_methods = ["auto", "zcoord_ab", "grid_top"]
+        supported_methods = ["auto", "zcoord_ab", "grid_top", "rch_len"]
         if method not in supported_methods:
             raise ValueError(f"{method} not in {supported_methods}")
         if method == "auto":
@@ -973,11 +975,14 @@ class SwnModflowBase:
                     "does not contain Z coordinates")
         if self.__class__.__name__ == "SwnModflow":
             grid_name = "slope"
+            lentag = "rchlen"
         elif self.__class__.__name__ == "SwnMf6":
             grid_name = "rgrd"
+            lentag = "rlen"
         else:
             raise TypeError(
                 "unsupported subclass " + repr(self.__class__.__name__))
+
         self.logger.debug(
             "setting reaches['%s'] with %s method", grid_name, method)
         rchs = self.reaches
@@ -1022,14 +1027,20 @@ class SwnModflowBase:
                  rchs.loc[sel, "zcoord_last"]) /
                 rchs.loc[sel, "geometry"].length
             )
-        elif method == "grid_top":
+        elif method in ("grid_top", "rch_len"):
             # Estimate slope from top and grid spacing
             dis = self.model.dis
             col_size = np.median(dis.delr.array)
             row_size = np.median(dis.delc.array)
             px, py = np.gradient(dis.top.array, col_size, row_size)
-            grid_slope = np.sqrt(px ** 2 + py ** 2)
-            self.set_reach_data_from_array(grid_name, grid_slope)
+            if method == "grid_top":
+                grid_slope = np.sqrt(px ** 2 + py ** 2)
+                self.set_reach_data_from_array(grid_name, grid_slope)
+            elif method == "rch_len":
+                grid_dz = np.sqrt((px * col_size) ** 2 + (py * row_size) ** 2)
+                self.reaches.loc[:, grid_name] = (
+                    grid_dz[self.reaches["i"], self.reaches["j"]] /
+                    self.reaches[lentag])
         # Enforce min_slope when less than min_slop or is NaN
         sel = (rchs[grid_name] < rchs["min_slope"]) | rchs[grid_name].isna()
         if sel.any():
@@ -1186,3 +1197,149 @@ class SwnModflowBase:
                 ax=ax, label="diversion", marker="D", color="red")
 
         return ax
+
+    # __________________ SOME ELEVATION METHODS_________________________
+    def add_model_topbot_to_reaches(self):
+        """
+        Get top and bottom elevation of the model cell containing each reach.
+
+        Returns
+        -------
+        pandas.DataFrame
+            with reach cell top and bottom elevations
+        """
+        dis = self.model.dis
+        self.set_reach_data_from_array('top', dis.top.array)
+        self.set_reach_data_from_array('bot', dis.botm[0].array)
+        return self.reaches[['top', 'bot']]
+
+    def plot_reaches_vs_model(
+            self, seg, dem=None, plot_bottom=False, draw_lines=True):
+        """Plot map of stream elevations relative to model surfaces.
+
+        The elevation of the MODFLOW model projected streams relative to model
+        top and layer 1 bottom.
+
+        Parameters
+        ----------
+        seg : int or str, default "all"
+            Specific segment number to plot (sfr iseg/nseg)
+        dem : array_like, default None
+            For using as plot background -- assumes same (nrow, ncol)
+            dimensions as model layer
+        plot_bottom : bool, default False
+            Also plot stream bed elevation relative to the bottom of layer 1
+        draw_lines: bool, default True
+            Draw lines around SFR cells.
+
+        Returns
+        -------
+        vtop, vbot : ModelPlot objects containing matplotlib fig and axes
+
+        """
+        from swn.modflow._modelplot import sfr_plot
+        model = self.model  # inherit model from class object
+        if self.__class__.__name__ == "SwnModflow":
+            ib = model.bas6.ibound.array[0]
+            strtoptag = "strtop"
+        elif self.__class__.__name__ == "SwnMf6":
+            ib = model.dis.idomain.array[0]
+            strtoptag = "rtp"
+
+        # Ensure reach elevations are up-to-date
+        self.add_model_topbot_to_reaches()  # TODO check required first
+        # Plot model top (or dem on background)
+        dis = model.dis
+        if dem is None:
+            dem = np.ma.array(dis.top.array, mask=ib == 0)
+        # Build sfr raster array from reaches data
+        sfrar = np.ma.zeros(dis.top.array.shape, "f")
+        sfrar.mask = np.ones(sfrar.shape)
+        if seg == "all":
+            segsel = self.reaches.geom_type == "LineString"
+        else:
+            # TODO multiple segs?
+            segsel = self.reaches["segnum"] == seg
+        # Reach elevation relative to model top
+        self.reaches['tmp_tdif'] = (self.reaches["top"] -
+                                    self.reaches[strtoptag])
+        # TODO group by ij first?
+        sfrar[
+            tuple(self.reaches[segsel][["i", "j"]].values.T.tolist())
+        ] = self.reaches.loc[segsel, 'tmp_tdif'].tolist()
+        # .mask = np.ones(sfrar.shape)
+        # Plot reach elevation relative to model top
+        if draw_lines:
+            lines = self.reaches.loc[segsel, ["geometry", "tmp_tdif"]]
+        else:
+            lines = None
+        vtop = sfr_plot(
+            model, sfrar, dem,
+            label="str below\ntop (m)",
+            lines=lines,
+        )
+        # If just single segment can plot profile quickly
+        if seg != "all":
+            self.plot_profile(seg, upstream=True, downstream=True)
+
+        # Same for bottom
+        if plot_bottom:
+            dembot = np.ma.array(dis.botm.array[0], mask=ib == 0)
+            sfrarbot = np.ma.zeros(dis.botm.array[0].shape, "f")
+            sfrarbot.mask = np.ones(sfrarbot.shape)
+            self.reaches['tmp_bdif'] = (self.reaches[strtoptag] -
+                                        self.reaches["bot"])
+            sfrarbot[
+                tuple(self.reaches.loc[segsel, ["i", "j"]].values.T.tolist())
+            ] = self.reaches.loc[segsel, 'tmp_bdif'].tolist()
+            # .mask = np.ones(sfrar.shape)
+            if draw_lines:
+                lines = self.reaches.loc[segsel, ["geometry", "tmp_bdif"]]
+            else:
+                lines = None
+            vbot = sfr_plot(
+                model, sfrarbot, dembot,
+                label="str above\nbottom (m)",
+                lines=lines,
+            )
+        else:
+            vbot = None
+        return vtop, vbot
+
+    def plot_profile(self, segnum, upstream=False, downstream=False):
+        """Plot stream top profiles vs model grid top and bottom.
+
+        Parameters
+        ----------
+        segnum : int
+            Identifying segment number for plots.
+        upstream : bool, default False
+            Flag for continuing trace upstream from segnum = `seg`
+        downstream : bool, default False
+            Flag for continuing trace downstream of segnum = `seg`
+
+        Returns
+        -------
+        None
+        """
+        from swn.modflow._modelplot import _profile_plot
+        if self.__class__.__name__ == "SwnModflow":
+            strtoptag = 'strtop'
+            lentag = "rchlen"
+        elif self.__class__.__name__ == "SwnMf6":
+            strtoptag = 'rtp'
+            lentag = "rlen"
+        usegs = [segnum]
+        dsegs = []
+        if upstream:
+            usegs = self._swn.query(upstream=segnum)
+        if downstream:
+            dsegs = self._swn.query(downstream=segnum)
+        segs = usegs + dsegs
+        if segnum not in segs:
+            self.logger.error(
+                f"something has changed in the code, {segnum} not in {segs}")
+        reaches = self.reaches.loc[self.reaches.segnum.isin(segs)].sort_index()
+        reaches['mid_dist'] = reaches[lentag].cumsum() - reaches[lentag] / 2.0
+        _profile_plot(reaches, lentag=lentag, x='mid_dist',
+                      cols=[strtoptag, 'top', 'bot'])

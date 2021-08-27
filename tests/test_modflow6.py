@@ -17,7 +17,6 @@ from swn.file import gdf_to_shapefile
 from swn.spatial import force_2d, interp_2d_to_3d, wkt_to_geoseries
 
 from .conftest import datadir, matplotlib, plt
-
 try:
     import flopy
 except ImportError:
@@ -548,7 +547,7 @@ def test_coastal(
     )
     sim.write_simulation()
     success, buff = sim.run_simulation()
-    assert not success
+    assert not success   # failed run
     # Check dataframes
     assert len(nm.segments) == 304
     assert nm.segments["in_model"].sum() == 184
@@ -588,6 +587,13 @@ def test_coastal(
 
 @requires_mf6
 def test_coastal_elevations(coastal_swn, coastal_flow_m, tmp_path):
+    def _make_plot_sequence():
+        if matplotlib:
+            nm.plot_reaches_vs_model("all", plot_bottom=True)
+            for seg in [3049818, 3049378]:
+                nm.plot_reaches_vs_model(seg, plot_bottom=True)
+                plt.close()
+
     # Load a MODFLOW model
     sim = flopy.mf6.MFSimulation.load(
         "mfsim.nam", sim_ws=str(datadir / "mf6_coastal"), exe_name=mf6_exe)
@@ -596,6 +602,38 @@ def test_coastal_elevations(coastal_swn, coastal_flow_m, tmp_path):
     nm = swn.SwnMf6.from_swn_flopy(coastal_swn, m)
     nm.default_packagedata(hyd_cond1=2.0, thickness1=2.0)
     # TODO: inflow=coastal_flow_m
+    _ = nm.add_model_topbot_to_reaches()
+    _make_plot_sequence()
+    # handy to set a max elevation that a stream can be
+    # MF6 no longer segment based so this is not approp:
+    # _ = nm.get_seg_ijk()
+    # tops = nm.get_top_elevs_at_segs().top_up
+    # max_str_z = tops.describe()["75%"]
+    # _ = nm.fix_segment_elevs(min_incise=0.2, min_slope=1.e-4,
+    #                          max_str_z=max_str_z)
+    # _ = nm.reconcile_reach_strtop()
+    # _make_plot_sequence()
+    #
+    # _ = nm.add_model_topbot_to_reaches()
+    nm.fix_reach_elevs(direction='upstream')
+    _make_plot_sequence()
+    nm.fix_reach_elevs(direction='downstream')
+    _make_plot_sequence()
+    nm.set_sfr_obj(
+        save_flows=True,
+        stage_filerecord="h.sfr.bin",
+        budget_filerecord="h.sfr.bud",
+        maximum_iterations=100,
+        maximum_picard_iterations=10,
+        unit_conversion=86400,
+    )
+    # sim.ims.outer_dvclose = 1e-2
+    # sim.ims.inner_dvclose = 1e-3
+    sim.write_simulation()
+    success, buff = sim.run_simulation()
+    assert success
+    if matplotlib:
+        plt.close()
     # TODO: complete elevation adjustments; see older MODFLOW methods
 
 

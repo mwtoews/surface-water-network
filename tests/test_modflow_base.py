@@ -226,22 +226,23 @@ def test_set_reach_slope_n3d(has_diversions):
     n = get_basic_swn(has_z=True, has_diversions=has_diversions)
     m = get_basic_modflow(with_top=False)
     nm = swn.SwnModflow.from_swn_flopy(n, m)
-
     assert "slope" not in nm.reaches.columns
+
     nm.set_reach_slope()  # default method="auto" is "zcoord_ab"
+    expected = [0.027735, 0.027735, 0.027735, 0.03162277, 0.03162277, 0.1, 0.1]
     if has_diversions:
-        expected = \
-            [0.027735, 0.027735, 0.027735, 0.03162277, 0.03162277, 0.1, 0.1,
-             0.001, 0.001, 0.001, 0.001]
-    else:
-        expected = \
-            [0.027735, 0.027735, 0.027735, 0.03162277, 0.03162277, 0.1, 0.1]
+        expected += [0.001, 0.001, 0.001, 0.001]
     np.testing.assert_array_almost_equal(nm.reaches.slope, expected)
-    nm.set_reach_slope("grid_top", 0.01)
+
+    # Both "grid_top" and "rch_len" use the grid top, which is flat
+    # so the same result is expected, with only min_slope repeated
+    min_slope = 0.01
+    expected = [min_slope] * 7
     if has_diversions:
-        expected = [0.01] * 11
-    else:
-        expected = [0.01] * 7
+        expected += [min_slope] * 4
+    nm.set_reach_slope("grid_top", min_slope)
+    np.testing.assert_array_almost_equal(nm.reaches.slope, expected)
+    nm.set_reach_slope("rch_len", min_slope)
     np.testing.assert_array_almost_equal(nm.reaches.slope, expected)
 
 
@@ -251,17 +252,20 @@ def test_set_reach_slope_n2d(has_diversions):
     n = get_basic_swn(has_z=False, has_diversions=has_diversions)
     m = get_basic_modflow(with_top=True)
     nm = swn.SwnModflow.from_swn_flopy(n, m)
-
     assert "slope" not in nm.reaches.columns
+
     nm.set_reach_slope()  # default method="auto" is "grid_top"
+    expected = [0.070711, 0.05, 0.025, 0.05, 0.025, 0.025, 0.05]
     if has_diversions:
-        expected = \
-            [0.070711, 0.05, 0.025, 0.05, 0.025, 0.025, 0.05,
-             0.025, 0.025, 0.05, 0.05]
-    else:
-        expected = \
-            [0.070711, 0.05, 0.025, 0.05, 0.025, 0.025, 0.05]
+        expected += [0.025, 0.025, 0.05, 0.05]
     np.testing.assert_array_almost_equal(nm.reaches.slope, expected)
+
+    nm.set_reach_slope("rch_len")
+    expected = [0.078446, 0.16641, 0.041603, 0.047434, 0.047434, 0.05, 0.1]
+    if has_diversions:
+        expected += [0.5, 0.5, 1.0, 1.0]
+    np.testing.assert_array_almost_equal(nm.reaches.slope, expected)
+
     with pytest.raises(ValueError, match="method zcoord_ab requested"):
         nm.set_reach_slope("zcoord_ab")
 
@@ -492,7 +496,7 @@ def test_coastal_elevations(coastal_swn):
     max_str_z = tops.describe()["75%"]
     if matplotlib:
         for seg in nm.segment_data.index[nm.segment_data.index.isin([1, 18])]:
-            nm.plot_reaches_above(m, seg)
+            nm.plot_reaches_vs_model(seg)
             plt.close()
     _ = nm.fix_segment_elevs(min_incise=0.2, min_slope=1.e-4,
                              max_str_z=max_str_z)
@@ -502,22 +506,22 @@ def test_coastal_elevations(coastal_swn):
     flopy.modflow.mfsfr2.ModflowSfr2(
         model=m, reach_data=reach_data, segment_data=seg_data)
     if matplotlib:
-        nm.plot_reaches_above(m, "all", plot_bottom=False)
+        nm.plot_reaches_vs_model("all", plot_bottom=False)
         plt.close()
         for seg in nm.segment_data.index[nm.segment_data.index.isin([1, 18])]:
-            nm.plot_reaches_above(m, seg)
+            nm.plot_reaches_vs_model(seg)
             plt.close()
-    _ = nm.set_topbot_elevs_at_reaches()
+    _ = nm.add_model_topbot_to_reaches()
     nm.fix_reach_elevs()
     seg_data = nm.flopy_segment_data()
     reach_data = nm.flopy_reach_data()
     flopy.modflow.mfsfr2.ModflowSfr2(
         model=m, reach_data=reach_data, segment_data=seg_data)
     if matplotlib:
-        nm.plot_reaches_above(m, "all", plot_bottom=False)
+        nm.plot_reaches_vs_model("all", plot_bottom=False)
         plt.close()
         for seg in nm.segment_data.index[nm.segment_data.index.isin([1, 18])]:
-            nm.plot_reaches_above(m, seg)
+            nm.plot_reaches_vs_model(seg)
             plt.close()
 
 
