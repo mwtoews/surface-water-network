@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 import pickle
-import platform
 from hashlib import md5
 from shutil import which
 from textwrap import dedent
@@ -18,8 +17,6 @@ from swn.file import gdf_to_shapefile
 from swn.spatial import force_2d, interp_2d_to_3d, wkt_to_geoseries
 
 from .conftest import datadir, matplotlib, plt
-if 'darwin' in platform.platform().lower():
-    matplotlib.use('qt5agg')
 try:
     import flopy
 except ImportError:
@@ -536,7 +533,7 @@ def test_coastal(
     )
     sim.write_simulation()
     success, buff = sim.run_simulation()
-    assert not success   # TODO: really?!
+    assert not success   # failed run
     # Check dataframes
     assert len(nm.segments) == 304
     assert nm.segments["in_model"].sum() == 184

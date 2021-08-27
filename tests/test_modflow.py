@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 import pickle
-import platform
 from hashlib import md5
 from shutil import which
 from textwrap import dedent
@@ -21,8 +20,6 @@ if __name__ != "__main__":
     from .conftest import datadir, matplotlib, plt
 else:
     from conftest import datadir, matplotlib, plt
-if 'darwin' in platform.platform().lower():
-    matplotlib.use('qt5agg')
 try:
     import flopy
 except ImportError:
