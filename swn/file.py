@@ -43,6 +43,7 @@ def topnet2ts(nc_path, varname, mult=None, log_level=logging.INFO):
     logger = get_logger("topnet2ts", log_level)
     logger.info("reading file: %s", nc_path)
     with Dataset(nc_path, "r") as nc:
+        nc.set_auto_mask(False)
         var = nc.variables[varname]
         logger.info("variable %s:\n%s", varname, var)
         # Evaluate dimensions
