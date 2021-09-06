@@ -1,5 +1,4 @@
 #!/usr/bin/env/python
-# -*- coding: utf-8 -*-
 """Setuptools file."""
 from setuptools import setup
 

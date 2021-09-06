@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Spatial methods."""
 
 __all__ = [
@@ -100,8 +99,7 @@ def interp_2d_to_3d(gs, grid, gt):
             (x < gt[0]) | (x > (gt[0] + nx * gt[1])) |
             (y > gt[3]) | (y < (gt[3] + ny * gt[5])))
         if outside.any():
-            raise ValueError('{0} coordinates are outside grid'
-                             .format(outside.sum()))
+            raise ValueError(f'{outside.sum()} coordinates are outside grid')
         # Use half raster cell widths for cell center values
         fx = (x - (gt[0] + hx)) / gt[1]
         fy = (y - (gt[3] + hy)) / gt[5]

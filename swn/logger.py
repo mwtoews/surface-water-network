@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Module logger."""
 
 __all__ = ["get_logger", "module_logger"]
