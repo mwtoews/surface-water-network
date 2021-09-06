@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Miscellaneous utility functions that don't fit anywhere else."""
 
 __all__ = ["abbr_str"]
@@ -24,6 +23,6 @@ def abbr_str(lst, limit=15):
             [str(x) for x in lst[:left]] + ['...'] +
             [str(x) for x in lst[-right:]])
     if is_set:
-        return '{' + res + '}'
+        return f"{{{res}}}"
     else:
-        return '[' + res + ']'
+        return f"[{res}]"

@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 """
 Download USGS executables, and install them in bindir
 """
@@ -16,24 +15,23 @@ import requests
 # See https://docs.github.com/en/rest/reference/repos#releases
 owner = "MODFLOW-USGS"
 repo = "executables"
-api_url = "https://api.github.com/repos/{}/{}".format(owner, repo)
+api_url = f"https://api.github.com/repos/{owner}/{repo}"
 
 
 def main(release_id="latest", bindir="bin"):
     """Run main component of script."""
     os.makedirs(bindir, exist_ok=True)
-    req_url = api_url + "/releases/" + release_id
+    req_url = f"{api_url}/releases/{release_id}"
     resp = requests.get(req_url)
     if not resp.ok:
-        raise RuntimeError("{}: {}".format(req_url, str(resp)))
+        raise RuntimeError(f"{req_url}: {resp}")
     release = resp.json()
     assets = release.get("assets", [])
-    print("fetched release {} with {} assets".format(
-        release["tag_name"], len(assets)))
+    print(f"fetched release {release['tag_name']} with {len(assets)} assets")
     if sys.platform.startswith("linux"):
         ostag = "linux"
     elif sys.platform.startswith("win"):
-        ostag = "win" + platform.architecture()[0][:2]
+        ostag = f"win{platform.architecture()[0][:2]}"
     elif sys.platform.startswith("darwin"):
         ostag = "mac"
     found_ostag = False
@@ -47,9 +45,9 @@ def main(release_id="latest", bindir="bin"):
                 ostag, release["tag_name"], release["html_url"]))
     with tempfile.TemporaryDirectory() as dname:
         download_pth = os.path.join(dname, asset["name"])
-        print("downloading {}".format(asset["name"]))
+        print(f"downloading {asset['name']}")
         urllib.request.urlretrieve(asset["browser_download_url"], download_pth)
-        print("extracting files to {}".format(os.path.abspath(bindir)))
+        print(f"extracting files to {os.path.abspath(bindir)}")
         file_list = []
         with zipfile.ZipFile(download_pth, "r") as zf:
             for file in zf.filelist:
@@ -63,8 +61,7 @@ def main(release_id="latest", bindir="bin"):
                     fh = os.open(outfile, os.O_CREAT | os.O_WRONLY, perm)
                     os.write(fh, zf.read(name))
                     os.close(fh)
-        print("extracted {} files: {}".format(
-            len(file_list), ", ".join(file_list)))
+        print(f"extracted {len(file_list)} files: {', '.join(file_list)}")
 
 
 if __name__ == "__main__":

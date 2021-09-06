@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Core functionality of surface water network package."""
 
 __all__ = ["SurfaceWaterNetwork"]
@@ -58,12 +57,11 @@ class SurfaceWaterNetwork:
             self.logger = logger
         else:
             raise ValueError(
-                "expected 'logger' to be Logger; found " + str(type(logger)))
+                f"expected 'logger' to be Logger; found {type(logger)!r}")
         self.logger.info('creating new %s object', self.__class__.__name__)
         if not isinstance(segments, geopandas.GeoDataFrame):
             raise ValueError(
-                'segments must be a GeoDataFrame; found {!r}'
-                .format(type(segments)))
+                f'segments must be a GeoDataFrame; found {type(segments)!r}')
         self._segments = segments
         self.END_SEGNUM = END_SEGNUM
         if self.END_SEGNUM in self.segments.index:
@@ -90,9 +88,9 @@ class SurfaceWaterNetwork:
         if self.catchments is not None:
             modifiers.append('catchment polygons')
         if modifiers:
-            with_modifiers = ' with ' + modifiers[0]
+            with_modifiers = f" with {modifiers[0]}"
             if len(modifiers) == 2:
-                with_modifiers += ' and ' + modifiers[1]
+                with_modifiers += f" and {modifiers[1]}"
         else:
             with_modifiers = ''
         segments = list(self.segments.index)
@@ -105,17 +103,12 @@ class SurfaceWaterNetwork:
             div_l = list(diversions.index)
             diversions_line = '{} diversions (as {}): {}'.format(
                 len(div_l), diversions.__class__.__name__, abbr_str(div_l, 4))
-        return dedent('''\
-            <{}:{}
-              {} segments: {}
-              {} headwater: {}
-              {} outlets: {}
-              {} />'''.format(
-            self.__class__.__name__, with_modifiers,
-            len(segments), abbr_str(segments, 4),
-            len(hw_l), abbr_str(hw_l, 4),
-            len(out_l), abbr_str(out_l, 4),
-            diversions_line))
+        return dedent(f'''\
+            <{self.__class__.__name__}:{with_modifiers}
+              {len(segments)} segments: {abbr_str(segments, 4)}
+              {len(hw_l)} headwater: {abbr_str(hw_l, 4)}
+              {len(out_l)} outlets: {abbr_str(out_l, 4)}
+              {diversions_line} />''')
 
     def __eq__(self, other):
         """Return true if objects are equal."""
@@ -155,7 +148,7 @@ class SurfaceWaterNetwork:
     def __setstate__(self, state):
         """Set object attributes from pickle loads."""
         if not isinstance(state, dict):
-            raise ValueError("expected 'dict'; found {!r}".format(type(state)))
+            raise ValueError(f"expected 'dict'; found {type(state)!r}")
         elif "class" not in state:
             raise KeyError("state does not have 'class' key")
         elif state["class"] != self.__class__.__name__:
@@ -480,8 +473,7 @@ class SurfaceWaterNetwork:
             return
         elif not isinstance(value, geopandas.GeoSeries):
             raise ValueError(
-                'catchments must be a GeoSeries or None; found {!r}'
-                .format(type(value)))
+                f'catchments must be a GeoSeries or None; found {type(value)!r}')
         segments_index = self.segments.index
         if (len(value.index) != len(segments_index) or
                 not (value.index == segments_index).all()):
@@ -569,7 +561,7 @@ class SurfaceWaterNetwork:
             if diversions_crs != segments_crs:
                 self.logger.warning(
                     'CRS for diversions and segments are different: '
-                    '{0} vs. {1}'.format(diversions_crs, segments_crs))
+                    '%s vs. %s', diversions_crs, segments_crs)
         if 'from_segnum' in diversions.columns:
             self.logger.debug(
                 "checking existing 'from_segnum' column for diversions")
@@ -578,8 +570,8 @@ class SurfaceWaterNetwork:
             if not sn.issuperset(dn):
                 diff = dn.difference(sn)
                 raise ValueError(
-                    "{0} 'from_segnum' are not found in segments.index: {1}"
-                    .format(len(diff), abbr_str(diff)))
+                    f"{len(diff)} 'from_segnum' are not found in "
+                    f"segments.index: {abbr_str(diff)}")
             self._diversions = diversions.copy()
             if is_spatial:
                 cols = ["dist_end", "dist_line"]
@@ -720,15 +712,14 @@ class SurfaceWaterNetwork:
                 if not segments_set.issuperset(var):
                     diff = list(sorted(set(var).difference(segments_set)))
                     raise IndexError(
-                        '{0} {1} segment{2} not found in segments.index: {3}'
-                        .format(len(diff), name, '' if len(diff) == 1 else 's',
-                                abbr_str(diff)))
+                        f"{len(diff)} {name} "
+                        f"segment{'' if len(diff) == 1 else 's'} "
+                        f"not found in segments.index: {abbr_str(diff)}")
                 return var
             else:
                 if var not in segments_index:
                     raise IndexError(
-                        '{0} segnum {1} not found in segments.index'
-                        .format(name, var))
+                        f'{name} segnum {var} not found in segments.index')
                 return [var]
 
         def go_upstream(segnum):
@@ -792,7 +783,7 @@ class SurfaceWaterNetwork:
             pass
         else:
             raise ValueError(
-                '{!r} not found in segments.columns'.format(follow_up))
+                f'{follow_up!r} not found in segments.columns')
         junctions = list(segnums)
         junctions_set = set(junctions)
         if len(junctions) != len(junctions_set):
@@ -801,8 +792,8 @@ class SurfaceWaterNetwork:
         if not junctions_set.issubset(segments_index_set):
             diff = junctions_set.difference(segments_index_set)
             raise IndexError(
-                '{0} segnums not found in segments.index: {1}'
-                .format(len(diff), abbr_str(diff)))
+                f"{len(diff)} segnums not found in "
+                f"segments.index: {abbr_str(diff)}")
         self.logger.debug(
             'aggregating at least %d segnums (junctions)', len(junctions))
         from_segnums = self.from_segnums
@@ -975,10 +966,8 @@ class SurfaceWaterNetwork:
                 not (values.index == self.segments.index).all()):
             raise ValueError('index is different')
         accum = values.copy()
-        try:
-            accum.name = 'accumulated_' + accum.name
-        except TypeError:
-            pass
+        if accum.name is not None:
+            accum.name = f"accumulated_{accum.name}"
         segnumset = set(self.segments.index)
         for segnum in self.segments.sort_values('sequence').index:
             from_segnums = self.segments.at[segnum, 'from_segnums']
@@ -1032,7 +1021,7 @@ class SurfaceWaterNetwork:
         elif isinstance(upstream_area, str):
             if upstream_area not in self.segments.columns:
                 raise ValueError(
-                    '{!r} not found in segments.columns'.format(upstream_area))
+                    f'{upstream_area!r} not found in segments.columns')
             upstream_area_km2 = self.segments[upstream_area] / 1e6
         else:
             raise ValueError('unknown use for upstream_area')
@@ -1352,8 +1341,8 @@ class SurfaceWaterNetwork:
             if not segnums_set.issubset(segments_index):
                 diff = list(sorted(segnums_set.difference(segments_index)))
                 raise IndexError(
-                    '{0} segnums not found in segments.index: {1}'
-                    .format(len(diff), abbr_str(diff)))
+                    f"{len(diff)} segnums not found in "
+                    f"segments.index: {abbr_str(diff)}")
             self.logger.debug(
                 'selecting %d segnum(s) based on a list', len(segnums_set))
             sel |= segments_index.isin(segnums_set)

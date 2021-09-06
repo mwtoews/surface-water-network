@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Common code for testing."""
 import sys
 from pathlib import Path

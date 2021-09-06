@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Misc utilities for MODFLOW."""
 
 __all__ = [
@@ -35,9 +34,9 @@ def sfr_dfs_to_rec(model, segdatadf, reachdatadf, set_outreaches=False,
         print('Getting slopes')
         if minslope is None:
             minslope = 1.0e-4
-            print('using default minslope of {}'.format(minslope))
+            print(f'using default minslope of {minslope}')
         else:
-            print('using specified minslope of {}'.format(minslope))
+            print(f'using specified minslope of {minslope}')
     # segs ds6
     # multiindex
     g = segdatadf.groupby(level=0, axis=1)  # group multi index df by kper
@@ -129,8 +128,7 @@ def transform_data_to_series_or_frame(
                 setattr(keys, keys_name, new_index)
             except (ValueError, TypeError):
                 raise ValueError(
-                      "cannot cast {}.dtype to {}".format(
-                          keys_name, mapping.index.dtype))
+                      f"cannot cast {keys_name}.dtype to {mapping.index.dtype}")
             keys_s = set(new_index.values)
         idxname = mapping.index.name
         index_s = set(mapping.index)
@@ -138,7 +136,7 @@ def transform_data_to_series_or_frame(
             index_s.update(ignore)
         if keys_s.isdisjoint(index_s):
             raise KeyError(
-                "{} has a disjoint {} set".format(which, idxname))
+                f"{which} has a disjoint {idxname} set")
         diff_s = keys_s.difference(index_s)
         if diff_s:
             ldiff = len(diff_s)

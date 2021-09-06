@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Interface for flopy's implementation for MODFLOW."""
 
 __all__ = ["SwnModflow"]
@@ -113,12 +112,11 @@ class SwnModflow(SwnModflowBase):
         else:
             dis = self.model.dis
             nper = dis.nper
-            model_info = "flopy {} {!r}".format(
-                self.model.version, self.model.name)
+            model_info = f"flopy {self.model.version} {self.model.name!r}"
             sp_info = "{} stress period{} with perlen: {}".format(
                 nper, "" if nper == 1 else "s",
                 abbr_str(list(dis.perlen), 4))
-        s = "<{}: {}\n".format(self.__class__.__name__, model_info)
+        s = f"<{self.__class__.__name__}: {model_info}\n"
         reaches = self.reaches
         if reaches is not None:
             s += "  {} in reaches ({}): {}\n".format(
@@ -131,25 +129,23 @@ class SwnModflow(SwnModflowBase):
                 abbr_str(list(segment_data.index), 4))
             is_diversion = segment_data["iupseg"] != 0
             segnum_l = list(segment_data.loc[~is_diversion, "segnum"])
-            s += "    {} from segments".format(len(segnum_l))
+            s += f"    {len(segnum_l)} from segments"
             segnum_index_name = self.segments.index.name
             if segnum_index_name is not None:
-                s += " ({})".format(segnum_index_name)
+                s += f" ({segnum_index_name})"
             if set(segnum_l) != set(self.segments.index):
-                s += " ({:.0%} used)".format(
-                    len(segnum_l) / float(len(self.segments)))
-            s += ": " + abbr_str(segnum_l, 4) + "\n"
+                s += f" ({len(segnum_l) / float(len(self.segments)):.0%} used)"
+            s += f": {abbr_str(segnum_l, 4)}\n"
             if is_diversion.any() and self.diversions is not None:
                 divid_l = list(self.segment_data.loc[is_diversion, "divid"])
-                s += "    {} from diversions".format(len(divid_l))
+                s += f"    {len(divid_l)} from diversions"
                 divid_index_name = self.diversions.index.name
                 if divid_index_name is not None:
-                    s += " ({})".format(divid_index_name)
+                    s += f" ({divid_index_name})"
                 if set(divid_l) != set(self.diversions.index):
-                    s += " ({:.0%} used)".format(
-                        len(divid_l) / float(len(self.diversions)))
-                s += ": " + abbr_str(divid_l, 4) + "\n"
-        s += "  {} />".format(sp_info)
+                    s += f" ({len(divid_l) / float(len(self.diversions)):.0%} used)"
+                s += f": {abbr_str(divid_l, 4)}\n"
+        s += f"  {sp_info} />"
         return s
 
     def __eq__(self, other):
@@ -287,7 +283,7 @@ class SwnModflow(SwnModflowBase):
         """
         self._check_segment_data_name(name)
         if not np.isscalar(data):
-            raise ValueError(repr(name) + " data is not scalar")
+            raise ValueError(f"{name!r} data is not scalar")
         self.logger.debug(
             "setting scalar segment_data[%r] = %r for %s", name, data, which)
         if which == "all":
@@ -533,7 +529,7 @@ class SwnModflow(SwnModflowBase):
                 action = "not found in segments frame; using default %s"
                 action_args = (width1,)
             self.logger.info(
-                "default_segment_data: 'width' " + action, *action_args)
+                f"default_segment_data: 'width' {action}", *action_args)
 
         # Column names common to segments and segment_data
         segment_cols = [
@@ -829,7 +825,7 @@ class SwnModflow(SwnModflowBase):
         segsel = ~self.segment_data.index.isin(self.segment_data["outseg"])
         while segsel.sum() > 0:
             self.logger.info(
-                "Checking elevdn and outseg_elevup for {} segments",
+                "Checking elevdn and outseg_elevup for %s segments",
                 segsel.sum())
             # get elevdn and outseg_elevups with a minimum slope constraint
             # index should align with self.segment_data index

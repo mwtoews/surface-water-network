@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import pickle
 from hashlib import md5
 from shutil import which
@@ -108,8 +107,7 @@ def read_budget(bud_fname, text, reaches=None, colname=None):
         res = b.get_data(text=text)
         if len(res) != 1:
             from warnings import warn
-            warn("get_data(text={!r}) returned more than one array"
-                 .format(text))
+            warn(f"get_data(text={text!r}) returned more than one array")
         data = res[0]
     if reaches is not None:
         if isinstance(data, np.recarray) and "q" in data.dtype.names:
@@ -839,7 +837,7 @@ def check_number_sum_hex(a, n, h):
     a = np.ceil(a).astype(np.int64)
     assert a.sum() == n
     ah = md5(a.tobytes()).hexdigest()
-    assert ah.startswith(h), "{0} does not start with {1}".format(ah, h)
+    assert ah.startswith(h), f"{ah} does not start with {h}"
 
 
 @requires_mfnwt

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Abstract base class for a surface water network for MODFLOW."""
 
 import pickle
@@ -47,7 +46,7 @@ class SwnModflowBase:
         """
         from importlib.util import find_spec
         if not find_spec("flopy"):
-            raise ImportError(self.__class__.__name__ + " requires flopy")
+            raise ImportError(f"{self.__class__.__name__} requires flopy")
         from swn.logger import get_logger, logging
         if logger is None:
             self.logger = get_logger(self.__class__.__name__)
@@ -55,7 +54,7 @@ class SwnModflowBase:
             self.logger = logger
         else:
             raise ValueError(
-                "expected 'logger' to be Logger; found " + str(type(logger)))
+                f"expected 'logger' to be Logger; found {type(logger)!r}")
         self.logger.info("creating new %s object", self.__class__.__name__)
         self.segments = None
         self.diversions = None
@@ -74,7 +73,7 @@ class SwnModflowBase:
         """Set object attributes from pickle loads."""
         self.__init__()
         if not isinstance(state, dict):
-            raise ValueError("expected 'dict'; found {!r}".format(type(state)))
+            raise ValueError(f"expected 'dict'; found {type(state)!r}")
         state_class = state.get("class")
         if state_class != self.__class__.__name__:
             raise ValueError("expected state class {!r}; found {!r}"
@@ -182,8 +181,8 @@ class SwnModflowBase:
         if this_class == "SwnModflow":
             if not isinstance(model, flopy.modflow.Modflow):
                 raise ValueError(
-                    "model must be a flopy Modflow object; found " +
-                    str(type(model)))
+                    "model must be a flopy Modflow object; "
+                    f"found {type(model)!r}")
             elif not model.has_package("DIS"):
                 raise ValueError("DIS package required")
             elif not model.has_package("BAS6"):
@@ -275,8 +274,8 @@ class SwnModflowBase:
         if (segments_crs is not None and modelgrid_crs is not None and
                 not same):
             self.logger.warning(
-                "CRS for modelgrid is different: {0} vs. {1}"
-                .format(segments_crs, modelgrid_crs))
+                "CRS for modelgrid is different: %s vs. %s",
+                segments_crs, modelgrid_crs)
         crs = segments_crs or modelgrid_crs
         if getattr(self, "segments", None) is not None:
             # Make sure their extents overlap
@@ -299,8 +298,8 @@ class SwnModflowBase:
         # Note: modelgrid.get_cell_vertices(i, j) is slow!
         xv = modelgrid.xvertices
         yv = modelgrid.yvertices
-        i, j = [np.array(s[1])
-                for s in grid_df.reset_index()[["i", "j"]].iteritems()]
+        i, j = (np.array(s[1])
+                for s in grid_df.reset_index()[["i", "j"]].iteritems())
         cell_verts = zip(
             zip(xv[i, j], yv[i, j]),
             zip(xv[i, j + 1], yv[i, j + 1]),
@@ -346,7 +345,7 @@ class SwnModflowBase:
         elif this_class == "SwnMf6":
             domain_label = "idomain"
         else:
-            raise TypeError("unsupported subclass " + repr(cls))
+            raise TypeError(f"unsupported subclass {cls!r}")
         if not isinstance(swn, SurfaceWaterNetwork):
             raise ValueError("swn must be a SurfaceWaterNetwork object")
         elif domain_action not in ("freeze", "modify"):
@@ -375,7 +374,7 @@ class SwnModflowBase:
             domain_label = "idomain"
             domain = dis.idomain.array[0].copy()
         else:
-            raise TypeError("unsupported subclass " + repr(cls))
+            raise TypeError(f"unsupported subclass {cls!r}")
 
         # Determine grid cell size
         col_size = np.median(dis.delr.array)
@@ -608,7 +607,7 @@ class SwnModflowBase:
             elif geom.geom_type == "MultiLineString":
                 for part in geom.geoms:
                     part_covers = df.geometry.apply(part.covers)
-                    if part_covers.sum() > 1: # recurse
+                    if part_covers.sum() > 1:  # recurse
                         do_linemerge(ij, df[part_covers], drop_reach_ids)
                     elif part_covers.sum() == 0:
                         obj.logger.warning(
@@ -693,10 +692,10 @@ class SwnModflowBase:
                     grid_cells[[domain_label]],
                     left_on=["i", "j"], right_index=True)
                 obj.reaches.rename(
-                    columns={domain_label: "prev_" + domain_label},
+                    columns={domain_label: f"prev_{domain_label}"},
                     inplace=True)
             else:
-                obj.reaches["prev_" + domain_label] = 1
+                obj.reaches[f"prev_{domain_label}"] = 1
 
         # Mark segments that are not used
         obj.segments["in_model"] = True
@@ -931,7 +930,7 @@ class SwnModflowBase:
             expected_shape = dis.nrow.data, dis.ncol.data
         else:
             raise TypeError(
-                "unsupported subclass " + repr(self.__class__.__name__))
+                f"unsupported subclass {self.__class__.__name__!r}")
         if expected_shape != array.shape:
             raise ValueError("'array' must have shape (nrow, ncol)")
         self.reaches.loc[:, name] = array[self.reaches["i"], self.reaches["j"]]
@@ -981,7 +980,7 @@ class SwnModflowBase:
             lentag = "rlen"
         else:
             raise TypeError(
-                "unsupported subclass " + repr(self.__class__.__name__))
+                f"unsupported subclass {self.__class__.__name__!r}")
 
         self.logger.debug(
             "setting reaches['%s'] with %s method", grid_name, method)

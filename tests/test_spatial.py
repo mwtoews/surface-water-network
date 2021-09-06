@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import geopandas
 import numpy as np
 import pytest

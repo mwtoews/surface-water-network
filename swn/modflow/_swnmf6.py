@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Interface for flopy's implementation for MODFLOW 6."""
 
 __all__ = ["SwnMf6"]
@@ -144,8 +143,7 @@ class SwnMf6(SwnModflowBase):
         else:
             tdis = self.model.simulation.tdis
             nper = tdis.nper.data
-            model_info = "flopy {} {!r}".format(
-                self.model.version, self.model.name)
+            model_info = f"flopy {self.model.version} {self.model.name!r}"
             sp_info = "{} stress period{} with perlen: {} {}".format(
                 nper, "" if nper == 1 else "s",
                 abbr_str(list(tdis.perioddata.array["perlen"]), 4),
@@ -157,11 +155,10 @@ class SwnMf6(SwnModflowBase):
             reaches_info = "{} in reaches ({}): {}".format(
                 len(self.reaches), self.reaches.index.name,
                 abbr_str(list(self.reaches.index), 4))
-        return dedent("""\
-            <{}: {}
-              {}
-              {} />""".format(
-            self.__class__.__name__, model_info, reaches_info, sp_info))
+        return dedent(f"""\
+            <{self.__class__.__name__}: {model_info}
+              {reaches_info}
+              {sp_info} />""")
 
     def __eq__(self, other):
         """Return true if objects are equal."""
@@ -223,7 +220,7 @@ class SwnMf6(SwnModflowBase):
         -------
         DataFrame
 
-        See also
+        See Also
         --------
         SwnMf6.write_packagedata : Write native file.
         SwnMf6.flopy_packagedata : List of lists for flopy.
@@ -366,11 +363,11 @@ class SwnMf6(SwnModflowBase):
             sel = pn.boundname.str.contains(" ")
             if sel.any():
                 pn.loc[sel, "boundname"] = pn.loc[sel, "boundname"].map(
-                    lambda x: "'{}'".format(x))
+                    lambda x: f"'{x}'")
             # left-justify column
             formatters = {
-                "boundname": "{{:<{}s}}".format(
-                    pn["boundname"].str.len().max()).format}
+                "boundname":
+                    f"{{:<{pn['boundname'].str.len().max()}s}}".format}
         with open(fname, "w") as f:
             pn.reset_index().to_string(
                 f, header=True, index=False, formatters=formatters)
@@ -435,11 +432,11 @@ class SwnMf6(SwnModflowBase):
         """
         cn = self.connectiondata_series("native")
         icn = [f"ic{n+1}" for n in range(cn.apply(len).max())]
-        rowfmt = "{:>" + str(len(str(cn.index.max()))) + "} {}\n"
+        rowfmt = f"{{:>{len(str(cn.index.max()))}}} {{}}\n"
         rnolen = 1 + len(str(len(self.reaches)))
         cn = cn.apply(lambda x: " ".join(str(v).rjust(rnolen) for v in x))
         with open(fname, "w") as f:
-            f.write("# rno " + " ".join(icn) + "\n")
+            f.write(f"# rno {' '.join(icn)}\n")
             for rno, ic in cn.iteritems():
                 f.write(rowfmt.format(rno, ic))
 
@@ -567,7 +564,7 @@ class SwnMf6(SwnModflowBase):
                 action = "not found in segments frame; using default %s"
                 action_args = (width1,)
             self.logger.info(
-                "default_packagedata: 'rwd' " + action, *action_args)
+                f"default_packagedata: 'rwd' {action}", *action_args)
         self.set_reach_data_from_segments(
             "rwid", width1, width_out, method="constant")
 

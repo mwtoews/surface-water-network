@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """This test suit checks the abstract base class for SwnModflow.
 
 Also check functionality in modflow._misc too.
@@ -436,7 +435,7 @@ def check_number_sum_hex(a, n, h):
     a = np.ceil(a).astype(np.int64)
     assert a.sum() == n
     ah = md5(a.tobytes()).hexdigest()
-    assert ah.startswith(h), "{0} does not start with {1}".format(ah, h)
+    assert ah.startswith(h), f"{ah} does not start with {h}"
 
 
 def test_coastal(coastal_lines_gdf):
