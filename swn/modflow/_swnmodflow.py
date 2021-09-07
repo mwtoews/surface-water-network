@@ -31,7 +31,7 @@ class SwnModflow(SwnModflowBase):
         Copied from swn.segments, but with additional columns added
     segment_data : pd.DataFrame or None
         Dataframe of stationary data for MODFLOW SFR, index is nseg, ordered
-        and starting from 1. Additional column "segnum" is usedto identify
+        and starting from 1. Additional column "segnum" is used to identify
         segments, and if present, "divid" to identify diversions, where
         iupseg != 0.
     segment_data_ts : dict or None
@@ -39,9 +39,10 @@ class SwnModflow(SwnModflowBase):
     reaches : geopandas.GeoDataFrame
         Similar to structure in model.sfr.reach_data with index "reachID",
         ordered and starting from 1. Contains geometry and other columns
-        not used by flopy. Use flopy_reach_data() for use with flopy.
-    diversions :  geopandas.GeoDataFrame, pd.DataFrame or None
-        Copied from swn.diversions, if set/defined.
+        not used by flopy. Use :py:meth:`SwnModflow.flopy_reach_data`
+        for use with flopy.
+    diversions :  geopandas.GeoDataFrame, pandas.DataFrame or None
+        Copied from ``swn.diversions``, if set/defined.
     logger : logging.Logger
         Logger to show messages.
 
@@ -676,7 +677,7 @@ class SwnModflow(SwnModflowBase):
 
     def set_seg_minincise(self, minincise=0.2, max_str_z=None):
         """
-        Set segment elevation to have the minumum incision from the top.
+        Set segment elevation to have the minimum incision from the top.
 
         Parameters
         ----------
@@ -712,7 +713,7 @@ class SwnModflow(SwnModflowBase):
 
         :return:
         """
-        # extract segment length for calculating minimun drop later
+        # extract segment length for calculating minimum drop later
         reaches = self.reaches[["geometry", "iseg", "rchlen"]].copy()
         seglen = reaches.groupby("iseg")["rchlen"].sum()
         self.segment_data.loc[seglen.index, "seglen"] = seglen
@@ -729,7 +730,7 @@ class SwnModflow(SwnModflowBase):
         """Set outseg elevation for segment.
 
         Gets all the defined outseg_elevup associated with a specific segment
-        (multiple upstream segements route to one segment)
+        (multiple upstream segments route to one segment)
         Returns a df with all the calculated outseg elevups for each segment.
         .min(axis=1) is a good way to collapse to a series
         :param seg: Pandas Series containing one row of seg_data dataframe
@@ -745,7 +746,7 @@ class SwnModflow(SwnModflowBase):
 
     def minslope_seg(self, seg, *args):
         """
-        Force segment to have minumim slope (check for backward flowing segs).
+        Force segment to have minimum slope (check for backward flowing segs).
 
         Moves downstream end down (vertically, more incision)
         to acheive minimum slope.

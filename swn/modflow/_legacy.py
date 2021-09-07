@@ -34,7 +34,7 @@ class MfSfrNetwork:
     segments : geopandas.GeoDataFrame
         Copied from swn.segments, but with additional columns added
     segment_data : pandas.DataFrame
-        Simialr to structure in model.sfr.segment_data, but for one stress
+        Similar to structure in model.sfr.segment_data, but for one stress
         period. Transient data (where applicable) will show summary statistics.
         The index is 'nseg', ordered and starting from 1. An additional column
         'segnum' is used to identify segments, and if defined,
@@ -235,7 +235,7 @@ class MfSfrNetwork:
         empty_reach_df.insert(3, column='length', value=pd.Series(dtype=float))
         empty_reach_df.insert(4, column='moved', value=pd.Series(dtype=bool))
 
-        # recusive helper function
+        # recursive helper function
         def append_reach_df(df, row, col, reach_geom, moved=False):
             if reach_geom.geom_type == 'LineString':
                 df.loc[len(df.index)] = {
@@ -1302,7 +1302,7 @@ class MfSfrNetwork:
 
         Adds elevation of model top at
         upstream and downstream ends of each segment
-        :param m: modeflow model with active dis package
+        :param m: modflow model with active dis package
         :return: Adds 'top_up' and 'top_dn' columns to segment data dataframe
         """
         if m is None:
@@ -1328,7 +1328,7 @@ class MfSfrNetwork:
 
     def set_seg_minincise(self, minincise=0.2, max_str_z=None):
         """
-        Set segment elevation to have the minumum incision from the top.
+        Set segment elevation to have the minimum incision from the top.
 
         :param minincise: Desired minimum incision
         :param max_str_z: Optional parameter to prevent streams at
@@ -1356,7 +1356,7 @@ class MfSfrNetwork:
 
         :return:
         """
-        # extract segment length for calculating minimun drop later
+        # extract segment length for calculating minimum drop later
         reaches = self.reaches[['geometry', 'iseg', 'rchlen']].copy()
         seglen = reaches.groupby('iseg')['rchlen'].sum()
         self.segment_data.loc[seglen.index, 'seglen'] = seglen
@@ -1373,7 +1373,7 @@ class MfSfrNetwork:
         """Set outseg elevation for segment.
 
         Gets all the defined outseg_elevup associated with a specific segment
-        (multiple upstream segements route to one segment)
+        (multiple upstream segments route to one segment)
         Returns a df with all the calculated outseg elevups for each segment.
         .min(axis=1) is a good way to collapse to a series
         :param seg: Pandas Series containing one row of seg_data dataframe
@@ -1389,12 +1389,12 @@ class MfSfrNetwork:
 
     def minslope_seg(self, seg, *args):
         """
-        Force segment to have minumim slope (check for backward flowing segs).
+        Force segment to have minimum slope (check for backward flowing segs).
 
         Moves downstream end down (vertically, more incision)
-        to acheive minimum slope.
+        to achieve minimum slope.
         :param seg: Pandas Series containing one row of seg_data dataframe
-        :param args: desired minumum slope
+        :param args: desired minimum slope
         :return: Pandas Series with new downstream elevation and
         associated outseg_elevup
         """

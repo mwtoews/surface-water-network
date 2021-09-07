@@ -171,11 +171,11 @@ class SurfaceWaterNetwork:
         ----------
         lines : geopandas.GeoSeries
             Input lines of surface water network. Geometries must be
-            'LINESTRING' or 'LINESTRING Z'. Index is used for segment numbers.
-            The geometry is copied to the segments property.
+            ``LINESTRING`` or ``LINESTRING Z``. Index is used for segment
+            numbers. The geometry is copied to the segments property.
         polygons : geopandas.GeoSeries, optional
             Optional input polygons of surface water catchments. Geometries
-            must be 'POLYGON'. Index must be the same as segments.index.
+            must be ``POLYGON``. Index must be the same as ``segments.index``.
 
         Examples
         --------
@@ -185,12 +185,13 @@ class SurfaceWaterNetwork:
         ...    "LINESTRING (60 100, 60  80)",
         ...    "LINESTRING (40 130, 60 100)",
         ...    "LINESTRING (70 130, 60 100)"])
+        >>> lines.index += 100
         >>> n = swn.SurfaceWaterNetwork.from_lines(lines)
         >>> n
         <SurfaceWaterNetwork:
-          3 segments: [0, 1, 2]
-          2 headwater: [1, 2]
-          1 outlets: [0]
+          3 segments: [100, 101, 102]
+          2 headwater: [101, 102]
+          1 outlets: [100]
           no diversions />
 
         """
@@ -434,7 +435,7 @@ class SurfaceWaterNetwork:
         dist_to_outlet : float
             Distance to outlet.
         sequence : int
-            Unique dowstream sequence.
+            Unique downstream sequence.
         stream_order : int
             Strahler number.
         upstream_length : float
@@ -451,7 +452,28 @@ class SurfaceWaterNetwork:
         diversions : set
             If diversions are defined, this is a set of zero or more indexes
             to which the segment connects to.
-        """
+
+        Examples
+        --------
+        >>> import swn
+        >>> from swn.spatial import wkt_to_geoseries
+        >>> lines = wkt_to_geoseries([
+        ...    "LINESTRING (60 100, 60  80)",
+        ...    "LINESTRING (40 130, 60 100)",
+        ...    "LINESTRING (70 130, 60 100)"])
+        >>> lines.index += 100
+        >>> n = swn.SurfaceWaterNetwork.from_lines(lines)
+        >>> n.segments.columns
+        Index(['geometry', 'to_segnum', 'from_segnums', 'cat_group', 'num_to_outlet',
+               'dist_to_outlet', 'sequence', 'stream_order', 'upstream_length'],
+              dtype='object')
+        >>> n.segments[["to_segnum", "from_segnums", "cat_group", "num_to_outlet",
+        ...             "sequence", "stream_order"]]
+             to_segnum from_segnums  cat_group  num_to_outlet  sequence  stream_order
+        100          0   {101, 102}        100              1         3             2
+        101        100           {}        100              2         1             1
+        102        100           {}        100              2         2             1
+        """  # noqa
         return getattr(self, '_segments')
 
     @property
@@ -462,6 +484,34 @@ class SurfaceWaterNetwork:
         a matching index to ``segments.index``.
 
         To unset this property, use ``n.catchments = None``.
+
+        Examples
+        --------
+        >>> import swn
+        >>> from swn.spatial import wkt_to_geoseries
+        >>> lines = wkt_to_geoseries([
+        ...    "LINESTRING (60 100, 60  80)",
+        ...    "LINESTRING (40 130, 60 100)",
+        ...    "LINESTRING (70 130, 60 100)"])
+        >>> lines.index += 100
+        >>> polygons = wkt_to_geoseries([
+        ...    "POLYGON ((35 100, 75 100, 75  80, 35  80, 35 100))",
+        ...    "POLYGON ((35 135, 60 135, 60 100, 35 100, 35 135))",
+        ...    "POLYGON ((60 135, 75 135, 75 100, 60 100, 60 135))"])
+        >>> polygons.index += 100
+        >>> n = swn.SurfaceWaterNetwork.from_lines(lines, polygons)
+        >>> n
+        <SurfaceWaterNetwork: with catchment polygons
+          3 segments: [100, 101, 102]
+          2 headwater: [101, 102]
+          1 outlets: [100]
+          no diversions />
+        >>> n.segments[["to_segnum", "from_segnums", "upstream_area", "width"]]
+             to_segnum from_segnums  upstream_area     width
+        100          0   {101, 102}         2200.0  1.461501
+        101        100           {}          875.0  1.445695
+        102        100           {}          525.0  1.439701
+
         """
         return getattr(self, '_catchments', None)
 
@@ -533,11 +583,11 @@ class SurfaceWaterNetwork:
 
         Parameters
         ----------
-        diversions : pd.DataFrame, geopandas.GeoDataFrame or None
+        diversions : pandas.DataFrame, geopandas.GeoDataFrame or None
             Data frame of surface water diversions, a modified copy kept as a
-            'diversions' property. Use None to unset this property.
-        min_stream_order : int, optional
-            Finds stream segments with a minimum stream order. Default None.
+            ``diversions`` property. Use None to unset this property.
+        min_stream_order : int, default None
+            Finds stream segments with a minimum stream order.
 
         """
         if diversions is None:
@@ -692,12 +742,12 @@ class SurfaceWaterNetwork:
 
         Parameters
         ----------
-        upstream, downstream : int or list, optional
-            Segmnet number(s) from segments.index to search from. Default [].
-        barriers : int or list, optional
-            Segment number(s) that cannot be traversed past. Default [].
-        gather_upstream : bool
-            Gather upstream from all other downstream segments. Default False.
+        upstream, downstream : int or list, default []
+            Segment number(s) from segments.index to search from.
+        barriers : int or list, default []
+            Segment number(s) that cannot be traversed past.
+        gather_upstream : bool, default False
+            Gather upstream from all other downstream segments.
 
         Returns
         -------
@@ -766,7 +816,7 @@ class SurfaceWaterNetwork:
         follow_up : str
             Column name in segments used to determine the descending sort
             order used to determine which segment to follow up headwater
-            catchments. Default 'upstream_length'. Anothr good candidate
+            catchments. Default 'upstream_length'. Another good candidate
             is 'upstream_area', if catchment polygons are available.
 
         Returns
@@ -868,7 +918,7 @@ class SurfaceWaterNetwork:
 
         trbset = traset.difference(junctions_set)
 
-        # aggregate segnums in a path accross an internal subcatchment
+        # aggregate segnums in a path across an internal subcatchment
         def up_path_internal_segnums(segnum):
             yield segnum
             up_segnums = from_segnums.get(segnum, set()).intersection(trbset)
@@ -951,12 +1001,12 @@ class SurfaceWaterNetwork:
 
         Parameters
         ----------
-        values : pandas.core.series.Series
+        values : pandas.Series
             Series of values that align with the index.
 
         Returns
         -------
-        pandas.core.series.Series
+        pandas.Series
             Accumulated values.
 
         """
@@ -1006,8 +1056,8 @@ class SurfaceWaterNetwork:
         ----------
         a, b : float or pandas.Series, optional
             Fitting parameters, with defaults a=1.42, and b=0.52
-        upstream_area : str or pd.Series
-            Column name in segments (default 'upstream_area') to use for
+        upstream_area : str or pandas.Series
+            Column name in segments (default ``upstream_area``) to use for
             upstream area (in m^2), or series of upstream areas.
 
         Returns
@@ -1041,7 +1091,7 @@ class SurfaceWaterNetwork:
             index as :py:attr:`SurfaceWaterNetwork.segments`. Otherwise value
             as a scalar, list or dict is cast as a Series with
             ``segments.index``.
-        name : str or None (default)
+        name : str, default None
             Name used for series, if provided.
 
         Returns

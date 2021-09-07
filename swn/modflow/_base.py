@@ -403,7 +403,7 @@ class SwnModflowBase:
         empty_reach_df.insert(3, column="length", value=pd.Series(dtype=float))
         empty_reach_df.insert(4, column="moved", value=pd.Series(dtype=bool))
 
-        # recusive helper function
+        # recursive helper function
         def append_reach_df(df, i, j, reach_geom, moved=False):
             if reach_geom.geom_type == "LineString":
                 df.loc[len(df.index)] = {
@@ -847,7 +847,7 @@ class SwnModflowBase:
             This option determines how ``value_out`` values should be
             determined, if not specified. Choose one of:
               - None (default): automatically determine method. If value is
-                float-like or ``log=True``, choose ``continious`` with
+                float-like or ``log=True``, choose ``continuous`` with
                 interpolation (if necessary) along reaches, otherwise
                 ``constant`` without any interpolation.
               - ``continuous`` : downstream value is evaluated to be

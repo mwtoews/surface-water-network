@@ -802,7 +802,7 @@ def test_pair_segments_frame(valid_n):
         pd.DataFrame({1: [3, 4, 5], 2: [6, 3, 3]}))
     with pytest.raises(ValueError, match=errmsg_value_out):
         n.pair_segments_frame(1, {3: 2})
-    # discontinious series
+    # discontinuous series
     pd.testing.assert_frame_equal(
         n.pair_segments_frame([3, 4, 5], {0: 6, 1: 7, 2: 8}),
         pd.DataFrame({1: [3, 4, 5], 2: [6, 7, 8]}))

@@ -69,7 +69,7 @@ def interp_2d_to_3d(gs, grid, gt):
     ----------
     gs : geopandas.GeoSeries
         Input geopandas GeoSeries
-    grid : np.ndarray
+    grid : array_like
         2D array of values, e.g. DEM
     gt : tuple
         GDAL-style geotransform coefficients for grid
