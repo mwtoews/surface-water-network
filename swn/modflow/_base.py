@@ -145,8 +145,11 @@ class SwnModflowBase:
 
     @swn.setter
     def swn(self, swn):
-        prev_swn = getattr(self, "_swn", None)
-        if prev_swn is None and isinstance(swn, SurfaceWaterNetwork):
+        if not isinstance(swn, SurfaceWaterNetwork):
+            raise TypeError(
+                "swn property must be an instance of SurfaceWaterNetwork; "
+                f"found {type(swn)!r}")
+        elif getattr(self, "_swn", None) is None:
             self._swn = swn
         else:
             raise AttributeError("swn property can only be set once")

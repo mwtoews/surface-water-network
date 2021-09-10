@@ -789,3 +789,9 @@ def test_pickle(tmp_path):
     nm3.to_pickle(tmp_path / "nm4.pickle")
     nm4 = swn.SwnMf6.from_pickle(tmp_path / "nm4.pickle", n, m)
     assert nm3 == nm4
+
+    # Issue 31
+    with pytest.raises(TypeError, match="swn property must be an instance o"):
+        swn.SwnMf6.from_pickle(tmp_path / "nm4.pickle", m)
+    with pytest.raises(AttributeError, match="swn property can only be set o"):
+        nm2.swn = n
