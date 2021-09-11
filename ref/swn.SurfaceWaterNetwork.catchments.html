@@ -454,6 +454,33 @@
 <p>Catchment polygons are optional, and are set with a GeoSeries with
 a matching index to <code class="docutils literal notranslate"><span class="pre">segments.index</span></code>.</p>
 <p>To unset this property, use <code class="docutils literal notranslate"><span class="pre">n.catchments</span> <span class="pre">=</span> <span class="pre">None</span></code>.</p>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">swn</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">swn.spatial</span> <span class="kn">import</span> <span class="n">wkt_to_geoseries</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">lines</span> <span class="o">=</span> <span class="n">wkt_to_geoseries</span><span class="p">([</span>
+<span class="gp">... </span>   <span class="s2">&quot;LINESTRING (60 100, 60  80)&quot;</span><span class="p">,</span>
+<span class="gp">... </span>   <span class="s2">&quot;LINESTRING (40 130, 60 100)&quot;</span><span class="p">,</span>
+<span class="gp">... </span>   <span class="s2">&quot;LINESTRING (70 130, 60 100)&quot;</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">lines</span><span class="o">.</span><span class="n">index</span> <span class="o">+=</span> <span class="mi">100</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">polygons</span> <span class="o">=</span> <span class="n">wkt_to_geoseries</span><span class="p">([</span>
+<span class="gp">... </span>   <span class="s2">&quot;POLYGON ((35 100, 75 100, 75  80, 35  80, 35 100))&quot;</span><span class="p">,</span>
+<span class="gp">... </span>   <span class="s2">&quot;POLYGON ((35 135, 60 135, 60 100, 35 100, 35 135))&quot;</span><span class="p">,</span>
+<span class="gp">... </span>   <span class="s2">&quot;POLYGON ((60 135, 75 135, 75 100, 60 100, 60 135))&quot;</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">polygons</span><span class="o">.</span><span class="n">index</span> <span class="o">+=</span> <span class="mi">100</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">n</span> <span class="o">=</span> <span class="n">swn</span><span class="o">.</span><span class="n">SurfaceWaterNetwork</span><span class="o">.</span><span class="n">from_lines</span><span class="p">(</span><span class="n">lines</span><span class="p">,</span> <span class="n">polygons</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">n</span>
+<span class="go">&lt;SurfaceWaterNetwork: with catchment polygons</span>
+<span class="go">  3 segments: [100, 101, 102]</span>
+<span class="go">  2 headwater: [101, 102]</span>
+<span class="go">  1 outlets: [100]</span>
+<span class="go">  no diversions /&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">n</span><span class="o">.</span><span class="n">segments</span><span class="p">[[</span><span class="s2">&quot;to_segnum&quot;</span><span class="p">,</span> <span class="s2">&quot;from_segnums&quot;</span><span class="p">,</span> <span class="s2">&quot;upstream_area&quot;</span><span class="p">,</span> <span class="s2">&quot;width&quot;</span><span class="p">]]</span>
+<span class="go">     to_segnum from_segnums  upstream_area     width</span>
+<span class="go">100          0   {101, 102}         2200.0  1.461501</span>
+<span class="go">101        100           {}          875.0  1.445695</span>
+<span class="go">102        100           {}          525.0  1.439701</span>
+</pre></div>
+</div>
 </dd></dl>
 
 </div>

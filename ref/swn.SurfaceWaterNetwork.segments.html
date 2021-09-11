@@ -453,6 +453,27 @@
 <dd><p>GeoDataFrame of stream segments derived from the lines input.</p>
 <p>This GeoDataFrame is created by
 <a class="reference internal" href="swn.SurfaceWaterNetwork.from_lines.html#swn.SurfaceWaterNetwork.from_lines" title="swn.SurfaceWaterNetwork.from_lines"><code class="xref py py-meth docutils literal notranslate"><span class="pre">swn.SurfaceWaterNetwork.from_lines()</span></code></a>.</p>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">swn</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">swn.spatial</span> <span class="kn">import</span> <span class="n">wkt_to_geoseries</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">lines</span> <span class="o">=</span> <span class="n">wkt_to_geoseries</span><span class="p">([</span>
+<span class="gp">... </span>   <span class="s2">&quot;LINESTRING (60 100, 60  80)&quot;</span><span class="p">,</span>
+<span class="gp">... </span>   <span class="s2">&quot;LINESTRING (40 130, 60 100)&quot;</span><span class="p">,</span>
+<span class="gp">... </span>   <span class="s2">&quot;LINESTRING (70 130, 60 100)&quot;</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">lines</span><span class="o">.</span><span class="n">index</span> <span class="o">+=</span> <span class="mi">100</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">n</span> <span class="o">=</span> <span class="n">swn</span><span class="o">.</span><span class="n">SurfaceWaterNetwork</span><span class="o">.</span><span class="n">from_lines</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">n</span><span class="o">.</span><span class="n">segments</span><span class="o">.</span><span class="n">columns</span>
+<span class="go">Index([&#39;geometry&#39;, &#39;to_segnum&#39;, &#39;from_segnums&#39;, &#39;cat_group&#39;, &#39;num_to_outlet&#39;,</span>
+<span class="go">       &#39;dist_to_outlet&#39;, &#39;sequence&#39;, &#39;stream_order&#39;, &#39;upstream_length&#39;],</span>
+<span class="go">      dtype=&#39;object&#39;)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">n</span><span class="o">.</span><span class="n">segments</span><span class="p">[[</span><span class="s2">&quot;to_segnum&quot;</span><span class="p">,</span> <span class="s2">&quot;from_segnums&quot;</span><span class="p">,</span> <span class="s2">&quot;cat_group&quot;</span><span class="p">,</span> <span class="s2">&quot;num_to_outlet&quot;</span><span class="p">,</span>
+<span class="gp">... </span>            <span class="s2">&quot;sequence&quot;</span><span class="p">,</span> <span class="s2">&quot;stream_order&quot;</span><span class="p">]]</span>
+<span class="go">     to_segnum from_segnums  cat_group  num_to_outlet  sequence  stream_order</span>
+<span class="go">100          0   {101, 102}        100              1         3             2</span>
+<span class="go">101        100           {}        100              2         1             1</span>
+<span class="go">102        100           {}        100              2         2             1</span>
+</pre></div>
+</div>
 <dl class="field-list simple">
 <dt class="field-odd">Attributes</dt>
 <dd class="field-odd"><dl class="simple">
@@ -475,7 +496,7 @@ as <code class="docutils literal notranslate"><span class="pre">{}</span></code>
 </dd>
 <dt><strong>dist_to_outlet</strong><span class="classifier">float</span></dt><dd><p>Distance to outlet.</p>
 </dd>
-<dt><strong>sequence</strong><span class="classifier">int</span></dt><dd><p>Unique dowstream sequence.</p>
+<dt><strong>sequence</strong><span class="classifier">int</span></dt><dd><p>Unique downstream sequence.</p>
 </dd>
 <dt><strong>stream_order</strong><span class="classifier">int</span></dt><dd><p>Strahler number.</p>
 </dd>

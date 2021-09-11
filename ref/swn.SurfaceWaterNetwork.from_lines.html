@@ -455,11 +455,11 @@
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><dl class="simple">
 <dt><strong>lines</strong><span class="classifier">geopandas.GeoSeries</span></dt><dd><p>Input lines of surface water network. Geometries must be
-‘LINESTRING’ or ‘LINESTRING Z’. Index is used for segment numbers.
-The geometry is copied to the segments property.</p>
+<code class="docutils literal notranslate"><span class="pre">LINESTRING</span></code> or <code class="docutils literal notranslate"><span class="pre">LINESTRING</span> <span class="pre">Z</span></code>. Index is used for segment
+numbers. The geometry is copied to the segments property.</p>
 </dd>
 <dt><strong>polygons</strong><span class="classifier">geopandas.GeoSeries, optional</span></dt><dd><p>Optional input polygons of surface water catchments. Geometries
-must be ‘POLYGON’. Index must be the same as segments.index.</p>
+must be <code class="docutils literal notranslate"><span class="pre">POLYGON</span></code>. Index must be the same as <code class="docutils literal notranslate"><span class="pre">segments.index</span></code>.</p>
 </dd>
 </dl>
 </dd>
@@ -471,12 +471,13 @@ must be ‘POLYGON’. Index must be the same as segments.index.</p>
 <span class="gp">... </span>   <span class="s2">&quot;LINESTRING (60 100, 60  80)&quot;</span><span class="p">,</span>
 <span class="gp">... </span>   <span class="s2">&quot;LINESTRING (40 130, 60 100)&quot;</span><span class="p">,</span>
 <span class="gp">... </span>   <span class="s2">&quot;LINESTRING (70 130, 60 100)&quot;</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">lines</span><span class="o">.</span><span class="n">index</span> <span class="o">+=</span> <span class="mi">100</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">n</span> <span class="o">=</span> <span class="n">swn</span><span class="o">.</span><span class="n">SurfaceWaterNetwork</span><span class="o">.</span><span class="n">from_lines</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">n</span>
 <span class="go">&lt;SurfaceWaterNetwork:</span>
-<span class="go">  3 segments: [0, 1, 2]</span>
-<span class="go">  2 headwater: [1, 2]</span>
-<span class="go">  1 outlets: [0]</span>
+<span class="go">  3 segments: [100, 101, 102]</span>
+<span class="go">  2 headwater: [101, 102]</span>
+<span class="go">  1 outlets: [100]</span>
 <span class="go">  no diversions /&gt;</span>
 </pre></div>
 </div>

@@ -461,7 +461,7 @@
 <dt><strong>segments</strong><span class="classifier">geopandas.GeoDataFrame</span></dt><dd><p>Copied from swn.segments, but with additional columns added</p>
 </dd>
 <dt><strong>segment_data</strong><span class="classifier">pd.DataFrame or None</span></dt><dd><p>Dataframe of stationary data for MODFLOW SFR, index is nseg, ordered
-and starting from 1. Additional column “segnum” is usedto identify
+and starting from 1. Additional column “segnum” is used to identify
 segments, and if present, “divid” to identify diversions, where
 iupseg != 0.</p>
 </dd>
@@ -469,9 +469,10 @@ iupseg != 0.</p>
 </dd>
 <dt><strong>reaches</strong><span class="classifier">geopandas.GeoDataFrame</span></dt><dd><p>Similar to structure in model.sfr.reach_data with index “reachID”,
 ordered and starting from 1. Contains geometry and other columns
-not used by flopy. Use flopy_reach_data() for use with flopy.</p>
+not used by flopy. Use <code class="xref py py-meth docutils literal notranslate"><span class="pre">SwnModflow.flopy_reach_data()</span></code>
+for use with flopy.</p>
 </dd>
-<dt><strong>diversions</strong><span class="classifier">geopandas.GeoDataFrame, pd.DataFrame or None</span></dt><dd><p>Copied from swn.diversions, if set/defined.</p>
+<dt><strong>diversions</strong><span class="classifier">geopandas.GeoDataFrame, pandas.DataFrame or None</span></dt><dd><p>Copied from <code class="docutils literal notranslate"><span class="pre">swn.diversions</span></code>, if set/defined.</p>
 </dd>
 <dt><strong>logger</strong><span class="classifier">logging.Logger</span></dt><dd><p>Logger to show messages.</p>
 </dd>
@@ -525,7 +526,7 @@ not used by flopy. Use flopy_reach_data() for use with flopy.</p>
 <td><p>Get topsurface elevations associated with segment up and dn elevations.</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">minslope_seg</span></code>(seg, *args)</p></td>
-<td><p>Force segment to have minumim slope (check for backward flowing segs).</p></td>
+<td><p>Force segment to have minimum slope (check for backward flowing segs).</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">new_segment_data</span></code>()</p></td>
 <td><p>Generate an empty segment_data DataFrame.</p></td>
@@ -561,7 +562,7 @@ not used by flopy. Use flopy_reach_data() for use with flopy.</p>
 <td><p>Set slope for reaches.</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_seg_minincise</span></code>([minincise, max_str_z])</p></td>
-<td><p>Set segment elevation to have the minumum incision from the top.</p></td>
+<td><p>Set segment elevation to have the minimum incision from the top.</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_segment_data_from_diversions</span></code>(name, data)</p></td>
 <td><p>Set segment_data from a series indexed by diversions.</p></td>
@@ -650,7 +651,7 @@ not used by flopy. Use flopy_reach_data() for use with flopy.</p>
 <td><p>Get topsurface elevations associated with segment up and dn elevations.</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">minslope_seg</span></code>(seg, *args)</p></td>
-<td><p>Force segment to have minumim slope (check for backward flowing segs).</p></td>
+<td><p>Force segment to have minimum slope (check for backward flowing segs).</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">new_segment_data</span></code>()</p></td>
 <td><p>Generate an empty segment_data DataFrame.</p></td>
@@ -686,7 +687,7 @@ not used by flopy. Use flopy_reach_data() for use with flopy.</p>
 <td><p>Set slope for reaches.</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_seg_minincise</span></code>([minincise, max_str_z])</p></td>
-<td><p>Set segment elevation to have the minumum incision from the top.</p></td>
+<td><p>Set segment elevation to have the minimum incision from the top.</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_segment_data_from_diversions</span></code>(name, data)</p></td>
 <td><p>Set segment_data from a series indexed by diversions.</p></td>
