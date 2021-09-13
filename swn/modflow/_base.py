@@ -1212,7 +1212,7 @@ class SwnModflowBase:
         """
         dis = self.model.dis
         self.set_reach_data_from_array('top', dis.top.array)
-        self.set_reach_data_from_array('bot', dis.botm[0].array)
+        self.set_reach_data_from_array('bot', dis.botm.array[0])
         return self.reaches[['top', 'bot']]
 
     def plot_reaches_vs_model(

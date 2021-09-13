@@ -888,9 +888,10 @@ class SwnMf6(SwnModflowBase):
                 # drop bottom of layer one to accomodate stream
                 # (top, bed thickness and buffer)
                 new_elev = rbed_elev - buffer
+                name = getattr(r, "Index", None) or getattr(r, "name")
                 self.logger.debug(
                     "reach %s @ %s is below layer 1 bottom @ %s",
-                    r.Index, rbed_elev, r.bot)
+                    name, rbed_elev, r.bot)
                 self.logger.debug(
                     "dropping layer 1 bottom to %s to accommodate stream "
                     "@ i = %s, j = %s", new_elev, r.i, r.j)
