@@ -210,7 +210,6 @@ class SurfaceWaterNetwork:
                     not (polygons.index == lines.index).all()):
                 raise ValueError(
                     'polygons.index is different than lines.index')
-        segments_sindex = get_sindex(segments)
         if segments.index.min() > 0:
             END_SEGNUM = 0
         else:
@@ -220,45 +219,91 @@ class SurfaceWaterNetwork:
         del segments, END_SEGNUM  # dereference local copies
         obj.errors = []
         obj.warnings = []
-        # Cartesian join of segments to find where ends connect to
-        obj.logger.debug('finding connections between pairs of segment lines')
-        for segnum1, geom1 in obj.segments.geometry.iteritems():
-            end1_coord = geom1.coords[-1]  # downstream end
-            end1_coord2d = end1_coord[0:2]
-            end1_pt = Point(*end1_coord)
-            if segments_sindex:
-                subsel = segments_sindex.intersection(end1_coord2d)
-                sub = obj.segments.iloc[sorted(subsel)]
-            else:  # slow scan of all segments
-                sub = obj.segments
-            to_segnums = []
-            for segnum2, geom2 in sub.geometry.iteritems():
-                if segnum1 == segnum2:
-                    continue
-                start2_coord = geom2.coords[0]
-                end2_coord = geom2.coords[-1]
-                if end1_coord == start2_coord:
-                    to_segnums.append(segnum2)  # perfect 3D match
-                elif end1_coord2d == start2_coord[0:2]:
-                    to_segnums.append(segnum2)
-                    m = ('end of segment %s matches start of segment %s in '
-                         '2D, but not in Z dimension', segnum1, segnum2)
-                    obj.logger.warning(*m)
-                    obj.warnings.append(m[0] % m[1:])
-                elif (geom2.distance(end1_pt) < 1e-6 and
-                      Point(*end2_coord).distance(end1_pt) > 1e-6):
-                    m = ('segment %s connects to the middle of segment %s',
-                         segnum1, segnum2)
-                    obj.logger.error(*m)
-                    obj.errors.append(m[0] % m[1:])
-            if len(to_segnums) > 1:
-                m = ('segment %s has more than one downstream segments: %s',
-                     segnum1, str(to_segnums))
-                obj.logger.error(*m)
+        obj.logger.debug("creating start/end points and spatial join objets")
+        start_pts = obj.segments.interpolate(0.0, normalized=True)
+        end_pts = obj.segments.interpolate(1.0, normalized=True)
+        start_df = start_pts.to_frame("start").set_geometry("start")
+        end_df = end_pts.to_frame("end").set_geometry("end")
+        segidxname = obj.segments.index.name or "index"
+        # This is the main component of the algorithm
+        jxn = pd.DataFrame(
+            geopandas.sjoin(end_df, start_df, "inner", "intersects")
+            .drop(columns="end").reset_index()
+            .rename(columns={segidxname: "end", "index_right": "start"}))
+        # Group end points to start points, list should only have 1 item
+        to_segnum_l = jxn.groupby("end")["start"].agg(list)
+        to_segnum = to_segnum_l.apply(lambda x: x[0])
+        obj.segments.loc[to_segnum.index, "to_segnum"] = to_segnum.values
+        headwater = obj.headwater
+        outlets = obj.outlets
+
+        # A few checks
+        sel = to_segnum_l.apply(len) > 1
+        for segnum1, to_segnums in to_segnum_l.loc[sel].iteritems():
+            m = ('segment %s has more than one downstream segments: %s',
+                 segnum1, str(to_segnums))
+            obj.logger.error(*m)
+            obj.errors.append(m[0] % m[1:])
+        if obj.has_z:
+            # Check if match is in 2D but not 3D
+            jxn["start_z"] = start_pts.loc[jxn.start].z.values
+            jxn["end_z"] = end_pts.loc[jxn.end].z.values
+            for r in jxn.query("start_z != end_z").itertuples():
+                m = ('end of segment %s matches start of segment %s in '
+                     '2D, but not in Z dimension', r.end, r.start)
+                obj.logger.warning(*m)
+                obj.warnings.append(m[0] % m[1:])
+
+        obj.logger.debug(
+            'checking %d headwater segments and %d outlet segments',
+            len(headwater), len(outlets))
+        # Find outlets that join to a single coodinate
+        multi_outlets = set()
+        out_pts = end_pts.loc[outlets].to_frame("out").set_geometry("out")
+        jout = pd.DataFrame(
+            geopandas.sjoin(out_pts, out_pts, "inner").reset_index()
+            .rename(columns={segidxname: "out1", "index_right": "out2"}))\
+            .query("out1 != out2")
+        if jout.size > 0:
+            # Just evaluate 2D tuple to find segnums with same location
+            outsets = jout.assign(xy=jout.out.map(lambda g: (g.x, g.y)))\
+                .drop(columns="out").groupby("xy").agg(set)
+            for r in outsets.itertuples():
+                v = r.out1
+                m = ("ending coordinate %s matches end segment%s: %s",
+                     r.Index, "s" if len(v) != 1 else "", v)
+                obj.logger.warning(*m)
+                obj.warnings.append(m[0] % m[1:])
+                multi_outlets |= v
+        # Find outlets that join to middle of other segments
+        joutseg = pd.DataFrame(
+            geopandas.sjoin(out_pts, obj.segments[["geometry"]], "inner")
+            .drop(columns="out").reset_index()
+            .rename(columns={segidxname: "out", "index_right": "segnum"}))
+        for r in joutseg.query("out != segnum").itertuples():
+            if r.out in multi_outlets:
+                continue
+            m = ('segment %s connects to the middle of segment %s',
+                 r.out, r.segnum)
+            obj.logger.error(*m)
+            obj.errors.append(m[0] % m[1:])
+        # Find headwater that join to a single coodinate
+        hw_pts = start_pts.loc[headwater].to_frame("hw").set_geometry("hw")
+        jhw = pd.DataFrame(
+            geopandas.sjoin(hw_pts, start_df, "inner").reset_index()
+            .rename(columns={segidxname: "hw1", "index_right": "start"}))\
+            .query("hw1 != start")
+        obj.jhw = jhw
+        if jhw.size > 0:
+            hwsets = jhw.assign(xy=jhw.hw.map(lambda g: (g.x, g.y)))\
+                .drop(columns="hw").groupby("xy").agg(set)
+            for r in hwsets.itertuples():
+                v = r.start
+                m = ("starting coordinate %s matches start segment%s: %s",
+                     r.Index, "s" if len(v) != 1 else "", v)
+                obj.logger.warning(*m)
                 obj.errors.append(m[0] % m[1:])
-            if len(to_segnums) > 0:
-                # do not diverge flow; only flow to one downstream segment
-                obj.segments.at[segnum1, 'to_segnum'] = to_segnums[0]
+
         # Store from_segnums set to segments GeoDataFrame
         from_segnums = obj.from_segnums
         obj.segments["from_segnums"] = from_segnums
@@ -266,7 +311,6 @@ class SurfaceWaterNetwork:
         if sel.any():
             obj.segments.loc[sel, "from_segnums"] = \
                 [set() for _ in range(sel.sum())]
-        outlets = obj.outlets
         obj.logger.debug('evaluating segments upstream from %d outlet%s',
                          len(outlets), 's' if len(outlets) != 1 else '')
         obj.segments['cat_group'] = obj.END_SEGNUM
@@ -286,79 +330,6 @@ class SurfaceWaterNetwork:
 
         for segnum in obj.segments.loc[outlets].index:
             resurse_upstream(segnum, segnum, 0, 0.0)
-
-        # Check to see if headwater and outlets have common locations
-        headwater = obj.headwater
-        obj.logger.debug(
-            'checking %d headwater segments and %d outlet segments',
-            len(headwater), len(outlets))
-        start_coords = {}  # key: 2D coord, value: list of segment numbers
-        for segnum1, geom1 in obj.segments.loc[headwater].geometry.iteritems():
-            start1_coord = geom1.coords[0]
-            start1_coord2d = start1_coord[0:2]
-            if segments_sindex:
-                subsel = segments_sindex.intersection(start1_coord2d)
-                sub = obj.segments.iloc[sorted(subsel)]
-            else:  # slow scan of all segments
-                sub = obj.segments
-            for segnum2, geom2 in sub.geometry.iteritems():
-                if segnum1 == segnum2:
-                    continue
-                start2_coord = geom2.coords[0]
-                match = False
-                if start1_coord == start2_coord:
-                    match = True  # perfect 3D match
-                elif start1_coord2d == start2_coord[0:2]:
-                    match = True
-                    m = ('starting segment %s matches start of segment %s in '
-                         '2D, but not in Z dimension', segnum1, segnum2)
-                    obj.logger.warning(*m)
-                    obj.warnings.append(m[0] % m[1:])
-                if match:
-                    if start1_coord2d in start_coords:
-                        start_coords[start1_coord2d].add(segnum2)
-                    else:
-                        start_coords[start1_coord2d] = {segnum2}
-        for key in start_coords.keys():
-            v = start_coords[key]
-            m = ('starting coordinate %s matches start segment%s: %s',
-                 key, 's' if len(v) != 1 else '', v)
-            obj.logger.error(*m)
-            obj.errors.append(m[0] % m[1:])
-
-        end_coords = {}  # key: 2D coord, value: list of segment numbers
-        for segnum1, geom1 in obj.segments.loc[outlets].geometry.iteritems():
-            end1_coord = geom1.coords[-1]
-            end1_coord2d = end1_coord[0:2]
-            if segments_sindex:
-                subsel = segments_sindex.intersection(end1_coord2d)
-                sub = obj.segments.iloc[sorted(subsel)]
-            else:  # slow scan of all segments
-                sub = obj.segments
-            for segnum2, geom2 in sub.geometry.iteritems():
-                if segnum1 == segnum2:
-                    continue
-                end2_coord = geom2.coords[-1]
-                match = False
-                if end1_coord == end2_coord:
-                    match = True  # perfect 3D match
-                elif end1_coord2d == end2_coord[0:2]:
-                    match = True
-                    m = ('ending segment %s matches end of segment %s in 2D, '
-                         'but not in Z dimension', segnum1, segnum2)
-                    obj.logger.warning(*m)
-                    obj.warnings.append(m[0] % m[1:])
-                if match:
-                    if end1_coord2d in end_coords:
-                        end_coords[end1_coord2d].add(segnum2)
-                    else:
-                        end_coords[end1_coord2d] = {segnum2}
-        for key in end_coords.keys():
-            v = end_coords[key]
-            m = ('ending coordinate %s matches end segment%s: %s',
-                 key, 's' if len(v) != 1 else '', v)
-            obj.logger.warning(*m)
-            obj.warnings.append(m[0] % m[1:])
 
         obj.logger.debug('evaluating downstream sequence')
         obj.segments['sequence'] = 0

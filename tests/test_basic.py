@@ -211,11 +211,10 @@ def test_init_all_converge():
         'LINESTRING Z (60  80 12, 60 100 14)',
     ])
     n = swn.SurfaceWaterNetwork.from_lines(lines)
-    assert len(n.warnings) == 5
+    assert len(n.warnings) == 1
+    # Note: ending segment 0 matches end of segment 1 in 2D,
+    # but not in Z dimension
     assert n.warnings[0] == \
-        'ending segment 0 matches end of segment 1 '\
-        'in 2D, but not in Z dimension'
-    assert n.warnings[4] == \
         'ending coordinate (60.0, 100.0) matches end segments: {0, 1, 2}'
     assert len(n.errors) == 0
     assert len(n) == 3
@@ -253,10 +252,9 @@ def test_init_all_diverge():
         'LINESTRING Z (60 100 15, 60  80 12)',
     ])
     n = swn.SurfaceWaterNetwork.from_lines(lines)
-    assert len(n.warnings) == 4
-    assert n.warnings[0] == \
-        'starting segment 0 matches start of segment 1 in 2D, '\
-        'but not in Z dimension'
+    assert len(n.warnings) == 0
+    # Note: starting segment 0 matches start of segment 1 in 2D,
+    # but not in Z dimension
     assert len(n.errors) == 1
     assert n.errors[0] == \
         'starting coordinate (60.0, 100.0) matches start segments: {0, 1, 2}'
