@@ -498,6 +498,7 @@ def test_set_segment_data_inflow(nper, inflow, expected):
         assert "inflow_segnums" not in nm.segments.columns
         assert "inflow_segnums" not in nm.segment_data.columns
 
+    expected = pd.Series(expected, dtype=float)
     if hasattr(nm.segment_data_ts, "inflow"):
         pd.testing.assert_frame_equal(
             nm.segment_data["inflow"],
@@ -1155,7 +1156,7 @@ def test_coastal_ibound_modify(coastal_swn, coastal_flow_m, tmp_path):
         "1818757.6 5869594.5 5.1, 1818697.6 5869594.4 5.7, "
         "1818667.6 5869564.3 6.2, 1818607.6 5869564.2 4.7, "
         "1818577.6 5869534.1 5.6, 1818487.6 5869534 6.2)")
-    reach_geom.almost_equals(expected_geom, 0)
+    reach_geom.equals_exact(expected_geom, 0)
     nm.set_sfr_obj()
     # Data set 1c
     assert abs(m.sfr.nstrm) == 478

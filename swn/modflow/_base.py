@@ -9,6 +9,7 @@ from shapely import wkt
 from shapely.geometry import LineString, Point, Polygon, box
 from shapely.ops import linemerge
 
+from swn.compat import ignore_shapely_warnings_for_object_array
 from swn.core import SurfaceWaterNetwork
 from swn.modflow._misc import (
     tile_series_as_frame, transform_data_to_series_or_frame
@@ -409,13 +410,15 @@ class SwnModflowBase:
         # recursive helper function
         def append_reach_df(df, i, j, reach_geom, moved=False):
             if reach_geom.geom_type == "LineString":
-                df.loc[len(df.index)] = {
+                reach_d = {
                     "geometry": reach_geom,
                     "i": i,
                     "j": j,
                     "length": reach_geom.length,
                     "moved": moved,
                 }
+                with ignore_shapely_warnings_for_object_array():
+                    df.loc[len(df.index)] = reach_d
             elif reach_geom.geom_type.startswith("Multi"):
                 for sub_reach_geom in reach_geom.geoms:  # recurse
                     append_reach_df(df, i, j, sub_reach_geom, moved)
@@ -440,7 +443,7 @@ class SwnModflowBase:
             split_short = (
                 grid_points.geom_type == "Point" or
                 (grid_points.geom_type == "MultiPoint" and
-                 len(grid_points) == 2))
+                 len(grid_points.geoms) == 2))
             if not split_short:
                 return
             matches = []
@@ -465,18 +468,19 @@ class SwnModflowBase:
                 #    segnum, this_ij, ij1)
             elif len(matches) == 2:
                 assert grid_points.geom_type == "MultiPoint", grid_points.wkt
-                if len(grid_points) != 2:
+                if len(grid_points.geoms) != 2:
                     obj.logger.critical(
-                        "expected 2 points, found %s", len(grid_points))
+                        "expected 2 points, found %s", len(grid_points.geoms))
                 # Build a tiny DataFrame of coordinates for this reach
-                reach_c = pd.DataFrame({
-                    "pt": [Point(c) for c in reach_geom.coords[:]]
-                })
+                pts = [Point(c) for c in reach_geom.coords[:]]
+                with ignore_shapely_warnings_for_object_array():
+                    reach_c = pd.DataFrame({"pt": pts}, dtype=object)
                 if len(reach_c) == 2:
                     # If this is a simple line with two coords, split it
                     reach_c.index = [0, 2]
-                    reach_c.loc[1] = pd.Series({
-                        "pt": reach_geom.interpolate(0.5, normalized=True)})
+                    ipt = reach_geom.interpolate(0.5, normalized=True)
+                    with ignore_shapely_warnings_for_object_array():
+                        reach_c.loc[1] = pd.Series({"pt": ipt}, dtype=object)
                     reach_c.sort_index(inplace=True)
                     reach_geom = LineString(list(reach_c["pt"]))  # rebuild
                 # first match assumed to be touching the start of the line
@@ -535,9 +539,9 @@ class SwnModflowBase:
                     return
                 threshold = reach_include[segnum]
                 # Build a tiny DataFrame for just the remaining coordinates
-                rem_c = pd.DataFrame({
-                    "pt": [Point(c) for c in rem.coords[:]]
-                })
+                pts = [Point(c) for c in rem.coords[:]]
+                with ignore_shapely_warnings_for_object_array():
+                    rem_c = pd.DataFrame({"pt": pts}, dtype=object)
                 if len(matches) == 1:  # merge it with adjacent cell
                     i, j, grid_geom = matches[0]
                     mdist = rem_c["pt"].apply(
@@ -677,7 +681,8 @@ class SwnModflowBase:
                     "i": i,
                     "j": j,
                 }
-                obj.reaches.loc[len(obj.reaches.index)] = reach_record
+                with ignore_shapely_warnings_for_object_array():
+                    obj.reaches.loc[len(obj.reaches.index)] = reach_record
                 if domain_action == "modify" and domain[i, j] == 0:
                     num_domain_modified += 1
                     domain[i, j] = 1
@@ -780,8 +785,10 @@ class SwnModflowBase:
                     i, j = grid_cell.name
                     reach_d.update({"i": i, "j": j})
                     if not divn.geometry.is_empty:
-                        reach_d["geometry"] = divn.geometry
-                obj.reaches.loc[len(obj.reaches) + 1] = reach_d
+                        with ignore_shapely_warnings_for_object_array():
+                            reach_d["geometry"] = divn.geometry
+                with ignore_shapely_warnings_for_object_array():
+                    obj.reaches.loc[len(obj.reaches) + 1] = reach_d
         else:
             obj.diversions = None
 

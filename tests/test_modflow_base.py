@@ -314,7 +314,7 @@ def test_reach_barely_outside_ibound():
         "165 100, 180 90, 185 100, 190 110, 200 107)",
         "LINESTRING (200 107, 223.3 100, 290 80)"])
     expected_reaches_geom.index += 1
-    assert nm.reaches.geom_almost_equals(expected_reaches_geom, 0).all()
+    assert nm.reaches.geom_equals_exact(expected_reaches_geom, 0.1).all()
     assert repr(nm) == dedent("""\
         <SwnModflow: flopy mf2005 'modflowtest'
           3 in reaches (reachID): [1, 2, 3]
@@ -349,7 +349,7 @@ def test_linemerge_reaches():
         "LINESTRING (198.75 98.33333333333334, 200 96.66666666666667, "
         "205 90, 240 60, 255 35)"])
     expected_reaches_geom.index += 1
-    assert nm.reaches.geom_almost_equals(expected_reaches_geom, 0).all()
+    assert nm.reaches.geom_equals_exact(expected_reaches_geom, 0).all()
     assert repr(nm) == dedent("""\
         <SwnModflow: flopy mf2005 'modflowtest'
           5 in reaches (reachID): [1, 2, ..., 4, 5]
@@ -591,7 +591,7 @@ def test_coastal_ibound_modify(coastal_swn):
         "1818757.6 5869594.5 5.1, 1818697.6 5869594.4 5.7, "
         "1818667.6 5869564.3 6.2, 1818607.6 5869564.2 4.7, "
         "1818577.6 5869534.1 5.6, 1818487.6 5869534 6.2)")
-    reach_geom.almost_equals(expected_geom, 0)
+    reach_geom.equals_exact(expected_geom, 0)
 
     # Check modified IBOUND
     check_number_sum_hex(
