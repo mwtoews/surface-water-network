@@ -13,6 +13,7 @@ import pandas as pd
 from shapely.geometry import LineString, Point
 from shapely.ops import cascaded_union, linemerge
 
+from swn.compat import ignore_shapely_warnings_for_object_array
 from swn.spatial import get_sindex
 from swn.util import abbr_str
 
@@ -944,8 +945,10 @@ class SurfaceWaterNetwork:
                         from_segnums.get(aseg, set()).difference(agg_path_s))
             agg_unpath.at[segnum] = agg_unpath_l
             # agg_path_l.reverse()
-            lines.at[segnum] = linemerge(list(
-                    self.segments.loc[reversed(agg_path_l), 'geometry']))
+            seg_geom = linemerge(list(
+                self.segments.loc[reversed(agg_path_l), 'geometry']))
+            with ignore_shapely_warnings_for_object_array():
+                lines.at[segnum] = seg_geom
 
         # Create GeoSeries and copy a few other properties
         lines = geopandas.GeoSeries(lines, crs=self.segments.crs)

@@ -716,7 +716,7 @@ def test_coastal_idomain_modify(coastal_swn, coastal_flow_m, tmp_path):
         "1818757.6 5869594.5 5.1, 1818697.6 5869594.4 5.7, "
         "1818667.6 5869564.3 6.2, 1818607.6 5869564.2 4.7, "
         "1818577.6 5869534.1 5.6, 1818487.6 5869534 6.2)")
-    reach_geom.almost_equals(expected_geom, 0)
+    reach_geom.equals_exact(expected_geom, 0)
     # Data set 1c
     assert len(nm.reaches) == 478
     # Check other packages

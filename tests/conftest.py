@@ -21,6 +21,8 @@ if matplotlib and sys.platform == "darwin":
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import swn  # noqa: E402
 
+from swn.compat import ignore_shapely_warnings_for_object_array
+
 datadir = Path("tests") / "data"
 
 
@@ -38,7 +40,7 @@ def coastal_polygons_gdf(coastal_lines_gdf):
     # repair the shapefile by filling in the missing data
     for segnum in [3046737, 3047026, 3047906, 3048995, 3049065]:
         line = coastal_lines_gdf.loc[segnum]
-        polygons.loc[segnum] = {
+        poly_d = {
             "HydroID": line["HydroID"],
             "GridID": 0,
             "OBJECTID": 0,
@@ -51,6 +53,8 @@ def coastal_polygons_gdf(coastal_lines_gdf):
             "geometry": line["geometry"].centroid.buffer(20.0, 1),
             # wkt.loads("POLYGON EMPTY")
         }
+        with ignore_shapely_warnings_for_object_array():
+            polygons.loc[segnum] = poly_d
     return polygons.reindex(index=coastal_lines_gdf.index)
 
 
