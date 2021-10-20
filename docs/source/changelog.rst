@@ -1,6 +1,13 @@
 Change log
 ==========
 
+Version 0.5
+-----------
+
+:Date: dd mmm yyyy
+
+- Not released
+
 Version 0.4
 -----------
 

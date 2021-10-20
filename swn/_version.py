@@ -1,6 +1,6 @@
 """Package version."""
 major = 0
-minor = 4
-word = ""
+minor = 5
+word = "dev"
 
 version = "{}.{}{}".format(major, minor, word)
