@@ -8,6 +8,7 @@ Surface water network
 
    quickstart
    reference
+   changelog
 
 
 Indices and tables
