@@ -301,7 +301,8 @@ def _profile_plot(
         sorted_df,
         lentag='rchlen',
         x='rchlen',
-        cols=['strtop', 'top', 'bot']
+        cols=['strtop', 'top', 'bot'],
+        ax=None,
 ):
     if not sorted_df[x].is_monotonic_increasing:
         print(f"Expected x column of `sorted_df` ({x}) to be "
@@ -312,7 +313,9 @@ def _profile_plot(
     else:
         # will use this for seg dividers anyway
         sorted_df['csum'] = sorted_df[lentag].cumsum()
-    fig, ax = plt.subplots(figsize=(8, 6))
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(8, 6))
+
     sorted_df[[x] + cols].append(  # make sure we include end of final reach
         sorted_df.iloc[[-1]][['csum']+cols].rename(
             columns={'csum': x})).plot(x=x, ax=ax)

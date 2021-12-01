@@ -1386,7 +1386,7 @@ class SurfaceWaterNetwork:
         return
 
     def plot(self, column='stream_order', sort_column='sequence',
-             cmap='viridis_r', legend=False):
+             cmap='viridis_r', legend=False, ax=None):
         """Plot map of surface water network.
 
         Shows map of surface water network lines, with points showing,
@@ -1405,6 +1405,8 @@ class SurfaceWaterNetwork:
             Matplotlib color map.
         legend : bool, default False
             Show legend for `column`.
+        ax : matplotlib.pyplot.Artist, default None
+            Axes on which to draw the plot.
 
         Returns
         -------
@@ -1413,8 +1415,9 @@ class SurfaceWaterNetwork:
         """
         import matplotlib.pyplot as plt
 
-        fig, ax = plt.subplots()
-        ax.set_aspect('equal')
+        if ax is None:
+            fig, ax = plt.subplots()
+            ax.set_aspect('equal')
 
         segments = self.segments
         if sort_column:

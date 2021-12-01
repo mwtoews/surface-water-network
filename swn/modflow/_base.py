@@ -1125,7 +1125,7 @@ class SwnModflowBase:
             self.logger.info("inflow not found for any segnums")
         return return_inflow()
 
-    def plot(self, column=None, cmap="viridis_r", colorbar=False):
+    def plot(self, column=None, cmap="viridis_r", colorbar=False, ax=None):
         """
         Show map of reaches with inflow segments in royalblue.
 
@@ -1139,6 +1139,8 @@ class SwnModflowBase:
             Matplotlib color map; default "viridis_r",
         colorbar : bool
             Show colorbar for "column"; default False.
+        ax : matplotlib.pyplot.Artist, default None
+            Axes on which to draw the plot.
 
         Returns
         -------
@@ -1147,8 +1149,9 @@ class SwnModflowBase:
         """
         import matplotlib.pyplot as plt
 
-        fig, ax = plt.subplots()
-        ax.set_aspect("equal")
+        if ax is None:
+            fig, ax = plt.subplots()
+            ax.set_aspect('equal')
 
         if column is None:
             reaches = self.reaches[~self.reaches.is_empty].reset_index()
@@ -1315,7 +1318,7 @@ class SwnModflowBase:
             vbot = None
         return vtop, vbot
 
-    def plot_profile(self, segnum, upstream=False, downstream=False):
+    def plot_profile(self, segnum, upstream=False, downstream=False, ax=None):
         """Plot stream top profiles vs model grid top and bottom.
 
         Parameters
@@ -1326,6 +1329,8 @@ class SwnModflowBase:
             Flag for continuing trace upstream from segnum = `seg`
         downstream : bool, default False
             Flag for continuing trace downstream of segnum = `seg`
+        ax : matplotlib.pyplot.Artist, default None
+            Axes on which to draw the plot.
 
         Returns
         -------
@@ -1351,4 +1356,4 @@ class SwnModflowBase:
         reaches = self.reaches.loc[self.reaches.segnum.isin(segs)].sort_index()
         reaches['mid_dist'] = reaches[lentag].cumsum() - reaches[lentag] / 2.0
         _profile_plot(reaches, lentag=lentag, x='mid_dist',
-                      cols=[strtoptag, 'top', 'bot'])
+                      cols=[strtoptag, 'top', 'bot'], ax=ax)
