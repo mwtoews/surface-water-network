@@ -459,7 +459,7 @@
 <h1>swn.modflow.SwnMf6<a class="headerlink" href="#swn-modflow-swnmf6" title="Permalink to this headline">¶</a></h1>
 <dl class="py class">
 <dt class="sig sig-object py" id="swn.modflow.SwnMf6">
-<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">swn.modflow.</span></span><span class="sig-name descname"><span class="pre">SwnMf6</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">logger</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#swn.modflow.SwnMf6" title="Permalink to this definition">¶</a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">swn.modflow.</span></span><span class="sig-name descname"><span class="pre">SwnMf6</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">logger</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#swn.modflow.SwnMf6" title="Permalink to this definition">¶</a></dt>
 <dd><p>Surface water network adaptor for MODFLOW 6.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Attributes</dt>
@@ -520,10 +520,10 @@ not used by flopy.</p>
 <tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">packagedata_frame</span></code>(style[, auxiliary, boundname])</p></td>
 <td><p>Return DataFrame of PACKAGEDATA for MODFLOW 6 SFR.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">plot</span></code>([column, cmap, colorbar])</p></td>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">plot</span></code>([column, cmap, colorbar, ax])</p></td>
 <td><p>Show map of reaches with inflow segments in royalblue.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">plot_profile</span></code>(segnum[, upstream, downstream])</p></td>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">plot_profile</span></code>(segnum[, upstream, downstream, ax])</p></td>
 <td><p>Plot stream top profiles vs model grid top and bottom.</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">plot_reaches_vs_model</span></code>(seg[, dem, ...])</p></td>
@@ -612,10 +612,10 @@ not used by flopy.</p>
 <tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">packagedata_frame</span></code>(style[, auxiliary, boundname])</p></td>
 <td><p>Return DataFrame of PACKAGEDATA for MODFLOW 6 SFR.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">plot</span></code>([column, cmap, colorbar])</p></td>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">plot</span></code>([column, cmap, colorbar, ax])</p></td>
 <td><p>Show map of reaches with inflow segments in royalblue.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">plot_profile</span></code>(segnum[, upstream, downstream])</p></td>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">plot_profile</span></code>(segnum[, upstream, downstream, ax])</p></td>
 <td><p>Plot stream top profiles vs model grid top and bottom.</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">plot_reaches_vs_model</span></code>(seg[, dem, ...])</p></td>
@@ -709,7 +709,7 @@ not used by flopy.</p>
     
     <div class="footer-item">
       <p class="sphinx-version">
-Created using <a href="http://sphinx-doc.org/">Sphinx</a> 4.2.0.<br>
+Created using <a href="http://sphinx-doc.org/">Sphinx</a> 4.3.1.<br>
 </p>
     </div>
     
