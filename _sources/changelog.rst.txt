@@ -7,6 +7,7 @@ Version 0.5
 :Date: dd mmm yyyy
 
 - Not released
+- Minimum requirements are Python 3.7, pandas 1.2
 
 Version 0.4
 -----------
