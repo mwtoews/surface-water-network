@@ -12,6 +12,7 @@ Python 3.7+ is required.
 ### Required
 
  - `geopandas` - process spatial data similar to pandas
+ - `packaging` - used to check package versions
  - `pandas >=1.2` - tabular data analysis
  - `pyproj >=2.2` - spatial projection support
  - `rtree` - spatial index support
