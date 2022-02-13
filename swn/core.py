@@ -349,10 +349,10 @@ class SurfaceWaterNetwork:
         for numiter in range(1, obj.segments['num_to_outlet'].max() + 1):
             # Gather segments downstream from completed upstream set
             downstream = set(
-                obj.segments.loc[completed, 'to_segnum'])\
+                obj.segments.loc[sorted(completed), 'to_segnum'])\
                 .difference(completed.union([obj.END_SEGNUM]))
             # Sort them to evaluate the furthest first
-            downstream_sorted = obj.segments.loc[downstream]\
+            downstream_sorted = obj.segments.loc[sorted(downstream)]\
                 .sort_values(search_order, ascending=False).index
             for segnum in downstream_sorted:
                 if from_segnums[segnum].issubset(completed):
@@ -904,7 +904,7 @@ class SurfaceWaterNetwork:
             if len(up_segnums) == 1:
                 yield from up_path_headwater_segnums(up_segnums.pop())
             elif len(up_segnums) > 1:
-                up_segnum = self.segments.loc[up_segnums].sort_values(
+                up_segnum = self.segments.loc[sorted(up_segnums)].sort_values(
                     follow_up, ascending=False).index[0]
                 # self.logger.debug('untraced path %s: %s -> %s',
                 #                   segnum, up_segnums, up_segnum)
