@@ -4,14 +4,14 @@ import contextlib
 import warnings
 
 import shapely
-from distutils.version import LooseVersion
+from packaging.version import Version
 
 
-NUMPY_GE_121 = str(np.__version__) >= LooseVersion("1.21")
+NUMPY_GE_121 = Version(np.__version__) >= Version("1.21")
 
 if shapely is not None:
-    SHAPELY_GE_20 = str(shapely.__version__) >= LooseVersion("2.0")
-    SHAPELY_LT_18 = str(shapely.__version__) < LooseVersion("1.8")
+    SHAPELY_GE_20 = Version(shapely.__version__) >= Version("2.0")
+    SHAPELY_LT_18 = Version(shapely.__version__) < Version("1.8")
 else:
     SHAPELY_GE_20 = False
     SHAPELY_LT_18 = False
