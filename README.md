@@ -7,12 +7,13 @@ Creates surface water network, which can be used to create MODFLOW's SFR.
 
 ## Python packages
 
-Python 3.6+ is required.
+Python 3.7+ is required.
 
 ### Required
 
  - `geopandas` - process spatial data similar to pandas
- - `pyproj>=2.2` - spatial projection support
+ - `pandas >=1.2` - tabular data analysis
+ - `pyproj >=2.2` - spatial projection support
  - `rtree` - spatial index support
 
 ### Optional
