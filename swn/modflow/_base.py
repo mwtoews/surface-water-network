@@ -404,6 +404,7 @@ class SwnModflowBase:
             1, column="segnum",
             value=pd.Series(dtype=obj.segments.index.dtype))
         obj.reaches.insert(2, column="segndist", value=pd.Series(dtype=float))
+        obj.reaches.insert(2, column="length", value=pd.Series(dtype=float))
         empty_reach_df.insert(3, column="length", value=pd.Series(dtype=float))
         empty_reach_df.insert(4, column="moved", value=pd.Series(dtype=bool))
 
@@ -432,11 +433,34 @@ class SwnModflowBase:
             threshold = reach_include[segnum]
             if reach_geom.length > threshold:
                 return
-            cell_lengths = reach_df.groupby(["i", "j"])["length"].sum()
+            # get series that defines relative distances of segs
+            #  reach df can get updated so need ot rebuild this each time
+            #  poss could reduce calls to this to just after reach_df update
+            #  or to be part of the reach_df append func
+            s = reach_df.geometry.apply(reach_geom.distance)
+            # just search coincident reaches if their segments are closer than
+            #  threshold
+            # todo is this threshold the one we want
+            #   (ok for plumbing but may want to give it some thought).
+            # get lenghts of nearby lines in each cell
+            cell_lengths = reach_df.loc[s < threshold].groupby(["i", "j"])["length"].sum()
             this_ij = reach["i"], reach["j"]
             this_cell_length = cell_lengths[this_ij]
+            # if length in total length in this cell is large enough can leave
+            #  be and hope that line merge will take care of this short one.
+            # However, line will only merge if segments are close so will not
+            #  merge in the case of a small rentry -- hence the threshold
+            #  slicing above -- todo worth checking this (are lines in same
+            #                    cell always merged?) -- could be risky but
+            #                    probably the lesser of many evils, are
+            #                    rentries (are multiple reaches in same cell
+            #                    likely to be well handled by modlflow?)
+            #                    -- possibly ok as long as one reach is zero
+            #                    conductivity and the reachlength is not too
+            #                    short...
             if this_cell_length > threshold:
                 return
+            # explore adjacent/connecting lines
             grid_geom = grid_cells.at[this_ij, "geometry"]
             # determine if it is crossing the grid once or twice
             grid_points = reach_geom.intersection(grid_geom.exterior)
@@ -447,70 +471,117 @@ class SwnModflowBase:
             if not split_short:
                 return
             matches = []
-            # sequence scan on reach_df
-            for item in reach_df.itertuples():
+            # sequence scan on reach_df -- just close (adjoining?)
+            for item in reach_df.loc[s < threshold].itertuples():
                 if item[0] == idx or item.moved:
                     continue
+                # just search coincident reaches if their segments are closer
+                # than threshold.
+                # cell_lengths = reach_df.loc[s < threshold].groupby(["i", "j"])[
+                #     "length"].sum()
                 other_cell_length = cell_lengths[item.i, item.j]
-                if (item.geometry.distance(reach_geom) < 1e-6 and
+                if (s[item[0]] < 1e-6 and
                         this_cell_length < other_cell_length):
-                    matches.append((item[0], item.geometry))
+                    matches.append((item[0], item.geometry, other_cell_length))
             if len(matches) == 0:
                 # don't merge, e.g. reach does not connect to adjacent cell
-                pass
-            elif len(matches) == 1:
-                # short segment is in one other cell only
-                # update new i and j values, keep geometry as it is
-                ij1 = tuple(reach_df.loc[matches[0][0], ["i", "j"]])
-                reach_df.loc[idx, ["i", "j", "moved"]] = ij1 + (True,)
-                # self.logger.debug(
-                #    "moved short segment of %s from %s to %s",
-                #    segnum, this_ij, ij1)
-            elif len(matches) == 2:
-                assert grid_points.geom_type == "MultiPoint", grid_points.wkt
-                if len(grid_points.geoms) != 2:
-                    obj.logger.critical(
-                        "expected 2 points, found %s", len(grid_points.geoms))
-                # Build a tiny DataFrame of coordinates for this reach
-                pts = [Point(c) for c in reach_geom.coords[:]]
-                with ignore_shapely_warnings_for_object_array():
-                    reach_c = pd.DataFrame({"pt": pts}, dtype=object)
-                if len(reach_c) == 2:
-                    # If this is a simple line with two coords, split it
-                    reach_c.index = [0, 2]
-                    ipt = reach_geom.interpolate(0.5, normalized=True)
-                    with ignore_shapely_warnings_for_object_array():
-                        reach_c.loc[1] = pd.Series({"pt": ipt}, dtype=object)
-                    reach_c.sort_index(inplace=True)
-                    reach_geom = LineString(list(reach_c["pt"]))  # rebuild
-                # first match assumed to be touching the start of the line
-                if reach_c.at[0, "pt"].distance(matches[1][1]) < 1e-6:
-                    matches.reverse()
-                reach_c["d1"] = reach_c["pt"].apply(
-                                lambda p: p.distance(matches[0][1]))
-                reach_c["d2"] = reach_c["pt"].apply(
-                                lambda p: p.distance(matches[1][1]))
-                reach_c["dm"] = reach_c[["d1", "d2"]].min(1)
-                # try a simple split where distances switch
-                ds = reach_c["d1"] < reach_c["d2"]
-                cidx = ds[ds].index[-1]
-                # ensure it's not the index of either end
-                if cidx == 0:
-                    cidx = 1
-                elif cidx == len(reach_c) - 1:
-                    cidx = len(reach_c) - 2
-                i1, j1 = list(reach_df.loc[matches[0][0], ["i", "j"]])
-                reach_geom1 = LineString(reach_geom.coords[:(cidx + 1)])
-                i2, j2 = list(reach_df.loc[matches[1][0], ["i", "j"]])
-                reach_geom2 = LineString(reach_geom.coords[cidx:])
-                # update the first, append the second
-                reach_df.loc[idx, ["i", "j", "length", "moved"]] = \
-                    (i1, j1, reach_geom1.length, True)
-                reach_df.at[idx, "geometry"] = reach_geom1
-                append_reach_df(reach_df, i2, j2, reach_geom2, moved=True)
-                # self.logger.debug(
-                #   "split and moved short segment of %s from %s to %s and %s",
-                #   segnum, this_ij, (i1, j1), (i2, j2))
+                # but do adjust so that rlen is some min value
+                # MT, can we modify geom or just update length here?
+                reach_df.loc[idx, "length"] = threshold
+            # BH: Actually if we are just adjusting the lengths we can deal
+            #  with single or double matches the same
+            elif len(matches) <= 2:
+                # BH: modifying geometries might not be trivial might be more
+                #  straightforward just to modify the lengths of the relevant
+                #  reaches
+                matches = pd.DataFrame(
+                    matches,
+                    columns=['idx', 'geometry', 'rlen']
+                ).set_index('idx')
+                # Get how far short current reach is of threshold length
+                #  -- how much extra length is required to meet threshold.
+                rlen = reach_df.loc[idx, "length"]
+                # limited recurse, incase we need more from one adjacent
+                short = (threshold - rlen)
+                # See if we have enough length in adjacent reaches
+                matches['avail'] = (matches.rlen - threshold).clip(0)
+                # Get amount to subtract from adjacent lengths
+                matches['subt'] = matches.avail.combine(short/2, min)
+                matches['rlen'] -= matches.subt
+                rlen += matches.subt.sum()
+                stillshort = threshold - rlen
+                if stillshort > 0:  # quick go over again
+                    matches['avail'] = (matches.rlen - threshold).clip(0)
+                    # Get amount to subtract from adjacent lengths
+                    matches['subt'] = matches.avail.combine(stillshort, min)
+                    matches['rlen'] -= matches.subt
+                    rlen += matches.subt.sum()
+                reach_df.loc[matches.index, "length"] = matches.rlen
+                reach_df.loc[idx, "length"] = rlen
+            # elif len(matches) == 1:
+            #     # this probably means that the short reach only has an up or a
+            #     # down connection or one is super short (even shorter)
+            #     # short segment is in one other cell only
+            #     # update new i and j values, keep geometry as it is
+            #     # BH: might be in favour of keeping this reach and just making
+            #     # sure it has sufficient length
+            #     ij1 = tuple(reach_df.loc[matches[0][0], ["i", "j"]])
+            #     reach_df.loc[idx, ["i", "j", "moved"]] = ij1 + (True,)
+            #     # self.logger.debug(
+            #     #    "moved short segment of %s from %s to %s",
+            #     #    segnum, this_ij, ij1)
+            # elif len(matches) == 2:
+            #     # BH: instead of erasing this short reach can we instead shift
+            #     #   part of the connecting reaches into make up the length that
+            #     #   we are missing?
+            #     assert grid_points.geom_type == "MultiPoint", grid_points.wkt
+            #     if len(grid_points.geoms) != 2:
+            #         obj.logger.critical(
+            #             "expected 2 points, found %s", len(grid_points.geoms))
+            #     # # Build a tiny DataFrame of coordinates for this reach
+            #     # pts = [Point(c) for c in reach_geom.coords[:]]
+            #     # with ignore_shapely_warnings_for_object_array():
+            #     #     reach_c = pd.DataFrame({"pt": pts}, dtype=object)
+            #     # if len(reach_c) == 2:
+            #     #     # If this is a simple line with two coords, split it
+            #     #     reach_c.index = [0, 2]
+            #     #     ipt = reach_geom.interpolate(0.5, normalized=True)
+            #     #     with ignore_shapely_warnings_for_object_array():
+            #     #         reach_c.loc[1] = pd.Series({"pt": ipt}, dtype=object)
+            #     #     reach_c.sort_index(inplace=True)
+            #         # reach_geom = LineString(list(reach_c["pt"]))  # rebuild
+            #     # first match assumed to be touching the start of the line
+            #     # if reach_c.at[0, "pt"].distance(matches[1][1]) < 1e-6:
+            #         # matches.reverse()
+            #     # BH: I think this is where we would modify the geometries of
+            #     #  the up and down elements of "matches". However, that is a
+            #     #  bit not trival... so for now just looking at modifying
+            #     #  lengths (see above)
+            #     # reach_c["d1"] = reach_c["pt"].apply(
+            #     #                 lambda p: p.distance(matches[0][1]))
+            #     # reach_c["d2"] = reach_c["pt"].apply(
+            #     #                 lambda p: p.distance(matches[1][1]))
+            #     # reach_c["dm"] = reach_c[["d1", "d2"]].min(1)
+            #     # # try a simple split where distances switch
+            #     # ds = reach_c["d1"] < reach_c["d2"]
+            #     # cidx = ds[ds].index[-1]
+            #     # # ensure it's not the index of either end
+            #     # if cidx == 0:
+            #     #     cidx = 1
+            #     # elif cidx == len(reach_c) - 1:
+            #     #     cidx = len(reach_c) - 2
+            #     # i1, j1 = list(reach_df.loc[matches[0][0], ["i", "j"]])
+            #     # reach_geom1 = LineString(reach_geom.coords[:(cidx + 1)])
+            #     # i2, j2 = list(reach_df.loc[matches[1][0], ["i", "j"]])
+            #     # reach_geom2 = LineString(reach_geom.coords[cidx:])
+            #     # # update the first, append the second
+            #     # reach_df.loc[idx, ["i", "j", "length", "moved"]] = \
+            #     #     (i1, j1, reach_geom1.length, True)
+            #     # reach_df.at[idx, "geometry"] = reach_geom1
+            #     # append_reach_df(reach_df, i2, j2, reach_geom2, moved=True)
+            #     # # self.logger.debug(
+            #     # #   "split and moved short segment of %s from %s to %s and %s",
+            #     # #   segnum, this_ij, (i1, j1), (i2, j2))
             else:
                 obj.logger.critical(
                     "unhandled assign_short_reach case with %d matches: %s\n"
@@ -556,8 +627,9 @@ class SwnModflowBase:
                     if len(rem_c) == 2:
                         # If this is a simple line with two coords, split it
                         rem_c.index = [0, 2]
-                        rem_c.loc[1] = pd.Series({
-                            "pt": rem.interpolate(0.5, normalized=True)})
+                        with ignore_shapely_warnings_for_object_array():
+                            rem_c.loc[1] = pd.Series({
+                                "pt": rem.interpolate(0.5, normalized=True)})
                         rem_c.sort_index(inplace=True)
                         rem = LineString(list(rem_c["pt"]))  # rebuild
                     # first match assumed to be touching the start of the line
@@ -647,7 +719,7 @@ class SwnModflowBase:
             # Determine if any remaining portions of the line can be used
             if line is not remaining_line and remaining_line.length > 0:
                 assign_remaining_reach(reach_df, segnum, remaining_line)
-            # Reassign short reaches to two or more adjacent grid cells
+            # Adjust short reaches from two or more adjacent grid cells
             # starting with the shortest reach
             reach_lengths = reach_df["length"].loc[
                 reach_df["length"] < reach_include[segnum]]
@@ -657,35 +729,65 @@ class SwnModflowBase:
             drop_reach_ids = []
             for ij, gb in reach_df.copy().groupby(["i", "j"]):
                 if len(gb) > 1:
+                    # BH: do we want to be more picky here...
+                    #  ie. do we only want to merge lines that are close to
+                    #  each other not just in the same cell? -- may be dealing
+                    #  with some of this now in "assign_short_reach method()"
                     gb["geometry"] = gb["geometry"].apply(visible_wkt)
                     do_linemerge(ij, gb, drop_reach_ids)
             if drop_reach_ids:
                 reach_df.drop(drop_reach_ids, axis=0, inplace=True)
             # TODO: Some reaches match multiple cells if they share a border
             # Add all reaches for this segment
-            for reach in reach_df.itertuples():
-                i = reach.i
-                j = reach.j
-                reach_geom = reach.geometry
-                if line.has_z:
-                    # intersection(line) does not preserve Z coords,
-                    # but line.interpolate(d) works as expected
-                    reach_geom = LineString(line.interpolate(
-                        line.project(Point(c))) for c in reach_geom.coords)
-                # Get a point from the middle of the reach_geom
-                reach_mid_pt = reach_geom.interpolate(0.5, normalized=True)
-                reach_record = {
-                    "geometry": reach_geom,
-                    "segnum": segnum,
-                    "segndist": line.project(reach_mid_pt, normalized=True),
-                    "i": i,
-                    "j": j,
-                }
-                with ignore_shapely_warnings_for_object_array():
-                    obj.reaches.loc[len(obj.reaches.index)] = reach_record
-                if domain_action == "modify" and domain[i, j] == 0:
-                    num_domain_modified += 1
-                    domain[i, j] = 1
+            # BH: not sure why we are looping here...
+            if line.has_z:
+                reach_df[["geometry", "segndist"]] = reach_df.geometry.apply(
+                    lambda x:
+                    pd.Series(
+                        [
+                            LineString(line.interpolate(
+                                line.project(Point(c))) for c in x.coords),
+                            line.project(x.interpolate(0.5, normalized=True),
+                                         normalized=True)
+                        ]
+                    )
+                )
+            else:
+                reach_df['segndist'] = reach_df.geometry.apply(
+                    lambda x: line.project(x.interpolate(0.5, normalized=True),
+                                           normalized=True)
+                )
+            reach_df['segnum'] = segnum
+            # for reach in reach_df.itertuples():
+            #     i = reach.i
+            #     j = reach.j
+            #     reach_geom = reach.geometry
+            #     if line.has_z:
+            #         # intersection(line) does not preserve Z coords,
+            #         # but line.interpolate(d) works as expected
+            #         reach_geom = LineString(line.interpolate(
+            #             line.project(Point(c))) for c in reach_geom.coords)
+            #     # Get a point from the middle of the reach_geom
+            #     reach_mid_pt = reach_geom.interpolate(0.5, normalized=True)
+            #     reach_record = {
+            #         "geometry": reach_geom,
+            #         "segnum": segnum,
+            #         "segndist": line.project(reach_mid_pt, normalized=True),
+            #         "i": i,
+            #         "j": j,
+            #         "length": reach.length
+            #     }
+            with ignore_shapely_warnings_for_object_array():
+                obj.reaches = pd.concat(
+                    [obj.reaches,
+                     reach_df[["geometry", "segnum", "segndist",
+                               "i", "j", "length"]]],
+                    ignore_index=True
+                )
+            nummod = domain[tuple(reach_df[['i', 'j']].values.T)].sum()
+            if domain_action == "modify" and nummod > 0:
+                num_domain_modified += nummod
+                domain[i, j] = nummod
 
         if domain_action == "modify":
             if num_domain_modified:
