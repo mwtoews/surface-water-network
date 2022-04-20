@@ -3,4 +3,4 @@ major = 0
 minor = 5
 word = "dev"
 
-version = "{}.{}{}".format(major, minor, word)
+version = f"{major}.{minor}{word}"

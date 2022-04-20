@@ -9,7 +9,7 @@ from collections.abc import Iterable
 
 import pandas as pd
 
-from swn.util import abbr_str
+from ..util import abbr_str
 
 
 def sfr_rec_to_df(sfr):

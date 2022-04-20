@@ -20,7 +20,6 @@ if matplotlib and sys.platform == "darwin":
 # Import this local package for tests
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import swn  # noqa: E402
-
 from swn.compat import ignore_shapely_warnings_for_object_array
 
 datadir = Path("tests") / "data"

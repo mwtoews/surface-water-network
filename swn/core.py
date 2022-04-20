@@ -13,9 +13,9 @@ import pandas as pd
 from shapely.geometry import LineString, Point
 from shapely.ops import cascaded_union, linemerge
 
-from swn.compat import ignore_shapely_warnings_for_object_array
-from swn.spatial import get_sindex
-from swn.util import abbr_str
+from .compat import ignore_shapely_warnings_for_object_array
+from .spatial import get_sindex
+from .util import abbr_str
 
 
 class SurfaceWaterNetwork:
@@ -51,7 +51,7 @@ class SurfaceWaterNetwork:
             Logger to show messages.
 
         """
-        from swn.logger import get_logger, logging
+        from .logger import get_logger, logging
         if logger is None:
             self.logger = get_logger(self.__class__.__name__)
         elif isinstance(logger, logging.Logger):

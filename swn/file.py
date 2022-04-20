@@ -5,7 +5,7 @@ __all__ = ["topnet2ts", "gdf_to_shapefile"]
 import geopandas
 import pandas as pd
 
-from swn.logger import get_logger, logging
+from .logger import get_logger, logging
 
 
 def topnet2ts(nc_path, varname, mult=None, log_level=logging.INFO):

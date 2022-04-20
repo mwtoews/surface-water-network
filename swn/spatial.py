@@ -16,7 +16,7 @@ import pyproj
 from shapely import wkt
 from shapely.geometry import LineString, Point
 
-from swn.compat import ignore_shapely_warnings_for_object_array
+from .compat import ignore_shapely_warnings_for_object_array
 
 try:
     from geopandas.tools import sjoin
@@ -304,7 +304,7 @@ def find_geom_in_swn(geom, n, override={}):
     103   nearest       2   0.790000     2.213594
     104  override       2   0.150000    14.230249
     """
-    from swn.core import SurfaceWaterNetwork
+    from .core import SurfaceWaterNetwork
 
     if not isinstance(geom, geopandas.GeoSeries):
         raise TypeError("expected 'geom' as an instance of GeoSeries")

@@ -34,7 +34,6 @@ For faster multi-core `pytest -v -n 2` (with `pytest-xdist`)
 import geopandas
 import pandas as pd
 import swn
-import swn.file
 ```
 
 Read from Shapefile:

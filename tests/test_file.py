@@ -7,7 +7,6 @@ import pytest
 from shapely.geometry import Point
 
 import swn
-import swn.file
 from swn.spatial import wkt_to_geoseries
 
 from .conftest import datadir

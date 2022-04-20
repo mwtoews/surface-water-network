@@ -8,8 +8,8 @@ from textwrap import dedent
 import numpy as np
 import pandas as pd
 
-from swn.modflow._base import SwnModflowBase
-from swn.util import abbr_str
+from ..util import abbr_str
+from ._base import SwnModflowBase
 
 try:
     import matplotlib

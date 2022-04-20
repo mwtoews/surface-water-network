@@ -1,7 +1,5 @@
 .. _reference:
 
-.. module:: swn
-
 Module reference
 ================
 
@@ -13,4 +11,5 @@ This reference manual details classes, functions, and public objects implemented
    swn
    swnmodflow
    swnmf6
+   file
    spatial

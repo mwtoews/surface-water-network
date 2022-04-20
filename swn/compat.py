@@ -1,11 +1,10 @@
 """Compatibility module."""
-import numpy as np
 import contextlib
 import warnings
 
+import numpy as np
 import shapely
 from packaging.version import Version
-
 
 NUMPY_GE_121 = Version(np.__version__) >= Version("1.21")
 

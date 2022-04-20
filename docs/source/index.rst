@@ -1,10 +1,13 @@
+:notoc:
+
+.. module:: swn
+
 #####################
 Surface water network
 #####################
 
 .. toctree::
    :maxdepth: 2
-   :caption: Contents:
 
    quickstart
    reference

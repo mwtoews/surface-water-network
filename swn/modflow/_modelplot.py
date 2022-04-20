@@ -1,10 +1,10 @@
 import numpy as np
 
-from swn.spatial import get_crs
+from ..spatial import get_crs
 
 try:
     import matplotlib
-    from matplotlib import colors, cm
+    from matplotlib import cm, colors
     from matplotlib import pyplot as plt
 except ImportError:
     matplotlib = False

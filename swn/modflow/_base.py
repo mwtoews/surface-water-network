@@ -9,12 +9,10 @@ from shapely import wkt
 from shapely.geometry import LineString, Point, Polygon, box
 from shapely.ops import linemerge
 
-from swn.compat import ignore_shapely_warnings_for_object_array
-from swn.core import SurfaceWaterNetwork
-from swn.modflow._misc import (
-    tile_series_as_frame, transform_data_to_series_or_frame
-)
-from swn.spatial import compare_crs, get_sindex, visible_wkt
+from ..compat import ignore_shapely_warnings_for_object_array
+from ..core import SurfaceWaterNetwork
+from ..spatial import compare_crs, get_sindex, visible_wkt
+from ._misc import tile_series_as_frame, transform_data_to_series_or_frame
 
 
 class SwnModflowBase:
@@ -48,7 +46,7 @@ class SwnModflowBase:
         from importlib.util import find_spec
         if not find_spec("flopy"):
             raise ImportError(f"{self.__class__.__name__} requires flopy")
-        from swn.logger import get_logger, logging
+        from ..logger import get_logger, logging
         if logger is None:
             self.logger = get_logger(self.__class__.__name__)
         elif isinstance(logger, logging.Logger):
@@ -1249,7 +1247,7 @@ class SwnModflowBase:
         vtop, vbot : ModelPlot objects containing matplotlib fig and axes
 
         """
-        from swn.modflow._modelplot import sfr_plot
+        from ._modelplot import sfr_plot
         model = self.model  # inherit model from class object
         if self.__class__.__name__ == "SwnModflow":
             ib = model.bas6.ibound.array[0]
@@ -1336,7 +1334,7 @@ class SwnModflowBase:
         -------
         None
         """
-        from swn.modflow._modelplot import _profile_plot
+        from ._modelplot import _profile_plot
         if self.__class__.__name__ == "SwnModflow":
             strtoptag = 'strtop'
             lentag = "rchlen"

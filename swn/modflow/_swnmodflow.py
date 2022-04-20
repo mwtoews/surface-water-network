@@ -8,9 +8,9 @@ from itertools import zip_longest
 import numpy as np
 import pandas as pd
 
-from swn.modflow._base import SwnModflowBase
-from swn.modflow._misc import invert_series, transform_data_to_series_or_frame
-from swn.util import abbr_str
+from ..util import abbr_str
+from ._base import SwnModflowBase
+from ._misc import invert_series, transform_data_to_series_or_frame
 
 try:
     import matplotlib
@@ -414,6 +414,7 @@ class SwnModflow(SwnModflowBase):
 
         """
         from flopy.modflow.mfsfr2 import ModflowSfr2
+
         # Build reach_data for Data Set 2
         reach_data_names = []
         for name in ModflowSfr2.get_default_reach_dtype().names:

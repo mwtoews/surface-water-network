@@ -14,9 +14,9 @@ from shapely import wkt
 from shapely.geometry import LineString, Point, Polygon, box
 from shapely.ops import linemerge
 
-from swn.core import SurfaceWaterNetwork
-from swn.spatial import compare_crs, get_sindex
-from swn.util import abbr_str
+from ..core import SurfaceWaterNetwork
+from ..spatial import compare_crs, get_sindex
+from ..util import abbr_str
 
 try:
     import matplotlib
@@ -58,8 +58,9 @@ class MfSfrNetwork:
         logger : logging.Logger, optional
             Logger to show messages.
         """
-        from swn.logger import get_logger, logging
         from importlib.util import find_spec
+
+        from ..logger import get_logger, logging
         if logger is None:
             self.logger = get_logger(self.__class__.__name__)
         elif isinstance(logger, logging.Logger):
@@ -962,6 +963,7 @@ class MfSfrNetwork:
 
         """
         from flopy.modflow.mfsfr2 import ModflowSfr2
+
         # Build reach_data for Data Set 2
         reach_data_names = []
         for name in ModflowSfr2.get_default_reach_dtype().names:
@@ -1020,6 +1022,7 @@ class MfSfrNetwork:
 
         """
         from flopy.modflow.mfsfr2 import ModflowSfr2
+
         # Build stress period DataFrame from modflow model
         dis = self.model.dis
         stress_df = pd.DataFrame({'perlen': dis.perlen.array})
@@ -1769,7 +1772,7 @@ class MfSfrNetwork:
     def sfr_plot(self, model, sfrar, dem, points=None, points2=None,
                  label=None):
         """Plot sfr."""
-        from swn.modflow._modelplot import ModelPlot
+        from ._modelplot import ModelPlot
         p = ModelPlot(model)
         p._add_plotlayer(dem, label="Elevation (m)")
         p._add_sfr(sfrar, cat_cmap=False, cbar=True,

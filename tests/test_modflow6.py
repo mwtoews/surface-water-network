@@ -16,6 +16,7 @@ from swn.file import gdf_to_shapefile
 from swn.spatial import force_2d, interp_2d_to_3d, wkt_to_geoseries
 
 from .conftest import datadir, matplotlib, plt
+
 try:
     import flopy
 except ImportError:
