@@ -8,6 +8,7 @@ Version 0.5
 
 - Not released
 - Minimum requirements are Python 3.7, pandas 1.2
+- Add ``swn.spatial.find_geom_in_swn`` method
 
 Version 0.4
 -----------

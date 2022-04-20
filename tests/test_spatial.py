@@ -1,11 +1,12 @@
 import geopandas
 import numpy as np
+import pandas as pd
 import pytest
 from shapely import wkt
 from shapely.geometry import Point
 
+import swn
 import swn.spatial as spatial
-from swn import SurfaceWaterNetwork
 
 
 def test_get_sindex():
@@ -82,63 +83,193 @@ def test_compare_crs():
 
 
 def test_find_segnum_in_swn_only_lines(coastal_swn):
+    """Test deprecated function."""
     n = coastal_swn
-    # querey tuple
-    r = spatial.find_segnum_in_swn(n, (1811503.1, 5874071.2))
+    # query tuple
+    with pytest.deprecated_call():
+        r = spatial.find_segnum_in_swn(n, (1811503.1, 5874071.2))
     assert len(r) == 1
     assert r.index[0] == 0
     assert r.segnum[0] == 3047364
     assert round(r.dist_to_segnum[0], 1) == 80.3
-    # querey list of tuples
+    # query list of tuples
     geom = [
         (1806234.3, 5869114.8),
         (1804222, 5870087),
         (1802814, 5867160)]
-    r = spatial.find_segnum_in_swn(n, geom)
+    with pytest.deprecated_call():
+        r = spatial.find_segnum_in_swn(n, geom)
     assert len(r) == 3
     assert list(r.segnum) == [3048663, 3048249, 3049113]
     assert list(r.dist_to_segnum.round(1)) == [315.5, 364.7, 586.1]
     # query GeoSeries
-    poylgon = wkt.loads('''\
+    polygon = wkt.loads('''\
     POLYGON ((1815228 5869053, 1815267 5869021, 1815120 5868936,
               1815228 5869053))''')
     gs = geopandas.GeoSeries(
-        [poylgon, Point(1814271, 5869525)], index=[101, 102])
-    r = spatial.find_segnum_in_swn(n, gs)
+        [polygon, Point(1814271, 5869525)], index=[101, 102])
+    with pytest.deprecated_call():
+        r = spatial.find_segnum_in_swn(n, gs)
     assert len(r) == 2
     assert list(r.segnum) == [3048690, 3048372]
     assert list(r.dist_to_segnum.round(1)) == [73.4, 333.8]
 
 
-def test_find_segnum_in_swn_with_catchments(
-        coastal_lines_gdf, coastal_polygons_gdf):
-    n = SurfaceWaterNetwork.from_lines(
-        coastal_lines_gdf.geometry, coastal_polygons_gdf.geometry)
-    # querey tuple
-    r = spatial.find_segnum_in_swn(n, (1811503.1, 5874071.2))
+def test_find_segnum_in_swn_with_catchments(coastal_swn_w_poly):
+    """Test deprecated function."""
+    n = coastal_swn_w_poly
+    # query tuple
+    with pytest.deprecated_call():
+        r = spatial.find_segnum_in_swn(n, (1811503.1, 5874071.2))
     assert len(r) == 1
     assert r.index[0] == 0
     assert r.segnum[0] == 3046952
     assert round(r.dist_to_segnum[0], 1) == 169.2
     assert r.is_within_catchment[0]
-    # querey list of tuples
+    # query list of tuples
     geom = [
         (1806234.3, 5869114.8),
         (1804222, 5870087),
         (1802814, 5867160)]
-    r = spatial.find_segnum_in_swn(n, geom)
+    with pytest.deprecated_call():
+        r = spatial.find_segnum_in_swn(n, geom)
     assert len(r) == 3
     assert list(r.segnum) == [3048504, 3048249, 3049113]
     assert list(r.dist_to_segnum.round(1)) == [496.7, 364.7, 586.1]
     assert list(r.is_within_catchment) == [True, False, False]
     # query GeoSeries
-    poylgon = wkt.loads('''\
+    polygon = wkt.loads('''\
     POLYGON ((1815228 5869053, 1815267 5869021, 1815120 5868936,
               1815228 5869053))''')
     gs = geopandas.GeoSeries(
-        [poylgon, Point(1814271, 5869525)], index=[101, 102])
-    r = spatial.find_segnum_in_swn(n, gs)
+        [polygon, Point(1814271, 5869525)], index=[101, 102])
+    with pytest.deprecated_call():
+        r = spatial.find_segnum_in_swn(n, gs)
     assert len(r) == 2
     assert list(r.segnum) == [3048690, 3048482]
     assert list(r.dist_to_segnum.round(1)) == [73.4, 989.2]
     assert list(r.is_within_catchment) == [True, True]
+
+
+def test_find_geom_in_basic_swn():
+    ls = spatial.wkt_to_geoseries([
+        "LINESTRING (60 100, 60  80)",
+        "LINESTRING (40 130, 60 100)",
+        "LINESTRING (80 130, 60 100)",
+    ])
+    ls.index += 101
+    n = swn.SurfaceWaterNetwork.from_lines(ls)
+    gs = spatial.wkt_to_geoseries([
+        "POINT (60 200)",
+        "POINT (61 200)",
+        "POINT (60 100)",
+        "LINESTRING (50 110, 70 110)",
+        "POLYGON ((58 102, 63 102, 60 94, 58 102))",
+        "POINT EMPTY",
+        "POINT (60 90)",
+    ])
+    gs.index += 11
+    r = spatial.find_geom_in_swn(gs, n)
+    e = pd.DataFrame({
+        "method": "nearest",
+        "segnum": [102, 103, 101, 102, 101, 0, 101],
+        "seg_ndist": [0.0, 0.0, 0.0, 2/3., 0.0, np.nan, 0.5],
+        "dist_to_seg": [72.80109889, 72.53275122, 0.0, 0.0, 0.0, np.nan, 0.0]},
+        index=[11, 12, 13, 14, 15, 16, 17])
+    e.at[16, "method"] = ""
+    # check everything except the empty geometry
+    r2 = r.drop(index=16)
+    e2 = e.drop(index=16)
+    pd.testing.assert_frame_equal(r2[e2.columns], e2)
+    pd.testing.assert_series_equal(
+        r2.dist_to_seg, r2.length, check_names=False)
+    assert list(r.geom_type.unique()) == ["LineString"]
+    a = r2.geometry.apply(lambda x: Point(*x.coords[0]))
+    assert (a.distance(gs.drop(index=16)) == 0.0).all()
+    b = r2.geometry.apply(lambda x: Point(*x.coords[-1]))
+    seg_mls = n.segments.geometry[r2.segnum].unary_union
+    assert (b.distance(seg_mls) < 1e-10).all()
+    # now check the empty geometry
+    for k in e.keys():
+        rv = r.at[16, k]
+        re = e.at[16, k]
+        assert (rv == re) or (pd.isna(rv) and pd.isna(re))
+    assert r.at[16, "geometry"].is_empty
+    # check override parameter
+    r = spatial.find_geom_in_swn(gs, n, override={11: 103, 12: 103})
+    r2 = r.drop(index=16)
+    e2 = e.drop(index=16)
+    e2.loc[11, "segnum"] = 103
+    e2.loc[[11, 12], "method"] = "override"
+    pd.testing.assert_frame_equal(r2[e2.columns], e2)
+    with pytest.warns(UserWarning, match="1 override key"):
+        r = spatial.find_geom_in_swn(gs, n, override={1: 103})
+    with pytest.warns(UserWarning, match="1 override value"):
+        r = spatial.find_geom_in_swn(gs, n, override={11: 13})
+    # check spetial value None
+    r = spatial.find_geom_in_swn(gs, n, override={11: None})
+    assert r.at[11, "geometry"].is_empty
+    assert r.at[11, "method"] == "override"
+    assert r.at[11, "segnum"] == n.END_SEGNUM
+    assert pd.isna(r.at[11, "seg_ndist"])
+    assert pd.isna(r.at[11, "dist_to_seg"])
+    pd.testing.assert_frame_equal(
+        r2[e2.columns].drop(index=[11, 16]), e2.drop(index=[11, 16]))
+
+
+@pytest.fixture
+def coastal_geom():
+    xy = [
+        (1811503.1, 5874071.2),
+        (1806234.3, 5869114.8),
+        (1804222, 5870087),
+        (1802814, 5867160)]
+    df = pd.DataFrame(xy, columns=["x", "y"])
+    gs = geopandas.GeoSeries(geopandas.points_from_xy(df.x, df.y))
+    gs[len(gs)] = wkt.loads("""\
+        POLYGON ((1812532 5872498, 1812428 5872361, 1812561 5872390,
+                  1812561 5872390, 1812532 5872498))""")
+    gs.index += 101
+    gs.set_crs("EPSG:2193", inplace=True)
+    return gs
+
+
+def test_find_geom_in_swn_only_lines(coastal_geom, coastal_swn):
+    r = spatial.find_geom_in_swn(coastal_geom, coastal_swn)
+    e = pd.DataFrame({
+        "method": "nearest",
+        "segnum": [3047364, 3048663, 3048249, 3049113, 3047736],
+        "seg_ndist": [0.5954064, 0.0974058, 0.279147, 0.0, 0.684387],
+        "dist_to_seg": [80.25, 315.519943, 364.7475, 586.13982, 203.144242]},
+        index=[101, 102, 103, 104, 105])
+    pd.testing.assert_frame_equal(r[e.columns], e)
+    pd.testing.assert_series_equal(r.dist_to_seg, r.length, check_names=False)
+    assert list(r.geom_type.unique()) == ["LineString"]
+    seg_mls = coastal_swn.segments.geometry[r.segnum].unary_union
+    a = r.geometry.apply(lambda x: Point(*x.coords[0]))
+    assert (a.distance(coastal_geom) == 0.0).all()
+    assert (a.distance(seg_mls) > 0.0).all()
+    b = r.geometry.apply(lambda x: Point(*x.coords[-1]))
+    assert (b.distance(coastal_geom) > 0.0).all()
+    assert (b.distance(seg_mls) < 1e-10).all()
+
+
+def test_find_geom_in_swn_with_catchments(coastal_geom, coastal_swn_w_poly):
+    r = spatial.find_geom_in_swn(coastal_geom, coastal_swn_w_poly)
+    e = pd.DataFrame({
+        "method": ["catchment", "catchment", "nearest", "nearest",
+                   "catchment"],
+        "segnum": [3046952, 3048504, 3048249, 3049113, 3047737],
+        "seg_ndist": [0.3356222, 0.087803396575, 0.279147, 0.0, 0.798942725],
+        "dist_to_seg": [169.243199, 496.662756, 364.7475, 586.1398, 247.3825]},
+        index=[101, 102, 103, 104, 105])
+    pd.testing.assert_frame_equal(r[e.columns], e)
+    pd.testing.assert_series_equal(r.dist_to_seg, r.length, check_names=False)
+    assert list(r.geom_type.unique()) == ["LineString"]
+    seg_mls = coastal_swn_w_poly.segments.geometry[r.segnum].unary_union
+    a = r.geometry.apply(lambda x: Point(*x.coords[0]))
+    assert (a.distance(coastal_geom) == 0.0).all()
+    assert (a.distance(seg_mls) > 0.0).all()
+    b = r.geometry.apply(lambda x: Point(*x.coords[-1]))
+    assert (b.distance(coastal_geom) > 0.0).all()
+    assert (b.distance(seg_mls) < 1e-10).all()
