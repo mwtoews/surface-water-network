@@ -104,7 +104,6 @@ def gdf_to_shapefile(gdf, shp_fname, **kwargs):
     gdf = gdf.copy()
     geom_name = gdf.geometry.name
 
-
     for col, dtype in gdf.dtypes.iteritems():
         if col == geom_name:
             continue
@@ -130,6 +129,9 @@ def gdf_to_shapefile(gdf, shp_fname, **kwargs):
         "strtop_incopt": "stpincopt",
         "prev_ibound": "previbound",
         "prev_idomain": "prevdomain",
+        "dist_to_segnum": "dst_to_out",
+        "dist_to_seg": "dst_to_out",
+        "is_within_catchment": "within_cat",
     }
     for k, v in list(colname10.items()):
         assert len(v) <= 10, v
