@@ -6,7 +6,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
 
-    <title>swn.SurfaceWaterNetwork.diversions &#8212; Surface water network 2019 documentation</title>
+    <title>swn.spatial.find_segnum_in_swn &#8212; Surface water network 2019 documentation</title>
     
   <!-- Loaded before other Sphinx assets -->
   <link href="../_static/styles/theme.css?digest=1999514e3f237ded88cf" rel="stylesheet">
@@ -32,8 +32,8 @@
     <script src="../_static/doctools.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="swn.SurfaceWaterNetwork.has_z" href="swn.SurfaceWaterNetwork.has_z.html" />
-    <link rel="prev" title="swn.SurfaceWaterNetwork.catchments" href="swn.SurfaceWaterNetwork.catchments.html" />
+    <link rel="next" title="swn.spatial.find_geom_in_swn" href="swn.spatial.find_geom_in_swn.html" />
+    <link rel="prev" title="Spatial methods" href="../spatial.html" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="docsearch:language" content="None">
     
@@ -123,16 +123,16 @@
 </form><nav class="bd-links" id="bd-docs-nav" aria-label="Main navigation">
   <div class="bd-toc-item active">
     <ul class="current nav bd-sidenav">
- <li class="toctree-l1 current active has-children">
+ <li class="toctree-l1 has-children">
   <a class="reference internal" href="../swn.html">
    SurfaceWaterNetwork
   </a>
-  <input checked="" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" type="checkbox"/>
+  <input class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" type="checkbox"/>
   <label for="toctree-checkbox-1">
    <i class="fas fa-chevron-down">
    </i>
   </label>
-  <ul class="current">
+  <ul>
    <li class="toctree-l2 has-children">
     <a class="reference internal" href="swn.SurfaceWaterNetwork.html">
      swn.SurfaceWaterNetwork
@@ -230,8 +230,8 @@
      swn.SurfaceWaterNetwork.catchments
     </a>
    </li>
-   <li class="toctree-l2 current active">
-    <a class="current reference internal" href="#">
+   <li class="toctree-l2">
+    <a class="reference internal" href="swn.SurfaceWaterNetwork.diversions.html">
      swn.SurfaceWaterNetwork.diversions
     </a>
    </li>
@@ -415,18 +415,18 @@
    </li>
   </ul>
  </li>
- <li class="toctree-l1 has-children">
+ <li class="toctree-l1 current active has-children">
   <a class="reference internal" href="../spatial.html">
    Spatial methods
   </a>
-  <input class="toctree-checkbox" id="toctree-checkbox-7" name="toctree-checkbox-7" type="checkbox"/>
+  <input checked="" class="toctree-checkbox" id="toctree-checkbox-7" name="toctree-checkbox-7" type="checkbox"/>
   <label for="toctree-checkbox-7">
    <i class="fas fa-chevron-down">
    </i>
   </label>
-  <ul>
-   <li class="toctree-l2">
-    <a class="reference internal" href="swn.spatial.find_segnum_in_swn.html">
+  <ul class="current">
+   <li class="toctree-l2 current active">
+    <a class="current reference internal" href="#">
      swn.spatial.find_segnum_in_swn
     </a>
    </li>
@@ -476,30 +476,37 @@
               
               <div>
                 
-  <section id="swn-surfacewaternetwork-diversions">
-<h1>swn.SurfaceWaterNetwork.diversions<a class="headerlink" href="#swn-surfacewaternetwork-diversions" title="Permalink to this headline">#</a></h1>
-<dl class="py property">
-<dt class="sig sig-object py" id="swn.SurfaceWaterNetwork.diversions">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">SurfaceWaterNetwork.</span></span><span class="sig-name descname"><span class="pre">diversions</span></span><a class="headerlink" href="#swn.SurfaceWaterNetwork.diversions" title="Permalink to this definition">#</a></dt>
-<dd><p>[Geo]DataFrame of surface water diversions.</p>
-<p>Use <code class="xref py py-meth docutils literal notranslate"><span class="pre">swn.SurfaceWaterNetwork.set_diversions()</span></code> to set this
-property.</p>
+  <section id="swn-spatial-find-segnum-in-swn">
+<h1>swn.spatial.find_segnum_in_swn<a class="headerlink" href="#swn-spatial-find-segnum-in-swn" title="Permalink to this headline">#</a></h1>
+<dl class="py function">
+<dt class="sig sig-object py" id="swn.spatial.find_segnum_in_swn">
+<span class="sig-prename descclassname"><span class="pre">swn.spatial.</span></span><span class="sig-name descname"><span class="pre">find_segnum_in_swn</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">n</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">geom</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#swn.spatial.find_segnum_in_swn" title="Permalink to this definition">#</a></dt>
+<dd><p>Return segnum within a catchment or nearest a segment to a geometry.</p>
+<p>If a catchment polygon is provided, this is used to find if the point
+is contained in the catchment, otherwise the closest segment is found.</p>
+<div class="deprecated">
+<p><span class="versionmodified deprecated">Deprecated since version 0.5: </span>Use <a class="reference internal" href="swn.spatial.find_geom_in_swn.html#swn.spatial.find_geom_in_swn" title="swn.spatial.find_geom_in_swn"><code class="xref py py-meth docutils literal notranslate"><span class="pre">find_geom_in_swn()</span></code></a> instead.</p>
+</div>
 <dl class="field-list simple">
-<dt class="field-odd">Attributes</dt>
+<dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><dl class="simple">
-<dt><strong>index</strong><span class="classifier">any</span></dt><dd><p>Unique index for each diversion, with an optional name attribute.
-Copied from <code class="docutils literal notranslate"><span class="pre">lines.index</span></code>. This is often defined externally,
-and is used to relate and exchange stream information.</p>
+<dt><strong>n</strong><span class="classifier">SurfaceWaterNetwork</span></dt><dd><p>A surface water network to evaluate.</p>
 </dd>
-<dt><strong>geometry</strong><span class="classifier">geometry</span></dt><dd><p>If a GeoDataFrame was used to define diversions, this is a copy
-of the GeoSeries.</p>
+<dt><strong>geom</strong><span class="classifier">various</span></dt><dd><dl class="simple">
+<dt>A geometry input, one of:</dt><dd><ul class="simple">
+<li><p>GeoSeries</p></li>
+<li><p>tuple of coordinates (x, y)</p></li>
+<li><p>list of coordinate tuples</p></li>
+</ul>
 </dd>
-<dt><strong>from_segnum</strong><span class="classifier">same type as segments.index</span></dt><dd><p>Index of upstream segment from which diversion is connected to.</p>
+</dl>
 </dd>
-<dt><strong>dist_end</strong><span class="classifier">float</span></dt><dd><p>Distance to most-downstream-end of segment described by
-<code class="docutils literal notranslate"><span class="pre">from_segnum</span></code>.</p>
+</dl>
 </dd>
-<dt><strong>dist_end</strong><span class="classifier">float</span></dt><dd><p>Distance to segment line described by <code class="docutils literal notranslate"><span class="pre">from_segnum</span></code>.</p>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><dl class="simple">
+<dt>pandas.DataFrame</dt><dd><p>Resulting DataFrame has columns segnum, dist_to_segnum, and
+(if catchments are found) is_within_catchment.</p>
 </dd>
 </dl>
 </dd>
@@ -514,17 +521,17 @@ of the GeoSeries.</p>
               
               <!-- Previous / next buttons -->
 <div class='prev-next-area'>
-    <a class='left-prev' id="prev-link" href="swn.SurfaceWaterNetwork.catchments.html" title="previous page">
+    <a class='left-prev' id="prev-link" href="../spatial.html" title="previous page">
         <i class="fas fa-angle-left"></i>
         <div class="prev-next-info">
             <p class="prev-next-subtitle">previous</p>
-            <p class="prev-next-title">swn.SurfaceWaterNetwork.catchments</p>
+            <p class="prev-next-title">Spatial methods</p>
         </div>
     </a>
-    <a class='right-next' id="next-link" href="swn.SurfaceWaterNetwork.has_z.html" title="next page">
+    <a class='right-next' id="next-link" href="swn.spatial.find_geom_in_swn.html" title="next page">
     <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">swn.SurfaceWaterNetwork.has_z</p>
+        <p class="prev-next-title">swn.spatial.find_geom_in_swn</p>
     </div>
     <i class="fas fa-angle-right"></i>
     </a>

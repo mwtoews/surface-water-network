@@ -8,34 +8,31 @@
 
     <title>Change log &#8212; Surface water network 2019 documentation</title>
     
-    <link href="_static/styles/theme.css?digest=1999514e3f237ded88cf" rel="stylesheet">
+  <!-- Loaded before other Sphinx assets -->
+  <link href="_static/styles/theme.css?digest=1999514e3f237ded88cf" rel="stylesheet">
 <link href="_static/styles/pydata-sphinx-theme.css?digest=1999514e3f237ded88cf" rel="stylesheet">
-  
+
     
-    <link rel="stylesheet"
-      href="_static/vendor/fontawesome/5.13.0/css/all.min.css">
-    <link rel="preload" as="font" type="font/woff2" crossorigin
-      href="_static/vendor/fontawesome/5.13.0/webfonts/fa-solid-900.woff2">
-    <link rel="preload" as="font" type="font/woff2" crossorigin
-      href="_static/vendor/fontawesome/5.13.0/webfonts/fa-brands-400.woff2">
-  
-    
-      
-  
-    
+  <link rel="stylesheet"
+    href="_static/vendor/fontawesome/5.13.0/css/all.min.css">
+  <link rel="preload" as="font" type="font/woff2" crossorigin
+    href="_static/vendor/fontawesome/5.13.0/webfonts/fa-solid-900.woff2">
+  <link rel="preload" as="font" type="font/woff2" crossorigin
+    href="_static/vendor/fontawesome/5.13.0/webfonts/fa-brands-400.woff2">
+
     <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
-    <link rel="stylesheet" type="text/css" href="_static/styles/pydata-sphinx-theme.css" />
     <link rel="stylesheet" type="text/css" href="_static/plot_directive.css" />
     
-    <link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=1999514e3f237ded88cf">
-  
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=1999514e3f237ded88cf">
+
     <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
     <script src="_static/jquery.js"></script>
     <script src="_static/underscore.js"></script>
     <script src="_static/doctools.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="prev" title="swn.modflow.SwnMf6.model" href="ref/swn.modflow.SwnMf6.model.html" />
+    <link rel="prev" title="swn.spatial.find_geom_in_swn" href="ref/swn.spatial.find_geom_in_swn.html" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="docsearch:language" content="None">
     
@@ -43,7 +40,7 @@
     <!-- Google Analytics -->
     
   </head>
-  <body data-spy="scroll" data-target="#bd-toc-nav" data-offset="80">
+  <body data-spy="scroll" data-target="#bd-toc-nav" data-offset="60">
     
     <div class="container-fluid" id="banner"></div>
 
@@ -140,7 +137,7 @@
               
               <div class="toc-item">
                 
-<div class="tocsection onthispage pt-5 pb-3">
+<div class="tocsection onthispage mt-5 pt-1 pb-3">
     <i class="fas fa-list"></i> On this page
 </div>
 
@@ -210,9 +207,9 @@
               <div>
                 
   <section id="change-log">
-<h1>Change log<a class="headerlink" href="#change-log" title="Permalink to this headline">¶</a></h1>
+<h1>Change log<a class="headerlink" href="#change-log" title="Permalink to this headline">#</a></h1>
 <section id="version-0-5">
-<h2>Version 0.5<a class="headerlink" href="#version-0-5" title="Permalink to this headline">¶</a></h2>
+<h2>Version 0.5<a class="headerlink" href="#version-0-5" title="Permalink to this headline">#</a></h2>
 <dl class="field-list simple">
 <dt class="field-odd">Date</dt>
 <dd class="field-odd"><p>dd mmm yyyy</p>
@@ -221,17 +218,18 @@
 <ul class="simple">
 <li><p>Not released</p></li>
 <li><p>Minimum requirements are Python 3.7, pandas 1.2</p></li>
+<li><p>Add <code class="docutils literal notranslate"><span class="pre">swn.spatial.find_geom_in_swn</span></code> method</p></li>
 </ul>
 </section>
 <section id="version-0-4">
-<h2>Version 0.4<a class="headerlink" href="#version-0-4" title="Permalink to this headline">¶</a></h2>
+<h2>Version 0.4<a class="headerlink" href="#version-0-4" title="Permalink to this headline">#</a></h2>
 <dl class="field-list simple">
 <dt class="field-odd">Date</dt>
 <dd class="field-odd"><p>20 October 2021</p>
 </dd>
 </dl>
 <section id="breaking-changes">
-<h3>Breaking changes<a class="headerlink" href="#breaking-changes" title="Permalink to this headline">¶</a></h3>
+<h3>Breaking changes<a class="headerlink" href="#breaking-changes" title="Permalink to this headline">#</a></h3>
 <ul class="simple">
 <li><p>Change <code class="docutils literal notranslate"><span class="pre">SurfaceWaterNetwork(lines.geometry)</span></code> -&gt; <code class="docutils literal notranslate"><span class="pre">SurfaceWaterNetwork.from_lines(lines.geometry)</span></code></p></li>
 <li><p>Change <code class="docutils literal notranslate"><span class="pre">MfSfrNetwork(n,</span> <span class="pre">m,</span> <span class="pre">...)</span></code> -&gt; <code class="docutils literal notranslate"><span class="pre">SwnModflow.from_swn_flopy(n,</span> <span class="pre">m)</span></code></p></li>
@@ -239,7 +237,7 @@
 </ul>
 </section>
 <section id="new-things">
-<h3>New things<a class="headerlink" href="#new-things" title="Permalink to this headline">¶</a></h3>
+<h3>New things<a class="headerlink" href="#new-things" title="Permalink to this headline">#</a></h3>
 <ul class="simple">
 <li><p>Add <code class="docutils literal notranslate"><span class="pre">.to_pickle()</span></code> and <code class="docutils literal notranslate"><span class="pre">.from_pickle()</span></code> methods</p></li>
 <li><p>Support MODFLOW 6 models (as well as classic MODFLOW)</p></li>
@@ -249,7 +247,7 @@
 </ul>
 </section>
 <section id="other-changes">
-<h3>Other changes<a class="headerlink" href="#other-changes" title="Permalink to this headline">¶</a></h3>
+<h3>Other changes<a class="headerlink" href="#other-changes" title="Permalink to this headline">#</a></h3>
 <ul class="simple">
 <li><p>Improve performance of <code class="docutils literal notranslate"><span class="pre">SurfaceWaterNetwork.from_lines</span></code></p></li>
 <li><p>Add <code class="docutils literal notranslate"><span class="pre">mult</span></code> multiplier to <code class="docutils literal notranslate"><span class="pre">topnet2ts</span></code></p></li>
@@ -258,7 +256,7 @@
 </section>
 </section>
 <section id="version-0-3">
-<h2>Version 0.3<a class="headerlink" href="#version-0-3" title="Permalink to this headline">¶</a></h2>
+<h2>Version 0.3<a class="headerlink" href="#version-0-3" title="Permalink to this headline">#</a></h2>
 <dl class="field-list simple">
 <dt class="field-odd">Date</dt>
 <dd class="field-odd"><p>10 March 2021</p>
@@ -272,7 +270,7 @@
 </ul>
 </section>
 <section id="version-0-2">
-<h2>Version 0.2<a class="headerlink" href="#version-0-2" title="Permalink to this headline">¶</a></h2>
+<h2>Version 0.2<a class="headerlink" href="#version-0-2" title="Permalink to this headline">#</a></h2>
 <dl class="field-list simple">
 <dt class="field-odd">Date</dt>
 <dd class="field-odd"><p>11 December 2019</p>
@@ -287,7 +285,7 @@
 </ul>
 </section>
 <section id="version-0-1">
-<h2>Version 0.1<a class="headerlink" href="#version-0-1" title="Permalink to this headline">¶</a></h2>
+<h2>Version 0.1<a class="headerlink" href="#version-0-1" title="Permalink to this headline">#</a></h2>
 <dl class="field-list simple">
 <dt class="field-odd">Date</dt>
 <dd class="field-odd"><p>6 November 2019</p>
@@ -306,11 +304,11 @@
               
               <!-- Previous / next buttons -->
 <div class='prev-next-area'>
-    <a class='left-prev' id="prev-link" href="ref/swn.modflow.SwnMf6.model.html" title="previous page">
+    <a class='left-prev' id="prev-link" href="ref/swn.spatial.find_geom_in_swn.html" title="previous page">
         <i class="fas fa-angle-left"></i>
         <div class="prev-next-info">
             <p class="prev-next-subtitle">previous</p>
-            <p class="prev-next-title">swn.modflow.SwnMf6.model</p>
+            <p class="prev-next-title">swn.spatial.find_geom_in_swn</p>
         </div>
     </a>
 </div>
@@ -321,8 +319,9 @@
       </div>
     </div>
   
-    <script src="_static/scripts/pydata-sphinx-theme.js?digest=1999514e3f237ded88cf"></script>
-  <footer class="footer mt-5 mt-md-0">
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="_static/scripts/pydata-sphinx-theme.js?digest=1999514e3f237ded88cf"></script>
+<footer class="footer mt-5 mt-md-0">
   <div class="container">
     
     <div class="footer-item">
@@ -333,7 +332,7 @@
     
     <div class="footer-item">
       <p class="sphinx-version">
-Created using <a href="http://sphinx-doc.org/">Sphinx</a> 4.4.0.<br>
+Created using <a href="http://sphinx-doc.org/">Sphinx</a> 4.5.0.<br>
 </p>
     </div>
     
