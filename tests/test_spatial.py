@@ -206,7 +206,7 @@ def test_find_geom_in_basic_swn():
         r = spatial.find_geom_in_swn(gs, n, override={1: 103})
     with pytest.warns(UserWarning, match="1 override value"):
         r = spatial.find_geom_in_swn(gs, n, override={11: 13})
-    # check spetial value None
+    # check special value None
     r = spatial.find_geom_in_swn(gs, n, override={11: None})
     assert r.at[11, "geometry"].is_empty
     assert r.at[11, "method"] == "override"
@@ -214,7 +214,7 @@ def test_find_geom_in_basic_swn():
     assert pd.isna(r.at[11, "seg_ndist"])
     assert pd.isna(r.at[11, "dist_to_seg"])
     pd.testing.assert_frame_equal(
-        r2[e2.columns].drop(index=[11, 16]), e2.drop(index=[11, 16]))
+        r[e.columns].drop(index=[11, 16]), e.drop(index=[11, 16]))
 
 
 @pytest.fixture

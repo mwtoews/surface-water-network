@@ -376,56 +376,61 @@ def find_geom_in_swn(geom, n, override={}):
     sel = res.method == ""
     if not sel.any():
         pass
-    elif hasattr(geopandas, "sjoin_nearest"):
-        # from geopandas 0.10.0 (October 3, 2021)
-        match_s = geopandas.sjoin_nearest(
-            res[sel], n.segments[["geometry"]], "inner")["index_right"]
-        match_s.name = "segnum"
-        match_s.index.name = "gidx"
-        match = match_s.reset_index()
-        duplicated = match.gidx.duplicated(keep=False)
-        if duplicated.any():
-            for gidx, segnums in match[duplicated].groupby("gidx").segnum:
-                g = geom.loc[gidx]
-                sg = n.segments.geometry[segnums]
-                sl = segnums.to_frame()
-                sl["length"] = sg.intersection(g).length.values
-                sl["start"] = sg.interpolate(0.0).intersects(g).values
-                if sl.length.max() > 0.0:
-                    # find segment with highest length of intersection
-                    sl.sort_values("length", ascending=False, inplace=True)
-                elif sl.start.sum() == 1:
-                    # find start segment at a junction
-                    sl.sort_values("start", ascending=False, inplace=True)
+    else:
+        try:
+            # faster method, not widely available
+            match_s = geopandas.sjoin_nearest(
+                res[sel], n.segments[["geometry"]], "inner")["index_right"]
+            has_sjoin_nearest = True
+        except (AttributeError, NotImplementedError):
+            has_sjoin_nearest = False
+        if has_sjoin_nearest:
+            match_s.name = "segnum"
+            match_s.index.name = "gidx"
+            match = match_s.reset_index()
+            duplicated = match.gidx.duplicated(keep=False)
+            if duplicated.any():
+                for gidx, segnums in match[duplicated].groupby("gidx").segnum:
+                    g = geom.loc[gidx]
+                    sg = n.segments.geometry[segnums]
+                    sl = segnums.to_frame()
+                    sl["length"] = sg.intersection(g).length.values
+                    sl["start"] = sg.interpolate(0.0).intersects(g).values
+                    if sl.length.max() > 0.0:
+                        # find segment with highest length of intersection
+                        sl.sort_values("length", ascending=False, inplace=True)
+                    elif sl.start.sum() == 1:
+                        # find start segment at a junction
+                        sl.sort_values("start", ascending=False, inplace=True)
+                    else:
+                        sl.sort_values("segnum", inplace=True)
+                    match.drop(index=sl.index[1:], inplace=True)
+            res.loc[match.gidx, "segnum"] = match.segnum.values
+            res.loc[match.gidx, "method"] = "nearest"
+        else:  # slower method
+            for gidx, g in geom[sel].iteritems():
+                if g.is_empty:
+                    continue
+                dists = n.segments.distance(g).sort_values()
+                segnums = dists.index[dists.iloc[0] == dists]
+                if len(segnums) == 1:
+                    segnum = segnums[0]
                 else:
-                    sl.sort_values("segnum", inplace=True)
-                match.drop(index=sl.index[1:], inplace=True)
-        res.loc[match.gidx, "segnum"] = match.segnum.values
-        res.loc[match.gidx, "method"] = "nearest"
-    else:  # slower method
-        for gidx, g in geom[sel].iteritems():
-            if g.is_empty:
-                continue
-            dists = n.segments.distance(g).sort_values()
-            segnums = dists.index[dists.iloc[0] == dists]
-            if len(segnums) == 1:
-                segnum = segnums[0]
-            else:
-                sg = n.segments.geometry[segnums]
-                sl = pd.DataFrame(index=segnums)
-                sl["length"] = sg.intersection(g).length
-                sl["start"] = sg.interpolate(0.0).intersects(g)
-                if sl.length.max() > 0.0:
-                    # find segment with highest length of intersection
-                    sl.sort_values("length", ascending=False, inplace=True)
-                elif sl.start.sum() == 1:
-                    # find start segment at a junction
-                    sl.sort_values("start", ascending=False, inplace=True)
-                else:
-                    sl.sort_index(inplace=True)
-                segnum = sl.index[0]
-            res.loc[gidx, "segnum"] = segnum
-            res.loc[gidx, "method"] = "nearest"
+                    sg = n.segments.geometry[segnums]
+                    sl = pd.DataFrame(index=segnums)
+                    sl["length"] = sg.intersection(g).length
+                    sl["start"] = sg.interpolate(0.0).intersects(g)
+                    if sl.length.max() > 0.0:
+                        # find segment with highest length of intersection
+                        sl.sort_values("length", ascending=False, inplace=True)
+                    elif sl.start.sum() == 1:
+                        # find start segment at a junction
+                        sl.sort_values("start", ascending=False, inplace=True)
+                    else:
+                        sl.sort_index(inplace=True)
+                    segnum = sl.index[0]
+                res.loc[gidx, "segnum"] = segnum
+                res.loc[gidx, "method"] = "nearest"
 
     # For non-point geometries, convert to point
     sel = (res.geom_type != "Point") & (res.segnum != n.END_SEGNUM)
