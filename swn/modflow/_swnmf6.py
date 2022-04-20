@@ -88,7 +88,9 @@ class SwnMf6(SwnModflowBase):
 
         # Add more information to reaches
         obj.reaches.index.name = "rno"
-        obj.reaches["rlen"] = obj.reaches.geometry.length
+        # BH: If we can't reliably adjust the geometry this needs to point to
+        #  length
+        obj.reaches["rlen"] = obj.reaches["length"]
 
         # Evaluate connections
         # Assume only converging network

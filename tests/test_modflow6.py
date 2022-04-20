@@ -154,7 +154,26 @@ def test_from_swn_flopy_errors():
         swn.SwnMf6.from_swn_flopy(n, m, idomain_action="foo")
 
     # finally success!
-    swn.SwnMf6.from_swn_flopy(n, m)
+    nm = swn.SwnMf6.from_swn_flopy(n, m)
+
+    n.segments.geometry = n.segments.geometry.translate(-32.1, -69.1)
+    m = flopy.mf6.ModflowGwf(sim)
+    _ = flopy.mf6.ModflowGwfdis(
+        m, nlay=1, nrow=12, ncol=8, delr=5, delc=5, idomain=1)
+    m.modelgrid.set_coord_info(epsg=2193)
+    # m.modelgrid.set_coord_info(xoff=35.0, yoff=75.0)
+    import matplotlib.pyplot as plt
+    import matplotlib as mpl
+    mpl.use('Qt5Agg')
+    fig, ax = plt.subplots(1, 1)
+    ax.pcolormesh(m.modelgrid.xcellcenters,
+                   m.modelgrid.ycellcenters,
+                   m.modelgrid.idomain[0],
+                   cmap='terrain',
+                  ec='grey')
+    n.plot(ax=ax)
+    nm = swn.SwnMf6.from_swn_flopy(n, m)
+    test=None
 
 
 def test_n3d_defaults(tmp_path):
