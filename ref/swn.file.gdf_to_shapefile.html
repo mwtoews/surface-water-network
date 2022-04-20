@@ -6,7 +6,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
 
-    <title>swn.SurfaceWaterNetwork.evaluate_upstream_area &#8212; Surface water network 2019 documentation</title>
+    <title>swn.file.gdf_to_shapefile &#8212; Surface water network 2019 documentation</title>
     
   <!-- Loaded before other Sphinx assets -->
   <link href="../_static/styles/theme.css?digest=1999514e3f237ded88cf" rel="stylesheet">
@@ -32,8 +32,8 @@
     <script src="../_static/doctools.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="swn.SurfaceWaterNetwork.evaluate_upstream_length" href="swn.SurfaceWaterNetwork.evaluate_upstream_length.html" />
-    <link rel="prev" title="swn.SurfaceWaterNetwork.estimate_width" href="swn.SurfaceWaterNetwork.estimate_width.html" />
+    <link rel="next" title="Spatial methods" href="../spatial.html" />
+    <link rel="prev" title="swn.file.topnet2ts" href="swn.file.topnet2ts.html" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="docsearch:language" content="None">
     
@@ -123,26 +123,26 @@
 </form><nav class="bd-links" id="bd-docs-nav" aria-label="Main navigation">
   <div class="bd-toc-item active">
     <ul class="current nav bd-sidenav">
- <li class="toctree-l1 current active has-children">
+ <li class="toctree-l1 has-children">
   <a class="reference internal" href="../swn.html">
    SurfaceWaterNetwork
   </a>
-  <input checked="" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" type="checkbox"/>
+  <input class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" type="checkbox"/>
   <label for="toctree-checkbox-1">
    <i class="fas fa-chevron-down">
    </i>
   </label>
-  <ul class="current">
-   <li class="toctree-l2 current active has-children">
+  <ul>
+   <li class="toctree-l2 has-children">
     <a class="reference internal" href="swn.SurfaceWaterNetwork.html">
      swn.SurfaceWaterNetwork
     </a>
-    <input checked="" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" type="checkbox"/>
+    <input class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" type="checkbox"/>
     <label for="toctree-checkbox-2">
      <i class="fas fa-chevron-down">
      </i>
     </label>
-    <ul class="current">
+    <ul>
      <li class="toctree-l3">
       <a class="reference internal" href="swn.SurfaceWaterNetwork.accumulate_values.html">
        swn.SurfaceWaterNetwork.accumulate_values
@@ -163,8 +163,8 @@
        swn.SurfaceWaterNetwork.estimate_width
       </a>
      </li>
-     <li class="toctree-l3 current active">
-      <a class="current reference internal" href="#">
+     <li class="toctree-l3">
+      <a class="reference internal" href="swn.SurfaceWaterNetwork.evaluate_upstream_area.html">
        swn.SurfaceWaterNetwork.evaluate_upstream_area
       </a>
      </li>
@@ -290,8 +290,8 @@
      swn.SurfaceWaterNetwork.evaluate_upstream_length
     </a>
    </li>
-   <li class="toctree-l2 current active">
-    <a class="current reference internal" href="#">
+   <li class="toctree-l2">
+    <a class="reference internal" href="swn.SurfaceWaterNetwork.evaluate_upstream_area.html">
      swn.SurfaceWaterNetwork.evaluate_upstream_area
     </a>
    </li>
@@ -415,23 +415,23 @@
    </li>
   </ul>
  </li>
- <li class="toctree-l1 has-children">
+ <li class="toctree-l1 current active has-children">
   <a class="reference internal" href="../file.html">
    File reading/writing helpers
   </a>
-  <input class="toctree-checkbox" id="toctree-checkbox-7" name="toctree-checkbox-7" type="checkbox"/>
+  <input checked="" class="toctree-checkbox" id="toctree-checkbox-7" name="toctree-checkbox-7" type="checkbox"/>
   <label for="toctree-checkbox-7">
    <i class="fas fa-chevron-down">
    </i>
   </label>
-  <ul>
+  <ul class="current">
    <li class="toctree-l2">
     <a class="reference internal" href="swn.file.topnet2ts.html">
      swn.file.topnet2ts
     </a>
    </li>
-   <li class="toctree-l2">
-    <a class="reference internal" href="swn.file.gdf_to_shapefile.html">
+   <li class="toctree-l2 current active">
+    <a class="current reference internal" href="#">
      swn.file.gdf_to_shapefile
     </a>
    </li>
@@ -498,12 +498,31 @@
               
               <div>
                 
-  <section id="swn-surfacewaternetwork-evaluate-upstream-area">
-<h1>swn.SurfaceWaterNetwork.evaluate_upstream_area<a class="headerlink" href="#swn-surfacewaternetwork-evaluate-upstream-area" title="Permalink to this headline">#</a></h1>
-<dl class="py method">
-<dt class="sig sig-object py" id="swn.SurfaceWaterNetwork.evaluate_upstream_area">
-<span class="sig-prename descclassname"><span class="pre">SurfaceWaterNetwork.</span></span><span class="sig-name descname"><span class="pre">evaluate_upstream_area</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#swn.SurfaceWaterNetwork.evaluate_upstream_area" title="Permalink to this definition">#</a></dt>
-<dd><p>Evaluate upstream area from catchments, adds to segments.</p>
+  <section id="swn-file-gdf-to-shapefile">
+<h1>swn.file.gdf_to_shapefile<a class="headerlink" href="#swn-file-gdf-to-shapefile" title="Permalink to this headline">#</a></h1>
+<dl class="py function">
+<dt class="sig sig-object py" id="swn.file.gdf_to_shapefile">
+<span class="sig-prename descclassname"><span class="pre">swn.file.</span></span><span class="sig-name descname"><span class="pre">gdf_to_shapefile</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">gdf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">shp_fname</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#swn.file.gdf_to_shapefile" title="Permalink to this definition">#</a></dt>
+<dd><p>Write any GeoDataFrame to a shapefile.</p>
+<p>This is a workaround to the to_file method, which cannot save
+GeoDataFrame objects with other data types, such as set.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>gdf</strong><span class="classifier">geopandas.GeoDataFrame</span></dt><dd><p>GeoDataFrame to export</p>
+</dd>
+<dt><strong>shp_fname</strong><span class="classifier">str</span></dt><dd><p>File path for output shapefile</p>
+</dd>
+<dt><strong>kwargs</strong><span class="classifier">mapping</span></dt><dd><p>Keyword arguments passed to to_file and to fiona.open</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><dl class="simple">
+<dt>None</dt><dd></dd>
+</dl>
+</dd>
+</dl>
 </dd></dl>
 
 </section>
@@ -514,17 +533,17 @@
               
               <!-- Previous / next buttons -->
 <div class='prev-next-area'>
-    <a class='left-prev' id="prev-link" href="swn.SurfaceWaterNetwork.estimate_width.html" title="previous page">
+    <a class='left-prev' id="prev-link" href="swn.file.topnet2ts.html" title="previous page">
         <i class="fas fa-angle-left"></i>
         <div class="prev-next-info">
             <p class="prev-next-subtitle">previous</p>
-            <p class="prev-next-title">swn.SurfaceWaterNetwork.estimate_width</p>
+            <p class="prev-next-title">swn.file.topnet2ts</p>
         </div>
     </a>
-    <a class='right-next' id="next-link" href="swn.SurfaceWaterNetwork.evaluate_upstream_length.html" title="next page">
+    <a class='right-next' id="next-link" href="../spatial.html" title="next page">
     <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">swn.SurfaceWaterNetwork.evaluate_upstream_length</p>
+        <p class="prev-next-title">Spatial methods</p>
     </div>
     <i class="fas fa-angle-right"></i>
     </a>

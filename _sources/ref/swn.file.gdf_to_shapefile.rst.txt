@@ -1,0 +1,6 @@
+﻿swn.file.gdf\_to\_shapefile
+===========================
+
+.. currentmodule:: swn.file
+
+.. autofunction:: gdf_to_shapefile

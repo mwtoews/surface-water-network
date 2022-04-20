@@ -1,7 +1,7 @@
 Spatial methods
 ===============
 
-.. currentmodule:: swn.spatial
+.. module:: swn.spatial
 
 Combine data
 ------------

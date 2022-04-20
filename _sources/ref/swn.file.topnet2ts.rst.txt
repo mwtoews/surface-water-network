@@ -1,0 +1,6 @@
+﻿swn.file.topnet2ts
+==================
+
+.. currentmodule:: swn.file
+
+.. autofunction:: topnet2ts
