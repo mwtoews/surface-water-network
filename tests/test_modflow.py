@@ -11,7 +11,6 @@ from shapely import wkt
 from shapely.geometry import Point
 
 import swn
-import swn.modflow
 from swn.file import gdf_to_shapefile
 from swn.spatial import force_2d, interp_2d_to_3d, wkt_to_geoseries
 
@@ -473,6 +472,91 @@ def test_set_segment_data_from_segments():
         nm.set_segment_data_from_segments(1)
     with pytest.raises(ValueError, match="name must be str typ"):
         nm.set_segment_data_from_segments(1, 2)
+
+
+def test_set_segment_data_from_diversions():
+    n = get_basic_swn(has_diversions=True)
+    m = get_basic_modflow(nper=2)
+    nm = swn.SwnModflow.from_swn_flopy(n, m)
+
+    nm.new_segment_data()
+    assert list(nm.segment_data.icalc) == [0, 0, 0, 0, 0, 0, 0]
+    assert list(nm.segment_data.abstraction) == [0.0] * 7
+
+    # scalar -- most other tests are in test_set_segment_data_from_scalar
+    nm.set_segment_data_from_diversions("abstraction", 2.2)
+    assert list(nm.segment_data.abstraction) == \
+        [0.0, 0.0, 0.0, 2.2, 2.2, 2.2, 2.2]
+
+    # dict
+    nm.set_segment_data_from_diversions(
+        "abstraction", {0: 0.1, 2: 1.2, 1: 2.3})
+    assert list(nm.segment_data.abstraction) == \
+        [0.0, 0.0, 0.0, 0.1, 2.3, 1.2, 2.2]
+    nm.set_segment_data_from_diversions("abstraction", {})
+    assert list(nm.segment_data.abstraction) == \
+        [0.0, 0.0, 0.0, 0.1, 2.3, 1.2, 2.2]
+    nm.set_segment_data_from_diversions("abstraction", {0: 4.0})
+    assert list(nm.segment_data.abstraction) == \
+        [0.0, 0.0, 0.0, 4.0, 2.3, 1.2, 2.2]
+
+    # errors
+    with pytest.raises(KeyError, match="dict has a disjoint divid set"):
+        nm.set_segment_data_from_diversions("abstraction", {"1": 0.1})
+    with pytest.raises(KeyError, match="dict has a disjoint divid set"):
+        nm.set_segment_data_from_diversions("abstraction", {5: 0.1})
+    with pytest.raises(KeyError, match="dict has 1 key not found in divid"):
+        nm.set_segment_data_from_diversions("abstraction", {5: 0.1, 2: 1.2})
+
+    # series
+    nm.set_segment_data_from_scalar("abstraction", 0.0)
+    nm.set_segment_data_from_diversions(
+        "abstraction", pd.Series([1.1, 2.2, 3.3, 4.4]))
+    assert list(nm.segment_data.abstraction) == \
+        [0.0, 0.0, 0.0, 1.1, 2.2, 3.3, 4.4]
+    nm.set_segment_data_from_diversions(
+        "abstraction", pd.Series([], dtype=float))
+    assert list(nm.segment_data.abstraction) == \
+        [0.0, 0.0, 0.0, 1.1, 2.2, 3.3, 4.4]
+    nm.set_segment_data_from_diversions(
+        "abstraction", pd.Series([4.0], index=[1]))
+    assert list(nm.segment_data.abstraction) == \
+        [0.0, 0.0, 0.0, 1.1, 4.0, 3.3, 4.4]
+    nm.set_segment_data_from_diversions("abstraction", n.diversions.dist_line)
+    np.testing.assert_array_almost_equal(
+        nm.segment_data.abstraction,
+        [0.0, 0.0, 0.0, 3.605551275463989, 3.605551275463989, 1.0, 1.0])
+
+    # frame
+    nm.set_segment_data_from_scalar("abstraction", 0.0)
+    assert "abstraction" not in nm.segment_data_ts
+    nm.set_segment_data_from_diversions(
+        "abstraction",
+        pd.DataFrame(index=nm.time_index))
+    assert "abstraction" not in nm.segment_data_ts
+    nm.set_segment_data_from_diversions(
+        "abstraction",
+        pd.DataFrame({0: [1.1, 2.2]}, index=nm.time_index))
+    assert list(nm.segment_data.abstraction) == [0.0] * 7
+    pd.testing.assert_frame_equal(
+        nm.segment_data_ts["abstraction"],
+        pd.DataFrame({4: [1.1, 2.2]}, index=nm.time_index))
+    nm.set_segment_data_from_diversions(
+        "abstraction",
+        pd.DataFrame(index=nm.time_index))
+    pd.testing.assert_frame_equal(
+        nm.segment_data_ts["abstraction"],
+        pd.DataFrame({4: [1.1, 2.2]}, index=nm.time_index))
+
+    # check that segment_data_ts item is not dropped by this method
+    nm.set_segment_data_from_diversions("abstraction", {0: 0.1})
+    assert "abstraction" in nm.segment_data_ts
+
+    # check errors
+    with pytest.raises(TypeError, match="missing 1 required positional"):
+        nm.set_segment_data_from_diversions(1)
+    with pytest.raises(ValueError, match="name must be str typ"):
+        nm.set_segment_data_from_diversions(1, 2)
 
 
 @pytest.mark.parametrize(
