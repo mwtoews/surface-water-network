@@ -254,7 +254,6 @@ def find_geom_in_swn(geom, n, override={}):
 
     Notes
     -----
-
     Seveal methods are used to pair the geometry with one segnum:
 
         1. override: explicit pairs are provided as a dict, with key for the
@@ -284,19 +283,18 @@ def find_geom_in_swn(geom, n, override={}):
     Examples
     --------
     >>> import swn
-    >>> from swn.spatial import find_geom_in_swn, wkt_to_geoseries
-    >>> lines = wkt_to_geoseries([
+    >>> lines = swn.spatial.wkt_to_geoseries([
     ...    "LINESTRING (60 100, 60  80)",
     ...    "LINESTRING (40 130, 60 100)",
     ...    "LINESTRING (70 130, 60 100)"])
     >>> n = swn.SurfaceWaterNetwork.from_lines(lines)
-    >>> obs_geom = wkt_to_geoseries([
+    >>> obs_gs = swn.spatial.wkt_to_geoseries([
     ...    "POINT (56 103)",
     ...    "LINESTRING (58 90, 62 90)",
     ...    "POLYGON ((60 107, 59 113, 61 113, 60 107))",
     ...    "POINT (55 130)"])
-    >>> obs_geom.index += 101
-    >>> obs_match = find_geom_in_swn(obs_geom, n, override={104: 2})
+    >>> obs_gs.index += 101
+    >>> obs_match = swn.spatial.find_geom_in_swn(obs_gs, n, override={104: 2})
     >>> print(obs_match[["method", "segnum", "seg_ndist", "dist_to_seg"]])
            method  segnum  seg_ndist  dist_to_seg
     101   nearest       1   0.869231     1.664101

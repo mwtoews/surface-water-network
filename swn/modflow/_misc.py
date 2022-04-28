@@ -128,7 +128,8 @@ def transform_data_to_series_or_frame(
                 setattr(keys, keys_name, new_index)
             except (ValueError, TypeError):
                 raise ValueError(
-                      f"cannot cast {keys_name}.dtype to {mapping.index.dtype}")
+                      f"cannot cast {keys_name}.dtype to "
+                      f"{mapping.index.dtype}")
             keys_s = set(new_index.values)
         idxname = mapping.index.name
         index_s = set(mapping.index)

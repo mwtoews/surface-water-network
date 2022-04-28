@@ -229,8 +229,7 @@ class SwnMf6(SwnModflowBase):
         --------
         >>> import flopy
         >>> import swn
-        >>> from swn.spatial import wkt_to_geoseries
-        >>> lines = wkt_to_geoseries([
+        >>> lines = swn.spatial.wkt_to_geoseries([
         ...    "LINESTRING (60 100, 60  80)",
         ...    "LINESTRING (40 130, 60 100)",
         ...    "LINESTRING (70 130, 60 100)"])
