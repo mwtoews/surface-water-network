@@ -1231,6 +1231,11 @@ class SurfaceWaterNetwork:
             a global value, otherwise it is per-segment with a Series.
             Default 1./1000 (or 0.001).
 
+        Returns
+        -------
+        geopandas.GeoDataFrame
+            Points representing each coordinate, showing magnitude of
+            adjustments.
         """
         min_slope = self.segments_series(min_slope)
         if (min_slope <= 0.0).any():
@@ -1249,10 +1254,10 @@ class SurfaceWaterNetwork:
         #   elev is the adjusted elevation
         profile_d = {}  # key is segnum, value is list of profile tuples
         for segnum, geom in self.segments.geometry.iteritems():
-            coords = geom.coords[:]  # coordinates
-            x0, y0, z0 = coords[0]  # upstream coordinate
+            coordi = iter(geom.coords)  # coordinate iterator
+            x0, y0, z0 = next(coordi)  # upstream coordinate
             profile = [[0.0, z0]]
-            for idx, (x1, y1, z1) in enumerate(coords[1:], 1):
+            for idx, (x1, y1, z1) in enumerate(coordi, 1):
                 dx = sqrt((x0 - x1) ** 2 + (y0 - y1) ** 2)
                 profile.append([dx, z1])
                 x0, y0, z0 = x1, y1, z1
@@ -1262,8 +1267,9 @@ class SurfaceWaterNetwork:
             if segnum not in modified_d:
                 modified_d[segnum] = []
             profile = profile_d[segnum]
-            # Get upstream last coordinates, and check if drop0 needs updating
+            # Get upstream last coordinates, and check if drop needs updating
             dx, z0 = profile[0]
+            drop = 0.0
             if segnum in from_segnums:
                 last_zs = [profile_d[n][-1][1] for n in from_segnums[segnum]]
                 if last_zs:
@@ -1272,19 +1278,20 @@ class SurfaceWaterNetwork:
                         drop = z0 - last_zs_min
                         z0 -= drop
                         profile[0][1] = z0
-                        modified_d[segnum].append(drop)
                     elif min(last_zs) > z0:
                         raise NotImplementedError('unexpected scenario')
+            modified_d[segnum].append(drop)
             # Check and enforce minimum slope for remaining coords
             for idx, (dx, z1) in enumerate(profile[1:], 1):
                 dz = z0 - z1
                 slope = dz / dx
+                drop = 0.0
                 if slope < min_slope[segnum]:
                     drop = z1 - z0 + dx * min_slope[segnum]
                     z1 -= drop
                     profile[idx][1] = z1
-                    modified_d[segnum].append(drop)
-                    # print('adj', z0 + drop0, dx * min_slope[segnum], drop)
+                    # print('adj', z0 + drop, dx * min_slope[segnum], drop)
+                modified_d[segnum].append(drop)
                 z0 = z1
             # Ensure last coordinate matches other segments that end here
             if segnum in to_segnums:
@@ -1305,37 +1312,53 @@ class SurfaceWaterNetwork:
                                     modified_d[bsegnum][-1] += drop
         # Adjust geometries and report some information on adjustments
         profiles = []
+        drop_coords_d = {}  # key is (x, y), value is (segnums, drop)
         for segnum in self.segments.index:
             profile = profile_d[segnum]
             modified = modified_d[segnum]
-            if modified:
-                if len(modified) == 1:
+            coords = self.segments.geometry[segnum].coords[:]
+            dist = 0.0
+            nonzero = []
+            for idx in range(len(profile)):
+                dist += profile[idx][0]
+                profile[idx][0] = dist
+                xy = coords[idx][0:2]
+                coords[idx] = xy + (profile[idx][1],)
+                drop = modified[idx]
+                if drop != 0.0:
+                    nonzero.append(drop)
+                if xy not in drop_coords_d:
+                    drop_coords_d[xy] = ({segnum}, drop)
+                else:
+                    drop_coords = drop_coords_d[xy]
+                    drop_coords[0].add(segnum)
+                    # assert drop_coords[1] == drop
+            if nonzero:
+                self.segments.at[segnum, geom_name] = LineString(coords)
+                if len(nonzero) == 1:
                     msg = (
                         'segment %s: adjusted 1 coordinate elevation by %.3f',
-                        segnum, modified[0])
+                        segnum, nonzero[0])
                 else:
                     msg = (
                         'segment %s: adjusted %d coordinate elevations between'
-                        ' %.3f and %.3f', segnum, len(modified),
-                        min(modified), max(modified))
+                        ' %.3f and %.3f', segnum, len(nonzero),
+                        min(nonzero), max(nonzero))
                 self.logger.debug(*msg)
                 self.messages.append(msg[0] % msg[1:])
-                coords = self.segments.geometry[segnum].coords[:]
-                dist = 0.0
-                for idx in range(len(profile)):
-                    dist += profile[idx][0]
-                    profile[idx][0] = dist
-                    coords[idx] = coords[idx][0:2] + (profile[idx][1],)
-                self.segments.at[segnum, geom_name] = LineString(coords)
             else:
                 self.logger.debug('segment %s: not adjusted', segnum)
-                dist = 0.0
-                for idx in range(len(profile)):
-                    dist += profile[idx][0]
-                    profile[idx][0] = dist
             profiles.append(LineString(profile))
         self.profiles = geopandas.GeoSeries(
                 profiles, index=self.segments.index)
+        drop_coords_df = pd.DataFrame.from_dict(
+            drop_coords_d, "index", columns=["segnums", "drop"]).reset_index()
+        drop_coords_gdf = geopandas.GeoDataFrame(
+            drop_coords_df.drop(columns="index"),
+            geometry=geopandas.GeoSeries(
+                [Point(xy) for xy in drop_coords_df["index"]]),
+            crs=self.segments.crs)
+        return drop_coords_gdf
 
     def remove(self, condition=False, segnums=[]):
         """Remove segments (and catchments).

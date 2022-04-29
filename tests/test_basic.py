@@ -1124,19 +1124,22 @@ def test_adjust_elevation_profile_errors(valid_n):
 
 
 def test_adjust_elevation_profile_min_slope_float(valid_n):
-    valid_n.adjust_elevation_profile(2./1000)
+    r = valid_n.adjust_elevation_profile(2./1000)
+    assert len(r) == 0
 
 
 def test_adjust_elevation_profile_min_slope_series(valid_n):
     min_slope = pd.Series(2./1000, index=valid_n.segments.index)
     min_slope[1] = 3./1000
-    valid_n.adjust_elevation_profile(min_slope)
+    r = valid_n.adjust_elevation_profile(min_slope)
+    assert len(r) == 0
 
 
 def test_adjust_elevation_profile_no_change():
     lines = wkt_to_geoseries(['LINESTRING Z (0 0 8, 1 0 7, 2 0 6)'])
     n = swn.SurfaceWaterNetwork.from_lines(lines)
-    n.adjust_elevation_profile()
+    r = n.adjust_elevation_profile()
+    assert len(r) == 0
     assert len(n.messages) == 0
     assert (lines == n.segments.geometry).all()
     expected_profiles = wkt_to_geoseries(['LINESTRING (0 8, 1 7, 2 6)'])
@@ -1146,7 +1149,13 @@ def test_adjust_elevation_profile_no_change():
 def test_adjust_elevation_profile_use_min_slope():
     lines = wkt_to_geoseries(['LINESTRING Z (0 0 8, 1 0 9)'])
     n = swn.SurfaceWaterNetwork.from_lines(lines)
-    n.adjust_elevation_profile()
+    r = n.adjust_elevation_profile()
+    pd.testing.assert_frame_equal(
+        r,
+        geopandas.GeoDataFrame(
+            {"segnums": [{0}], "drop": [1.001]},
+            geometry=[Point(1, 0)])
+    )
     n.profiles = round_coords(n.profiles)
     n.segments.geometry = round_coords(n.segments.geometry)
     assert len(n.messages) == 1
@@ -1159,7 +1168,13 @@ def test_adjust_elevation_profile_use_min_slope():
 
     lines = wkt_to_geoseries(['LINESTRING Z (0 0 8, 1 0 9, 2 0 6)'])
     n = swn.SurfaceWaterNetwork.from_lines(lines)
-    n.adjust_elevation_profile(0.1)
+    r = n.adjust_elevation_profile(0.1)
+    pd.testing.assert_frame_equal(
+        r,
+        geopandas.GeoDataFrame(
+            {"segnums": [{0}], "drop": [1.1]},
+            geometry=[Point(1, 0)])
+    )
     assert len(n.messages) == 1
     assert n.messages[0] == \
         'segment 0: adjusted 1 coordinate elevation by 1.100'
@@ -1170,7 +1185,13 @@ def test_adjust_elevation_profile_use_min_slope():
 
     lines = wkt_to_geoseries(['LINESTRING Z (0 0 8, 1 0 5, 2 0 6, 3 0 5)'])
     n = swn.SurfaceWaterNetwork.from_lines(lines)
-    n.adjust_elevation_profile(0.2)
+    r = n.adjust_elevation_profile(0.2)
+    pd.testing.assert_frame_equal(
+        r,
+        geopandas.GeoDataFrame(
+            {"segnums": [{0}, {0}], "drop": [1.2, 0.4]},
+            geometry=[Point(2, 0), Point(3, 0)])
+    )
     assert len(n.messages) == 1
     assert n.messages[0] == \
         'segment 0: adjusted 2 coordinate elevations between 0.400 and 1.200'
