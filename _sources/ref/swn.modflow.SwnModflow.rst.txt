@@ -57,6 +57,8 @@
    .. autosummary::
    
       ~SwnModflow.model
+      ~SwnModflow.segment_data
+      ~SwnModflow.segment_data_ts
       ~SwnModflow.swn
    
    

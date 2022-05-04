@@ -6,7 +6,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
 
-    <title>swn.SurfaceWaterNetwork.from_lines &#8212; Surface water network 2019 documentation</title>
+    <title>swn.modflow.SwnModflow.default_segment_data &#8212; Surface water network 2019 documentation</title>
     
   <!-- Loaded before other Sphinx assets -->
   <link href="../_static/styles/theme.css?digest=1999514e3f237ded88cf" rel="stylesheet">
@@ -32,8 +32,8 @@
     <script src="../_static/doctools.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="swn.SurfaceWaterNetwork.from_pickle" href="swn.SurfaceWaterNetwork.from_pickle.html" />
-    <link rel="prev" title="swn.SurfaceWaterNetwork.evaluate_upstream_length" href="swn.SurfaceWaterNetwork.evaluate_upstream_length.html" />
+    <link rel="next" title="swn.modflow.SwnModflow.from_pickle" href="swn.modflow.SwnModflow.from_pickle.html" />
+    <link rel="prev" title="swn.modflow.SwnModflow" href="swn.modflow.SwnModflow.html" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="docsearch:language" content="None">
     
@@ -123,26 +123,26 @@
 </form><nav class="bd-links" id="bd-docs-nav" aria-label="Main navigation">
   <div class="bd-toc-item active">
     <ul class="current nav bd-sidenav">
- <li class="toctree-l1 current active has-children">
+ <li class="toctree-l1 has-children">
   <a class="reference internal" href="../swn.html">
    SurfaceWaterNetwork
   </a>
-  <input checked="" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" type="checkbox"/>
+  <input class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" type="checkbox"/>
   <label for="toctree-checkbox-1">
    <i class="fas fa-chevron-down">
    </i>
   </label>
-  <ul class="current">
-   <li class="toctree-l2 current active has-children">
+  <ul>
+   <li class="toctree-l2 has-children">
     <a class="reference internal" href="swn.SurfaceWaterNetwork.html">
      swn.SurfaceWaterNetwork
     </a>
-    <input checked="" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" type="checkbox"/>
+    <input class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" type="checkbox"/>
     <label for="toctree-checkbox-2">
      <i class="fas fa-chevron-down">
      </i>
     </label>
-    <ul class="current">
+    <ul>
      <li class="toctree-l3">
       <a class="reference internal" href="swn.SurfaceWaterNetwork.accumulate_values.html">
        swn.SurfaceWaterNetwork.accumulate_values
@@ -173,8 +173,8 @@
        swn.SurfaceWaterNetwork.evaluate_upstream_length
       </a>
      </li>
-     <li class="toctree-l3 current active">
-      <a class="current reference internal" href="#">
+     <li class="toctree-l3">
+      <a class="reference internal" href="swn.SurfaceWaterNetwork.from_lines.html">
        swn.SurfaceWaterNetwork.from_lines
       </a>
      </li>
@@ -210,8 +210,8 @@
      </li>
     </ul>
    </li>
-   <li class="toctree-l2 current active">
-    <a class="current reference internal" href="#">
+   <li class="toctree-l2">
+    <a class="reference internal" href="swn.SurfaceWaterNetwork.from_lines.html">
      swn.SurfaceWaterNetwork.from_lines
     </a>
    </li>
@@ -317,28 +317,28 @@
    </li>
   </ul>
  </li>
- <li class="toctree-l1 has-children">
+ <li class="toctree-l1 current active has-children">
   <a class="reference internal" href="../swnmodflow.html">
    SwnModflow
   </a>
-  <input class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" type="checkbox"/>
+  <input checked="" class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" type="checkbox"/>
   <label for="toctree-checkbox-3">
    <i class="fas fa-chevron-down">
    </i>
   </label>
-  <ul>
-   <li class="toctree-l2 has-children">
+  <ul class="current">
+   <li class="toctree-l2 current active has-children">
     <a class="reference internal" href="swn.modflow.SwnModflow.html">
      swn.modflow.SwnModflow
     </a>
-    <input class="toctree-checkbox" id="toctree-checkbox-4" name="toctree-checkbox-4" type="checkbox"/>
+    <input checked="" class="toctree-checkbox" id="toctree-checkbox-4" name="toctree-checkbox-4" type="checkbox"/>
     <label for="toctree-checkbox-4">
      <i class="fas fa-chevron-down">
      </i>
     </label>
-    <ul>
-     <li class="toctree-l3">
-      <a class="reference internal" href="swn.modflow.SwnModflow.default_segment_data.html">
+    <ul class="current">
+     <li class="toctree-l3 current active">
+      <a class="current reference internal" href="#">
        swn.modflow.SwnModflow.default_segment_data
       </a>
      </li>
@@ -389,8 +389,8 @@
      swn.modflow.SwnModflow.new_segment_data
     </a>
    </li>
-   <li class="toctree-l2">
-    <a class="reference internal" href="swn.modflow.SwnModflow.default_segment_data.html">
+   <li class="toctree-l2 current active">
+    <a class="current reference internal" href="#">
      swn.modflow.SwnModflow.default_segment_data
     </a>
    </li>
@@ -558,39 +558,91 @@
               
               <div>
                 
-  <section id="swn-surfacewaternetwork-from-lines">
-<h1>swn.SurfaceWaterNetwork.from_lines<a class="headerlink" href="#swn-surfacewaternetwork-from-lines" title="Permalink to this headline">#</a></h1>
+  <section id="swn-modflow-swnmodflow-default-segment-data">
+<h1>swn.modflow.SwnModflow.default_segment_data<a class="headerlink" href="#swn-modflow-swnmodflow-default-segment-data" title="Permalink to this headline">#</a></h1>
 <dl class="py method">
-<dt class="sig sig-object py" id="swn.SurfaceWaterNetwork.from_lines">
-<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">SurfaceWaterNetwork.</span></span><span class="sig-name descname"><span class="pre">from_lines</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">lines</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">polygons</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#swn.SurfaceWaterNetwork.from_lines" title="Permalink to this definition">#</a></dt>
-<dd><p>Create and evaluate a new SurfaceWaterNetwork from lines for segments.</p>
+<dt class="sig sig-object py" id="swn.modflow.SwnModflow.default_segment_data">
+<span class="sig-prename descclassname"><span class="pre">SwnModflow.</span></span><span class="sig-name descname"><span class="pre">default_segment_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">hyd_cond1</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hyd_cond_out</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">thickness1</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">thickness_out</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">width1</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">width_out</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">roughch</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.024</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#swn.modflow.SwnModflow.default_segment_data" title="Permalink to this definition">#</a></dt>
+<dd><p>High-level function to set default segment_data for MODFLOW SFR.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><dl class="simple">
-<dt><strong>lines</strong><span class="classifier">geopandas.GeoSeries</span></dt><dd><p>Input lines of surface water network. Geometries must be
-<code class="docutils literal notranslate"><span class="pre">LINESTRING</span></code> or <code class="docutils literal notranslate"><span class="pre">LINESTRING</span> <span class="pre">Z</span></code>. Index is used for segment
-numbers. The geometry is copied to the segments property.</p>
+<dt><strong>hyd_cond1</strong><span class="classifier">float or pandas.Series, optional</span></dt><dd><p>Hydraulic conductivity of the streambed, as a global or per top of
+each segment. Used for either STRHC1 or HCOND1/HCOND2 outputs.
+Default 1.</p>
 </dd>
-<dt><strong>polygons</strong><span class="classifier">geopandas.GeoSeries, optional</span></dt><dd><p>Optional input polygons of surface water catchments. Geometries
-must be <code class="docutils literal notranslate"><span class="pre">POLYGON</span></code>. Index must be the same as <code class="docutils literal notranslate"><span class="pre">segments.index</span></code>.</p>
+<dt><strong>hyd_cond_out</strong><span class="classifier">None, float or pandas.Series, optional</span></dt><dd><p>Similar to thickness1, but for the hydraulic conductivity of each
+segment outlet. If None (default), the same hyd_cond1 value for the
+top of the outlet segment is used for the bottom.</p>
+</dd>
+<dt><strong>thickness1</strong><span class="classifier">float or pandas.Series, optional</span></dt><dd><p>Thickness of the streambed, as a global or per top of each segment.
+Used for either STRTHICK or THICKM1/THICKM2 outputs. Default 1.</p>
+</dd>
+<dt><strong>thickness_out</strong><span class="classifier">None, float or pandas.Series, optional</span></dt><dd><p>Similar to thickness1, but for the bottom of each segment outlet.
+If None (default), the same thickness1 value for the top of the
+outlet segment is used for the bottom.</p>
+</dd>
+<dt><strong>width1</strong><span class="classifier">float or pandas.Series, optional</span></dt><dd><p>Channel width, as a global or per top of each segment. Used for
+WIDTH1/WIDTH2 outputs. Default None will first try finding
+“width” from “segments”, otherwise will use 10.</p>
+</dd>
+<dt><strong>width_out</strong><span class="classifier">None, float or pandas.Series, optional</span></dt><dd><p>Similar to width1, but for the bottom of each segment outlet.
+If None (default), use a constant width1 value for segment.</p>
+</dd>
+<dt><strong>roughch</strong><span class="classifier">float or pandas.Series, optional</span></dt><dd><p>Manning’s roughness coefficient for the channel. If float, then
+this is a global value, otherwise it is per-segment with a Series.
+Default 0.024.</p>
 </dd>
 </dl>
 </dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><dl class="simple">
+<dt>None</dt><dd></dd>
 </dl>
+</dd>
+</dl>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<dl class="simple">
+<dt><a class="reference internal" href="swn.modflow.SwnModflow.new_segment_data.html#swn.modflow.SwnModflow.new_segment_data" title="swn.modflow.SwnModflow.new_segment_data"><code class="xref py py-obj docutils literal notranslate"><span class="pre">new_segment_data</span></code></a></dt><dd><p>Create an empty segment_data frame</p>
+</dd>
+</dl>
+</div>
 <p class="rubric">Examples</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">swn</span>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">flopy</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">swn</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">lines</span> <span class="o">=</span> <span class="n">swn</span><span class="o">.</span><span class="n">spatial</span><span class="o">.</span><span class="n">wkt_to_geoseries</span><span class="p">([</span>
-<span class="gp">... </span>   <span class="s2">&quot;LINESTRING (60 100, 60  80)&quot;</span><span class="p">,</span>
-<span class="gp">... </span>   <span class="s2">&quot;LINESTRING (40 130, 60 100)&quot;</span><span class="p">,</span>
-<span class="gp">... </span>   <span class="s2">&quot;LINESTRING (70 130, 60 100)&quot;</span><span class="p">])</span>
+<span class="gp">... </span>   <span class="s2">&quot;LINESTRING Z (60 100 14, 60  80 12)&quot;</span><span class="p">,</span>
+<span class="gp">... </span>   <span class="s2">&quot;LINESTRING Z (40 130 15, 60 100 14)&quot;</span><span class="p">,</span>
+<span class="gp">... </span>   <span class="s2">&quot;LINESTRING Z (70 130 15, 60 100 14)&quot;</span><span class="p">])</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">lines</span><span class="o">.</span><span class="n">index</span> <span class="o">+=</span> <span class="mi">100</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">n</span> <span class="o">=</span> <span class="n">swn</span><span class="o">.</span><span class="n">SurfaceWaterNetwork</span><span class="o">.</span><span class="n">from_lines</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">n</span>
-<span class="go">&lt;SurfaceWaterNetwork:</span>
-<span class="go">  3 segments: [100, 101, 102]</span>
-<span class="go">  2 headwater: [101, 102]</span>
-<span class="go">  1 outlets: [100]</span>
-<span class="go">  no diversions /&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">m</span> <span class="o">=</span> <span class="n">flopy</span><span class="o">.</span><span class="n">modflow</span><span class="o">.</span><span class="n">Modflow</span><span class="p">(</span><span class="n">version</span><span class="o">=</span><span class="s2">&quot;mf2005&quot;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">_</span> <span class="o">=</span> <span class="n">flopy</span><span class="o">.</span><span class="n">modflow</span><span class="o">.</span><span class="n">ModflowDis</span><span class="p">(</span>
+<span class="gp">... </span>    <span class="n">m</span><span class="p">,</span> <span class="n">nrow</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">ncol</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">delr</span><span class="o">=</span><span class="mf">20.0</span><span class="p">,</span> <span class="n">delc</span><span class="o">=</span><span class="mf">20.0</span><span class="p">,</span> <span class="n">xul</span><span class="o">=</span><span class="mf">30.0</span><span class="p">,</span> <span class="n">yul</span><span class="o">=</span><span class="mf">130.0</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="n">top</span><span class="o">=</span><span class="mf">15.0</span><span class="p">,</span> <span class="n">botm</span><span class="o">=</span><span class="mf">10.0</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">_</span> <span class="o">=</span> <span class="n">flopy</span><span class="o">.</span><span class="n">modflow</span><span class="o">.</span><span class="n">ModflowBas</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">nm</span> <span class="o">=</span> <span class="n">swn</span><span class="o">.</span><span class="n">modflow</span><span class="o">.</span><span class="n">SwnModflow</span><span class="o">.</span><span class="n">from_swn_flopy</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">m</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">nm</span><span class="o">.</span><span class="n">default_segment_data</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">nm</span><span class="p">)</span>
+<span class="go">&lt;SwnModflow: flopy mf2005 &#39;modflowtest&#39;</span>
+<span class="go">  7 in reaches (reachID): [1, 2, ..., 6, 7]</span>
+<span class="go">  3 in segment_data (nseg): [1, 2, 3]</span>
+<span class="go">    3 from segments: [101, 102, 100]</span>
+<span class="go">  1 stress period with perlen: [1.0] /&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">nm</span><span class="o">.</span><span class="n">segment_data</span><span class="p">[[</span><span class="s2">&quot;segnum&quot;</span><span class="p">,</span> <span class="s2">&quot;icalc&quot;</span><span class="p">,</span> <span class="s2">&quot;elevup&quot;</span><span class="p">,</span> <span class="s2">&quot;elevdn&quot;</span><span class="p">]])</span>
+<span class="go">      segnum  icalc     elevup     elevdn</span>
+<span class="go">nseg                                     </span>
+<span class="go">1        101      1  14.750000  14.166667</span>
+<span class="go">2        102      1  14.666667  14.166667</span>
+<span class="go">3        100      1  13.500000  12.500000</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">nm</span><span class="o">.</span><span class="n">default_segment_data</span><span class="p">(</span><span class="n">width1</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">width_out</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">nm</span><span class="o">.</span><span class="n">segment_data</span><span class="p">[[</span><span class="s2">&quot;segnum&quot;</span><span class="p">,</span> <span class="s2">&quot;icalc&quot;</span><span class="p">,</span> <span class="s2">&quot;width1&quot;</span><span class="p">,</span> <span class="s2">&quot;width2&quot;</span><span class="p">]])</span>
+<span class="go">      segnum  icalc  width1  width2</span>
+<span class="go">nseg                               </span>
+<span class="go">1        101      1     2.0     2.0</span>
+<span class="go">2        102      1     2.0     2.0</span>
+<span class="go">3        100      1     2.0     4.0</span>
 </pre></div>
 </div>
 </dd></dl>
@@ -603,17 +655,17 @@ must be <code class="docutils literal notranslate"><span class="pre">POLYGON</sp
               
               <!-- Previous / next buttons -->
 <div class='prev-next-area'>
-    <a class='left-prev' id="prev-link" href="swn.SurfaceWaterNetwork.evaluate_upstream_length.html" title="previous page">
+    <a class='left-prev' id="prev-link" href="swn.modflow.SwnModflow.html" title="previous page">
         <i class="fas fa-angle-left"></i>
         <div class="prev-next-info">
             <p class="prev-next-subtitle">previous</p>
-            <p class="prev-next-title">swn.SurfaceWaterNetwork.evaluate_upstream_length</p>
+            <p class="prev-next-title">swn.modflow.SwnModflow</p>
         </div>
     </a>
-    <a class='right-next' id="next-link" href="swn.SurfaceWaterNetwork.from_pickle.html" title="next page">
+    <a class='right-next' id="next-link" href="swn.modflow.SwnModflow.from_pickle.html" title="next page">
     <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">swn.SurfaceWaterNetwork.from_pickle</p>
+        <p class="prev-next-title">swn.modflow.SwnModflow.from_pickle</p>
     </div>
     <i class="fas fa-angle-right"></i>
     </a>

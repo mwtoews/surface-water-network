@@ -6,7 +6,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
 
-    <title>swn.SurfaceWaterNetwork.from_lines &#8212; Surface water network 2019 documentation</title>
+    <title>swn.modflow.SwnModflow.segment_data_ts &#8212; Surface water network 2019 documentation</title>
     
   <!-- Loaded before other Sphinx assets -->
   <link href="../_static/styles/theme.css?digest=1999514e3f237ded88cf" rel="stylesheet">
@@ -32,8 +32,8 @@
     <script src="../_static/doctools.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="swn.SurfaceWaterNetwork.from_pickle" href="swn.SurfaceWaterNetwork.from_pickle.html" />
-    <link rel="prev" title="swn.SurfaceWaterNetwork.evaluate_upstream_length" href="swn.SurfaceWaterNetwork.evaluate_upstream_length.html" />
+    <link rel="next" title="swn.modflow.SwnModflow.model" href="swn.modflow.SwnModflow.model.html" />
+    <link rel="prev" title="swn.modflow.SwnModflow.segment_data" href="swn.modflow.SwnModflow.segment_data.html" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="docsearch:language" content="None">
     
@@ -123,26 +123,26 @@
 </form><nav class="bd-links" id="bd-docs-nav" aria-label="Main navigation">
   <div class="bd-toc-item active">
     <ul class="current nav bd-sidenav">
- <li class="toctree-l1 current active has-children">
+ <li class="toctree-l1 has-children">
   <a class="reference internal" href="../swn.html">
    SurfaceWaterNetwork
   </a>
-  <input checked="" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" type="checkbox"/>
+  <input class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" type="checkbox"/>
   <label for="toctree-checkbox-1">
    <i class="fas fa-chevron-down">
    </i>
   </label>
-  <ul class="current">
-   <li class="toctree-l2 current active has-children">
+  <ul>
+   <li class="toctree-l2 has-children">
     <a class="reference internal" href="swn.SurfaceWaterNetwork.html">
      swn.SurfaceWaterNetwork
     </a>
-    <input checked="" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" type="checkbox"/>
+    <input class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" type="checkbox"/>
     <label for="toctree-checkbox-2">
      <i class="fas fa-chevron-down">
      </i>
     </label>
-    <ul class="current">
+    <ul>
      <li class="toctree-l3">
       <a class="reference internal" href="swn.SurfaceWaterNetwork.accumulate_values.html">
        swn.SurfaceWaterNetwork.accumulate_values
@@ -173,8 +173,8 @@
        swn.SurfaceWaterNetwork.evaluate_upstream_length
       </a>
      </li>
-     <li class="toctree-l3 current active">
-      <a class="current reference internal" href="#">
+     <li class="toctree-l3">
+      <a class="reference internal" href="swn.SurfaceWaterNetwork.from_lines.html">
        swn.SurfaceWaterNetwork.from_lines
       </a>
      </li>
@@ -210,8 +210,8 @@
      </li>
     </ul>
    </li>
-   <li class="toctree-l2 current active">
-    <a class="current reference internal" href="#">
+   <li class="toctree-l2">
+    <a class="reference internal" href="swn.SurfaceWaterNetwork.from_lines.html">
      swn.SurfaceWaterNetwork.from_lines
     </a>
    </li>
@@ -317,16 +317,16 @@
    </li>
   </ul>
  </li>
- <li class="toctree-l1 has-children">
+ <li class="toctree-l1 current active has-children">
   <a class="reference internal" href="../swnmodflow.html">
    SwnModflow
   </a>
-  <input class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" type="checkbox"/>
+  <input checked="" class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" type="checkbox"/>
   <label for="toctree-checkbox-3">
    <i class="fas fa-chevron-down">
    </i>
   </label>
-  <ul>
+  <ul class="current">
    <li class="toctree-l2 has-children">
     <a class="reference internal" href="swn.modflow.SwnModflow.html">
      swn.modflow.SwnModflow
@@ -414,8 +414,8 @@
      swn.modflow.SwnModflow.segment_data
     </a>
    </li>
-   <li class="toctree-l2">
-    <a class="reference internal" href="swn.modflow.SwnModflow.segment_data_ts.html">
+   <li class="toctree-l2 current active">
+    <a class="current reference internal" href="#">
      swn.modflow.SwnModflow.segment_data_ts
     </a>
    </li>
@@ -558,40 +558,25 @@
               
               <div>
                 
-  <section id="swn-surfacewaternetwork-from-lines">
-<h1>swn.SurfaceWaterNetwork.from_lines<a class="headerlink" href="#swn-surfacewaternetwork-from-lines" title="Permalink to this headline">#</a></h1>
-<dl class="py method">
-<dt class="sig sig-object py" id="swn.SurfaceWaterNetwork.from_lines">
-<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">SurfaceWaterNetwork.</span></span><span class="sig-name descname"><span class="pre">from_lines</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">lines</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">polygons</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#swn.SurfaceWaterNetwork.from_lines" title="Permalink to this definition">#</a></dt>
-<dd><p>Create and evaluate a new SurfaceWaterNetwork from lines for segments.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><dl class="simple">
-<dt><strong>lines</strong><span class="classifier">geopandas.GeoSeries</span></dt><dd><p>Input lines of surface water network. Geometries must be
-<code class="docutils literal notranslate"><span class="pre">LINESTRING</span></code> or <code class="docutils literal notranslate"><span class="pre">LINESTRING</span> <span class="pre">Z</span></code>. Index is used for segment
-numbers. The geometry is copied to the segments property.</p>
+  <section id="swn-modflow-swnmodflow-segment-data-ts">
+<h1>swn.modflow.SwnModflow.segment_data_ts<a class="headerlink" href="#swn-modflow-swnmodflow-segment-data-ts" title="Permalink to this headline">#</a></h1>
+<dl class="py property">
+<dt class="sig sig-object py" id="swn.modflow.SwnModflow.segment_data_ts">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">SwnModflow.</span></span><span class="sig-name descname"><span class="pre">segment_data_ts</span></span><a class="headerlink" href="#swn.modflow.SwnModflow.segment_data_ts" title="Permalink to this definition">#</a></dt>
+<dd><p>Dict of data frames of time-varying segment data.</p>
+<p>Keys for data names are the columns from <a class="reference internal" href="swn.modflow.SwnModflow.segment_data.html#swn.modflow.SwnModflow.segment_data" title="swn.modflow.SwnModflow.segment_data"><code class="xref py py-attr docutils literal notranslate"><span class="pre">segment_data</span></code></a>.</p>
+<p>This attribute is reset to an empty dict by
+<a class="reference internal" href="swn.modflow.SwnModflow.new_segment_data.html#swn.modflow.SwnModflow.new_segment_data" title="swn.modflow.SwnModflow.new_segment_data"><code class="xref py py-meth docutils literal notranslate"><span class="pre">new_segment_data()</span></code></a>.</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<dl class="simple">
+<dt><a class="reference internal" href="swn.modflow.SwnModflow.set_segment_data_from_scalar.html#swn.modflow.SwnModflow.set_segment_data_from_scalar" title="swn.modflow.SwnModflow.set_segment_data_from_scalar"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_segment_data_from_scalar</span></code></a></dt><dd><p>Set all segment data to one value</p>
 </dd>
-<dt><strong>polygons</strong><span class="classifier">geopandas.GeoSeries, optional</span></dt><dd><p>Optional input polygons of surface water catchments. Geometries
-must be <code class="docutils literal notranslate"><span class="pre">POLYGON</span></code>. Index must be the same as <code class="docutils literal notranslate"><span class="pre">segments.index</span></code>.</p>
+<dt><a class="reference internal" href="swn.modflow.SwnModflow.set_segment_data_from_segments.html#swn.modflow.SwnModflow.set_segment_data_from_segments" title="swn.modflow.SwnModflow.set_segment_data_from_segments"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_segment_data_from_segments</span></code></a></dt><dd><p>Set all segment data from segments</p>
+</dd>
+<dt><a class="reference internal" href="swn.modflow.SwnModflow.set_segment_data_from_diversions.html#swn.modflow.SwnModflow.set_segment_data_from_diversions" title="swn.modflow.SwnModflow.set_segment_data_from_diversions"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_segment_data_from_diversions</span></code></a></dt><dd><p>Set all segment data from diversions</p>
 </dd>
 </dl>
-</dd>
-</dl>
-<p class="rubric">Examples</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">swn</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">lines</span> <span class="o">=</span> <span class="n">swn</span><span class="o">.</span><span class="n">spatial</span><span class="o">.</span><span class="n">wkt_to_geoseries</span><span class="p">([</span>
-<span class="gp">... </span>   <span class="s2">&quot;LINESTRING (60 100, 60  80)&quot;</span><span class="p">,</span>
-<span class="gp">... </span>   <span class="s2">&quot;LINESTRING (40 130, 60 100)&quot;</span><span class="p">,</span>
-<span class="gp">... </span>   <span class="s2">&quot;LINESTRING (70 130, 60 100)&quot;</span><span class="p">])</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">lines</span><span class="o">.</span><span class="n">index</span> <span class="o">+=</span> <span class="mi">100</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">n</span> <span class="o">=</span> <span class="n">swn</span><span class="o">.</span><span class="n">SurfaceWaterNetwork</span><span class="o">.</span><span class="n">from_lines</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">n</span>
-<span class="go">&lt;SurfaceWaterNetwork:</span>
-<span class="go">  3 segments: [100, 101, 102]</span>
-<span class="go">  2 headwater: [101, 102]</span>
-<span class="go">  1 outlets: [100]</span>
-<span class="go">  no diversions /&gt;</span>
-</pre></div>
 </div>
 </dd></dl>
 
@@ -603,17 +588,17 @@ must be <code class="docutils literal notranslate"><span class="pre">POLYGON</sp
               
               <!-- Previous / next buttons -->
 <div class='prev-next-area'>
-    <a class='left-prev' id="prev-link" href="swn.SurfaceWaterNetwork.evaluate_upstream_length.html" title="previous page">
+    <a class='left-prev' id="prev-link" href="swn.modflow.SwnModflow.segment_data.html" title="previous page">
         <i class="fas fa-angle-left"></i>
         <div class="prev-next-info">
             <p class="prev-next-subtitle">previous</p>
-            <p class="prev-next-title">swn.SurfaceWaterNetwork.evaluate_upstream_length</p>
+            <p class="prev-next-title">swn.modflow.SwnModflow.segment_data</p>
         </div>
     </a>
-    <a class='right-next' id="next-link" href="swn.SurfaceWaterNetwork.from_pickle.html" title="next page">
+    <a class='right-next' id="next-link" href="swn.modflow.SwnModflow.model.html" title="next page">
     <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">swn.SurfaceWaterNetwork.from_pickle</p>
+        <p class="prev-next-title">swn.modflow.SwnModflow.model</p>
     </div>
     <i class="fas fa-angle-right"></i>
     </a>

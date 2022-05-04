@@ -338,6 +338,11 @@
     </label>
     <ul>
      <li class="toctree-l3">
+      <a class="reference internal" href="ref/swn.modflow.SwnModflow.default_segment_data.html">
+       swn.modflow.SwnModflow.default_segment_data
+      </a>
+     </li>
+     <li class="toctree-l3">
       <a class="reference internal" href="ref/swn.modflow.SwnModflow.from_pickle.html">
        swn.modflow.SwnModflow.from_pickle
       </a>
@@ -345,6 +350,26 @@
      <li class="toctree-l3">
       <a class="reference internal" href="ref/swn.modflow.SwnModflow.from_swn_flopy.html">
        swn.modflow.SwnModflow.from_swn_flopy
+      </a>
+     </li>
+     <li class="toctree-l3">
+      <a class="reference internal" href="ref/swn.modflow.SwnModflow.new_segment_data.html">
+       swn.modflow.SwnModflow.new_segment_data
+      </a>
+     </li>
+     <li class="toctree-l3">
+      <a class="reference internal" href="ref/swn.modflow.SwnModflow.set_segment_data_from_diversions.html">
+       swn.modflow.SwnModflow.set_segment_data_from_diversions
+      </a>
+     </li>
+     <li class="toctree-l3">
+      <a class="reference internal" href="ref/swn.modflow.SwnModflow.set_segment_data_from_scalar.html">
+       swn.modflow.SwnModflow.set_segment_data_from_scalar
+      </a>
+     </li>
+     <li class="toctree-l3">
+      <a class="reference internal" href="ref/swn.modflow.SwnModflow.set_segment_data_from_segments.html">
+       swn.modflow.SwnModflow.set_segment_data_from_segments
       </a>
      </li>
     </ul>
@@ -357,6 +382,41 @@
    <li class="toctree-l2">
     <a class="reference internal" href="ref/swn.modflow.SwnModflow.from_pickle.html">
      swn.modflow.SwnModflow.from_pickle
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="ref/swn.modflow.SwnModflow.new_segment_data.html">
+     swn.modflow.SwnModflow.new_segment_data
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="ref/swn.modflow.SwnModflow.default_segment_data.html">
+     swn.modflow.SwnModflow.default_segment_data
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="ref/swn.modflow.SwnModflow.set_segment_data_from_scalar.html">
+     swn.modflow.SwnModflow.set_segment_data_from_scalar
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="ref/swn.modflow.SwnModflow.set_segment_data_from_segments.html">
+     swn.modflow.SwnModflow.set_segment_data_from_segments
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="ref/swn.modflow.SwnModflow.set_segment_data_from_diversions.html">
+     swn.modflow.SwnModflow.set_segment_data_from_diversions
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="ref/swn.modflow.SwnModflow.segment_data.html">
+     swn.modflow.SwnModflow.segment_data
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="ref/swn.modflow.SwnModflow.segment_data_ts.html">
+     swn.modflow.SwnModflow.segment_data_ts
     </a>
    </li>
    <li class="toctree-l2">
@@ -488,6 +548,11 @@
   </a>
  </li>
  <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#data-generation">
+   Data generation
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
   <a class="reference internal nav-link" href="#dataframe-properties">
    DataFrame properties
   </a>
@@ -540,6 +605,32 @@
 </tbody>
 </table>
 </section>
+<section id="data-generation">
+<h2>Data generation<a class="headerlink" href="#data-generation" title="Permalink to this headline">#</a></h2>
+<table class="autosummary longtable table autosummary">
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 90%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="ref/swn.modflow.SwnModflow.new_segment_data.html#swn.modflow.SwnModflow.new_segment_data" title="swn.modflow.SwnModflow.new_segment_data"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SwnModflow.new_segment_data</span></code></a>()</p></td>
+<td><p>Generate empty segment data.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="ref/swn.modflow.SwnModflow.default_segment_data.html#swn.modflow.SwnModflow.default_segment_data" title="swn.modflow.SwnModflow.default_segment_data"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SwnModflow.default_segment_data</span></code></a>([hyd_cond1, ...])</p></td>
+<td><p>High-level function to set default segment_data for MODFLOW SFR.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="ref/swn.modflow.SwnModflow.set_segment_data_from_scalar.html#swn.modflow.SwnModflow.set_segment_data_from_scalar" title="swn.modflow.SwnModflow.set_segment_data_from_scalar"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SwnModflow.set_segment_data_from_scalar</span></code></a>(...)</p></td>
+<td><p>Set segment data from a scalar.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="ref/swn.modflow.SwnModflow.set_segment_data_from_segments.html#swn.modflow.SwnModflow.set_segment_data_from_segments" title="swn.modflow.SwnModflow.set_segment_data_from_segments"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SwnModflow.set_segment_data_from_segments</span></code></a>(...)</p></td>
+<td><p>Set segment data from a series indexed by segments.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="ref/swn.modflow.SwnModflow.set_segment_data_from_diversions.html#swn.modflow.SwnModflow.set_segment_data_from_diversions" title="swn.modflow.SwnModflow.set_segment_data_from_diversions"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SwnModflow.set_segment_data_from_diversions</span></code></a>(...)</p></td>
+<td><p>Set segment data from a series indexed by diversions.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
 <section id="dataframe-properties">
 <h2>DataFrame properties<a class="headerlink" href="#dataframe-properties" title="Permalink to this headline">#</a></h2>
 <table class="autosummary longtable table autosummary">
@@ -548,6 +639,12 @@
 <col style="width: 90%" />
 </colgroup>
 <tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="ref/swn.modflow.SwnModflow.segment_data.html#swn.modflow.SwnModflow.segment_data" title="swn.modflow.SwnModflow.segment_data"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SwnModflow.segment_data</span></code></a></p></td>
+<td><p>Data frame of segment data.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="ref/swn.modflow.SwnModflow.segment_data_ts.html#swn.modflow.SwnModflow.segment_data_ts" title="swn.modflow.SwnModflow.segment_data_ts"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SwnModflow.segment_data_ts</span></code></a></p></td>
+<td><p>Dict of data frames of time-varying segment data.</p></td>
+</tr>
 </tbody>
 </table>
 </section>

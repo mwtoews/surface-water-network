@@ -32,7 +32,7 @@
     <script src="../_static/doctools.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="swn.modflow.SwnModflow.model" href="swn.modflow.SwnModflow.model.html" />
+    <link rel="next" title="swn.modflow.SwnModflow.new_segment_data" href="swn.modflow.SwnModflow.new_segment_data.html" />
     <link rel="prev" title="swn.modflow.SwnModflow.from_pickle" href="swn.modflow.SwnModflow.from_pickle.html" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="docsearch:language" content="None">
@@ -338,6 +338,11 @@
     </label>
     <ul class="current">
      <li class="toctree-l3">
+      <a class="reference internal" href="swn.modflow.SwnModflow.default_segment_data.html">
+       swn.modflow.SwnModflow.default_segment_data
+      </a>
+     </li>
+     <li class="toctree-l3">
       <a class="reference internal" href="swn.modflow.SwnModflow.from_pickle.html">
        swn.modflow.SwnModflow.from_pickle
       </a>
@@ -345,6 +350,26 @@
      <li class="toctree-l3 current active">
       <a class="current reference internal" href="#">
        swn.modflow.SwnModflow.from_swn_flopy
+      </a>
+     </li>
+     <li class="toctree-l3">
+      <a class="reference internal" href="swn.modflow.SwnModflow.new_segment_data.html">
+       swn.modflow.SwnModflow.new_segment_data
+      </a>
+     </li>
+     <li class="toctree-l3">
+      <a class="reference internal" href="swn.modflow.SwnModflow.set_segment_data_from_diversions.html">
+       swn.modflow.SwnModflow.set_segment_data_from_diversions
+      </a>
+     </li>
+     <li class="toctree-l3">
+      <a class="reference internal" href="swn.modflow.SwnModflow.set_segment_data_from_scalar.html">
+       swn.modflow.SwnModflow.set_segment_data_from_scalar
+      </a>
+     </li>
+     <li class="toctree-l3">
+      <a class="reference internal" href="swn.modflow.SwnModflow.set_segment_data_from_segments.html">
+       swn.modflow.SwnModflow.set_segment_data_from_segments
       </a>
      </li>
     </ul>
@@ -357,6 +382,41 @@
    <li class="toctree-l2">
     <a class="reference internal" href="swn.modflow.SwnModflow.from_pickle.html">
      swn.modflow.SwnModflow.from_pickle
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="swn.modflow.SwnModflow.new_segment_data.html">
+     swn.modflow.SwnModflow.new_segment_data
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="swn.modflow.SwnModflow.default_segment_data.html">
+     swn.modflow.SwnModflow.default_segment_data
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="swn.modflow.SwnModflow.set_segment_data_from_scalar.html">
+     swn.modflow.SwnModflow.set_segment_data_from_scalar
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="swn.modflow.SwnModflow.set_segment_data_from_segments.html">
+     swn.modflow.SwnModflow.set_segment_data_from_segments
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="swn.modflow.SwnModflow.set_segment_data_from_diversions.html">
+     swn.modflow.SwnModflow.set_segment_data_from_diversions
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="swn.modflow.SwnModflow.segment_data.html">
+     swn.modflow.SwnModflow.segment_data
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="swn.modflow.SwnModflow.segment_data_ts.html">
+     swn.modflow.SwnModflow.segment_data_ts
     </a>
    </li>
    <li class="toctree-l2">
@@ -532,6 +592,37 @@ Default 0.2 (e.g. for a 100 m grid cell, this is 20 m).</p>
 </dl>
 </dd>
 </dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">flopy</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">swn</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">lines</span> <span class="o">=</span> <span class="n">swn</span><span class="o">.</span><span class="n">spatial</span><span class="o">.</span><span class="n">wkt_to_geoseries</span><span class="p">([</span>
+<span class="gp">... </span>   <span class="s2">&quot;LINESTRING (60 100, 60  80)&quot;</span><span class="p">,</span>
+<span class="gp">... </span>   <span class="s2">&quot;LINESTRING (40 130, 60 100)&quot;</span><span class="p">,</span>
+<span class="gp">... </span>   <span class="s2">&quot;LINESTRING (70 130, 60 100)&quot;</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">lines</span><span class="o">.</span><span class="n">index</span> <span class="o">+=</span> <span class="mi">100</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">n</span> <span class="o">=</span> <span class="n">swn</span><span class="o">.</span><span class="n">SurfaceWaterNetwork</span><span class="o">.</span><span class="n">from_lines</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">m</span> <span class="o">=</span> <span class="n">flopy</span><span class="o">.</span><span class="n">modflow</span><span class="o">.</span><span class="n">Modflow</span><span class="p">(</span><span class="n">version</span><span class="o">=</span><span class="s2">&quot;mf2005&quot;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">_</span> <span class="o">=</span> <span class="n">flopy</span><span class="o">.</span><span class="n">modflow</span><span class="o">.</span><span class="n">ModflowDis</span><span class="p">(</span>
+<span class="gp">... </span>    <span class="n">m</span><span class="p">,</span> <span class="n">nrow</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">ncol</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">delr</span><span class="o">=</span><span class="mf">20.0</span><span class="p">,</span> <span class="n">delc</span><span class="o">=</span><span class="mf">20.0</span><span class="p">,</span> <span class="n">xul</span><span class="o">=</span><span class="mf">30.0</span><span class="p">,</span> <span class="n">yul</span><span class="o">=</span><span class="mf">130.0</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="n">top</span><span class="o">=</span><span class="mf">15.0</span><span class="p">,</span> <span class="n">botm</span><span class="o">=</span><span class="mf">10.0</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">_</span> <span class="o">=</span> <span class="n">flopy</span><span class="o">.</span><span class="n">modflow</span><span class="o">.</span><span class="n">ModflowBas</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">nm</span> <span class="o">=</span> <span class="n">swn</span><span class="o">.</span><span class="n">modflow</span><span class="o">.</span><span class="n">SwnModflow</span><span class="o">.</span><span class="n">from_swn_flopy</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">m</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">nm</span><span class="p">)</span>
+<span class="go">&lt;SwnModflow: flopy mf2005 &#39;modflowtest&#39;</span>
+<span class="go">  7 in reaches (reachID): [1, 2, ..., 6, 7]</span>
+<span class="go">  1 stress period with perlen: [1.0] /&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">nm</span><span class="o">.</span><span class="n">reaches</span><span class="p">[[</span><span class="s2">&quot;segnum&quot;</span><span class="p">,</span> <span class="s2">&quot;i&quot;</span><span class="p">,</span> <span class="s2">&quot;j&quot;</span><span class="p">,</span> <span class="s2">&quot;iseg&quot;</span><span class="p">,</span> <span class="s2">&quot;ireach&quot;</span><span class="p">,</span> <span class="s2">&quot;rchlen&quot;</span><span class="p">]])</span>
+<span class="go">         segnum  i  j  iseg  ireach     rchlen</span>
+<span class="go">reachID                                       </span>
+<span class="go">1           101  0  0     1       1  18.027756</span>
+<span class="go">2           101  0  1     1       2   6.009252</span>
+<span class="go">3           101  1  1     1       3  12.018504</span>
+<span class="go">4           102  0  1     2       1  21.081851</span>
+<span class="go">5           102  1  1     2       2  10.540926</span>
+<span class="go">6           100  1  1     3       1  10.000000</span>
+<span class="go">7           100  2  1     3       2  10.000000</span>
+</pre></div>
+</div>
 </dd></dl>
 
 </section>
@@ -549,10 +640,10 @@ Default 0.2 (e.g. for a 100 m grid cell, this is 20 m).</p>
             <p class="prev-next-title">swn.modflow.SwnModflow.from_pickle</p>
         </div>
     </a>
-    <a class='right-next' id="next-link" href="swn.modflow.SwnModflow.model.html" title="next page">
+    <a class='right-next' id="next-link" href="swn.modflow.SwnModflow.new_segment_data.html" title="next page">
     <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">swn.modflow.SwnModflow.model</p>
+        <p class="prev-next-title">swn.modflow.SwnModflow.new_segment_data</p>
     </div>
     <i class="fas fa-angle-right"></i>
     </a>
