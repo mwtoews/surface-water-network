@@ -39,7 +39,7 @@ class SwnModflow(SwnModflowBase):
     reaches : geopandas.GeoDataFrame
         Similar to structure in model.sfr.reach_data with index "reachID",
         ordered and starting from 1. Contains geometry and other columns
-        not used by flopy. Use :py:meth:`SwnModflow.flopy_reach_data`
+        not used by flopy. Use :py:meth:`flopy_reach_data`
         for use with flopy.
     diversions :  geopandas.GeoDataFrame, pandas.DataFrame or None
         Copied from ``swn.diversions``, if set/defined.
@@ -57,8 +57,6 @@ class SwnModflow(SwnModflowBase):
             Logger to show messages.
         """
         super().__init__(logger)
-        self.segment_data = None
-        self.segment_data_ts = None
         # all other properties added afterwards
 
     @classmethod
@@ -86,7 +84,38 @@ class SwnModflow(SwnModflowBase):
         Returns
         -------
         obj : swn.SwnModflow object
-        """
+
+        Examples
+        --------
+        >>> import flopy
+        >>> import swn
+        >>> lines = swn.spatial.wkt_to_geoseries([
+        ...    "LINESTRING (60 100, 60  80)",
+        ...    "LINESTRING (40 130, 60 100)",
+        ...    "LINESTRING (70 130, 60 100)"])
+        >>> lines.index += 100
+        >>> n = swn.SurfaceWaterNetwork.from_lines(lines)
+        >>> m = flopy.modflow.Modflow(version="mf2005")
+        >>> _ = flopy.modflow.ModflowDis(
+        ...     m, nrow=3, ncol=2, delr=20.0, delc=20.0, xul=30.0, yul=130.0,
+        ...     top=15.0, botm=10.0)
+        >>> _ = flopy.modflow.ModflowBas(m)
+        >>> nm = swn.modflow.SwnModflow.from_swn_flopy(n, m)
+        >>> print(nm)
+        <SwnModflow: flopy mf2005 'modflowtest'
+          7 in reaches (reachID): [1, 2, ..., 6, 7]
+          1 stress period with perlen: [1.0] />
+        >>> print(nm.reaches[["segnum", "i", "j", "iseg", "ireach", "rchlen"]])
+                 segnum  i  j  iseg  ireach     rchlen
+        reachID                                       
+        1           101  0  0     1       1  18.027756
+        2           101  0  1     1       2   6.009252
+        3           101  1  1     1       3  12.018504
+        4           102  0  1     2       1  21.081851
+        5           102  1  1     2       2  10.540926
+        6           100  1  1     3       1  10.000000
+        7           100  2  1     3       2  10.000000
+        """  # noqa
         if ibound_action not in ("freeze", "modify"):
             raise ValueError("ibound_action must be one of freeze or modify")
 
@@ -144,7 +173,8 @@ class SwnModflow(SwnModflowBase):
                 if divid_index_name is not None:
                     s += f" ({divid_index_name})"
                 if set(divid_l) != set(self.diversions.index):
-                    s += f" ({len(divid_l) / float(len(self.diversions)):.0%} used)"
+                    frac = len(divid_l) / float(len(self.diversions))
+                    s += f" ({frac:.0%} used)"
                 s += f": {abbr_str(divid_l, 4)}\n"
         s += f"  {sp_info} />"
         return s
@@ -188,25 +218,134 @@ class SwnModflow(SwnModflowBase):
         self.segment_data = state["segment_data"]
         self.segment_data_ts = state["segment_data_ts"]
 
-    def new_segment_data(self):
-        """Generate an empty segment_data DataFrame.
+    @property
+    def segment_data(self):
+        """Data frame of segment data.
 
-        Several other columns are added, including:
-            - "segnum" - index for segments DataFrame
-            - "inflow" - positive inflow rate for upstream external flow
-        Additionally, if diversions are set:
-            - "divid" - index for diversions DataFrame
-            - "abstraction" - positive abstraction rate
+        The structure of the data frame is created by
+        :py:meth:`new_segment_data`. Time-varying data is stored in
+        :py:attr:`segment_data_ts`.
 
-        Only the following are determined:
-            - "nseg" - 1, 2, ...,  nss
-            - "iupseg" - 0 for most segments, except diversions
-            - "outseg" - outflowing nseg
+        Attributes
+        ----------
+        nseg : int, index
+            SFR stream segment index number, starting from 1.
+        segnum, divid : int
+            Index from original surface water network segments, and diversions
+            (if used).
+        icalc, outseg, iupseg, iprior, nstrpts, flow, runoff, etsw, pptsw, \
+        roughch, roughbk, cdpth, fdpth, awdth, bwdth, hcond1, thickm1, \
+        elevup, width1, depth1, thts1, thti1, eps1, uhc1, hcond2, thickm2, \
+        elevdn, width2, depth2, thts2, thti2, eps2, uhc2 : int, float
+            SFR inputs, as documented for MODFLOW.
+        inflow : float
+            Positive inflow rate from upstream external flow.
+        abstraction : float, optional
+            Positive abstraction rate for diversions, if used.
 
-        Returns
-        -------
-        pandas.DataFrame
+        See Also
+        --------
+        new_segment_data : Create an empty segment_data frame
+        default_segment_data : High-level frame constructor for segment_data
         """
+        return getattr(self, "_segment_data", None)
+
+    @segment_data.setter
+    def segment_data(self, value):
+        if value is None:
+            if hasattr(self, "_segment_data"):
+                delattr(self, "_segment_data")
+            return
+        elif not isinstance(value, pd.DataFrame):
+            raise ValueError(
+                "segment_data must be a DataFrame or None; "
+                f"found {type(value)!r}")
+        # check index values
+        try:
+            pd.testing.assert_index_equal(
+                value.index, pd.Index(np.arange(self.reaches.iseg.max()) + 1),
+                check_names=False)
+        except AssertionError as e:
+            raise ValueError(f"segment_data nseg index is unexpected: {e!s}")
+        # but don't check index name or column names
+        self._segment_data = value
+
+    @property
+    def segment_data_ts(self):
+        """Dict of data frames of time-varying segment data.
+
+        Keys for data names are the columns from :py:attr:`segment_data`.
+
+        This attribute is reset to an empty dict by
+        :py:meth:`new_segment_data`.
+
+        See Also
+        --------
+        set_segment_data_from_scalar : Set all segment data to one value
+        set_segment_data_from_segments : Set all segment data from segments
+        set_segment_data_from_diversions: Set all segment data from diversions
+        """
+        return getattr(self, "_segment_data_ts", None)
+
+    @segment_data_ts.setter
+    def segment_data_ts(self, value):
+        if value is None:
+            if hasattr(self, "_segment_data_ts"):
+                delattr(self, "_segment_data_ts")
+            return
+        elif not isinstance(value, dict):
+            raise ValueError(
+                "segment_data_ts must be a dict or None; "
+                f"found {type(value)!r}")
+        for k, v in value.items():
+            if not isinstance(v, pd.DataFrame):
+                raise ValueError(
+                    f"segment_data_ts key {k!r} must be a DataFrame; "
+                    f"found {type(v)!r}")
+        self._segment_data_ts = value
+
+    def new_segment_data(self):
+        """Generate empty segment data.
+
+        Notes
+        -----
+        All values are zero except for:
+
+            - nseg - 1, 2, ...,  nss
+            - iupseg - 0 for most segments, except diversions
+            - outseg - outflowing nseg
+
+        If :py:attr:`segment_data` is already set, subsequent calls will
+        reset the DataFrame and :py:attr:`segment_data_ts`.
+
+        Examples
+        --------
+        >>> import flopy
+        >>> import swn
+        >>> lines = swn.spatial.wkt_to_geoseries([
+        ...    "LINESTRING (60 100, 60  80)",
+        ...    "LINESTRING (40 130, 60 100)",
+        ...    "LINESTRING (70 130, 60 100)"])
+        >>> lines.index += 100
+        >>> n = swn.SurfaceWaterNetwork.from_lines(lines)
+        >>> m = flopy.modflow.Modflow(version="mf2005")
+        >>> _ = flopy.modflow.ModflowDis(
+        ...     m, nrow=3, ncol=2, delr=20.0, delc=20.0, xul=30.0, yul=130.0,
+        ...     top=15.0, botm=10.0)
+        >>> _ = flopy.modflow.ModflowBas(m)
+        >>> nm = swn.modflow.SwnModflow.from_swn_flopy(n, m)
+        >>> nm.new_segment_data()
+        >>> print(nm.segment_data[["segnum", "icalc", "outseg", "elevup"]])
+              segnum  icalc  outseg  elevup
+        nseg                               
+        1        101      0       3     0.0
+        2        102      0       3     0.0
+        3        100      0       0     0.0
+
+        See Also
+        --------
+        default_segment_data : High-level frame constructor for segment_data
+        """  # noqa
         from flopy.modflow.mfsfr2 import ModflowSfr2
         if self.segment_data is None:
             self.logger.info("creating new segment_data")
@@ -219,41 +358,42 @@ class SwnModflow(SwnModflowBase):
             [(n, d.replace("f4", "f8")) for n, d in list(seg_dtype.descr)])
         iseg_gb = self.reaches.groupby("iseg")
         segnums = iseg_gb["segnum"].first()
-        self.segment_data = pd.DataFrame(np.zeros(len(segnums), seg_dtype))
-        self.segment_data.nseg = segnums.index
-        self.segment_data.set_index("nseg", inplace=True)
+        segment_data = pd.DataFrame(np.zeros(len(segnums), seg_dtype))
+        segment_data.nseg = segnums.index
+        segment_data.set_index("nseg", inplace=True)
         # Add extra columns
-        self.segment_data.insert(0, "segnum", segnums)
-        self.segment_data["inflow"] = 0.0
+        segment_data.insert(0, "segnum", segnums)
+        segment_data["inflow"] = 0.0
         has_diversions = self.diversions is not None
         if has_diversions:
-            self.segment_data.insert(1, "divid", iseg_gb["divid"].first())
-            self.segment_data["abstraction"] = 0.0
+            segment_data.insert(1, "divid", iseg_gb["divid"].first())
+            segment_data["abstraction"] = 0.0
             nseg2segnum = self.reaches.loc[
                 ~self.reaches.diversion].groupby("iseg")["segnum"].first()
             segnum2nseg = invert_series(nseg2segnum)
             divid2segnum = self.diversions.loc[
                 self.diversions.in_model, "from_segnum"]
-            sel = ~self.segment_data.segnum.isin(self.segments.in_model.index)
-            self.segment_data.loc[sel, "iupseg"] = self.segment_data.loc[
+            sel = ~segment_data.segnum.isin(self.segments.in_model.index)
+            segment_data.loc[sel, "iupseg"] = segment_data.loc[
                 sel, "divid"].apply(lambda d: segnum2nseg[divid2segnum[d]])
         else:
-            segnum2nseg = invert_series(self.segment_data["segnum"])
+            segnum2nseg = invert_series(segment_data["segnum"])
         # Evaluate outseg
         segnum2nseg_d = segnum2nseg.to_dict()
         if has_diversions:
-            sel = self.segment_data.iupseg == 0
-            self.segment_data.loc[sel, "outseg"] = \
-                self.segment_data.loc[sel, "segnum"].map(
+            sel = segment_data.iupseg == 0
+            segment_data.loc[sel, "outseg"] = \
+                segment_data.loc[sel, "segnum"].map(
                     lambda x: segnum2nseg_d.get(
                         self.segments.loc[x, "to_segnum"], 0))
         else:
-            self.segment_data["outseg"] = self.segment_data["segnum"].map(
+            segment_data["outseg"] = segment_data["segnum"].map(
                 lambda x: segnum2nseg_d.get(
                     self.segments.loc[x, "to_segnum"], 0))
+        self._segment_data = segment_data
 
     def _check_segment_data_name(self, name: str):
-        """Helper method to check name used for set_segment_data_* methods."""
+        """Check name used for set_segment_data_* methods."""
         if not isinstance(name, str):
             raise ValueError("name must be str type")
         if self.segment_data is None:
@@ -266,14 +406,15 @@ class SwnModflow(SwnModflowBase):
 
     def set_segment_data_from_scalar(
             self, name: str, data, which: str = "all"):
-        """Set segment_data from a scalar.
+        """Set segment data from a scalar.
 
-        This method can be used to set data that does not vary in time.
+        This method can be used to set :py:attr:`segment_data`, which does not
+        vary in time. It does not modify :py:attr:`segment_data_ts`.
 
         Parameters
         ----------
         name : str
-            Name for dataset, from segment_data columns.
+            Name for dataset, from :py:attr:`segment_data` columns.
         data : int or float
             Data to assign to each segment. If a float, this value
             is a constant. If a pandas Series, then this is applied for
@@ -281,7 +422,36 @@ class SwnModflow(SwnModflowBase):
         which : str, default = "all"
             Determine which segment_data rows should be set as "segments",
             "diversions" (determined from IUPSEG), or "all".
-        """
+
+        Examples
+        --------
+        >>> import flopy
+        >>> import swn
+        >>> lines = swn.spatial.wkt_to_geoseries([
+        ...    "LINESTRING (60 100, 60  80)",
+        ...    "LINESTRING (40 130, 60 100)",
+        ...    "LINESTRING (70 130, 60 100)"])
+        >>> lines.index += 100
+        >>> n = swn.SurfaceWaterNetwork.from_lines(lines)
+        >>> m = flopy.modflow.Modflow(version="mf2005")
+        >>> _ = flopy.modflow.ModflowDis(
+        ...     m, nrow=3, ncol=2, delr=20.0, delc=20.0, xul=30.0, yul=130.0,
+        ...     top=15.0, botm=10.0)
+        >>> _ = flopy.modflow.ModflowBas(m)
+        >>> nm = swn.modflow.SwnModflow.from_swn_flopy(n, m)
+        >>> nm.set_segment_data_from_scalar("icalc", 1)
+        >>> print(nm.segment_data[["segnum", "icalc"]])
+              segnum  icalc
+        nseg               
+        1        101      1
+        2        102      1
+        3        100      1
+
+        See Also
+        --------
+        set_segment_data_from_segments : Set all segment data from segments
+        set_segment_data_from_diversions: Set all segment data from diversions
+        """  # noqa
         self._check_segment_data_name(name)
         if not np.isscalar(data):
             raise ValueError(f"{name!r} data is not scalar")
@@ -333,17 +503,55 @@ class SwnModflow(SwnModflowBase):
             raise NotImplementedError("expected a series or frame")
 
     def set_segment_data_from_segments(self, name: str, data):
-        """Set segment_data from a series indexed by segments.
+        """Set segment data from a series indexed by segments.
+
+        Modifies :py:attr:`segment_data` or :py:attr:`segment_data_ts`.
 
         Parameters
         ----------
         name : str
-            Name for dataset, from segment_data columns.
+            Name for dataset, from :py:attr:`segment_data` columns.
         data : int, float, dict, pandas.Series or pandas.DataFrame
             Data to assigned from segments. If a pandas Series, then this is
             applied for each index matched by segnum. If a dict, then
             each item is applied for each key matched by segnum.
-        """
+
+        Examples
+        --------
+        >>> import flopy
+        >>> import swn
+        >>> lines = swn.spatial.wkt_to_geoseries([
+        ...    "LINESTRING (60 100, 60  80)",
+        ...    "LINESTRING (40 130, 60 100)",
+        ...    "LINESTRING (70 130, 60 100)"])
+        >>> lines.index += 100
+        >>> n = swn.SurfaceWaterNetwork.from_lines(lines)
+        >>> m = flopy.modflow.Modflow(version="mf2005")
+        >>> _ = flopy.modflow.ModflowDis(
+        ...     m, nrow=3, ncol=2, delr=20.0, delc=20.0, xul=30.0, yul=130.0,
+        ...     top=15.0, botm=10.0)
+        >>> _ = flopy.modflow.ModflowBas(m)
+        >>> nm = swn.modflow.SwnModflow.from_swn_flopy(n, m)
+        >>> nm.set_segment_data_from_segments("runoff", {101: 2.2})
+        >>> print(nm.segment_data[["segnum", "runoff"]])
+              segnum  runoff
+        nseg                
+        1        101     2.2
+        2        102     0.0
+        3        100     0.0
+        >>> nm.set_segment_data_from_segments("runoff", {100: 3.3})
+        >>> print(nm.segment_data[["segnum", "runoff"]])
+              segnum  runoff
+        nseg                
+        1        101     2.2
+        2        102     0.0
+        3        100     3.3
+
+        See Also
+        --------
+        set_segment_data_from_scalar : Set all segment data to one value
+        set_segment_data_from_diversions: Set all segment data from diversions
+        """  # noqa
         self._check_segment_data_name(name)
         if np.isscalar(data):
             self.set_segment_data_from_scalar(name, data, "segments")
@@ -359,17 +567,56 @@ class SwnModflow(SwnModflowBase):
         self._set_segment_data(name, data)
 
     def set_segment_data_from_diversions(self, name: str, data):
-        """Set segment_data from a series indexed by diversions.
+        """Set segment data from a series indexed by diversions.
+
+        Modifies :py:attr:`segment_data` or :py:attr:`segment_data_ts`.
 
         Parameters
         ----------
         name : str
-            Name for dataset, from segment_data columns.
+            Name for dataset, from :py:attr:`segment_data` columns.
         data : float, dict, pandas.Series or pandas.DataFrame
             Data to assigned from diversions. If a pandas Series, then this is
             applied for each index matched by divid. If a dict, then
             each item is applied for each key matched by divid.
-        """
+
+        Examples
+        --------
+        >>> import flopy
+        >>> import swn
+        >>> lines = swn.spatial.wkt_to_geoseries([
+        ...    "LINESTRING (60 100, 60  80)",
+        ...    "LINESTRING (40 130, 60 100)",
+        ...    "LINESTRING (70 130, 60 100)"])
+        >>> lines.index += 100
+        >>> n = swn.SurfaceWaterNetwork.from_lines(lines)
+        >>> diversions = swn.spatial.wkt_to_geoseries([
+        ...    "POINT (58 97)",
+        ...    "POINT (58 97)"]).to_frame("geometry")
+        >>> diversions.index += 10
+        >>> diversions["rate"] = [1.1, 2.2]
+        >>> n.set_diversions(diversions=diversions)
+        >>> m = flopy.modflow.Modflow(version="mf2005")
+        >>> _ = flopy.modflow.ModflowDis(
+        ...     m, nrow=3, ncol=2, delr=20.0, delc=20.0, xul=30.0, yul=130.0,
+        ...     top=15.0, botm=10.0)
+        >>> _ = flopy.modflow.ModflowBas(m)
+        >>> nm = swn.modflow.SwnModflow.from_swn_flopy(n, m)
+        >>> nm.set_segment_data_from_diversions("abstraction", diversions.rate)
+        >>> print(nm.segment_data[["divid", "iupseg", "abstraction"]])
+              divid  iupseg  abstraction
+        nseg                            
+        1         0       0          0.0
+        2         0       0          0.0
+        3         0       0          0.0
+        4        10       1          1.1
+        5        11       1          2.2
+
+        See Also
+        --------
+        set_segment_data_from_scalar : Set all segment data to one value
+        set_segment_data_from_segments : Set all segment data from segments
+        """  # noqa
         self._check_segment_data_name(name)
         if np.isscalar(data):
             self.set_segment_data_from_scalar(name, data, "diversions")
@@ -385,7 +632,7 @@ class SwnModflow(SwnModflowBase):
         self._set_segment_data(name, data)
 
     def set_segment_data_inflow(self, data):
-        """Set segment_data inflow data upstream of the model.
+        """Set :py:attr:`segment_data` inflow data upstream of the model.
 
         Parameters
         ----------
@@ -509,7 +756,48 @@ class SwnModflow(SwnModflowBase):
         Returns
         -------
         None
-        """
+
+        Examples
+        --------
+        >>> import flopy
+        >>> import swn
+        >>> lines = swn.spatial.wkt_to_geoseries([
+        ...    "LINESTRING Z (60 100 14, 60  80 12)",
+        ...    "LINESTRING Z (40 130 15, 60 100 14)",
+        ...    "LINESTRING Z (70 130 15, 60 100 14)"])
+        >>> lines.index += 100
+        >>> n = swn.SurfaceWaterNetwork.from_lines(lines)
+        >>> m = flopy.modflow.Modflow(version="mf2005")
+        >>> _ = flopy.modflow.ModflowDis(
+        ...     m, nrow=3, ncol=2, delr=20.0, delc=20.0, xul=30.0, yul=130.0,
+        ...     top=15.0, botm=10.0)
+        >>> _ = flopy.modflow.ModflowBas(m)
+        >>> nm = swn.modflow.SwnModflow.from_swn_flopy(n, m)
+        >>> nm.default_segment_data()
+        >>> print(nm)
+        <SwnModflow: flopy mf2005 'modflowtest'
+          7 in reaches (reachID): [1, 2, ..., 6, 7]
+          3 in segment_data (nseg): [1, 2, 3]
+            3 from segments: [101, 102, 100]
+          1 stress period with perlen: [1.0] />
+        >>> print(nm.segment_data[["segnum", "icalc", "elevup", "elevdn"]])
+              segnum  icalc     elevup     elevdn
+        nseg                                     
+        1        101      1  14.750000  14.166667
+        2        102      1  14.666667  14.166667
+        3        100      1  13.500000  12.500000
+        >>> nm.default_segment_data(width1=2, width_out=4)
+        >>> print(nm.segment_data[["segnum", "icalc", "width1", "width2"]])
+              segnum  icalc  width1  width2
+        nseg                               
+        1        101      1     2.0     2.0
+        2        102      1     2.0     2.0
+        3        100      1     2.0     4.0
+
+        See Also
+        --------
+        new_segment_data : Create an empty segment_data frame
+        """  # noqa
         self.logger.info("default_segment_data: using high-level function")
         if self.segment_data is None:
             self.new_segment_data()

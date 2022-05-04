@@ -181,8 +181,7 @@ class SurfaceWaterNetwork:
         Examples
         --------
         >>> import swn
-        >>> from swn.spatial import wkt_to_geoseries
-        >>> lines = wkt_to_geoseries([
+        >>> lines = swn.spatial.wkt_to_geoseries([
         ...    "LINESTRING (60 100, 60  80)",
         ...    "LINESTRING (40 130, 60 100)",
         ...    "LINESTRING (70 130, 60 100)"])
@@ -428,8 +427,7 @@ class SurfaceWaterNetwork:
         Examples
         --------
         >>> import swn
-        >>> from swn.spatial import wkt_to_geoseries
-        >>> lines = wkt_to_geoseries([
+        >>> lines = swn.spatial.wkt_to_geoseries([
         ...    "LINESTRING (60 100, 60  80)",
         ...    "LINESTRING (40 130, 60 100)",
         ...    "LINESTRING (70 130, 60 100)"])
@@ -460,13 +458,12 @@ class SurfaceWaterNetwork:
         Examples
         --------
         >>> import swn
-        >>> from swn.spatial import wkt_to_geoseries
-        >>> lines = wkt_to_geoseries([
+        >>> lines = swn.spatial.wkt_to_geoseries([
         ...    "LINESTRING (60 100, 60  80)",
         ...    "LINESTRING (40 130, 60 100)",
         ...    "LINESTRING (70 130, 60 100)"])
         >>> lines.index += 100
-        >>> polygons = wkt_to_geoseries([
+        >>> polygons = swn.spatial.wkt_to_geoseries([
         ...    "POLYGON ((35 100, 75 100, 75  80, 35  80, 35 100))",
         ...    "POLYGON ((35 135, 60 135, 60 100, 35 100, 35 135))",
         ...    "POLYGON ((60 135, 75 135, 75 100, 60 100, 60 135))"])
@@ -495,7 +492,8 @@ class SurfaceWaterNetwork:
             return
         elif not isinstance(value, geopandas.GeoSeries):
             raise ValueError(
-                f'catchments must be a GeoSeries or None; found {type(value)!r}')
+                "catchments must be a GeoSeries or None; "
+                f"found {type(value)!r}")
         segments_index = self.segments.index
         if (len(value.index) != len(segments_index) or
                 not (value.index == segments_index).all()):
@@ -1075,8 +1073,7 @@ class SurfaceWaterNetwork:
         Examples
         --------
         >>> import swn
-        >>> from swn.spatial import wkt_to_geoseries
-        >>> lines = wkt_to_geoseries([
+        >>> lines = swn.spatial.wkt_to_geoseries([
         ...    "LINESTRING (60 100, 60  80)",
         ...    "LINESTRING (40 130, 60 100)",
         ...    "LINESTRING (70 130, 60 100)"])
@@ -1156,8 +1153,7 @@ class SurfaceWaterNetwork:
         Examples
         --------
         >>> import swn
-        >>> from swn.spatial import wkt_to_geoseries
-        >>> lines = wkt_to_geoseries([
+        >>> lines = swn.spatial.wkt_to_geoseries([
         ...    "LINESTRING (60 100, 60  80)",
         ...    "LINESTRING (40 130, 60 100)",
         ...    "LINESTRING (70 130, 60 100)"])
