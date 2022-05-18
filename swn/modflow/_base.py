@@ -446,7 +446,7 @@ class SwnModflowBase:
 
         # Assume CRS from swn.segments
         obj.crs = getattr(swn.segments.geometry, "crs", None)
-        segments = swn.segments.copy()
+        obj.segments = segments = swn.segments.copy()
         # Attach a few things to the fresh object
         obj.model = model
         obj._swn = swn
