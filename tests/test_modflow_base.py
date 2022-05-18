@@ -77,6 +77,49 @@ def test_swn_property():
         nm.swn = n
 
 
+def test_segments_property():
+    nm = swn.SwnModflow()
+    assert nm.segments is None
+    gdf = geopandas.GeoDataFrame()
+    nm.segments = gdf
+    assert nm.segments is not None
+    assert nm.segments is gdf
+    nm.segments = None
+    assert nm.segments is None
+    with pytest.raises(ValueError, match="segments must be a GeoDataFrame or"):
+        nm.segments = pd.DataFrame()
+
+
+def test_diversions_property():
+    nm = swn.SwnModflow()
+    assert nm.diversions is None
+    gdf = geopandas.GeoDataFrame()
+    nm.diversions = gdf
+    assert nm.diversions is not None
+    assert nm.diversions is gdf
+    df = pd.DataFrame()
+    nm.diversions = df
+    assert nm.diversions is not None
+    assert nm.diversions is df
+    nm.diversions = None
+    assert nm.diversions is None
+    with pytest.raises(ValueError, match="diversions must be a GeoDataFrame,"):
+        nm.diversions = {}
+
+
+def test_reaches_property():
+    nm = swn.SwnModflow()
+    assert nm.reaches is None
+    gdf = geopandas.GeoDataFrame()
+    nm.reaches = gdf
+    assert nm.reaches is not None
+    assert nm.reaches is gdf
+    nm.reaches = None
+    assert nm.reaches is None
+    with pytest.raises(ValueError, match="reaches must be a GeoDataFrame or "):
+        nm.reaches = pd.DataFrame()
+
+
 @pytest.mark.parametrize(
     "has_z", [False, True], ids=["n2d", "n3d"])
 def test_from_swn_flopy_defaults(has_z):
