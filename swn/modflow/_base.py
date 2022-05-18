@@ -55,9 +55,6 @@ class SwnModflowBase:
             raise ValueError(
                 f"expected 'logger' to be Logger; found {type(logger)!r}")
         self.logger.info("creating new %s object", self.__class__.__name__)
-        self.segments = None
-        self.diversions = None
-        self.reaches = None
 
     def __iter__(self):
         """Return object datasets with an iterator."""
@@ -152,6 +149,99 @@ class SwnModflowBase:
             self._swn = swn
         else:
             raise AttributeError("swn property can only be set once")
+
+    @property
+    def segments(self):
+        """Geo dataframe of segments.
+
+        This is copied from :py:attr:`swn.SurfaceWaterNetwork.segments`, and
+        has the same index. However, it has extended columns.
+
+        See Also
+        --------
+        reaches : [Geo] dataframe of model cell-by-cell reaches.
+        """
+        return getattr(self, "_segments", None)
+
+    @segments.setter
+    def segments(self, value):
+        if value is None:
+            pass
+        elif not isinstance(value, geopandas.GeoDataFrame):
+            raise ValueError(
+                "segments must be a GeoDataFrame or None; "
+                f"found {type(value)!r}")
+        # don't check index or column names
+        self._segments = value
+
+    @property
+    def diversions(self):
+        """[Geo] dataframe of diversions.
+
+        This is copied from :py:attr:`swn.SurfaceWaterNetwork.diversions`, and
+        has the same index. However, it has extended columns.
+
+        See Also
+        --------
+        segments : Geo dataframe of segments.
+        """
+        return getattr(self, "_diversions", None)
+
+    @diversions.setter
+    def diversions(self, value):
+        if value is None:
+            pass
+        elif not isinstance(value, (geopandas.GeoDataFrame, pd.DataFrame)):
+            raise ValueError(
+                "diversions must be a GeoDataFrame, DataFrame or None; "
+                f"found {type(value)!r}")
+        # don't check index or column names
+        self._diversions = value
+
+    @property
+    def reaches(self):
+        """Geo dataframe of model cell-by-cell reaches.
+
+        The structure of the geo dataframe is created by
+        :py:meth:`from_swn_flopy`, and other methods may add other columns.
+
+        Attributes
+        ----------
+        reachID (SwnModflow) or rno (SwnMf6) : int, index
+            Reach index number, starting from 1.
+        geometry : geometry
+            LineString segments, one per model cell.
+        segnum : any
+            Segment identifier for :py:attr:`segments`.
+        divid : any, optional
+            Diversion identifier for :py:attr:`diversions`.
+        i, j, k : int
+            Model row, column and layer, starting from 0.
+        iseg, ireach : int
+            Segment and reach numbers, each starting from 1.
+        rchlen (SwnModflow) or rlen (SwnMf6) : float
+            Reach length.
+
+        See Also
+        --------
+        set_reach_data_from_array :
+            Set reach data from an array that matches the model (nrow, ncol).
+        set_reach_data_from_segments :
+            Set reach data based on segment series (or scalar).
+        set_reach_slope : Set slope for reaches.
+        """
+        return getattr(self, "_reaches", None)
+
+    @reaches.setter
+    def reaches(self, value):
+        if value is None:
+            pass
+        elif not isinstance(value, geopandas.GeoDataFrame):
+            raise ValueError(
+                "reaches must be a GeoDataFrame or None; "
+                f"found {type(value)!r}")
+        # don't check index or column names
+        self._reaches = value
 
     @property
     def model(self):
@@ -356,8 +446,8 @@ class SwnModflowBase:
 
         # Assume CRS from swn.segments
         obj.crs = getattr(swn.segments.geometry, "crs", None)
+        segments = swn.segments.copy()
         # Attach a few things to the fresh object
-        obj.segments = swn.segments.copy()
         obj.model = model
         obj._swn = swn
         # Copy grid_cells generated from 'model' setter
@@ -394,14 +484,13 @@ class SwnModflowBase:
         grid_sindex = get_sindex(grid_cells)
         reach_include = swn.segments_series(reach_include_fraction) * cell_size
         # Make an empty DataFrame for reaches
-        obj.reaches = pd.DataFrame(columns=["geometry"])
-        obj.reaches.insert(1, column="i", value=pd.Series(dtype=int))
-        obj.reaches.insert(2, column="j", value=pd.Series(dtype=int))
-        empty_reach_df = obj.reaches.copy()  # take this before more added
-        obj.reaches.insert(
-            1, column="segnum",
-            value=pd.Series(dtype=obj.segments.index.dtype))
-        obj.reaches.insert(2, column="segndist", value=pd.Series(dtype=float))
+        reaches = pd.DataFrame(columns=["geometry"])
+        reaches.insert(1, column="i", value=pd.Series(dtype=int))
+        reaches.insert(2, column="j", value=pd.Series(dtype=int))
+        empty_reach_df = reaches.copy()  # take this before more added
+        reaches.insert(
+            1, column="segnum", value=pd.Series(dtype=segments.index.dtype))
+        reaches.insert(2, column="segndist", value=pd.Series(dtype=float))
         empty_reach_df.insert(3, column="length", value=pd.Series(dtype=float))
         empty_reach_df.insert(4, column="moved", value=pd.Series(dtype=bool))
 
@@ -623,7 +712,7 @@ class SwnModflowBase:
                     "failed to merge segnum %s at %s: %s", segnum, ij, geom)
 
         # Looping over each segment breaking down into reaches
-        for segnum, line in obj.segments.geometry.iteritems():
+        for segnum, line in segments.geometry.iteritems():
             remaining_line = line
             if grid_sindex:
                 bbox_match = sorted(grid_sindex.intersection(line.bounds))
@@ -680,7 +769,7 @@ class SwnModflowBase:
                     "j": j,
                 }
                 with ignore_shapely_warnings_for_object_array():
-                    obj.reaches.loc[len(obj.reaches.index)] = reach_record
+                    reaches.loc[len(reaches.index)] = reach_record
                 if domain_action == "modify" and domain[i, j] == 0:
                     num_domain_modified += 1
                     domain[i, j] = 1
@@ -694,65 +783,64 @@ class SwnModflowBase:
                     obj.model.bas6.ibound[0] = domain
                 elif domain_label == "idomain":
                     obj.model.dis.idomain.set_data(domain, layer=0)
-                obj.reaches = obj.reaches.merge(
+                reaches = reaches.merge(
                     grid_cells[[domain_label]],
                     left_on=["i", "j"], right_index=True)
-                obj.reaches.rename(
+                reaches.rename(
                     columns={domain_label: f"prev_{domain_label}"},
                     inplace=True)
             else:
-                obj.reaches[f"prev_{domain_label}"] = 1
+                reaches[f"prev_{domain_label}"] = 1
 
         # Mark segments that are not used
-        obj.segments["in_model"] = True
-        outside_model = \
-            set(swn.segments.index).difference(obj.reaches["segnum"])
-        obj.segments.loc[list(outside_model), "in_model"] = False
+        segments["in_model"] = True
+        outside_model = set(swn.segments.index).difference(reaches["segnum"])
+        segments.loc[list(outside_model), "in_model"] = False
 
         # Evaluate inflow segments that potentially receive flow from outside
-        segnums_outside = set(obj.segments[~obj.segments["in_model"]].index)
+        segnums_outside = set(segments[~segments.in_model].index)
         if segnums_outside:
             obj.logger.debug(
                 "evaluating inflow connections from outside network")
-            obj.segments["inflow_segnums"] = obj.segments.from_segnums.apply(
+            segments["inflow_segnums"] = segments.from_segnums.apply(
                 lambda x: x.intersection(segnums_outside))
 
         # Consider diversions or SW takes, add more reaches
         has_diversions = swn.diversions is not None
         if has_diversions:
-            obj.diversions = swn.diversions.copy()
-            obj.reaches["diversion"] = False
-            obj.reaches["divid"] = obj.diversions.index.dtype.type()
+            diversions = swn.diversions.copy()
+            reaches["diversion"] = False
+            reaches["divid"] = diversions.index.dtype.type()
             # Mark diversions that are not used / outside model
-            obj.diversions["in_model"] = True
+            diversions["in_model"] = True
             outside_model = []
-            segnum_s = set(obj.reaches.segnum)
-            for divid, from_segnum in obj.diversions.from_segnum.iteritems():
+            segnum_s = set(reaches.segnum)
+            for divid, from_segnum in diversions.from_segnum.iteritems():
                 if from_segnum not in segnum_s:
                     # segnum does not exist -- segment is outside model
                     outside_model.append(divid)
             if outside_model:
-                obj.diversions.loc[list(outside_model), "in_model"] = False
+                diversions.loc[list(outside_model), "in_model"] = False
                 obj.logger.debug(
                     "added %d diversions, ignoring %d that did not connect to "
                     "existing segments",
-                    obj.diversions["in_model"].sum(), len(outside_model))
+                    diversions.in_model.sum(), len(outside_model))
             else:
                 obj.logger.debug(
-                    "added all %d diversions", len(obj.diversions))
+                    "added all %d diversions", len(diversions))
             if swn.has_z:
                 empty_geom = wkt.loads("linestring z empty")
             else:
                 empty_geom = wkt.loads("linestring empty")
-            diversions_in_model = obj.diversions[obj.diversions.in_model]
+            diversions_in_model = diversions[diversions.in_model]
             is_spatial = (
-                isinstance(obj.diversions, geopandas.GeoDataFrame) and
-                "geometry" in obj.diversions.columns and
+                isinstance(diversions, geopandas.GeoDataFrame) and
+                "geometry" in diversions.columns and
                 (~diversions_in_model.is_empty).all())
             for divn in diversions_in_model.itertuples():
                 # Use the last upstream reach as a template for a new reach
-                reach_d = dict(obj.reaches.loc[
-                    obj.reaches.segnum == divn.from_segnum].iloc[-1])
+                reach_d = dict(reaches.loc[
+                    reaches.segnum == divn.from_segnum].iloc[-1])
                 reach_d.update({
                     "segnum": swn.END_SEGNUM,
                     "segndist": 0.0,
@@ -786,34 +874,32 @@ class SwnModflowBase:
                         with ignore_shapely_warnings_for_object_array():
                             reach_d["geometry"] = divn.geometry
                 with ignore_shapely_warnings_for_object_array():
-                    obj.reaches.loc[len(obj.reaches) + 1] = reach_d
-        else:
-            obj.diversions = None
+                    reaches.loc[len(reaches) + 1] = reach_d
 
         # Insert k=0, as it is assumed all reaches are on the top layer
-        obj.reaches.insert(
-            list(obj.reaches.columns).index("i"), column="k", value=0)
+        reaches.insert(
+            list(reaches.columns).index("i"), column="k", value=0)
 
         # Now convert from DataFrame to GeoDataFrame
-        obj.reaches = geopandas.GeoDataFrame(
-                obj.reaches, geometry="geometry", crs=obj.crs)
+        reaches = geopandas.GeoDataFrame(
+                reaches, geometry="geometry", crs=obj.crs)
 
         # Add information to reaches from segments
-        obj.reaches = obj.reaches.merge(
-            obj.segments[["sequence"]], "left",
+        reaches = reaches.merge(
+            segments[["sequence"]], "left",
             left_on="segnum", right_index=True)
         # TODO: how to sequence diversions (divid)?
-        obj.reaches.sort_values(["sequence", "segndist"], inplace=True)
-        del obj.reaches["sequence"]  # segment sequence not used anymore
+        reaches.sort_values(["sequence", "segndist"], inplace=True)
+        del reaches["sequence"]  # segment sequence not used anymore
         # keep "segndist" for interpolation from segment data
 
         # Add classic ISEG and IREACH, counting from 1
-        obj.reaches["iseg"] = 0
-        obj.reaches["ireach"] = 0
+        reaches["iseg"] = 0
+        reaches["ireach"] = 0
         iseg = ireach = 0
         prev_segnum = None
-        for idx, segnum in obj.reaches["segnum"].iteritems():
-            if has_diversions and obj.reaches.at[idx, "diversion"]:
+        for idx, segnum in reaches.segnum.iteritems():
+            if has_diversions and reaches.at[idx, "diversion"]:
                 # Each diversion gets a new segment/reach
                 iseg += 1
                 ireach = 0
@@ -822,16 +908,22 @@ class SwnModflowBase:
                 iseg += 1
                 ireach = 0
             ireach += 1
-            obj.reaches.at[idx, "iseg"] = iseg
-            obj.reaches.at[idx, "ireach"] = ireach
+            reaches.at[idx, "iseg"] = iseg
+            reaches.at[idx, "ireach"] = ireach
             prev_segnum = segnum
 
-        obj.reaches.reset_index(inplace=True, drop=True)
-        obj.reaches.index += 1  # flopy series starts at one
+        reaches.reset_index(inplace=True, drop=True)
+        reaches.index += 1  # flopy series starts at one
 
-        if not hasattr(obj.reaches.geometry, "geom_type"):
+        if not hasattr(reaches.geometry, "geom_type"):
             # workaround needed for reaches.to_file()
-            obj.reaches.geometry.geom_type = obj.reaches.geom_type
+            reaches.geometry.geom_type = reaches.geom_type
+
+        # Finally set object properties
+        obj.segments = segments
+        if has_diversions:
+            obj.diversions = diversions
+        obj.reaches = reaches
 
         # each subclass should do more processing with returned object
         return obj
@@ -843,7 +935,7 @@ class SwnModflowBase:
         Parameters
         ----------
         name : str
-            Name for reach dataset, added to the reaches data frame.
+            Name for reach dataset, added to the reaches dataframe.
         value : scalar, list, dict or pandas.Series
             Value to assign to the upstream or top end of each segment.
             See :py:meth:`SurfaceWaterNetwork.pair_segments_frame` for details.

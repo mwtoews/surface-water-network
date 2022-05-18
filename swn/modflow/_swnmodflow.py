@@ -5,6 +5,7 @@ __all__ = ["SwnModflow"]
 import inspect
 from itertools import zip_longest
 
+import geopandas
 import numpy as np
 import pandas as pd
 
@@ -220,9 +221,9 @@ class SwnModflow(SwnModflowBase):
 
     @property
     def segment_data(self):
-        """Data frame of segment data.
+        """Dataframe of segment data.
 
-        The structure of the data frame is created by
+        The structure of the dataframe is created by
         :py:meth:`new_segment_data`. Time-varying data is stored in
         :py:attr:`segment_data_ts`.
 
@@ -245,8 +246,8 @@ class SwnModflow(SwnModflowBase):
 
         See Also
         --------
-        new_segment_data : Create an empty segment_data frame
-        default_segment_data : High-level frame constructor for segment_data
+        new_segment_data : Create an empty segment data frame.
+        default_segment_data : High-level frame constructor for segment data.
         """
         return getattr(self, "_segment_data", None)
 
@@ -272,7 +273,7 @@ class SwnModflow(SwnModflowBase):
 
     @property
     def segment_data_ts(self):
-        """Dict of data frames of time-varying segment data.
+        """Dict of dataframes of time-varying segment data.
 
         Keys for data names are the columns from :py:attr:`segment_data`.
 
@@ -281,9 +282,9 @@ class SwnModflow(SwnModflowBase):
 
         See Also
         --------
-        set_segment_data_from_scalar : Set all segment data to one value
-        set_segment_data_from_segments : Set all segment data from segments
-        set_segment_data_from_diversions: Set all segment data from diversions
+        set_segment_data_from_scalar : Set all segment data to one value.
+        set_segment_data_from_segments : Set all segment data from segments.
+        set_segment_data_from_diversions: Set all segment data from diversions.
         """
         return getattr(self, "_segment_data_ts", None)
 
@@ -344,7 +345,7 @@ class SwnModflow(SwnModflowBase):
 
         See Also
         --------
-        default_segment_data : High-level frame constructor for segment_data
+        default_segment_data : High-level frame constructor for segment data.
         """  # noqa
         from flopy.modflow.mfsfr2 import ModflowSfr2
         if self.segment_data is None:
@@ -449,8 +450,8 @@ class SwnModflow(SwnModflowBase):
 
         See Also
         --------
-        set_segment_data_from_segments : Set all segment data from segments
-        set_segment_data_from_diversions: Set all segment data from diversions
+        set_segment_data_from_segments : Set all segment data from segments.
+        set_segment_data_from_diversions: Set all segment data from diversions.
         """  # noqa
         self._check_segment_data_name(name)
         if not np.isscalar(data):
@@ -549,8 +550,8 @@ class SwnModflow(SwnModflowBase):
 
         See Also
         --------
-        set_segment_data_from_scalar : Set all segment data to one value
-        set_segment_data_from_diversions: Set all segment data from diversions
+        set_segment_data_from_scalar : Set all segment data to one value.
+        set_segment_data_from_diversions: Set all segment data from diversions.
         """  # noqa
         self._check_segment_data_name(name)
         if np.isscalar(data):
@@ -614,8 +615,8 @@ class SwnModflow(SwnModflowBase):
 
         See Also
         --------
-        set_segment_data_from_scalar : Set all segment data to one value
-        set_segment_data_from_segments : Set all segment data from segments
+        set_segment_data_from_scalar : Set all segment data to one value.
+        set_segment_data_from_segments : Set all segment data from segments.
         """  # noqa
         self._check_segment_data_name(name)
         if np.isscalar(data):
@@ -796,7 +797,7 @@ class SwnModflow(SwnModflowBase):
 
         See Also
         --------
-        new_segment_data : Create an empty segment_data frame
+        new_segment_data : Create an empty segment data frame.
         """  # noqa
         self.logger.info("default_segment_data: using high-level function")
         if self.segment_data is None:
