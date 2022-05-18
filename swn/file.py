@@ -8,7 +8,8 @@ import pandas as pd
 from .logger import get_logger, logging
 
 
-def topnet2ts(nc_path, varname, mult=None, log_level=logging.INFO):
+def topnet2ts(nc_path, varname, *,
+              mult=None, run=None, log_level=logging.INFO):
     """Read TopNet data from a netCDF file into a pandas.DataFrame timeseries.
 
     User may need to multiply DataFrame to convert units.
@@ -22,7 +23,11 @@ def topnet2ts(nc_path, varname, mult=None, log_level=logging.INFO):
     mult : float, optional
         Multiplier applied to dataset, which preserves dtype. For example,
         to convert from "meters3 second-1" to "meters3 day-1", use 86400.
-    verbose : int, optional
+    run : int, optional
+        Files with an ensemble or uncertainty analysis may have more than one
+        run, this option allows a run to be selected. Default behaviour is to
+        take the first run (index 0). The last run can be selected with -1.
+    log_level : int, optional
         Level used by logging module; default is 20 (logging.INFO)
 
     Returns
@@ -40,11 +45,15 @@ def topnet2ts(nc_path, varname, mult=None, log_level=logging.INFO):
     except ImportError:
         from cftime import num2date as n2d
     logger = get_logger("topnet2ts", log_level)
-    logger.info("reading file: %s", nc_path)
+    logger.info('reading file: "%s"', nc_path)
     with Dataset(nc_path, "r") as nc:
         nc.set_auto_mask(False)
+        varnames = list(nc.variables.keys())
+        if varname not in varnames:
+            raise KeyError(
+                f"{varname!r} not found in dataset; use one of {varnames}")
         var = nc.variables[varname]
-        logger.info("variable %s:\n%s", varname, var)
+        logger.info("variable %r:\n%s", varname, var)
         # Evaluate dimensions
         dim_has_time = False
         dim_has_nrch = False
@@ -55,6 +64,14 @@ def topnet2ts(nc_path, varname, mult=None, log_level=logging.INFO):
                 dim_has_time = True
             elif name == "nrch":
                 dim_has_nrch = True
+            elif name in ("nrun", "nens"):
+                if run is None:
+                    if size > 1:
+                        logger.warning(
+                            "no run specified; taking %s index 0 from dim size %s",
+                            var.dimensions[2], var.shape[2])
+                    run = 0
+                varslice.append(run)
             elif size == 1:
                 dim_ignore.append(name)
                 varslice.append(0)
@@ -64,7 +81,9 @@ def topnet2ts(nc_path, varname, mult=None, log_level=logging.INFO):
             logger.error("no 'nrch' dimension found")
         if dim_ignore:
             logger.info("ignoring size 1 dimensions: %s", dim_ignore)
-        dat = var[tuple(varslice)]
+        varslice = tuple(varslice)
+        logger.debug("indexing %r with %r", varname, varslice)
+        dat = var[varslice]
         if len(dat.shape) != 2:
             logger.error("expected 2 dimensions, found shape %s", dat.shape)
         if dim_has_time and var.dimensions.index("time") == 1:
