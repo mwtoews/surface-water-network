@@ -652,7 +652,7 @@
 <h1>swn.file.topnet2ts<a class="headerlink" href="#swn-file-topnet2ts" title="Permalink to this headline">#</a></h1>
 <dl class="py function">
 <dt class="sig sig-object py" id="swn.file.topnet2ts">
-<span class="sig-prename descclassname"><span class="pre">swn.file.</span></span><span class="sig-name descname"><span class="pre">topnet2ts</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">nc_path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">varname</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mult</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">log_level</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">20</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#swn.file.topnet2ts" title="Permalink to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">swn.file.</span></span><span class="sig-name descname"><span class="pre">topnet2ts</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">nc_path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">varname</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mult</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">run</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">log_level</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">20</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#swn.file.topnet2ts" title="Permalink to this definition">#</a></dt>
 <dd><p>Read TopNet data from a netCDF file into a pandas.DataFrame timeseries.</p>
 <p>User may need to multiply DataFrame to convert units.</p>
 <dl class="field-list simple">
@@ -665,7 +665,11 @@
 <dt><strong>mult</strong><span class="classifier">float, optional</span></dt><dd><p>Multiplier applied to dataset, which preserves dtype. For example,
 to convert from “meters3 second-1” to “meters3 day-1”, use 86400.</p>
 </dd>
-<dt><strong>verbose</strong><span class="classifier">int, optional</span></dt><dd><p>Level used by logging module; default is 20 (logging.INFO)</p>
+<dt><strong>run</strong><span class="classifier">int, optional</span></dt><dd><p>Files with an ensemble or uncertainty analysis may have more than one
+run, this option allows a run to be selected. Default behaviour is to
+take the first run (index 0). The last run can be selected with -1.</p>
+</dd>
+<dt><strong>log_level</strong><span class="classifier">int, optional</span></dt><dd><p>Level used by logging module; default is 20 (logging.INFO)</p>
 </dd>
 </dl>
 </dd>
