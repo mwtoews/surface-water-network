@@ -32,7 +32,7 @@ def test_topnet2ts(coastal_flow_ts):
     pytest.importorskip("netCDF4")
     nc_fname = "streamq_20170115_20170128_topnet_03046727_strahler1.nc"
     # read variable, and convert from m3/s to m3/day
-    flow = swn.file.topnet2ts(datadir / nc_fname, "mod_flow", 86400)
+    flow = swn.file.topnet2ts(datadir / nc_fname, "mod_flow", mult=86400)
     assert flow.shape == (14, 304)
     assert list(pd.unique(flow.dtypes)) == [np.float32]
     # remove time and truncat to closest day
@@ -47,6 +47,11 @@ def test_topnet2ts(coastal_flow_ts):
     np.testing.assert_array_equal(flow.columns, coastal_flow_ts.columns)
     np.testing.assert_array_equal(flow.index, coastal_flow_ts.index)
     np.testing.assert_array_almost_equal(flow, coastal_flow_ts, 2)
+    # errors
+    with pytest.raises(KeyError, match="'nope' not found in dataset; use one"):
+        swn.file.topnet2ts(datadir / nc_fname, "nope")
+    with pytest.raises(IndexError, match="index exceeds dimension bounds"):
+        swn.file.topnet2ts(datadir / nc_fname, "mod_flow", run=1)
 
 
 def test_pickle_lines():
