@@ -1,0 +1,6 @@
+﻿swn.modflow.SwnModflow.segments
+===============================
+
+.. currentmodule:: swn.modflow
+
+.. autoproperty:: SwnModflow.segments

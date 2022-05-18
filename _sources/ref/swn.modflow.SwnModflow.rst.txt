@@ -56,9 +56,12 @@
 
    .. autosummary::
    
+      ~SwnModflow.diversions
       ~SwnModflow.model
+      ~SwnModflow.reaches
       ~SwnModflow.segment_data
       ~SwnModflow.segment_data_ts
+      ~SwnModflow.segments
       ~SwnModflow.swn
    
    

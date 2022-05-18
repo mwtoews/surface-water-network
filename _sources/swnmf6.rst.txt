@@ -13,20 +13,23 @@ Constructors
    SwnMf6.from_swn_flopy
    SwnMf6.from_pickle
 
-DataFrame properties
---------------------
-
-.. autosummary::
-   :toctree: ref/
-
-   SwnMf6.reaches
-   SwnMf6.segment_data
-
-Other properties
-----------------
+Properties
+----------
 
 .. autosummary::
    :toctree: ref/
 
    SwnMf6.model
+   SwnMf6.segments
+   SwnMf6.diversions
+   SwnMf6.reaches
+
+Reach data generation
+---------------------
+.. autosummary::
+   :toctree: ref/
+
+   SwnMf6.set_reach_data_from_array
+   SwnMf6.set_reach_data_from_segments
+   SwnMf6.set_reach_slope
 

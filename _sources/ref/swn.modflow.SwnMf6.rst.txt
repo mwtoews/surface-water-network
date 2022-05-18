@@ -45,7 +45,10 @@
 
    .. autosummary::
    
+      ~SwnMf6.diversions
       ~SwnMf6.model
+      ~SwnMf6.reaches
+      ~SwnMf6.segments
       ~SwnMf6.swn
    
    
