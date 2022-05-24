@@ -5,7 +5,6 @@ __all__ = ["SwnModflow"]
 import inspect
 from itertools import zip_longest
 
-import geopandas
 import numpy as np
 import pandas as pd
 
@@ -1549,3 +1548,129 @@ class SwnModflow(SwnModflowBase):
         else:
             vbot = None
         return vtop, vbot
+
+    def route_reaches(self, start, end, *, allow_indirect=False):
+        """Return a list of reach identifiers that connect a pair of reaches.
+
+        Parameters
+        ----------
+        start, end : any
+            Start and end reach identifiers (reachID) used by FloPy.
+        allow_indirect : bool, default False
+            If True, allow the route to go downstream from start to a
+            confluence, then route upstream to end. Defalut False allows
+            only a direct route along a single direction up or down.
+
+        Returns
+        -------
+        list
+
+        Raises
+        ------
+        IndexError
+            If start and/or end reach identifiers are not valid.
+        ConnecionError
+            If start and end reach identifiers do not connect.
+
+        Examples
+        --------
+        >>> import flopy
+        >>> import swn
+        >>> lines = swn.spatial.wkt_to_geoseries([
+        ...    "LINESTRING (60 100, 60  80)",
+        ...    "LINESTRING (40 130, 60 100)",
+        ...    "LINESTRING (70 130, 60 100)"])
+        >>> lines.index += 100
+        >>> n = swn.SurfaceWaterNetwork.from_lines(lines)
+        >>> m = flopy.modflow.Modflow(version="mf2005")
+        >>> _ = flopy.modflow.ModflowDis(
+        ...     m, nrow=3, ncol=2, delr=20.0, delc=20.0, xul=30.0, yul=130.0,
+        ...     top=15.0, botm=10.0)
+        >>> _ = flopy.modflow.ModflowBas(m)
+        >>> nm = swn.modflow.SwnModflow.from_swn_flopy(n, m)
+        >>> nm.reaches[["iseg", "ireach", "i", "j", "segnum"]]
+                 iseg  ireach  i  j  segnum
+        reachID                            
+        1           1       1  0  0     101
+        2           1       2  0  1     101
+        3           1       3  1  1     101
+        4           2       1  0  1     102
+        5           2       2  1  1     102
+        6           3       1  1  1     100
+        7           3       2  2  1     100
+        >>> sel = nm.route_reaches(1, 7)
+        >>> sel
+        [1, 2, 3, 6, 7]
+        >>> nm.reaches.loc[sel, ["iseg", "ireach", "i", "j", "rchlen"]]
+                 iseg  ireach  i  j     rchlen
+        reachID                               
+        1           1       1  0  0  18.027756
+        2           1       2  0  1   6.009252
+        3           1       3  1  1  12.018504
+        6           3       1  1  1  10.000000
+        7           3       2  2  1  10.000000
+        """  # noqa
+        if start not in self.reaches.index:
+            raise IndexError(f"invalid start reachID {start}")
+        if end not in self.reaches.index:
+            raise IndexError(f"invalid end reachID {end}")
+        if start == end:
+            return [start]
+
+        # Find connections with reachID in model
+        if "diversion" in self.reaches.columns:
+            segnum_iseg_df = self.reaches.loc[
+                ~self.reaches.diversion, ["segnum", "iseg"]]
+        else:
+            segnum_iseg_df = self.reaches[["segnum", "iseg"]]
+        segnum_iseg = segnum_iseg_df.drop_duplicates().set_index(
+            "segnum", verify_integrity=True).iseg
+
+        to_reachids = {}
+        for segnum, iseg in segnum_iseg.iteritems():
+            sel = self.reaches.index[self.reaches.iseg == iseg]
+            to_reachids.update(dict(zip(sel[0:-1], sel[1:])))
+            next_segnum = self.segments.to_segnum[segnum]
+            next_reachids = self.reaches.index[
+                self.reaches.segnum == next_segnum]
+            if len(next_reachids) > 0:
+                to_reachids[sel[-1]] = next_reachids[0]
+
+        def go_downstream(rid):
+            yield rid
+            if rid in to_reachids:
+                yield from go_downstream(to_reachids[rid])
+
+        con1 = list(go_downstream(start))
+        try:
+            # start is upstream, end is downstream
+            return con1[:(con1.index(end) + 1)]
+        except ValueError:
+            pass
+        con2 = list(go_downstream(end))
+        set2 = set(con2)
+        set1 = set(con1)
+        if set1.issubset(set2):
+            # start is downstream, end is upstream
+            drop = set1.intersection(set2)
+            drop.remove(start)
+            while drop:
+                drop.remove(con2.pop(-1))
+            return list(reversed(con2))
+        common = list(set1.intersection(set2))
+        if not allow_indirect or not common:
+            msg = f"{start} does not connect to {end}"
+            if not common:
+                msg += " -- reach networks are disjoint"
+            raise ConnectionError(msg)
+        # find the most upstream common reachID or "confluence"
+        reachID = common.pop()
+        idx1 = con1.index(reachID)
+        idx2 = con2.index(reachID)
+        while common:
+            reachID = common.pop()
+            tmp1 = con1.index(reachID)
+            if tmp1 < idx1:
+                idx1 = tmp1
+                idx2 = con2.index(reachID)
+        return con1[:idx1] + list(reversed(con2[:idx2]))

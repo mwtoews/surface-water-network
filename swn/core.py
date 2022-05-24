@@ -318,7 +318,7 @@ class SurfaceWaterNetwork:
         obj.segments['dist_to_outlet'] = 0.0
 
         # Recursive function that accumulates information upstream
-        def resurse_upstream(segnum, cat_group, num, dist):
+        def recurse_upstream(segnum, cat_group, num, dist):
             obj.segments.at[segnum, 'cat_group'] = cat_group
             num += 1
             obj.segments.at[segnum, 'num_to_outlet'] = num
@@ -326,10 +326,10 @@ class SurfaceWaterNetwork:
             obj.segments.at[segnum, 'dist_to_outlet'] = dist
             # Branch to zero or more upstream segments
             for from_segnum in from_segnums.get(segnum, []):
-                resurse_upstream(from_segnum, cat_group, num, dist)
+                recurse_upstream(from_segnum, cat_group, num, dist)
 
         for segnum in obj.segments.loc[outlets].index:
-            resurse_upstream(segnum, segnum, 0, 0.0)
+            recurse_upstream(segnum, segnum, 0, 0.0)
 
         obj.logger.debug('evaluating downstream sequence')
         obj.segments['sequence'] = 0
@@ -706,6 +706,104 @@ class SurfaceWaterNetwork:
         series.name = "from_segnums"
         return series
 
+    def route_segnums(self, start, end, *, allow_indirect=False):
+        r"""Return a list of segnums that connect a pair of segnums.
+
+        Parameters
+        ----------
+        start, end : any
+            Start and end segnums.
+        allow_indirect : bool, default False
+            If True, allow the route to go downstream from start to a
+            confluence, then route upstream to end. Defalut False allows
+            only a a direct route along a single direction up or down.
+
+        Returns
+        -------
+        list
+
+        Raises
+        ------
+        IndexError
+            If start and/or end segnums are not valid.
+        ConnecionError
+            If start and end segnums do not connect.
+
+        Examples
+        --------
+        >>> import swn
+        >>> from shapely import wkt
+        >>> lines = geopandas.GeoSeries(list(wkt.loads('''\
+        ... MULTILINESTRING(
+        ...     (380 490, 370 420), (300 460, 370 420), (370 420, 420 330),
+        ...     (190 250, 280 270), (225 180, 280 270), (280 270, 420 330),
+        ...     (420 330, 584 250), (520 220, 584 250), (584 250, 710 160),
+        ...     (740 270, 710 160), (735 350, 740 270), (880 320, 740 270),
+        ...     (925 370, 880 320), (974 300, 880 320), (760 460, 735 350),
+        ...     (650 430, 735 350), (710 160, 770 100), (700  90, 770 100),
+        ...     (770 100, 820  40))''').geoms))
+        >>> lines.index += 100
+        >>> n = swn.SurfaceWaterNetwork.from_lines(lines)
+        >>> n.route_segnums(101, 116)
+        [101, 102, 106, 108, 116]
+        >>> n.route_segnums(101, 111)
+        Traceback (most recent call last):
+          File "<stdin>", line 1, in <module>
+        ConnectionError: 101 does not connect to 111
+        >>> n.route_segnums(101, 111, allow_indirect=True)
+        [101, 102, 106, 108, 109, 111]
+
+        See Also
+        --------
+        query : Query multiple segnums up and downstream.
+        """
+        if start not in self.segments.index:
+            raise IndexError(f"invalid start segnum {start}")
+        if end not in self.segments.index:
+            raise IndexError(f"invalid end segnum {end}")
+        if start == end:
+            return [start]
+        to_segnums = dict(self.to_segnums)
+
+        def go_downstream(segnum):
+            yield segnum
+            if segnum in to_segnums:
+                yield from go_downstream(to_segnums[segnum])
+
+        con1 = list(go_downstream(start))
+        try:
+            # start is upstream, end is downstream
+            return con1[:(con1.index(end) + 1)]
+        except ValueError:
+            pass
+        con2 = list(go_downstream(end))
+        set2 = set(con2)
+        set1 = set(con1)
+        if set1.issubset(set2):
+            # start is downstream, end is upstream
+            drop = set1.intersection(set2)
+            drop.remove(start)
+            while drop:
+                drop.remove(con2.pop(-1))
+            return list(reversed(con2))
+        common = list(set1.intersection(set2))
+        if not allow_indirect or not common:
+            msg = f"{start} does not connect to {end}"
+            if not common:
+                msg += " -- segment networks are disjoint"
+            raise ConnectionError(msg)
+        # find the most upstream common segnum or "confluence"
+        segnum = common.pop()
+        idx1 = con1.index(segnum)
+        idx2 = con2.index(segnum)
+        while common:
+            segnum = common.pop()
+            tmp1 = con1.index(segnum)
+            if tmp1 < idx1:
+                idx1 = tmp1
+                idx2 = con2.index(segnum)
+        return con1[:idx1] + list(reversed(con2[:idx2]))
+
     def query(self, upstream=[], downstream=[], barrier=[],
               gather_upstream=False):
         """Return segnums upstream (inclusive) and downstream (exclusive).
@@ -723,6 +821,10 @@ class SurfaceWaterNetwork:
         -------
         list
 
+        See Also
+        --------
+        route_segnums :
+            Return a list of segnums that connect a pair of segnums.
         """
         segments_index = self.segments.index
         segments_set = set(segments_index)
@@ -1469,9 +1571,9 @@ class SurfaceWaterNetwork:
         protocol : int
             Default is pickle.HIGHEST_PROTOCOL.
 
-        See also
+        See Also
         --------
-        SurfaceWaterNetwork.from_pickle : Read file.
+        from_pickle : Read file.
         """
         with open(path, "wb") as f:
             pickle.dump(self, f, protocol=protocol)
@@ -1485,9 +1587,9 @@ class SurfaceWaterNetwork:
         path : str
             File path where the pickled object will be stored.
 
-        See also
+        See Also
         --------
-        SurfaceWaterNetwork.to_pickle : Save file.
+        to_pickle : Save file.
         """
         with open(path, "rb") as f:
             obj = pickle.load(f)

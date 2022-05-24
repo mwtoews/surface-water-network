@@ -44,6 +44,7 @@ Methods
    SurfaceWaterNetwork.segments_series
    SurfaceWaterNetwork.pair_segments_frame
    SurfaceWaterNetwork.accumulate_values
+   SurfaceWaterNetwork.route_segnums
    SurfaceWaterNetwork.query
    SurfaceWaterNetwork.aggregate
    SurfaceWaterNetwork.evaluate_upstream_length

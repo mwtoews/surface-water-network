@@ -964,6 +964,33 @@ def test_fluss_n(fluss_n):
         plt.close()
 
 
+def test_route_segnums(fluss_n):
+    n = fluss_n
+    assert n.route_segnums(18, 18) == [18]
+    assert n.route_segnums(17, 18) == [17, 18]
+    assert n.route_segnums(18, 17) == [18, 17]
+    assert n.route_segnums(6, 16) == [6, 8, 16]
+    assert n.route_segnums(16, 6) == [16, 8, 6]
+    assert n.route_segnums(15, 9) == [15, 10, 9]
+    assert n.route_segnums(9, 15) == [9, 10, 15]
+    assert n.route_segnums(0, 1, allow_indirect=True) == [0, 1]
+    assert n.route_segnums(0, 11, allow_indirect=True) == [0, 2, 6, 8, 9, 11]
+    # errors
+    with pytest.raises(IndexError, match="invalid start segnum -1"):
+        n.route_segnums(-1, 0)
+    with pytest.raises(IndexError, match="invalid end segnum -1"):
+        n.route_segnums(0, -1)
+    with pytest.raises(ConnectionError, match="0 does not connect to 1"):
+        n.route_segnums(0, 1)
+    with pytest.raises(ConnectionError, match="3 does not connect to 9"):
+        n.route_segnums(3, 9)
+    n2 = swn.SurfaceWaterNetwork.from_lines(n.segments.geometry.iloc[0:4])
+    with pytest.raises(ConnectionError, match="segment networks are disjoint"):
+        n2.route_segnums(0, 3)
+    with pytest.raises(ConnectionError, match="segment networks are disjoint"):
+        n2.route_segnums(0, 3, allow_indirect=True)
+
+
 def test_fluss_n_query_upstream(fluss_n):
     n = fluss_n
     assert set(n.query(upstream=0)) == {0}
