@@ -199,6 +199,11 @@
       </a>
      </li>
      <li class="toctree-l3">
+      <a class="reference internal" href="swn.SurfaceWaterNetwork.route_segnums.html">
+       swn.SurfaceWaterNetwork.route_segnums
+      </a>
+     </li>
+     <li class="toctree-l3">
       <a class="reference internal" href="swn.SurfaceWaterNetwork.segments_series.html">
        swn.SurfaceWaterNetwork.segments_series
       </a>
@@ -273,6 +278,11 @@
    <li class="toctree-l2">
     <a class="reference internal" href="swn.SurfaceWaterNetwork.accumulate_values.html">
      swn.SurfaceWaterNetwork.accumulate_values
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="swn.SurfaceWaterNetwork.route_segnums.html">
+     swn.SurfaceWaterNetwork.route_segnums
     </a>
    </li>
    <li class="toctree-l2">
@@ -355,6 +365,11 @@
      <li class="toctree-l3">
       <a class="reference internal" href="swn.modflow.SwnModflow.new_segment_data.html">
        swn.modflow.SwnModflow.new_segment_data
+      </a>
+     </li>
+     <li class="toctree-l3">
+      <a class="reference internal" href="swn.modflow.SwnModflow.route_reaches.html">
+       swn.modflow.SwnModflow.route_reaches
       </a>
      </li>
      <li class="toctree-l3">
@@ -469,6 +484,11 @@
      swn.modflow.SwnModflow.set_segment_data_from_diversions
     </a>
    </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="swn.modflow.SwnModflow.route_reaches.html">
+     swn.modflow.SwnModflow.route_reaches
+    </a>
+   </li>
   </ul>
  </li>
  <li class="toctree-l1 has-children">
@@ -499,6 +519,11 @@
      <li class="toctree-l3">
       <a class="reference internal" href="swn.modflow.SwnMf6.from_swn_flopy.html">
        swn.modflow.SwnMf6.from_swn_flopy
+      </a>
+     </li>
+     <li class="toctree-l3">
+      <a class="reference internal" href="swn.modflow.SwnMf6.route_reaches.html">
+       swn.modflow.SwnMf6.route_reaches
       </a>
      </li>
      <li class="toctree-l3">
@@ -561,6 +586,11 @@
    <li class="toctree-l2">
     <a class="reference internal" href="swn.modflow.SwnMf6.set_reach_slope.html">
      swn.modflow.SwnMf6.set_reach_slope
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="swn.modflow.SwnMf6.route_reaches.html">
+     swn.modflow.SwnMf6.route_reaches
     </a>
    </li>
   </ul>
@@ -743,43 +773,46 @@
 <tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">reconcile_reach_strtop</span></code>()</p></td>
 <td><p>Recalculate reach strtop elevations after moving segment elevations.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_forward_segs</span></code>([min_slope])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="swn.modflow.SwnModflow.route_reaches.html#swn.modflow.SwnModflow.route_reaches" title="swn.modflow.SwnModflow.route_reaches"><code class="xref py py-obj docutils literal notranslate"><span class="pre">route_reaches</span></code></a>(start, end, *[, allow_indirect])</p></td>
+<td><p>Return a list of reach identifiers that connect a pair of reaches.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_forward_segs</span></code>([min_slope])</p></td>
 <td><p>Set minimum slope in forwards direction.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_outseg_elev_for_seg</span></code>(seg)</p></td>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_outseg_elev_for_seg</span></code>(seg)</p></td>
 <td><p>Set outseg elevation for segment.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="swn.modflow.SwnModflow.set_reach_data_from_array.html#swn.modflow.SwnModflow.set_reach_data_from_array" title="swn.modflow.SwnModflow.set_reach_data_from_array"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_reach_data_from_array</span></code></a>(name, array)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="swn.modflow.SwnModflow.set_reach_data_from_array.html#swn.modflow.SwnModflow.set_reach_data_from_array" title="swn.modflow.SwnModflow.set_reach_data_from_array"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_reach_data_from_array</span></code></a>(name, array)</p></td>
 <td><p>Set reach data from an array that matches the model (nrow, ncol).</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="swn.modflow.SwnModflow.set_reach_data_from_segments.html#swn.modflow.SwnModflow.set_reach_data_from_segments" title="swn.modflow.SwnModflow.set_reach_data_from_segments"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_reach_data_from_segments</span></code></a>(name, value[, ...])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="swn.modflow.SwnModflow.set_reach_data_from_segments.html#swn.modflow.SwnModflow.set_reach_data_from_segments" title="swn.modflow.SwnModflow.set_reach_data_from_segments"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_reach_data_from_segments</span></code></a>(name, value[, ...])</p></td>
 <td><p>Set reach data based on segment series (or scalar).</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="swn.modflow.SwnModflow.set_reach_slope.html#swn.modflow.SwnModflow.set_reach_slope" title="swn.modflow.SwnModflow.set_reach_slope"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_reach_slope</span></code></a>([method, min_slope])</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="swn.modflow.SwnModflow.set_reach_slope.html#swn.modflow.SwnModflow.set_reach_slope" title="swn.modflow.SwnModflow.set_reach_slope"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_reach_slope</span></code></a>([method, min_slope])</p></td>
 <td><p>Set slope for reaches.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_seg_minincise</span></code>([minincise, max_str_z])</p></td>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_seg_minincise</span></code>([minincise, max_str_z])</p></td>
 <td><p>Set segment elevation to have the minimum incision from the top.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="swn.modflow.SwnModflow.set_segment_data_from_diversions.html#swn.modflow.SwnModflow.set_segment_data_from_diversions" title="swn.modflow.SwnModflow.set_segment_data_from_diversions"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_segment_data_from_diversions</span></code></a>(name, data)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="swn.modflow.SwnModflow.set_segment_data_from_diversions.html#swn.modflow.SwnModflow.set_segment_data_from_diversions" title="swn.modflow.SwnModflow.set_segment_data_from_diversions"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_segment_data_from_diversions</span></code></a>(name, data)</p></td>
 <td><p>Set segment data from a series indexed by diversions.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="swn.modflow.SwnModflow.set_segment_data_from_scalar.html#swn.modflow.SwnModflow.set_segment_data_from_scalar" title="swn.modflow.SwnModflow.set_segment_data_from_scalar"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_segment_data_from_scalar</span></code></a>(name, data[, which])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="swn.modflow.SwnModflow.set_segment_data_from_scalar.html#swn.modflow.SwnModflow.set_segment_data_from_scalar" title="swn.modflow.SwnModflow.set_segment_data_from_scalar"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_segment_data_from_scalar</span></code></a>(name, data[, which])</p></td>
 <td><p>Set segment data from a scalar.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="swn.modflow.SwnModflow.set_segment_data_from_segments.html#swn.modflow.SwnModflow.set_segment_data_from_segments" title="swn.modflow.SwnModflow.set_segment_data_from_segments"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_segment_data_from_segments</span></code></a>(name, data)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="swn.modflow.SwnModflow.set_segment_data_from_segments.html#swn.modflow.SwnModflow.set_segment_data_from_segments" title="swn.modflow.SwnModflow.set_segment_data_from_segments"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_segment_data_from_segments</span></code></a>(name, data)</p></td>
 <td><p>Set segment data from a series indexed by segments.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_segment_data_inflow</span></code>(data)</p></td>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_segment_data_inflow</span></code>(data)</p></td>
 <td><p>Set <a class="reference internal" href="swn.modflow.SwnModflow.segment_data.html#swn.modflow.SwnModflow.segment_data" title="swn.modflow.SwnModflow.segment_data"><code class="xref py py-attr docutils literal notranslate"><span class="pre">segment_data</span></code></a> inflow data upstream of the model.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_sfr_obj</span></code>(**kwds)</p></td>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_sfr_obj</span></code>(**kwds)</p></td>
 <td><p>Set MODFLOW SFR package data to flopy model.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_topbot_elevs_at_reaches</span></code>()</p></td>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_topbot_elevs_at_reaches</span></code>()</p></td>
 <td><p>Legacy method to add model top and bottom information to reaches.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">to_pickle</span></code>(path[, protocol])</p></td>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">to_pickle</span></code>(path[, protocol])</p></td>
 <td><p>Pickle (serialize) non-flopy object data to file.</p></td>
 </tr>
 </tbody>
@@ -868,43 +901,46 @@
 <tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">reconcile_reach_strtop</span></code>()</p></td>
 <td><p>Recalculate reach strtop elevations after moving segment elevations.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_forward_segs</span></code>([min_slope])</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="swn.modflow.SwnModflow.route_reaches.html#swn.modflow.SwnModflow.route_reaches" title="swn.modflow.SwnModflow.route_reaches"><code class="xref py py-obj docutils literal notranslate"><span class="pre">route_reaches</span></code></a>(start, end, *[, allow_indirect])</p></td>
+<td><p>Return a list of reach identifiers that connect a pair of reaches.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_forward_segs</span></code>([min_slope])</p></td>
 <td><p>Set minimum slope in forwards direction.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_outseg_elev_for_seg</span></code>(seg)</p></td>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_outseg_elev_for_seg</span></code>(seg)</p></td>
 <td><p>Set outseg elevation for segment.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="swn.modflow.SwnModflow.set_reach_data_from_array.html#swn.modflow.SwnModflow.set_reach_data_from_array" title="swn.modflow.SwnModflow.set_reach_data_from_array"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_reach_data_from_array</span></code></a>(name, array)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="swn.modflow.SwnModflow.set_reach_data_from_array.html#swn.modflow.SwnModflow.set_reach_data_from_array" title="swn.modflow.SwnModflow.set_reach_data_from_array"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_reach_data_from_array</span></code></a>(name, array)</p></td>
 <td><p>Set reach data from an array that matches the model (nrow, ncol).</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="swn.modflow.SwnModflow.set_reach_data_from_segments.html#swn.modflow.SwnModflow.set_reach_data_from_segments" title="swn.modflow.SwnModflow.set_reach_data_from_segments"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_reach_data_from_segments</span></code></a>(name, value[, ...])</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="swn.modflow.SwnModflow.set_reach_data_from_segments.html#swn.modflow.SwnModflow.set_reach_data_from_segments" title="swn.modflow.SwnModflow.set_reach_data_from_segments"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_reach_data_from_segments</span></code></a>(name, value[, ...])</p></td>
 <td><p>Set reach data based on segment series (or scalar).</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="swn.modflow.SwnModflow.set_reach_slope.html#swn.modflow.SwnModflow.set_reach_slope" title="swn.modflow.SwnModflow.set_reach_slope"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_reach_slope</span></code></a>([method, min_slope])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="swn.modflow.SwnModflow.set_reach_slope.html#swn.modflow.SwnModflow.set_reach_slope" title="swn.modflow.SwnModflow.set_reach_slope"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_reach_slope</span></code></a>([method, min_slope])</p></td>
 <td><p>Set slope for reaches.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_seg_minincise</span></code>([minincise, max_str_z])</p></td>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_seg_minincise</span></code>([minincise, max_str_z])</p></td>
 <td><p>Set segment elevation to have the minimum incision from the top.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="swn.modflow.SwnModflow.set_segment_data_from_diversions.html#swn.modflow.SwnModflow.set_segment_data_from_diversions" title="swn.modflow.SwnModflow.set_segment_data_from_diversions"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_segment_data_from_diversions</span></code></a>(name, data)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="swn.modflow.SwnModflow.set_segment_data_from_diversions.html#swn.modflow.SwnModflow.set_segment_data_from_diversions" title="swn.modflow.SwnModflow.set_segment_data_from_diversions"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_segment_data_from_diversions</span></code></a>(name, data)</p></td>
 <td><p>Set segment data from a series indexed by diversions.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="swn.modflow.SwnModflow.set_segment_data_from_scalar.html#swn.modflow.SwnModflow.set_segment_data_from_scalar" title="swn.modflow.SwnModflow.set_segment_data_from_scalar"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_segment_data_from_scalar</span></code></a>(name, data[, which])</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="swn.modflow.SwnModflow.set_segment_data_from_scalar.html#swn.modflow.SwnModflow.set_segment_data_from_scalar" title="swn.modflow.SwnModflow.set_segment_data_from_scalar"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_segment_data_from_scalar</span></code></a>(name, data[, which])</p></td>
 <td><p>Set segment data from a scalar.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="swn.modflow.SwnModflow.set_segment_data_from_segments.html#swn.modflow.SwnModflow.set_segment_data_from_segments" title="swn.modflow.SwnModflow.set_segment_data_from_segments"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_segment_data_from_segments</span></code></a>(name, data)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="swn.modflow.SwnModflow.set_segment_data_from_segments.html#swn.modflow.SwnModflow.set_segment_data_from_segments" title="swn.modflow.SwnModflow.set_segment_data_from_segments"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_segment_data_from_segments</span></code></a>(name, data)</p></td>
 <td><p>Set segment data from a series indexed by segments.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_segment_data_inflow</span></code>(data)</p></td>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_segment_data_inflow</span></code>(data)</p></td>
 <td><p>Set <a class="reference internal" href="swn.modflow.SwnModflow.segment_data.html#swn.modflow.SwnModflow.segment_data" title="swn.modflow.SwnModflow.segment_data"><code class="xref py py-attr docutils literal notranslate"><span class="pre">segment_data</span></code></a> inflow data upstream of the model.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_sfr_obj</span></code>(**kwds)</p></td>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_sfr_obj</span></code>(**kwds)</p></td>
 <td><p>Set MODFLOW SFR package data to flopy model.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_topbot_elevs_at_reaches</span></code>()</p></td>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_topbot_elevs_at_reaches</span></code>()</p></td>
 <td><p>Legacy method to add model top and bottom information to reaches.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">to_pickle</span></code>(path[, protocol])</p></td>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">to_pickle</span></code>(path[, protocol])</p></td>
 <td><p>Pickle (serialize) non-flopy object data to file.</p></td>
 </tr>
 </tbody>

@@ -27,6 +27,7 @@
       ~SwnMf6.plot
       ~SwnMf6.plot_profile
       ~SwnMf6.plot_reaches_vs_model
+      ~SwnMf6.route_reaches
       ~SwnMf6.set_reach_data_from_array
       ~SwnMf6.set_reach_data_from_segments
       ~SwnMf6.set_reach_slope

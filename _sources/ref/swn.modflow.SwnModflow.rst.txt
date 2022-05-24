@@ -34,6 +34,7 @@
       ~SwnModflow.plot_reaches_above
       ~SwnModflow.plot_reaches_vs_model
       ~SwnModflow.reconcile_reach_strtop
+      ~SwnModflow.route_reaches
       ~SwnModflow.set_forward_segs
       ~SwnModflow.set_outseg_elev_for_seg
       ~SwnModflow.set_reach_data_from_array

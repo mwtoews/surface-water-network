@@ -6,7 +6,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
 
-    <title>swn.modflow.SwnMf6.model &#8212; Surface water network 2019 documentation</title>
+    <title>swn.modflow.SwnModflow.route_reaches &#8212; Surface water network 2019 documentation</title>
     
   <!-- Loaded before other Sphinx assets -->
   <link href="../_static/styles/theme.css?digest=1999514e3f237ded88cf" rel="stylesheet">
@@ -32,8 +32,8 @@
     <script src="../_static/doctools.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="swn.modflow.SwnMf6.segments" href="swn.modflow.SwnMf6.segments.html" />
-    <link rel="prev" title="swn.modflow.SwnMf6.set_reach_slope" href="swn.modflow.SwnMf6.set_reach_slope.html" />
+    <link rel="next" title="swn.modflow.SwnModflow.set_reach_data_from_array" href="swn.modflow.SwnModflow.set_reach_data_from_array.html" />
+    <link rel="prev" title="swn.modflow.SwnModflow.new_segment_data" href="swn.modflow.SwnModflow.new_segment_data.html" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="docsearch:language" content="None">
     
@@ -327,26 +327,26 @@
    </li>
   </ul>
  </li>
- <li class="toctree-l1 has-children">
+ <li class="toctree-l1 current active has-children">
   <a class="reference internal" href="../swnmodflow.html">
    SwnModflow
   </a>
-  <input class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" type="checkbox"/>
+  <input checked="" class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" type="checkbox"/>
   <label for="toctree-checkbox-3">
    <i class="fas fa-chevron-down">
    </i>
   </label>
-  <ul>
-   <li class="toctree-l2 has-children">
+  <ul class="current">
+   <li class="toctree-l2 current active has-children">
     <a class="reference internal" href="swn.modflow.SwnModflow.html">
      swn.modflow.SwnModflow
     </a>
-    <input class="toctree-checkbox" id="toctree-checkbox-4" name="toctree-checkbox-4" type="checkbox"/>
+    <input checked="" class="toctree-checkbox" id="toctree-checkbox-4" name="toctree-checkbox-4" type="checkbox"/>
     <label for="toctree-checkbox-4">
      <i class="fas fa-chevron-down">
      </i>
     </label>
-    <ul>
+    <ul class="current">
      <li class="toctree-l3">
       <a class="reference internal" href="swn.modflow.SwnModflow.default_segment_data.html">
        swn.modflow.SwnModflow.default_segment_data
@@ -367,8 +367,8 @@
        swn.modflow.SwnModflow.new_segment_data
       </a>
      </li>
-     <li class="toctree-l3">
-      <a class="reference internal" href="swn.modflow.SwnModflow.route_reaches.html">
+     <li class="toctree-l3 current active">
+      <a class="current reference internal" href="#">
        swn.modflow.SwnModflow.route_reaches
       </a>
      </li>
@@ -484,23 +484,23 @@
      swn.modflow.SwnModflow.set_segment_data_from_diversions
     </a>
    </li>
-   <li class="toctree-l2">
-    <a class="reference internal" href="swn.modflow.SwnModflow.route_reaches.html">
+   <li class="toctree-l2 current active">
+    <a class="current reference internal" href="#">
      swn.modflow.SwnModflow.route_reaches
     </a>
    </li>
   </ul>
  </li>
- <li class="toctree-l1 current active has-children">
+ <li class="toctree-l1 has-children">
   <a class="reference internal" href="../swnmf6.html">
    SwnMf6
   </a>
-  <input checked="" class="toctree-checkbox" id="toctree-checkbox-5" name="toctree-checkbox-5" type="checkbox"/>
+  <input class="toctree-checkbox" id="toctree-checkbox-5" name="toctree-checkbox-5" type="checkbox"/>
   <label for="toctree-checkbox-5">
    <i class="fas fa-chevron-down">
    </i>
   </label>
-  <ul class="current">
+  <ul>
    <li class="toctree-l2 has-children">
     <a class="reference internal" href="swn.modflow.SwnMf6.html">
      swn.modflow.SwnMf6
@@ -553,8 +553,8 @@
      swn.modflow.SwnMf6.from_pickle
     </a>
    </li>
-   <li class="toctree-l2 current active">
-    <a class="current reference internal" href="#">
+   <li class="toctree-l2">
+    <a class="reference internal" href="swn.modflow.SwnMf6.model.html">
      swn.modflow.SwnMf6.model
     </a>
    </li>
@@ -678,21 +678,74 @@
               
               <div>
                 
-  <section id="swn-modflow-swnmf6-model">
-<h1>swn.modflow.SwnMf6.model<a class="headerlink" href="#swn-modflow-swnmf6-model" title="Permalink to this headline">#</a></h1>
-<dl class="py property">
-<dt class="sig sig-object py" id="swn.modflow.SwnMf6.model">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">SwnMf6.</span></span><span class="sig-name descname"><span class="pre">model</span></span><a class="headerlink" href="#swn.modflow.SwnMf6.model" title="Permalink to this definition">#</a></dt>
-<dd><p>Flopy model object.</p>
-<p>This propery can be set more than once, but time and most grid
-properties must match. Setting this method also generates
-<code class="docutils literal notranslate"><span class="pre">time_index</span></code> and <code class="docutils literal notranslate"><span class="pre">grid_cells</span></code> attributes from the model.</p>
-<div class="admonition seealso">
-<p class="admonition-title">See also</p>
-<dl class="simple">
-<dt><a class="reference internal" href="swn.modflow.SwnMf6.from_pickle.html#swn.modflow.SwnMf6.from_pickle" title="swn.modflow.SwnMf6.from_pickle"><code class="xref py py-obj docutils literal notranslate"><span class="pre">from_pickle</span></code></a></dt><dd><p>Read object from file.</p>
+  <section id="swn-modflow-swnmodflow-route-reaches">
+<h1>swn.modflow.SwnModflow.route_reaches<a class="headerlink" href="#swn-modflow-swnmodflow-route-reaches" title="Permalink to this headline">#</a></h1>
+<dl class="py method">
+<dt class="sig sig-object py" id="swn.modflow.SwnModflow.route_reaches">
+<span class="sig-prename descclassname"><span class="pre">SwnModflow.</span></span><span class="sig-name descname"><span class="pre">route_reaches</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">start</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">end</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">allow_indirect</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#swn.modflow.SwnModflow.route_reaches" title="Permalink to this definition">#</a></dt>
+<dd><p>Return a list of reach identifiers that connect a pair of reaches.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>start, end</strong><span class="classifier">any</span></dt><dd><p>Start and end reach identifiers (reachID) used by FloPy.</p>
+</dd>
+<dt><strong>allow_indirect</strong><span class="classifier">bool, default False</span></dt><dd><p>If True, allow the route to go downstream from start to a
+confluence, then route upstream to end. Defalut False allows
+only a direct route along a single direction up or down.</p>
 </dd>
 </dl>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><dl class="simple">
+<dt>list</dt><dd></dd>
+</dl>
+</dd>
+<dt class="field-odd">Raises</dt>
+<dd class="field-odd"><dl class="simple">
+<dt>IndexError</dt><dd><p>If start and/or end reach identifiers are not valid.</p>
+</dd>
+<dt>ConnecionError</dt><dd><p>If start and end reach identifiers do not connect.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">flopy</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">swn</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">lines</span> <span class="o">=</span> <span class="n">swn</span><span class="o">.</span><span class="n">spatial</span><span class="o">.</span><span class="n">wkt_to_geoseries</span><span class="p">([</span>
+<span class="gp">... </span>   <span class="s2">&quot;LINESTRING (60 100, 60  80)&quot;</span><span class="p">,</span>
+<span class="gp">... </span>   <span class="s2">&quot;LINESTRING (40 130, 60 100)&quot;</span><span class="p">,</span>
+<span class="gp">... </span>   <span class="s2">&quot;LINESTRING (70 130, 60 100)&quot;</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">lines</span><span class="o">.</span><span class="n">index</span> <span class="o">+=</span> <span class="mi">100</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">n</span> <span class="o">=</span> <span class="n">swn</span><span class="o">.</span><span class="n">SurfaceWaterNetwork</span><span class="o">.</span><span class="n">from_lines</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">m</span> <span class="o">=</span> <span class="n">flopy</span><span class="o">.</span><span class="n">modflow</span><span class="o">.</span><span class="n">Modflow</span><span class="p">(</span><span class="n">version</span><span class="o">=</span><span class="s2">&quot;mf2005&quot;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">_</span> <span class="o">=</span> <span class="n">flopy</span><span class="o">.</span><span class="n">modflow</span><span class="o">.</span><span class="n">ModflowDis</span><span class="p">(</span>
+<span class="gp">... </span>    <span class="n">m</span><span class="p">,</span> <span class="n">nrow</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">ncol</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">delr</span><span class="o">=</span><span class="mf">20.0</span><span class="p">,</span> <span class="n">delc</span><span class="o">=</span><span class="mf">20.0</span><span class="p">,</span> <span class="n">xul</span><span class="o">=</span><span class="mf">30.0</span><span class="p">,</span> <span class="n">yul</span><span class="o">=</span><span class="mf">130.0</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="n">top</span><span class="o">=</span><span class="mf">15.0</span><span class="p">,</span> <span class="n">botm</span><span class="o">=</span><span class="mf">10.0</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">_</span> <span class="o">=</span> <span class="n">flopy</span><span class="o">.</span><span class="n">modflow</span><span class="o">.</span><span class="n">ModflowBas</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">nm</span> <span class="o">=</span> <span class="n">swn</span><span class="o">.</span><span class="n">modflow</span><span class="o">.</span><span class="n">SwnModflow</span><span class="o">.</span><span class="n">from_swn_flopy</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">m</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">nm</span><span class="o">.</span><span class="n">reaches</span><span class="p">[[</span><span class="s2">&quot;iseg&quot;</span><span class="p">,</span> <span class="s2">&quot;ireach&quot;</span><span class="p">,</span> <span class="s2">&quot;i&quot;</span><span class="p">,</span> <span class="s2">&quot;j&quot;</span><span class="p">,</span> <span class="s2">&quot;segnum&quot;</span><span class="p">]]</span>
+<span class="go">         iseg  ireach  i  j  segnum</span>
+<span class="go">reachID                            </span>
+<span class="go">1           1       1  0  0     101</span>
+<span class="go">2           1       2  0  1     101</span>
+<span class="go">3           1       3  1  1     101</span>
+<span class="go">4           2       1  0  1     102</span>
+<span class="go">5           2       2  1  1     102</span>
+<span class="go">6           3       1  1  1     100</span>
+<span class="go">7           3       2  2  1     100</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">sel</span> <span class="o">=</span> <span class="n">nm</span><span class="o">.</span><span class="n">route_reaches</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">7</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">sel</span>
+<span class="go">[1, 2, 3, 6, 7]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">nm</span><span class="o">.</span><span class="n">reaches</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">sel</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;iseg&quot;</span><span class="p">,</span> <span class="s2">&quot;ireach&quot;</span><span class="p">,</span> <span class="s2">&quot;i&quot;</span><span class="p">,</span> <span class="s2">&quot;j&quot;</span><span class="p">,</span> <span class="s2">&quot;rchlen&quot;</span><span class="p">]]</span>
+<span class="go">         iseg  ireach  i  j     rchlen</span>
+<span class="go">reachID                               </span>
+<span class="go">1           1       1  0  0  18.027756</span>
+<span class="go">2           1       2  0  1   6.009252</span>
+<span class="go">3           1       3  1  1  12.018504</span>
+<span class="go">6           3       1  1  1  10.000000</span>
+<span class="go">7           3       2  2  1  10.000000</span>
+</pre></div>
 </div>
 </dd></dl>
 
@@ -704,17 +757,17 @@ properties must match. Setting this method also generates
               
               <!-- Previous / next buttons -->
 <div class='prev-next-area'>
-    <a class='left-prev' id="prev-link" href="swn.modflow.SwnMf6.set_reach_slope.html" title="previous page">
+    <a class='left-prev' id="prev-link" href="swn.modflow.SwnModflow.new_segment_data.html" title="previous page">
         <i class="fas fa-angle-left"></i>
         <div class="prev-next-info">
             <p class="prev-next-subtitle">previous</p>
-            <p class="prev-next-title">swn.modflow.SwnMf6.set_reach_slope</p>
+            <p class="prev-next-title">swn.modflow.SwnModflow.new_segment_data</p>
         </div>
     </a>
-    <a class='right-next' id="next-link" href="swn.modflow.SwnMf6.segments.html" title="next page">
+    <a class='right-next' id="next-link" href="swn.modflow.SwnModflow.set_reach_data_from_array.html" title="next page">
     <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">swn.modflow.SwnMf6.segments</p>
+        <p class="prev-next-title">swn.modflow.SwnModflow.set_reach_data_from_array</p>
     </div>
     <i class="fas fa-angle-right"></i>
     </a>

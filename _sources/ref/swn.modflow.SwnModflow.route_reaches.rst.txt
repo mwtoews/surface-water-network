@@ -1,0 +1,6 @@
+﻿swn.modflow.SwnModflow.route\_reaches
+=====================================
+
+.. currentmodule:: swn.modflow
+
+.. automethod:: SwnModflow.route_reaches

@@ -6,7 +6,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
 
-    <title>swn.modflow.SwnMf6.model &#8212; Surface water network 2019 documentation</title>
+    <title>swn.SurfaceWaterNetwork.route_segnums &#8212; Surface water network 2019 documentation</title>
     
   <!-- Loaded before other Sphinx assets -->
   <link href="../_static/styles/theme.css?digest=1999514e3f237ded88cf" rel="stylesheet">
@@ -32,8 +32,8 @@
     <script src="../_static/doctools.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="swn.modflow.SwnMf6.segments" href="swn.modflow.SwnMf6.segments.html" />
-    <link rel="prev" title="swn.modflow.SwnMf6.set_reach_slope" href="swn.modflow.SwnMf6.set_reach_slope.html" />
+    <link rel="next" title="swn.SurfaceWaterNetwork.segments_series" href="swn.SurfaceWaterNetwork.segments_series.html" />
+    <link rel="prev" title="swn.SurfaceWaterNetwork.query" href="swn.SurfaceWaterNetwork.query.html" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="docsearch:language" content="None">
     
@@ -123,26 +123,26 @@
 </form><nav class="bd-links" id="bd-docs-nav" aria-label="Main navigation">
   <div class="bd-toc-item active">
     <ul class="current nav bd-sidenav">
- <li class="toctree-l1 has-children">
+ <li class="toctree-l1 current active has-children">
   <a class="reference internal" href="../swn.html">
    SurfaceWaterNetwork
   </a>
-  <input class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" type="checkbox"/>
+  <input checked="" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" type="checkbox"/>
   <label for="toctree-checkbox-1">
    <i class="fas fa-chevron-down">
    </i>
   </label>
-  <ul>
-   <li class="toctree-l2 has-children">
+  <ul class="current">
+   <li class="toctree-l2 current active has-children">
     <a class="reference internal" href="swn.SurfaceWaterNetwork.html">
      swn.SurfaceWaterNetwork
     </a>
-    <input class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" type="checkbox"/>
+    <input checked="" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" type="checkbox"/>
     <label for="toctree-checkbox-2">
      <i class="fas fa-chevron-down">
      </i>
     </label>
-    <ul>
+    <ul class="current">
      <li class="toctree-l3">
       <a class="reference internal" href="swn.SurfaceWaterNetwork.accumulate_values.html">
        swn.SurfaceWaterNetwork.accumulate_values
@@ -198,8 +198,8 @@
        swn.SurfaceWaterNetwork.query
       </a>
      </li>
-     <li class="toctree-l3">
-      <a class="reference internal" href="swn.SurfaceWaterNetwork.route_segnums.html">
+     <li class="toctree-l3 current active">
+      <a class="current reference internal" href="#">
        swn.SurfaceWaterNetwork.route_segnums
       </a>
      </li>
@@ -280,8 +280,8 @@
      swn.SurfaceWaterNetwork.accumulate_values
     </a>
    </li>
-   <li class="toctree-l2">
-    <a class="reference internal" href="swn.SurfaceWaterNetwork.route_segnums.html">
+   <li class="toctree-l2 current active">
+    <a class="current reference internal" href="#">
      swn.SurfaceWaterNetwork.route_segnums
     </a>
    </li>
@@ -491,16 +491,16 @@
    </li>
   </ul>
  </li>
- <li class="toctree-l1 current active has-children">
+ <li class="toctree-l1 has-children">
   <a class="reference internal" href="../swnmf6.html">
    SwnMf6
   </a>
-  <input checked="" class="toctree-checkbox" id="toctree-checkbox-5" name="toctree-checkbox-5" type="checkbox"/>
+  <input class="toctree-checkbox" id="toctree-checkbox-5" name="toctree-checkbox-5" type="checkbox"/>
   <label for="toctree-checkbox-5">
    <i class="fas fa-chevron-down">
    </i>
   </label>
-  <ul class="current">
+  <ul>
    <li class="toctree-l2 has-children">
     <a class="reference internal" href="swn.modflow.SwnMf6.html">
      swn.modflow.SwnMf6
@@ -553,8 +553,8 @@
      swn.modflow.SwnMf6.from_pickle
     </a>
    </li>
-   <li class="toctree-l2 current active">
-    <a class="current reference internal" href="#">
+   <li class="toctree-l2">
+    <a class="reference internal" href="swn.modflow.SwnMf6.model.html">
      swn.modflow.SwnMf6.model
     </a>
    </li>
@@ -678,21 +678,67 @@
               
               <div>
                 
-  <section id="swn-modflow-swnmf6-model">
-<h1>swn.modflow.SwnMf6.model<a class="headerlink" href="#swn-modflow-swnmf6-model" title="Permalink to this headline">#</a></h1>
-<dl class="py property">
-<dt class="sig sig-object py" id="swn.modflow.SwnMf6.model">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">SwnMf6.</span></span><span class="sig-name descname"><span class="pre">model</span></span><a class="headerlink" href="#swn.modflow.SwnMf6.model" title="Permalink to this definition">#</a></dt>
-<dd><p>Flopy model object.</p>
-<p>This propery can be set more than once, but time and most grid
-properties must match. Setting this method also generates
-<code class="docutils literal notranslate"><span class="pre">time_index</span></code> and <code class="docutils literal notranslate"><span class="pre">grid_cells</span></code> attributes from the model.</p>
+  <section id="swn-surfacewaternetwork-route-segnums">
+<h1>swn.SurfaceWaterNetwork.route_segnums<a class="headerlink" href="#swn-surfacewaternetwork-route-segnums" title="Permalink to this headline">#</a></h1>
+<dl class="py method">
+<dt class="sig sig-object py" id="swn.SurfaceWaterNetwork.route_segnums">
+<span class="sig-prename descclassname"><span class="pre">SurfaceWaterNetwork.</span></span><span class="sig-name descname"><span class="pre">route_segnums</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">start</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">end</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">allow_indirect</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#swn.SurfaceWaterNetwork.route_segnums" title="Permalink to this definition">#</a></dt>
+<dd><p>Return a list of segnums that connect a pair of segnums.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>start, end</strong><span class="classifier">any</span></dt><dd><p>Start and end segnums.</p>
+</dd>
+<dt><strong>allow_indirect</strong><span class="classifier">bool, default False</span></dt><dd><p>If True, allow the route to go downstream from start to a
+confluence, then route upstream to end. Defalut False allows
+only a a direct route along a single direction up or down.</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><dl class="simple">
+<dt>list</dt><dd></dd>
+</dl>
+</dd>
+<dt class="field-odd">Raises</dt>
+<dd class="field-odd"><dl class="simple">
+<dt>IndexError</dt><dd><p>If start and/or end segnums are not valid.</p>
+</dd>
+<dt>ConnecionError</dt><dd><p>If start and end segnums do not connect.</p>
+</dd>
+</dl>
+</dd>
+</dl>
 <div class="admonition seealso">
 <p class="admonition-title">See also</p>
 <dl class="simple">
-<dt><a class="reference internal" href="swn.modflow.SwnMf6.from_pickle.html#swn.modflow.SwnMf6.from_pickle" title="swn.modflow.SwnMf6.from_pickle"><code class="xref py py-obj docutils literal notranslate"><span class="pre">from_pickle</span></code></a></dt><dd><p>Read object from file.</p>
+<dt><a class="reference internal" href="swn.SurfaceWaterNetwork.query.html#swn.SurfaceWaterNetwork.query" title="swn.SurfaceWaterNetwork.query"><code class="xref py py-obj docutils literal notranslate"><span class="pre">query</span></code></a></dt><dd><p>Query multiple segnums up and downstream.</p>
 </dd>
 </dl>
+</div>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">swn</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">shapely</span> <span class="kn">import</span> <span class="n">wkt</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">lines</span> <span class="o">=</span> <span class="n">geopandas</span><span class="o">.</span><span class="n">GeoSeries</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">wkt</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="s1">&#39;&#39;&#39;</span><span class="se">\</span>
+<span class="gp">... </span><span class="s1">MULTILINESTRING(</span>
+<span class="gp">... </span><span class="s1">    (380 490, 370 420), (300 460, 370 420), (370 420, 420 330),</span>
+<span class="gp">... </span><span class="s1">    (190 250, 280 270), (225 180, 280 270), (280 270, 420 330),</span>
+<span class="gp">... </span><span class="s1">    (420 330, 584 250), (520 220, 584 250), (584 250, 710 160),</span>
+<span class="gp">... </span><span class="s1">    (740 270, 710 160), (735 350, 740 270), (880 320, 740 270),</span>
+<span class="gp">... </span><span class="s1">    (925 370, 880 320), (974 300, 880 320), (760 460, 735 350),</span>
+<span class="gp">... </span><span class="s1">    (650 430, 735 350), (710 160, 770 100), (700  90, 770 100),</span>
+<span class="gp">... </span><span class="s1">    (770 100, 820  40))&#39;&#39;&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">geoms</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">lines</span><span class="o">.</span><span class="n">index</span> <span class="o">+=</span> <span class="mi">100</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">n</span> <span class="o">=</span> <span class="n">swn</span><span class="o">.</span><span class="n">SurfaceWaterNetwork</span><span class="o">.</span><span class="n">from_lines</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">n</span><span class="o">.</span><span class="n">route_segnums</span><span class="p">(</span><span class="mi">101</span><span class="p">,</span> <span class="mi">116</span><span class="p">)</span>
+<span class="go">[101, 102, 106, 108, 116]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">n</span><span class="o">.</span><span class="n">route_segnums</span><span class="p">(</span><span class="mi">101</span><span class="p">,</span> <span class="mi">111</span><span class="p">)</span>
+<span class="gt">Traceback (most recent call last):</span>
+  File <span class="nb">&quot;&lt;stdin&gt;&quot;</span>, line <span class="m">1</span>, in <span class="n">&lt;module&gt;</span>
+<span class="gr">ConnectionError</span>: <span class="n">101 does not connect to 111</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">n</span><span class="o">.</span><span class="n">route_segnums</span><span class="p">(</span><span class="mi">101</span><span class="p">,</span> <span class="mi">111</span><span class="p">,</span> <span class="n">allow_indirect</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="go">[101, 102, 106, 108, 109, 111]</span>
+</pre></div>
 </div>
 </dd></dl>
 
@@ -704,17 +750,17 @@ properties must match. Setting this method also generates
               
               <!-- Previous / next buttons -->
 <div class='prev-next-area'>
-    <a class='left-prev' id="prev-link" href="swn.modflow.SwnMf6.set_reach_slope.html" title="previous page">
+    <a class='left-prev' id="prev-link" href="swn.SurfaceWaterNetwork.query.html" title="previous page">
         <i class="fas fa-angle-left"></i>
         <div class="prev-next-info">
             <p class="prev-next-subtitle">previous</p>
-            <p class="prev-next-title">swn.modflow.SwnMf6.set_reach_slope</p>
+            <p class="prev-next-title">swn.SurfaceWaterNetwork.query</p>
         </div>
     </a>
-    <a class='right-next' id="next-link" href="swn.modflow.SwnMf6.segments.html" title="next page">
+    <a class='right-next' id="next-link" href="swn.SurfaceWaterNetwork.segments_series.html" title="next page">
     <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">swn.modflow.SwnMf6.segments</p>
+        <p class="prev-next-title">swn.SurfaceWaterNetwork.segments_series</p>
     </div>
     <i class="fas fa-angle-right"></i>
     </a>

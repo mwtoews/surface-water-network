@@ -26,6 +26,7 @@
       ~SurfaceWaterNetwork.plot
       ~SurfaceWaterNetwork.query
       ~SurfaceWaterNetwork.remove
+      ~SurfaceWaterNetwork.route_segnums
       ~SurfaceWaterNetwork.segments_series
       ~SurfaceWaterNetwork.set_diversions
       ~SurfaceWaterNetwork.to_pickle

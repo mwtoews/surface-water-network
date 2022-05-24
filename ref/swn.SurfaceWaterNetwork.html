@@ -199,6 +199,11 @@
       </a>
      </li>
      <li class="toctree-l3">
+      <a class="reference internal" href="swn.SurfaceWaterNetwork.route_segnums.html">
+       swn.SurfaceWaterNetwork.route_segnums
+      </a>
+     </li>
+     <li class="toctree-l3">
       <a class="reference internal" href="swn.SurfaceWaterNetwork.segments_series.html">
        swn.SurfaceWaterNetwork.segments_series
       </a>
@@ -273,6 +278,11 @@
    <li class="toctree-l2">
     <a class="reference internal" href="swn.SurfaceWaterNetwork.accumulate_values.html">
      swn.SurfaceWaterNetwork.accumulate_values
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="swn.SurfaceWaterNetwork.route_segnums.html">
+     swn.SurfaceWaterNetwork.route_segnums
     </a>
    </li>
    <li class="toctree-l2">
@@ -355,6 +365,11 @@
      <li class="toctree-l3">
       <a class="reference internal" href="swn.modflow.SwnModflow.new_segment_data.html">
        swn.modflow.SwnModflow.new_segment_data
+      </a>
+     </li>
+     <li class="toctree-l3">
+      <a class="reference internal" href="swn.modflow.SwnModflow.route_reaches.html">
+       swn.modflow.SwnModflow.route_reaches
       </a>
      </li>
      <li class="toctree-l3">
@@ -469,6 +484,11 @@
      swn.modflow.SwnModflow.set_segment_data_from_diversions
     </a>
    </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="swn.modflow.SwnModflow.route_reaches.html">
+     swn.modflow.SwnModflow.route_reaches
+    </a>
+   </li>
   </ul>
  </li>
  <li class="toctree-l1 has-children">
@@ -499,6 +519,11 @@
      <li class="toctree-l3">
       <a class="reference internal" href="swn.modflow.SwnMf6.from_swn_flopy.html">
        swn.modflow.SwnMf6.from_swn_flopy
+      </a>
+     </li>
+     <li class="toctree-l3">
+      <a class="reference internal" href="swn.modflow.SwnMf6.route_reaches.html">
+       swn.modflow.SwnMf6.route_reaches
       </a>
      </li>
      <li class="toctree-l3">
@@ -561,6 +586,11 @@
    <li class="toctree-l2">
     <a class="reference internal" href="swn.modflow.SwnMf6.set_reach_slope.html">
      swn.modflow.SwnMf6.set_reach_slope
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="swn.modflow.SwnMf6.route_reaches.html">
+     swn.modflow.SwnMf6.route_reaches
     </a>
    </li>
   </ul>
@@ -712,13 +742,16 @@ usually 0. This number is not part of segments.index.</p>
 <tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">remove</span></code>([condition, segnums])</p></td>
 <td><p>Remove segments (and catchments).</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.segments_series.html#swn.SurfaceWaterNetwork.segments_series" title="swn.SurfaceWaterNetwork.segments_series"><code class="xref py py-obj docutils literal notranslate"><span class="pre">segments_series</span></code></a>(value[, name])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.route_segnums.html#swn.SurfaceWaterNetwork.route_segnums" title="swn.SurfaceWaterNetwork.route_segnums"><code class="xref py py-obj docutils literal notranslate"><span class="pre">route_segnums</span></code></a>(start, end, *[, allow_indirect])</p></td>
+<td><p>Return a list of segnums that connect a pair of segnums.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.segments_series.html#swn.SurfaceWaterNetwork.segments_series" title="swn.SurfaceWaterNetwork.segments_series"><code class="xref py py-obj docutils literal notranslate"><span class="pre">segments_series</span></code></a>(value[, name])</p></td>
 <td><p>Generate a Series along the segments index.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_diversions</span></code>(diversions[, min_stream_order])</p></td>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_diversions</span></code>(diversions[, min_stream_order])</p></td>
 <td><p>Set surface water diversion locations.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.to_pickle.html#swn.SurfaceWaterNetwork.to_pickle" title="swn.SurfaceWaterNetwork.to_pickle"><code class="xref py py-obj docutils literal notranslate"><span class="pre">to_pickle</span></code></a>(path[, protocol])</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.to_pickle.html#swn.SurfaceWaterNetwork.to_pickle" title="swn.SurfaceWaterNetwork.to_pickle"><code class="xref py py-obj docutils literal notranslate"><span class="pre">to_pickle</span></code></a>(path[, protocol])</p></td>
 <td><p>Pickle (serialize) object to file.</p></td>
 </tr>
 </tbody>
@@ -789,13 +822,16 @@ segment number or ID.</p>
 <tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">remove</span></code>([condition, segnums])</p></td>
 <td><p>Remove segments (and catchments).</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.segments_series.html#swn.SurfaceWaterNetwork.segments_series" title="swn.SurfaceWaterNetwork.segments_series"><code class="xref py py-obj docutils literal notranslate"><span class="pre">segments_series</span></code></a>(value[, name])</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.route_segnums.html#swn.SurfaceWaterNetwork.route_segnums" title="swn.SurfaceWaterNetwork.route_segnums"><code class="xref py py-obj docutils literal notranslate"><span class="pre">route_segnums</span></code></a>(start, end, *[, allow_indirect])</p></td>
+<td><p>Return a list of segnums that connect a pair of segnums.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.segments_series.html#swn.SurfaceWaterNetwork.segments_series" title="swn.SurfaceWaterNetwork.segments_series"><code class="xref py py-obj docutils literal notranslate"><span class="pre">segments_series</span></code></a>(value[, name])</p></td>
 <td><p>Generate a Series along the segments index.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_diversions</span></code>(diversions[, min_stream_order])</p></td>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_diversions</span></code>(diversions[, min_stream_order])</p></td>
 <td><p>Set surface water diversion locations.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.to_pickle.html#swn.SurfaceWaterNetwork.to_pickle" title="swn.SurfaceWaterNetwork.to_pickle"><code class="xref py py-obj docutils literal notranslate"><span class="pre">to_pickle</span></code></a>(path[, protocol])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.to_pickle.html#swn.SurfaceWaterNetwork.to_pickle" title="swn.SurfaceWaterNetwork.to_pickle"><code class="xref py py-obj docutils literal notranslate"><span class="pre">to_pickle</span></code></a>(path[, protocol])</p></td>
 <td><p>Pickle (serialize) object to file.</p></td>
 </tr>
 </tbody>
