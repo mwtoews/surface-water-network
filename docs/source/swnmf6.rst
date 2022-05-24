@@ -33,3 +33,9 @@ Reach data generation
    SwnMf6.set_reach_data_from_segments
    SwnMf6.set_reach_slope
 
+Methods
+-------
+.. autosummary::
+   :toctree: ref/
+
+    SwnMf6.route_reaches

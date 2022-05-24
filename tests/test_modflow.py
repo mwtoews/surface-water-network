@@ -1541,3 +1541,32 @@ def test_pickle(tmp_path):
     nm3.to_pickle(tmp_path / "nm4.pickle")
     nm4 = swn.SwnModflow.from_pickle(tmp_path / "nm4.pickle", n, m)
     assert nm3 == nm4
+
+
+def test_route_reaches():
+    n1 = get_basic_swn(has_diversions=True)
+    lines2 = list(n1.segments.geometry)
+    lines2.append(wkt.loads("LINESTRING (40 90, 50 80)"))
+    n = swn.SurfaceWaterNetwork.from_lines(geopandas.GeoSeries(lines2))
+    m = get_basic_modflow(with_top=False)
+    nm = swn.SwnModflow.from_swn_flopy(n, m)
+    assert nm.route_reaches(8, 8) == [8]
+    assert nm.route_reaches(7, 8) == [7, 8]
+    assert nm.route_reaches(8, 7) == [8, 7]
+    assert nm.route_reaches(2, 7) == [2, 3, 7]
+    assert nm.route_reaches(7, 2) == [7, 3, 2]
+    assert nm.route_reaches(1, 7) == [1, 2, 3, 7]
+    assert nm.route_reaches(7, 1) == [7, 3, 2, 1]
+    assert nm.route_reaches(2, 4, allow_indirect=True) == [2, 3, 5, 4]
+    # errors
+    with pytest.raises(IndexError, match="invalid start reachID 0"):
+        nm.route_reaches(0, 1)
+    with pytest.raises(IndexError, match="invalid end reachID 0"):
+        nm.route_reaches(1, 0)
+    with pytest.raises(ConnectionError, match="1 does not connect to 4"):
+        nm.route_reaches(1, 4)
+    with pytest.raises(ConnectionError, match="reach networks are disjoint"):
+        nm.route_reaches(1, 6)
+    with pytest.raises(ConnectionError, match="reach networks are disjoint"):
+        nm.route_reaches(1, 6, allow_indirect=True)
+    # TODO: diversions?

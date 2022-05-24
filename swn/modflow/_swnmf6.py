@@ -1323,3 +1323,111 @@ class SwnMf6(SwnModflowBase):
                 self._reachbyreach_elevs(
                     minslope, minincise, minthick, fix_dis, d)
         return
+
+    def route_reaches(self, start, end, *, allow_indirect=False):
+        """Return a list of reach numbers that connect a pair of reaches.
+
+        Parameters
+        ----------
+        start, end : any
+            Start and end reach numbers (rno).
+        allow_indirect : bool, default False
+            If True, allow the route to go downstream from start to a
+            confluence, then route upstream to end. Defalut False allows
+            only a direct route along a single direction up or down.
+
+        Returns
+        -------
+        list
+
+        Raises
+        ------
+        IndexError
+            If start and/or end reach numbers are not valid.
+        ConnecionError
+            If start and end reach numbers do not connect.
+
+        Examples
+        --------
+        >>> import flopy
+        >>> import swn
+        >>> lines = swn.spatial.wkt_to_geoseries([
+        ...    "LINESTRING (60 100, 60  80)",
+        ...    "LINESTRING (40 130, 60 100)",
+        ...    "LINESTRING (70 130, 60 100)"])
+        >>> lines.index += 100
+        >>> n = swn.SurfaceWaterNetwork.from_lines(lines)
+        >>> sim = flopy.mf6.MFSimulation()
+        >>> _ = flopy.mf6.ModflowTdis(sim, nper=1, time_units="days")
+        >>> gwf = flopy.mf6.ModflowGwf(sim)
+        >>> _ = flopy.mf6.ModflowGwfdis(
+        ...     gwf, nrow=3, ncol=2, delr=20.0, delc=20.0, idomain=1,
+        ...     length_units="meters", xorigin=30.0, yorigin=70.0)
+        >>> nm = swn.SwnMf6.from_swn_flopy(n, gwf)
+        >>> nm.reaches[["iseg", "ireach", "to_rno", "from_rnos", "segnum"]]
+             iseg  ireach  to_rno from_rnos  segnum
+        rno                                        
+        1       1       1       2        {}     101
+        2       1       2       3       {1}     101
+        3       1       3       6       {2}     101
+        4       2       1       5        {}     102
+        5       2       2       6       {4}     102
+        6       3       1       7    {3, 5}     100
+        7       3       2       0       {6}     100
+        >>> nm.route_reaches(1, 7)
+        [1, 2, 3, 6, 7]
+        >>> nm.reaches.loc[nm.route_reaches(1, 7), ["i", "j", "rlen"]]
+             i  j       rlen
+        rno                 
+        1    0  0  18.027756
+        2    0  1   6.009252
+        3    1  1  12.018504
+        6    1  1  10.000000
+        7    2  1  10.000000
+        """  # noqa
+        if start not in self.reaches.index:
+            raise IndexError(f"invalid start rno {start}")
+        if end not in self.reaches.index:
+            raise IndexError(f"invalid end rno {end}")
+        if start == end:
+            return [start]
+        to_rnos = dict(self.reaches.loc[self.reaches["to_rno"] != 0, "to_rno"])
+
+        def go_downstream(rno):
+            yield rno
+            if rno in to_rnos:
+                yield from go_downstream(to_rnos[rno])
+
+        con1 = list(go_downstream(start))
+        try:
+            # start is upstream, end is downstream
+            return con1[:(con1.index(end) + 1)]
+        except ValueError:
+            pass
+        con2 = list(go_downstream(end))
+        set2 = set(con2)
+        set1 = set(con1)
+        if set1.issubset(set2):
+            # start is downstream, end is upstream
+            drop = set1.intersection(set2)
+            drop.remove(start)
+            while drop:
+                drop.remove(con2.pop(-1))
+            return list(reversed(con2))
+        common = list(set1.intersection(set2))
+        if not allow_indirect or not common:
+            msg = f"{start} does not connect to {end}"
+            if not common:
+                msg += " -- reach networks are disjoint"
+            raise ConnectionError(msg)
+        # find the most upstream common rno or "confluence"
+        rno = common.pop()
+        idx1 = con1.index(rno)
+        idx2 = con2.index(rno)
+        while common:
+            rno = common.pop()
+            tmp1 = con1.index(rno)
+            if tmp1 < idx1:
+                idx1 = tmp1
+                idx2 = con2.index(rno)
+        return con1[:idx1] + list(reversed(con2[:idx2]))

@@ -46,3 +46,9 @@ Segment data generation
    SwnModflow.set_segment_data_from_segments
    SwnModflow.set_segment_data_from_diversions
 
+Methods
+-------
+.. autosummary::
+   :toctree: ref/
+
+    SwnModflow.route_reaches
