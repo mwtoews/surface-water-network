@@ -273,3 +273,67 @@ def test_find_geom_in_swn_with_catchments(coastal_geom, coastal_swn_w_poly):
     b = r.geometry.apply(lambda x: Point(*x.coords[-1]))
     assert (b.distance(coastal_geom) > 0.0).all()
     assert (b.distance(seg_mls) < 1e-10).all()
+
+
+def test_find_location_pairs(coastal_points, coastal_swn):
+    loc_df = spatial.find_geom_in_swn(coastal_points, coastal_swn)
+    pairs = spatial.find_location_pairs(loc_df, coastal_swn)
+    assert pairs == {(1, 2), (2, 8), (3, 2), (5, 10), (6, 10), (7, 2), (10, 1)}
+    # use a subset of loc_df, as a DataFrame
+    sub_df = loc_df.loc[loc_df.dist_to_seg < 20, ["segnum", "seg_ndist"]]
+    pairs = spatial.find_location_pairs(sub_df, coastal_swn)
+    assert pairs == {(3, 8), (5, 8), (6, 8)}
+    # errors
+    with pytest.raises(TypeError, match="expected 'n' as an instance of Surf"):
+        spatial.find_location_pairs(loc_df, False)
+    with pytest.raises(TypeError, match="loc_df must be a GeoDataFrame or"):
+        spatial.find_location_pairs(loc_df.segnum, coastal_swn)
+    with pytest.raises(ValueError, match="loc_df must have 'segnum' column"):
+        spatial.find_location_pairs(loc_df[["method"]], coastal_swn)
+    with pytest.raises(ValueError, match="loc_df must have 'seg_ndist' colum"):
+        spatial.find_location_pairs(loc_df[["segnum"]], coastal_swn)
+    loc_df.segnum += 10
+    with pytest.raises(ValueError, match="loc_df has segnum values not foun"):
+        spatial.find_location_pairs(loc_df, coastal_swn)
+
+
+def test_location_pair_geoms(coastal_points, coastal_swn):
+    loc_df = spatial.find_geom_in_swn(coastal_points, coastal_swn)
+    pairs = spatial.find_location_pairs(loc_df, coastal_swn)
+    geoms = spatial.location_pair_geoms(pairs, loc_df, coastal_swn)
+    assert isinstance(geoms, dict)
+    assert set(geoms.keys()) == pairs
+    gs = geopandas.GeoSeries(geoms).sort_index()
+    assert list(gs.geom_type.unique()) == ["LineString"]
+    np.testing.assert_array_almost_equal(
+        gs.length.values,
+        [5930.74, 921.94, 3968.87, 3797.21, 6768.95, 8483.27, 279.65],
+        decimal=2
+    )
+    # use a subset of loc_df, as a DataFrame
+    sub_df = loc_df.loc[loc_df.dist_to_seg < 20, ["segnum", "seg_ndist"]]
+    pairs = spatial.find_location_pairs(sub_df, coastal_swn)
+    geoms = spatial.location_pair_geoms(pairs, loc_df, coastal_swn)
+    assert set(geoms.keys()) == pairs
+    gs = geopandas.GeoSeries(geoms).sort_index()
+    assert list(gs.geom_type.unique()) == ["LineString"]
+    np.testing.assert_array_almost_equal(
+        gs.length.values,
+        [4890.81221721, 10929.54403336, 13901.28305631]
+    )
+    # errors
+    with pytest.raises(TypeError, match="expected 'n' as an instance of Surf"):
+        spatial.location_pair_geoms(pairs, loc_df, False)
+    with pytest.raises(TypeError, match="loc_df must be a GeoDataFrame or"):
+        spatial.location_pair_geoms(pairs, loc_df.segnum, coastal_swn)
+    with pytest.raises(ValueError, match="loc_df must have 'segnum' column"):
+        spatial.location_pair_geoms(pairs, loc_df[["method"]], coastal_swn)
+    with pytest.raises(ValueError, match="loc_df must have 'seg_ndist' colum"):
+        spatial.location_pair_geoms(pairs, loc_df[["segnum"]], coastal_swn)
+    loc_df.segnum += 10
+    with pytest.raises(ValueError, match="loc_df has segnum values not found"):
+        spatial.location_pair_geoms(pairs, loc_df, coastal_swn)
+    n2 = swn.SurfaceWaterNetwork.from_lines(
+        coastal_swn.segments.geometry.iloc[0:4])
+    with pytest.raises(ValueError, match="loc_df has segnum values not found"):
+        spatial.location_pair_geoms(pairs, loc_df, n2)

@@ -2,13 +2,10 @@ Spatial methods
 ===============
 
 .. module:: swn.spatial
-
-Combine data
-------------
-
 .. autosummary::
    :toctree: ref/
 
-   find_segnum_in_swn
    find_geom_in_swn
+   find_location_pairs
+   location_pair_geoms
 
