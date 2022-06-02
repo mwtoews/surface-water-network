@@ -5,6 +5,7 @@ __all__ = [
     "wkt_to_dataframe", "wkt_to_geodataframe", "wkt_to_geoseries",
     "force_2d", "round_coords", "compare_crs", "get_crs",
     "find_segnum_in_swn", "find_geom_in_swn",
+    "find_location_pairs", "location_pair_geoms",
 ]
 
 from warnings import warn
@@ -457,3 +458,217 @@ def find_geom_in_swn(geom, n, override={}):
     res.set_geometry("link", drop=True, inplace=True)
     res["dist_to_seg"] = res[sel].length
     return res
+
+
+def find_location_pairs(loc_df, n):
+    r"""Find pairs of locations in a surface water network that are connected.
+
+    Parameters
+    ----------
+    loc_df : geopandas.GeoDataFrame or pandas.DataFrame
+        Location [geo] dataframe, from :py:meth:`find_geom_in_swn`.
+    n : SurfaceWaterNetwork
+        A surface water network to evaluate.
+
+    Returns
+    -------
+    set
+        tuple of location index (upstream, downstream).
+
+    See Also
+    --------
+    location_pair_geoms : Extract linestring geometry for location pairs.
+
+    Examples
+    --------
+    >>> import swn
+    >>> from shapely import wkt
+    >>> lines = geopandas.GeoSeries(list(wkt.loads('''\
+    ... MULTILINESTRING(
+    ...     (380 490, 370 420), (300 460, 370 420), (370 420, 420 330),
+    ...     (190 250, 280 270), (225 180, 280 270), (280 270, 420 330),
+    ...     (420 330, 584 250), (520 220, 584 250), (584 250, 710 160),
+    ...     (740 270, 710 160), (735 350, 740 270), (880 320, 740 270),
+    ...     (925 370, 880 320), (974 300, 880 320), (760 460, 735 350),
+    ...     (650 430, 735 350), (710 160, 770 100), (700  90, 770 100),
+    ...     (770 100, 820  40))''').geoms))
+    >>> lines.index += 100
+    >>> n = swn.SurfaceWaterNetwork.from_lines(lines)
+    >>> obs_gs = swn.spatial.wkt_to_geoseries([
+    ...    "POINT (370 400)",
+    ...    "POINT (720 230)",
+    ...    "POINT (780 70)",
+    ...    "POINT (606 256)",
+    ...    "POINT (690 170)"])
+    >>> obs_gs.index += 11
+    >>> obs_match = swn.spatial.find_geom_in_swn(obs_gs, n)
+    >>> obs_match[["segnum", "seg_ndist"]]
+        segnum  seg_ndist
+    11     102   0.169811
+    12     109   0.384615
+    13     118   0.377049
+    14     108   0.093093
+    15     108   0.857357
+    >>> pairs = swn.spatial.find_location_pairs(obs_match, n)
+    >>> sorted(pairs)
+    [(11, 14), (12, 13), (14, 15), (15, 13)]
+    """
+    from .core import SurfaceWaterNetwork
+
+    # Check inputs
+    if not isinstance(n, SurfaceWaterNetwork):
+        raise TypeError("expected 'n' as an instance of SurfaceWaterNetwork")
+    elif not isinstance(loc_df, (geopandas.GeoDataFrame, pd.DataFrame)):
+        raise TypeError("loc_df must be a GeoDataFrame or DataFrame")
+    elif "segnum" not in loc_df.columns:
+        raise ValueError(
+            "loc_df must have 'segnum' column; "
+            "was it created by spatial.find_geom_in_swn?")
+    elif "seg_ndist" not in loc_df.columns:
+        raise ValueError("loc_df must have 'seg_ndist' column")
+    segnum_is_in_index = loc_df.segnum.isin(n.segments.index)
+    if not segnum_is_in_index.all():
+        raise ValueError(
+            "loc_df has segnum values not found in surface water network")
+
+    to_segnums = dict(n.to_segnums)
+    loc_df = loc_df[["segnum", "seg_ndist"]].assign(_="")  # also does .copy()
+    loc_segnum_s = set(loc_df.segnum)
+    loc_df["sequence"] = n.segments.sequence[loc_df.segnum].values
+    loc_df.sort_values(["sequence", "seg_ndist"], inplace=True)
+    # Start from upstream locations, querying downstream, except last
+    pairs = set()
+    for upstream_idx, upstream_segnum in loc_df.segnum.iloc[:-1].iteritems():
+        downstream_idx = None
+        # First case that the downstream segnum is in the same segnum
+        next_loc = loc_df.iloc[loc_df.index.get_loc(upstream_idx) + 1]
+        if next_loc.segnum == upstream_segnum:
+            downstream_idx = next_loc.name
+        else:
+            # otherwise search downstream
+            cur_segnum = upstream_segnum
+            while True:
+                if cur_segnum in to_segnums:
+                    next_segnum = to_segnums[cur_segnum]
+                    if next_segnum in loc_segnum_s:
+                        downstream_idx = loc_df.segnum[
+                            loc_df.segnum == next_segnum].index[0]
+                        break
+                else:
+                    # print(f"no downstream location from {upstream_idx}")
+                    break
+                cur_segnum = next_segnum
+        if downstream_idx is not None:
+            pairs.add((upstream_idx, downstream_idx))
+    return pairs
+
+
+def location_pair_geoms(pairs, loc_df, n):
+    r"""Extract linestring geometry for location pairs, that follow segments.
+
+    Parameters
+    ----------
+    pairs : iterable
+        Collection of location pair tuples (upstream, downstream), indexed by
+        loc_df from :py:meth:`find_location_pairs`.
+    loc_df : geopandas.GeoDataFrame or pandas.DataFrame
+        Location [geo] dataframe, from :py:meth:`find_geom_in_swn`.
+    n : SurfaceWaterNetwork
+        A surface water network.
+
+    Returns
+    -------
+    dict
+        keys are the pair tuple, and values are the linestring geometry.
+
+    Examples
+    --------
+    >>> import geopandas
+    >>> from shapely import wkt
+    >>> import swn
+    >>> lines = geopandas.GeoSeries(list(wkt.loads('''\
+    ... MULTILINESTRING(
+    ...     (380 490, 370 420), (300 460, 370 420), (370 420, 420 330),
+    ...     (190 250, 280 270), (225 180, 280 270), (280 270, 420 330),
+    ...     (420 330, 584 250), (520 220, 584 250), (584 250, 710 160),
+    ...     (740 270, 710 160), (735 350, 740 270), (880 320, 740 270),
+    ...     (925 370, 880 320), (974 300, 880 320), (760 460, 735 350),
+    ...     (650 430, 735 350), (710 160, 770 100), (700  90, 770 100),
+    ...     (770 100, 820  40))''').geoms))
+    >>> lines.index += 100
+    >>> n = swn.SurfaceWaterNetwork.from_lines(lines)
+    >>> obs_gs = swn.spatial.wkt_to_geoseries([
+    ...    "POINT (370 400)",
+    ...    "POINT (720 230)",
+    ...    "POINT (780 70)",
+    ...    "POINT (606 256)",
+    ...    "POINT (690 170)"])
+    >>> obs_gs.index += 11
+    >>> obs_match = swn.spatial.find_geom_in_swn(obs_gs, n)
+    >>> pairs = swn.spatial.find_location_pairs(obs_match, n)
+    >>> sorted(pairs)
+    [(11, 14), (12, 13), (14, 15), (15, 13)]
+    >>> pair_geoms = swn.spatial.location_pair_geoms(pairs, obs_match, n)
+    >>> pair_gs = geopandas.GeoSeries(pair_geoms)
+    >>> pair_gdf = geopandas.GeoDataFrame(geometry=pair_gs)
+    >>> pair_gdf["length"] = pair_gdf.length
+    >>> pair_gdf.sort_values("length", ascending=False, inplace=True)
+    >>> pair_gdf
+                                                    geometry      length
+    11 14  LINESTRING (378.491 404.717, 420.000 330.000, ...  282.359779
+    12 13  LINESTRING (728.462 227.692, 710.000 160.000, ...  184.465938
+    15 13  LINESTRING (692.027 172.838, 710.000 160.000, ...  136.388347
+    14 15      LINESTRING (595.730 241.622, 692.027 172.838)  118.340096
+    """
+    from shapely.ops import linemerge, substring, unary_union
+
+    from .core import SurfaceWaterNetwork
+
+    # Check inputs
+    if not isinstance(n, SurfaceWaterNetwork):
+        raise TypeError("expected 'n' as an instance of SurfaceWaterNetwork")
+    elif not isinstance(loc_df, (geopandas.GeoDataFrame, pd.DataFrame)):
+        raise TypeError("loc_df must be a GeoDataFrame or DataFrame")
+    elif "segnum" not in loc_df.columns:
+        raise ValueError(
+            "loc_df must have 'segnum' column; "
+            "was it created by spatial.find_geom_in_swn?")
+    elif "seg_ndist" not in loc_df.columns:
+        raise ValueError("loc_df must have 'seg_ndist' column")
+    segnum_is_in_index = loc_df.segnum.isin(n.segments.index)
+    if not segnum_is_in_index.all():
+        raise ValueError(
+            "loc_df has segnum values not found in surface water network")
+
+    geoms_d = {}
+    for pair in pairs:
+        upstream_idx, downstream_idx = pair
+        upstream = loc_df.loc[upstream_idx]
+        downstream = loc_df.loc[downstream_idx]
+        if upstream.segnum == downstream.segnum:
+            # pairs are in the same segnum
+            geoms_d[pair] = substring(
+                n.segments.geometry[upstream.segnum],
+                upstream.seg_ndist, downstream.seg_ndist,
+                normalized=True)
+        else:
+            try:
+                segnums = n.route_segnums(upstream.segnum, downstream.segnum)
+            except ConnectionError:
+                geoms_d[pair] = None
+                continue
+            assert segnums[0] == upstream.segnum
+            assert segnums[-1] == downstream.segnum
+            geoms = [
+                substring(
+                    n.segments.geometry[upstream.segnum],
+                    upstream.seg_ndist, 1.0, normalized=True)
+            ]
+            geoms.extend(list(n.segments.geometry[segnums[1:-1]]))
+            geoms.append(
+                substring(
+                    n.segments.geometry[downstream.segnum],
+                    0.0, downstream.seg_ndist, normalized=True)
+            )
+            geoms_d[pair] = linemerge(unary_union(geoms))
+    return geoms_d
