@@ -6,7 +6,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
 
-    <title>swn.spatial.find_segnum_in_swn &#8212; Surface water network 2019 documentation</title>
+    <title>swn.spatial.location_pair_geoms &#8212; Surface water network 2019 documentation</title>
     
   <!-- Loaded before other Sphinx assets -->
   <link href="../_static/styles/theme.css?digest=1999514e3f237ded88cf" rel="stylesheet">
@@ -32,8 +32,8 @@
     <script src="../_static/doctools.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="swn.spatial.find_geom_in_swn" href="swn.spatial.find_geom_in_swn.html" />
-    <link rel="prev" title="Spatial methods" href="../spatial.html" />
+    <link rel="next" title="Change log" href="../changelog.html" />
+    <link rel="prev" title="swn.spatial.find_location_pairs" href="swn.spatial.find_location_pairs.html" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="docsearch:language" content="None">
     
@@ -627,14 +627,19 @@
    </i>
   </label>
   <ul class="current">
-   <li class="toctree-l2 current active">
-    <a class="current reference internal" href="#">
-     swn.spatial.find_segnum_in_swn
-    </a>
-   </li>
    <li class="toctree-l2">
     <a class="reference internal" href="swn.spatial.find_geom_in_swn.html">
      swn.spatial.find_geom_in_swn
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="swn.spatial.find_location_pairs.html">
+     swn.spatial.find_location_pairs
+    </a>
+   </li>
+   <li class="toctree-l2 current active">
+    <a class="current reference internal" href="#">
+     swn.spatial.location_pair_geoms
     </a>
    </li>
   </ul>
@@ -678,41 +683,70 @@
               
               <div>
                 
-  <section id="swn-spatial-find-segnum-in-swn">
-<h1>swn.spatial.find_segnum_in_swn<a class="headerlink" href="#swn-spatial-find-segnum-in-swn" title="Permalink to this headline">#</a></h1>
+  <section id="swn-spatial-location-pair-geoms">
+<h1>swn.spatial.location_pair_geoms<a class="headerlink" href="#swn-spatial-location-pair-geoms" title="Permalink to this headline">#</a></h1>
 <dl class="py function">
-<dt class="sig sig-object py" id="swn.spatial.find_segnum_in_swn">
-<span class="sig-prename descclassname"><span class="pre">swn.spatial.</span></span><span class="sig-name descname"><span class="pre">find_segnum_in_swn</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">n</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">geom</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#swn.spatial.find_segnum_in_swn" title="Permalink to this definition">#</a></dt>
-<dd><p>Return segnum within a catchment or nearest a segment to a geometry.</p>
-<p>If a catchment polygon is provided, this is used to find if the point
-is contained in the catchment, otherwise the closest segment is found.</p>
-<div class="deprecated">
-<p><span class="versionmodified deprecated">Deprecated since version 0.5: </span>Use <a class="reference internal" href="swn.spatial.find_geom_in_swn.html#swn.spatial.find_geom_in_swn" title="swn.spatial.find_geom_in_swn"><code class="xref py py-meth docutils literal notranslate"><span class="pre">find_geom_in_swn()</span></code></a> instead.</p>
-</div>
+<dt class="sig sig-object py" id="swn.spatial.location_pair_geoms">
+<span class="sig-prename descclassname"><span class="pre">swn.spatial.</span></span><span class="sig-name descname"><span class="pre">location_pair_geoms</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pairs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">loc_df</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#swn.spatial.location_pair_geoms" title="Permalink to this definition">#</a></dt>
+<dd><p>Extract linestring geometry for location pairs, that follow segments.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><dl class="simple">
-<dt><strong>n</strong><span class="classifier">SurfaceWaterNetwork</span></dt><dd><p>A surface water network to evaluate.</p>
+<dt><strong>pairs</strong><span class="classifier">iterable</span></dt><dd><p>Collection of location pair tuples (upstream, downstream), indexed by
+loc_df from <a class="reference internal" href="swn.spatial.find_location_pairs.html#swn.spatial.find_location_pairs" title="swn.spatial.find_location_pairs"><code class="xref py py-meth docutils literal notranslate"><span class="pre">find_location_pairs()</span></code></a>.</p>
 </dd>
-<dt><strong>geom</strong><span class="classifier">various</span></dt><dd><dl class="simple">
-<dt>A geometry input, one of:</dt><dd><ul class="simple">
-<li><p>GeoSeries</p></li>
-<li><p>tuple of coordinates (x, y)</p></li>
-<li><p>list of coordinate tuples</p></li>
-</ul>
+<dt><strong>loc_df</strong><span class="classifier">geopandas.GeoDataFrame or pandas.DataFrame</span></dt><dd><p>Location [geo] dataframe, from <a class="reference internal" href="swn.spatial.find_geom_in_swn.html#swn.spatial.find_geom_in_swn" title="swn.spatial.find_geom_in_swn"><code class="xref py py-meth docutils literal notranslate"><span class="pre">find_geom_in_swn()</span></code></a>.</p>
 </dd>
-</dl>
+<dt><strong>n</strong><span class="classifier">SurfaceWaterNetwork</span></dt><dd><p>A surface water network.</p>
 </dd>
 </dl>
 </dd>
 <dt class="field-even">Returns</dt>
 <dd class="field-even"><dl class="simple">
-<dt>pandas.DataFrame</dt><dd><p>Resulting DataFrame has columns segnum, dist_to_segnum, and
-(if catchments are found) is_within_catchment.</p>
+<dt>dict</dt><dd><p>keys are the pair tuple, and values are the linestring geometry.</p>
 </dd>
 </dl>
 </dd>
 </dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">geopandas</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">shapely</span> <span class="kn">import</span> <span class="n">wkt</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">swn</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">lines</span> <span class="o">=</span> <span class="n">geopandas</span><span class="o">.</span><span class="n">GeoSeries</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">wkt</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="s1">&#39;&#39;&#39;</span><span class="se">\</span>
+<span class="gp">... </span><span class="s1">MULTILINESTRING(</span>
+<span class="gp">... </span><span class="s1">    (380 490, 370 420), (300 460, 370 420), (370 420, 420 330),</span>
+<span class="gp">... </span><span class="s1">    (190 250, 280 270), (225 180, 280 270), (280 270, 420 330),</span>
+<span class="gp">... </span><span class="s1">    (420 330, 584 250), (520 220, 584 250), (584 250, 710 160),</span>
+<span class="gp">... </span><span class="s1">    (740 270, 710 160), (735 350, 740 270), (880 320, 740 270),</span>
+<span class="gp">... </span><span class="s1">    (925 370, 880 320), (974 300, 880 320), (760 460, 735 350),</span>
+<span class="gp">... </span><span class="s1">    (650 430, 735 350), (710 160, 770 100), (700  90, 770 100),</span>
+<span class="gp">... </span><span class="s1">    (770 100, 820  40))&#39;&#39;&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">geoms</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">lines</span><span class="o">.</span><span class="n">index</span> <span class="o">+=</span> <span class="mi">100</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">n</span> <span class="o">=</span> <span class="n">swn</span><span class="o">.</span><span class="n">SurfaceWaterNetwork</span><span class="o">.</span><span class="n">from_lines</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">obs_gs</span> <span class="o">=</span> <span class="n">swn</span><span class="o">.</span><span class="n">spatial</span><span class="o">.</span><span class="n">wkt_to_geoseries</span><span class="p">([</span>
+<span class="gp">... </span>   <span class="s2">&quot;POINT (370 400)&quot;</span><span class="p">,</span>
+<span class="gp">... </span>   <span class="s2">&quot;POINT (720 230)&quot;</span><span class="p">,</span>
+<span class="gp">... </span>   <span class="s2">&quot;POINT (780 70)&quot;</span><span class="p">,</span>
+<span class="gp">... </span>   <span class="s2">&quot;POINT (606 256)&quot;</span><span class="p">,</span>
+<span class="gp">... </span>   <span class="s2">&quot;POINT (690 170)&quot;</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">obs_gs</span><span class="o">.</span><span class="n">index</span> <span class="o">+=</span> <span class="mi">11</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">obs_match</span> <span class="o">=</span> <span class="n">swn</span><span class="o">.</span><span class="n">spatial</span><span class="o">.</span><span class="n">find_geom_in_swn</span><span class="p">(</span><span class="n">obs_gs</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">pairs</span> <span class="o">=</span> <span class="n">swn</span><span class="o">.</span><span class="n">spatial</span><span class="o">.</span><span class="n">find_location_pairs</span><span class="p">(</span><span class="n">obs_match</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">sorted</span><span class="p">(</span><span class="n">pairs</span><span class="p">)</span>
+<span class="go">[(11, 14), (12, 13), (14, 15), (15, 13)]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">pair_geoms</span> <span class="o">=</span> <span class="n">swn</span><span class="o">.</span><span class="n">spatial</span><span class="o">.</span><span class="n">location_pair_geoms</span><span class="p">(</span><span class="n">pairs</span><span class="p">,</span> <span class="n">obs_match</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">pair_gs</span> <span class="o">=</span> <span class="n">geopandas</span><span class="o">.</span><span class="n">GeoSeries</span><span class="p">(</span><span class="n">pair_geoms</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">pair_gdf</span> <span class="o">=</span> <span class="n">geopandas</span><span class="o">.</span><span class="n">GeoDataFrame</span><span class="p">(</span><span class="n">geometry</span><span class="o">=</span><span class="n">pair_gs</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">pair_gdf</span><span class="p">[</span><span class="s2">&quot;length&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pair_gdf</span><span class="o">.</span><span class="n">length</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">pair_gdf</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="s2">&quot;length&quot;</span><span class="p">,</span> <span class="n">ascending</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">pair_gdf</span>
+<span class="go">                                                geometry      length</span>
+<span class="go">11 14  LINESTRING (378.491 404.717, 420.000 330.000, ...  282.359779</span>
+<span class="go">12 13  LINESTRING (728.462 227.692, 710.000 160.000, ...  184.465938</span>
+<span class="go">15 13  LINESTRING (692.027 172.838, 710.000 160.000, ...  136.388347</span>
+<span class="go">14 15      LINESTRING (595.730 241.622, 692.027 172.838)  118.340096</span>
+</pre></div>
+</div>
 </dd></dl>
 
 </section>
@@ -723,17 +757,17 @@ is contained in the catchment, otherwise the closest segment is found.</p>
               
               <!-- Previous / next buttons -->
 <div class='prev-next-area'>
-    <a class='left-prev' id="prev-link" href="../spatial.html" title="previous page">
+    <a class='left-prev' id="prev-link" href="swn.spatial.find_location_pairs.html" title="previous page">
         <i class="fas fa-angle-left"></i>
         <div class="prev-next-info">
             <p class="prev-next-subtitle">previous</p>
-            <p class="prev-next-title">Spatial methods</p>
+            <p class="prev-next-title">swn.spatial.find_location_pairs</p>
         </div>
     </a>
-    <a class='right-next' id="next-link" href="swn.spatial.find_geom_in_swn.html" title="next page">
+    <a class='right-next' id="next-link" href="../changelog.html" title="next page">
     <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">swn.spatial.find_geom_in_swn</p>
+        <p class="prev-next-title">Change log</p>
     </div>
     <i class="fas fa-angle-right"></i>
     </a>

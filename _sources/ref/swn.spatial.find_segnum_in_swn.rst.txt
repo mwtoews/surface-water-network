@@ -1,6 +1,0 @@
-﻿swn.spatial.find\_segnum\_in\_swn
-=================================
-
-.. currentmodule:: swn.spatial
-
-.. autofunction:: find_segnum_in_swn

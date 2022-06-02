@@ -6,7 +6,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
 
-    <title>swn.modflow.SwnModflow.from_pickle &#8212; Surface water network 2019 documentation</title>
+    <title>swn.spatial.find_location_pairs &#8212; Surface water network 2019 documentation</title>
     
   <!-- Loaded before other Sphinx assets -->
   <link href="../_static/styles/theme.css?digest=1999514e3f237ded88cf" rel="stylesheet">
@@ -32,8 +32,8 @@
     <script src="../_static/doctools.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="swn.modflow.SwnModflow.from_swn_flopy" href="swn.modflow.SwnModflow.from_swn_flopy.html" />
-    <link rel="prev" title="swn.modflow.SwnModflow.default_segment_data" href="swn.modflow.SwnModflow.default_segment_data.html" />
+    <link rel="next" title="swn.spatial.location_pair_geoms" href="swn.spatial.location_pair_geoms.html" />
+    <link rel="prev" title="swn.spatial.find_geom_in_swn" href="swn.spatial.find_geom_in_swn.html" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="docsearch:language" content="None">
     
@@ -327,33 +327,33 @@
    </li>
   </ul>
  </li>
- <li class="toctree-l1 current active has-children">
+ <li class="toctree-l1 has-children">
   <a class="reference internal" href="../swnmodflow.html">
    SwnModflow
   </a>
-  <input checked="" class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" type="checkbox"/>
+  <input class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" type="checkbox"/>
   <label for="toctree-checkbox-3">
    <i class="fas fa-chevron-down">
    </i>
   </label>
-  <ul class="current">
-   <li class="toctree-l2 current active has-children">
+  <ul>
+   <li class="toctree-l2 has-children">
     <a class="reference internal" href="swn.modflow.SwnModflow.html">
      swn.modflow.SwnModflow
     </a>
-    <input checked="" class="toctree-checkbox" id="toctree-checkbox-4" name="toctree-checkbox-4" type="checkbox"/>
+    <input class="toctree-checkbox" id="toctree-checkbox-4" name="toctree-checkbox-4" type="checkbox"/>
     <label for="toctree-checkbox-4">
      <i class="fas fa-chevron-down">
      </i>
     </label>
-    <ul class="current">
+    <ul>
      <li class="toctree-l3">
       <a class="reference internal" href="swn.modflow.SwnModflow.default_segment_data.html">
        swn.modflow.SwnModflow.default_segment_data
       </a>
      </li>
-     <li class="toctree-l3 current active">
-      <a class="current reference internal" href="#">
+     <li class="toctree-l3">
+      <a class="reference internal" href="swn.modflow.SwnModflow.from_pickle.html">
        swn.modflow.SwnModflow.from_pickle
       </a>
      </li>
@@ -409,8 +409,8 @@
      swn.modflow.SwnModflow.from_swn_flopy
     </a>
    </li>
-   <li class="toctree-l2 current active">
-    <a class="current reference internal" href="#">
+   <li class="toctree-l2">
+    <a class="reference internal" href="swn.modflow.SwnModflow.from_pickle.html">
      swn.modflow.SwnModflow.from_pickle
     </a>
    </li>
@@ -617,23 +617,23 @@
    </li>
   </ul>
  </li>
- <li class="toctree-l1 has-children">
+ <li class="toctree-l1 current active has-children">
   <a class="reference internal" href="../spatial.html">
    Spatial methods
   </a>
-  <input class="toctree-checkbox" id="toctree-checkbox-8" name="toctree-checkbox-8" type="checkbox"/>
+  <input checked="" class="toctree-checkbox" id="toctree-checkbox-8" name="toctree-checkbox-8" type="checkbox"/>
   <label for="toctree-checkbox-8">
    <i class="fas fa-chevron-down">
    </i>
   </label>
-  <ul>
+  <ul class="current">
    <li class="toctree-l2">
     <a class="reference internal" href="swn.spatial.find_geom_in_swn.html">
      swn.spatial.find_geom_in_swn
     </a>
    </li>
-   <li class="toctree-l2">
-    <a class="reference internal" href="swn.spatial.find_location_pairs.html">
+   <li class="toctree-l2 current active">
+    <a class="current reference internal" href="#">
      swn.spatial.find_location_pairs
     </a>
    </li>
@@ -683,24 +683,69 @@
               
               <div>
                 
-  <section id="swn-modflow-swnmodflow-from-pickle">
-<h1>swn.modflow.SwnModflow.from_pickle<a class="headerlink" href="#swn-modflow-swnmodflow-from-pickle" title="Permalink to this headline">#</a></h1>
-<dl class="py method">
-<dt class="sig sig-object py" id="swn.modflow.SwnModflow.from_pickle">
-<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">SwnModflow.</span></span><span class="sig-name descname"><span class="pre">from_pickle</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">swn</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">model</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#swn.modflow.SwnModflow.from_pickle" title="Permalink to this definition">#</a></dt>
-<dd><p>Read a pickled format from a file.</p>
+  <section id="swn-spatial-find-location-pairs">
+<h1>swn.spatial.find_location_pairs<a class="headerlink" href="#swn-spatial-find-location-pairs" title="Permalink to this headline">#</a></h1>
+<dl class="py function">
+<dt class="sig sig-object py" id="swn.spatial.find_location_pairs">
+<span class="sig-prename descclassname"><span class="pre">swn.spatial.</span></span><span class="sig-name descname"><span class="pre">find_location_pairs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">loc_df</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#swn.spatial.find_location_pairs" title="Permalink to this definition">#</a></dt>
+<dd><p>Find pairs of locations in a surface water network that are connected.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><dl class="simple">
-<dt><strong>path</strong><span class="classifier">str</span></dt><dd><p>File path where the pickled object will be stored.</p>
+<dt><strong>loc_df</strong><span class="classifier">geopandas.GeoDataFrame or pandas.DataFrame</span></dt><dd><p>Location [geo] dataframe, from <a class="reference internal" href="swn.spatial.find_geom_in_swn.html#swn.spatial.find_geom_in_swn" title="swn.spatial.find_geom_in_swn"><code class="xref py py-meth docutils literal notranslate"><span class="pre">find_geom_in_swn()</span></code></a>.</p>
 </dd>
-<dt><strong>swn</strong><span class="classifier">swn.SurfaceWaterNetwork, optional</span></dt><dd><p>Instance of a SurfaceWaterNetwork.</p>
+<dt><strong>n</strong><span class="classifier">SurfaceWaterNetwork</span></dt><dd><p>A surface water network to evaluate.</p>
 </dd>
-<dt><strong>model</strong><span class="classifier">flopy.modflow.Modflow or flopy.mf6.ModflowGwf, optional</span></dt><dd><p>Instance of a flopy MODFLOW model.</p>
+</dl>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><dl class="simple">
+<dt>set</dt><dd><p>tuple of location index (upstream, downstream).</p>
 </dd>
 </dl>
 </dd>
 </dl>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<dl class="simple">
+<dt><a class="reference internal" href="swn.spatial.location_pair_geoms.html#swn.spatial.location_pair_geoms" title="swn.spatial.location_pair_geoms"><code class="xref py py-obj docutils literal notranslate"><span class="pre">location_pair_geoms</span></code></a></dt><dd><p>Extract linestring geometry for location pairs.</p>
+</dd>
+</dl>
+</div>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">swn</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">shapely</span> <span class="kn">import</span> <span class="n">wkt</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">lines</span> <span class="o">=</span> <span class="n">geopandas</span><span class="o">.</span><span class="n">GeoSeries</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">wkt</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="s1">&#39;&#39;&#39;</span><span class="se">\</span>
+<span class="gp">... </span><span class="s1">MULTILINESTRING(</span>
+<span class="gp">... </span><span class="s1">    (380 490, 370 420), (300 460, 370 420), (370 420, 420 330),</span>
+<span class="gp">... </span><span class="s1">    (190 250, 280 270), (225 180, 280 270), (280 270, 420 330),</span>
+<span class="gp">... </span><span class="s1">    (420 330, 584 250), (520 220, 584 250), (584 250, 710 160),</span>
+<span class="gp">... </span><span class="s1">    (740 270, 710 160), (735 350, 740 270), (880 320, 740 270),</span>
+<span class="gp">... </span><span class="s1">    (925 370, 880 320), (974 300, 880 320), (760 460, 735 350),</span>
+<span class="gp">... </span><span class="s1">    (650 430, 735 350), (710 160, 770 100), (700  90, 770 100),</span>
+<span class="gp">... </span><span class="s1">    (770 100, 820  40))&#39;&#39;&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">geoms</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">lines</span><span class="o">.</span><span class="n">index</span> <span class="o">+=</span> <span class="mi">100</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">n</span> <span class="o">=</span> <span class="n">swn</span><span class="o">.</span><span class="n">SurfaceWaterNetwork</span><span class="o">.</span><span class="n">from_lines</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">obs_gs</span> <span class="o">=</span> <span class="n">swn</span><span class="o">.</span><span class="n">spatial</span><span class="o">.</span><span class="n">wkt_to_geoseries</span><span class="p">([</span>
+<span class="gp">... </span>   <span class="s2">&quot;POINT (370 400)&quot;</span><span class="p">,</span>
+<span class="gp">... </span>   <span class="s2">&quot;POINT (720 230)&quot;</span><span class="p">,</span>
+<span class="gp">... </span>   <span class="s2">&quot;POINT (780 70)&quot;</span><span class="p">,</span>
+<span class="gp">... </span>   <span class="s2">&quot;POINT (606 256)&quot;</span><span class="p">,</span>
+<span class="gp">... </span>   <span class="s2">&quot;POINT (690 170)&quot;</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">obs_gs</span><span class="o">.</span><span class="n">index</span> <span class="o">+=</span> <span class="mi">11</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">obs_match</span> <span class="o">=</span> <span class="n">swn</span><span class="o">.</span><span class="n">spatial</span><span class="o">.</span><span class="n">find_geom_in_swn</span><span class="p">(</span><span class="n">obs_gs</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">obs_match</span><span class="p">[[</span><span class="s2">&quot;segnum&quot;</span><span class="p">,</span> <span class="s2">&quot;seg_ndist&quot;</span><span class="p">]]</span>
+<span class="go">    segnum  seg_ndist</span>
+<span class="go">11     102   0.169811</span>
+<span class="go">12     109   0.384615</span>
+<span class="go">13     118   0.377049</span>
+<span class="go">14     108   0.093093</span>
+<span class="go">15     108   0.857357</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">pairs</span> <span class="o">=</span> <span class="n">swn</span><span class="o">.</span><span class="n">spatial</span><span class="o">.</span><span class="n">find_location_pairs</span><span class="p">(</span><span class="n">obs_match</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">sorted</span><span class="p">(</span><span class="n">pairs</span><span class="p">)</span>
+<span class="go">[(11, 14), (12, 13), (14, 15), (15, 13)]</span>
+</pre></div>
+</div>
 </dd></dl>
 
 </section>
@@ -711,17 +756,17 @@
               
               <!-- Previous / next buttons -->
 <div class='prev-next-area'>
-    <a class='left-prev' id="prev-link" href="swn.modflow.SwnModflow.default_segment_data.html" title="previous page">
+    <a class='left-prev' id="prev-link" href="swn.spatial.find_geom_in_swn.html" title="previous page">
         <i class="fas fa-angle-left"></i>
         <div class="prev-next-info">
             <p class="prev-next-subtitle">previous</p>
-            <p class="prev-next-title">swn.modflow.SwnModflow.default_segment_data</p>
+            <p class="prev-next-title">swn.spatial.find_geom_in_swn</p>
         </div>
     </a>
-    <a class='right-next' id="next-link" href="swn.modflow.SwnModflow.from_swn_flopy.html" title="next page">
+    <a class='right-next' id="next-link" href="swn.spatial.location_pair_geoms.html" title="next page">
     <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">swn.modflow.SwnModflow.from_swn_flopy</p>
+        <p class="prev-next-title">swn.spatial.location_pair_geoms</p>
     </div>
     <i class="fas fa-angle-right"></i>
     </a>
