@@ -6,7 +6,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
 
-    <title>swn.SurfaceWaterNetwork.query &#8212; Surface water network 2019 documentation</title>
+    <title>swn.SurfaceWaterNetwork.gather_segnums &#8212; Surface water network 2019 documentation</title>
     
   <!-- Loaded before other Sphinx assets -->
   <link href="../_static/styles/theme.css?digest=1999514e3f237ded88cf" rel="stylesheet">
@@ -32,8 +32,8 @@
     <script src="../_static/doctools.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="swn.SurfaceWaterNetwork.route_segnums" href="swn.SurfaceWaterNetwork.route_segnums.html" />
-    <link rel="prev" title="swn.SurfaceWaterNetwork.plot" href="swn.SurfaceWaterNetwork.plot.html" />
+    <link rel="next" title="swn.SurfaceWaterNetwork.pair_segments_frame" href="swn.SurfaceWaterNetwork.pair_segments_frame.html" />
+    <link rel="prev" title="swn.SurfaceWaterNetwork.from_pickle" href="swn.SurfaceWaterNetwork.from_pickle.html" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="docsearch:language" content="None">
     
@@ -183,6 +183,11 @@
        swn.SurfaceWaterNetwork.from_pickle
       </a>
      </li>
+     <li class="toctree-l3 current active">
+      <a class="current reference internal" href="#">
+       swn.SurfaceWaterNetwork.gather_segnums
+      </a>
+     </li>
      <li class="toctree-l3">
       <a class="reference internal" href="swn.SurfaceWaterNetwork.pair_segments_frame.html">
        swn.SurfaceWaterNetwork.pair_segments_frame
@@ -191,11 +196,6 @@
      <li class="toctree-l3">
       <a class="reference internal" href="swn.SurfaceWaterNetwork.plot.html">
        swn.SurfaceWaterNetwork.plot
-      </a>
-     </li>
-     <li class="toctree-l3 current active">
-      <a class="current reference internal" href="#">
-       swn.SurfaceWaterNetwork.query
       </a>
      </li>
      <li class="toctree-l3">
@@ -287,7 +287,7 @@
    </li>
    <li class="toctree-l2 current active">
     <a class="current reference internal" href="#">
-     swn.SurfaceWaterNetwork.query
+     swn.SurfaceWaterNetwork.gather_segnums
     </a>
    </li>
    <li class="toctree-l2">
@@ -683,11 +683,11 @@
               
               <div>
                 
-  <section id="swn-surfacewaternetwork-query">
-<h1>swn.SurfaceWaterNetwork.query<a class="headerlink" href="#swn-surfacewaternetwork-query" title="Permalink to this headline">#</a></h1>
+  <section id="swn-surfacewaternetwork-gather-segnums">
+<h1>swn.SurfaceWaterNetwork.gather_segnums<a class="headerlink" href="#swn-surfacewaternetwork-gather-segnums" title="Permalink to this headline">#</a></h1>
 <dl class="py method">
-<dt class="sig sig-object py" id="swn.SurfaceWaterNetwork.query">
-<span class="sig-prename descclassname"><span class="pre">SurfaceWaterNetwork.</span></span><span class="sig-name descname"><span class="pre">query</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">upstream</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">downstream</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">barrier</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gather_upstream</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#swn.SurfaceWaterNetwork.query" title="Permalink to this definition">#</a></dt>
+<dt class="sig sig-object py" id="swn.SurfaceWaterNetwork.gather_segnums">
+<span class="sig-prename descclassname"><span class="pre">SurfaceWaterNetwork.</span></span><span class="sig-name descname"><span class="pre">gather_segnums</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">upstream</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">downstream</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">barrier</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gather_upstream</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#swn.SurfaceWaterNetwork.gather_segnums" title="Permalink to this definition">#</a></dt>
 <dd><p>Return segnums upstream (inclusive) and downstream (exclusive).</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -713,6 +713,30 @@
 </dd>
 </dl>
 </div>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">swn</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">shapely</span> <span class="kn">import</span> <span class="n">wkt</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">lines</span> <span class="o">=</span> <span class="n">geopandas</span><span class="o">.</span><span class="n">GeoSeries</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">wkt</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="s1">&#39;&#39;&#39;</span><span class="se">\</span>
+<span class="gp">... </span><span class="s1">MULTILINESTRING(</span>
+<span class="gp">... </span><span class="s1">    (380 490, 370 420), (300 460, 370 420), (370 420, 420 330),</span>
+<span class="gp">... </span><span class="s1">    (190 250, 280 270), (225 180, 280 270), (280 270, 420 330),</span>
+<span class="gp">... </span><span class="s1">    (420 330, 584 250), (520 220, 584 250), (584 250, 710 160),</span>
+<span class="gp">... </span><span class="s1">    (740 270, 710 160), (735 350, 740 270), (880 320, 740 270),</span>
+<span class="gp">... </span><span class="s1">    (925 370, 880 320), (974 300, 880 320), (760 460, 735 350),</span>
+<span class="gp">... </span><span class="s1">    (650 430, 735 350), (710 160, 770 100), (700  90, 770 100),</span>
+<span class="gp">... </span><span class="s1">    (770 100, 820  40))&#39;&#39;&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">geoms</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">lines</span><span class="o">.</span><span class="n">index</span> <span class="o">+=</span> <span class="mi">100</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">n</span> <span class="o">=</span> <span class="n">swn</span><span class="o">.</span><span class="n">SurfaceWaterNetwork</span><span class="o">.</span><span class="n">from_lines</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">n</span><span class="o">.</span><span class="n">gather_segnums</span><span class="p">(</span><span class="n">upstream</span><span class="o">=</span><span class="mi">108</span><span class="p">)</span>
+<span class="go">[108, 106, 105, 104, 103, 102, 100, 101, 107]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">n</span><span class="o">.</span><span class="n">gather_segnums</span><span class="p">(</span><span class="n">downstream</span><span class="o">=</span><span class="mi">101</span><span class="p">)</span>
+<span class="go">[102, 106, 108, 116, 118]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">set</span><span class="p">(</span><span class="n">n</span><span class="o">.</span><span class="n">gather_segnums</span><span class="p">(</span><span class="n">downstream</span><span class="o">=</span><span class="mi">109</span><span class="p">,</span> <span class="n">gather_upstream</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+<span class="go">{100, 101, 102, 103, 104, 105, 106, 107, 108, 116, 117, 118}</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">n</span><span class="o">.</span><span class="n">gather_segnums</span><span class="p">(</span><span class="n">downstream</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">gather_upstream</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">barrier</span><span class="o">=</span><span class="mi">108</span><span class="p">)</span>
+<span class="go">[102, 106, 108, 101, 105, 104, 103]</span>
+</pre></div>
+</div>
 </dd></dl>
 
 </section>
@@ -723,17 +747,17 @@
               
               <!-- Previous / next buttons -->
 <div class='prev-next-area'>
-    <a class='left-prev' id="prev-link" href="swn.SurfaceWaterNetwork.plot.html" title="previous page">
+    <a class='left-prev' id="prev-link" href="swn.SurfaceWaterNetwork.from_pickle.html" title="previous page">
         <i class="fas fa-angle-left"></i>
         <div class="prev-next-info">
             <p class="prev-next-subtitle">previous</p>
-            <p class="prev-next-title">swn.SurfaceWaterNetwork.plot</p>
+            <p class="prev-next-title">swn.SurfaceWaterNetwork.from_pickle</p>
         </div>
     </a>
-    <a class='right-next' id="next-link" href="swn.SurfaceWaterNetwork.route_segnums.html" title="next page">
+    <a class='right-next' id="next-link" href="swn.SurfaceWaterNetwork.pair_segments_frame.html" title="next page">
     <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">swn.SurfaceWaterNetwork.route_segnums</p>
+        <p class="prev-next-title">swn.SurfaceWaterNetwork.pair_segments_frame</p>
     </div>
     <i class="fas fa-angle-right"></i>
     </a>

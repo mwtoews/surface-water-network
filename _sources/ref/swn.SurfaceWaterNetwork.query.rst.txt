@@ -1,6 +1,0 @@
-﻿swn.SurfaceWaterNetwork.query
-=============================
-
-.. currentmodule:: swn
-
-.. automethod:: SurfaceWaterNetwork.query

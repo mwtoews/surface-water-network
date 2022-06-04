@@ -22,6 +22,7 @@
       ~SurfaceWaterNetwork.evaluate_upstream_length
       ~SurfaceWaterNetwork.from_lines
       ~SurfaceWaterNetwork.from_pickle
+      ~SurfaceWaterNetwork.gather_segnums
       ~SurfaceWaterNetwork.pair_segments_frame
       ~SurfaceWaterNetwork.plot
       ~SurfaceWaterNetwork.query
