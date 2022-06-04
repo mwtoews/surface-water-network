@@ -1138,7 +1138,7 @@ def test_coastal_reduced(coastal_lines_gdf, coastal_flow_m, tmp_path):
     # Modify swn object
     n.remove(
         condition=n.segments["stream_order"] == 1,
-        segnums=n.query(upstream=3047927))
+        segnums=n.gather_segnums(upstream=3047927))
     assert len(n) == 130
     # Load a MODFLOW model
     m = flopy.modflow.Modflow.load(

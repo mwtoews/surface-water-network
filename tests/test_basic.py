@@ -991,60 +991,70 @@ def test_route_segnums(fluss_n):
         n2.route_segnums(0, 3, allow_indirect=True)
 
 
-def test_fluss_n_query_upstream(fluss_n):
+def test_query_deprecated(fluss_n):
     n = fluss_n
-    assert set(n.query(upstream=0)) == {0}
-    assert set(n.query(upstream=[2])) == {0, 1, 2}
-    assert set(n.query(upstream=8)) == {0, 1, 2, 3, 4, 5, 6, 7, 8}
-    assert set(n.query(upstream=9)) == {9, 10, 11, 12, 13, 14, 15}
-    assert set(n.query(upstream=17)) == {17}
-    assert len(set(n.query(upstream=18))) == 19
+    with pytest.deprecated_call():
+        assert set(n.query(upstream=[2])) == {0, 1, 2}
+    with pytest.deprecated_call():
+        assert n.query(downstream=0) == [2, 6, 8, 16, 18]
+
+
+def test_fluss_n_gather_segnums_upstream(fluss_n):
+    n = fluss_n
+    assert set(n.gather_segnums(upstream=0)) == {0}
+    assert set(n.gather_segnums(upstream=[2])) == {0, 1, 2}
+    assert set(n.gather_segnums(upstream=8)) == {0, 1, 2, 3, 4, 5, 6, 7, 8}
+    assert set(n.gather_segnums(upstream=9)) == {9, 10, 11, 12, 13, 14, 15}
+    assert set(n.gather_segnums(upstream=17)) == {17}
+    assert len(set(n.gather_segnums(upstream=18))) == 19
     # with barriers
-    assert len(set(n.query(upstream=18, barrier=17))) == 18
-    assert len(set(n.query(upstream=18, barrier=9))) == 13
-    assert set(n.query(upstream=9, barrier=8)) == {9, 10, 11, 12, 13, 14, 15}
-    assert set(n.query(upstream=16, barrier=[9, 5])) == \
+    assert len(set(n.gather_segnums(upstream=18, barrier=17))) == 18
+    assert len(set(n.gather_segnums(upstream=18, barrier=9))) == 13
+    assert set(n.gather_segnums(upstream=9, barrier=8)) == \
+        {9, 10, 11, 12, 13, 14, 15}
+    assert set(n.gather_segnums(upstream=16, barrier=[9, 5])) == \
         {0, 1, 2, 5, 6, 7, 8, 9, 16}
     # break it
     with pytest.raises(
             IndexError,
             match=r'upstream segnum \-1 not found in segments\.index'):
-        n.query(upstream=-1)
+        n.gather_segnums(upstream=-1)
     with pytest.raises(
             IndexError,
             match=r'2 upstream segments not found in segments\.index: \[19, '):
-        n.query(upstream=[18, 19, 20])
+        n.gather_segnums(upstream=[18, 19, 20])
     with pytest.raises(
             IndexError,
             match=r'barrier segnum \-1 not found in segments\.index'):
-        n.query(upstream=18, barrier=-1)
+        n.gather_segnums(upstream=18, barrier=-1)
     with pytest.raises(
             IndexError,
             match=r'1 barrier segment not found in segments\.index: \[\-1\]'):
-        n.query(upstream=18, barrier=[-1, 15])
+        n.gather_segnums(upstream=18, barrier=[-1, 15])
 
 
-def test_fluss_n_query_downstream(fluss_n):
+def test_fluss_n_gather_segnums_downstream(fluss_n):
     n = fluss_n
-    assert n.query(downstream=0) == [2, 6, 8, 16, 18]
-    assert n.query(downstream=[2]) == [6, 8, 16, 18]
-    assert n.query(downstream=8) == [16, 18]
-    assert n.query(downstream=9) == [16, 18]
-    assert n.query(downstream=17) == [18]
-    assert n.query(downstream=18) == []
-    assert set(n.query(downstream=7, gather_upstream=True)) == \
+    assert n.gather_segnums(downstream=0) == [2, 6, 8, 16, 18]
+    assert n.gather_segnums(downstream=[2]) == [6, 8, 16, 18]
+    assert n.gather_segnums(downstream=8) == [16, 18]
+    assert n.gather_segnums(downstream=9) == [16, 18]
+    assert n.gather_segnums(downstream=17) == [18]
+    assert n.gather_segnums(downstream=18) == []
+    assert set(n.gather_segnums(downstream=7, gather_upstream=True)) == \
         {0, 1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18}
-    assert set(n.query(downstream=8, gather_upstream=True)) == \
+    assert set(n.gather_segnums(downstream=8, gather_upstream=True)) == \
         {9, 10, 11, 12, 13, 14, 15, 16, 17, 18}
-    assert set(n.query(downstream=[9], gather_upstream=True)) == \
+    assert set(n.gather_segnums(downstream=[9], gather_upstream=True)) == \
         {0, 1, 2, 3, 4, 5, 6, 7, 8, 16, 17, 18}
-    assert n.query(downstream=18, gather_upstream=True) == []
-    assert set(n.query(downstream=0, gather_upstream=True, barrier=8)) == \
+    assert n.gather_segnums(downstream=18, gather_upstream=True) == []
+    assert set(n.gather_segnums(
+        downstream=0, gather_upstream=True, barrier=8)) == \
         {1, 2, 3, 4, 5, 6, 8}
     with pytest.raises(
             IndexError,
             match=r'downstream segnum \-1 not found in segments\.index'):
-        n.query(downstream=-1)
+        n.gather_segnums(downstream=-1)
 
 
 def test_aggregate_fluss_headwater(fluss_n):

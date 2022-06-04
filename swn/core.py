@@ -6,6 +6,7 @@ import pickle
 from itertools import zip_longest
 from math import sqrt
 from textwrap import dedent
+from warnings import warn
 
 import geopandas
 import numpy as np
@@ -755,7 +756,7 @@ class SurfaceWaterNetwork:
 
         See Also
         --------
-        query : Query multiple segnums up and downstream.
+        gather_segnums : Query multiple segnums up and downstream.
         """
         if start not in self.segments.index:
             raise IndexError(f"invalid start segnum {start}")
@@ -808,6 +809,19 @@ class SurfaceWaterNetwork:
               gather_upstream=False):
         """Return segnums upstream (inclusive) and downstream (exclusive).
 
+        .. deprecated:: 0.5
+            Use :py:meth:`gather_segnums` instead.
+        """
+        warn("Use gather_segnums", DeprecationWarning, stacklevel=2)
+        return self.gather_segnums(
+            upstream=upstream, downstream=downstream, barrier=barrier,
+            gather_upstream=gather_upstream)
+
+    def gather_segnums(
+            self, *, upstream=[], downstream=[], barrier=[],
+            gather_upstream=False):
+        r"""Return segnums upstream (inclusive) and downstream (exclusive).
+
         Parameters
         ----------
         upstream, downstream : int or list, default []
@@ -825,6 +839,30 @@ class SurfaceWaterNetwork:
         --------
         route_segnums :
             Return a list of segnums that connect a pair of segnums.
+
+        Examples
+        --------
+        >>> import swn
+        >>> from shapely import wkt
+        >>> lines = geopandas.GeoSeries(list(wkt.loads('''\
+        ... MULTILINESTRING(
+        ...     (380 490, 370 420), (300 460, 370 420), (370 420, 420 330),
+        ...     (190 250, 280 270), (225 180, 280 270), (280 270, 420 330),
+        ...     (420 330, 584 250), (520 220, 584 250), (584 250, 710 160),
+        ...     (740 270, 710 160), (735 350, 740 270), (880 320, 740 270),
+        ...     (925 370, 880 320), (974 300, 880 320), (760 460, 735 350),
+        ...     (650 430, 735 350), (710 160, 770 100), (700  90, 770 100),
+        ...     (770 100, 820  40))''').geoms))
+        >>> lines.index += 100
+        >>> n = swn.SurfaceWaterNetwork.from_lines(lines)
+        >>> n.gather_segnums(upstream=108)
+        [108, 106, 105, 104, 103, 102, 100, 101, 107]
+        >>> n.gather_segnums(downstream=101)
+        [102, 106, 108, 116, 118]
+        >>> set(n.gather_segnums(downstream=109, gather_upstream=True))
+        {100, 101, 102, 103, 104, 105, 106, 107, 108, 116, 117, 118}
+        >>> n.gather_segnums(downstream=100, gather_upstream=True, barrier=108)
+        [102, 106, 108, 101, 105, 104, 103]
         """
         segments_index = self.segments.index
         segments_set = set(segments_index)
