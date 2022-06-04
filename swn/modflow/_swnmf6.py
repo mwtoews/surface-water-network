@@ -925,7 +925,7 @@ class SwnMf6(SwnModflowBase):
                 upreach_rtp = hdrch.rtp
             inc_up = hdrch.top - upreach_rtp
             # get profile of reaches from this headwater
-            dsegs = self._swn.query(downstream=hdrch.segnum)
+            dsegs = self._swn.gather_segnums(downstream=hdrch.segnum)
             segs = [hdrch.segnum] + dsegs
             reaches = self.reaches.loc[
                 self.reaches.segnum.isin(segs)].sort_index()

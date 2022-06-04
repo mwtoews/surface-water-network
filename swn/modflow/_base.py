@@ -1436,9 +1436,9 @@ class SwnModflowBase:
         usegs = [segnum]
         dsegs = []
         if upstream:
-            usegs = self._swn.query(upstream=segnum)
+            usegs = self._swn.gather_segnums(upstream=segnum)
         if downstream:
-            dsegs = self._swn.query(downstream=segnum)
+            dsegs = self._swn.gather_segnums(downstream=segnum)
         segs = usegs + dsegs
         if segnum not in segs:
             self.logger.error(
