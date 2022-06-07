@@ -46,6 +46,7 @@ Methods
    SurfaceWaterNetwork.accumulate_values
    SurfaceWaterNetwork.route_segnums
    SurfaceWaterNetwork.gather_segnums
+   SurfaceWaterNetwork.locate_geoms
    SurfaceWaterNetwork.aggregate
    SurfaceWaterNetwork.evaluate_upstream_length
    SurfaceWaterNetwork.evaluate_upstream_area

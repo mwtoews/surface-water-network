@@ -189,6 +189,11 @@
       </a>
      </li>
      <li class="toctree-l3">
+      <a class="reference internal" href="swn.SurfaceWaterNetwork.locate_geoms.html">
+       swn.SurfaceWaterNetwork.locate_geoms
+      </a>
+     </li>
+     <li class="toctree-l3">
       <a class="reference internal" href="swn.SurfaceWaterNetwork.pair_segments_frame.html">
        swn.SurfaceWaterNetwork.pair_segments_frame
       </a>
@@ -288,6 +293,11 @@
    <li class="toctree-l2">
     <a class="reference internal" href="swn.SurfaceWaterNetwork.gather_segnums.html">
      swn.SurfaceWaterNetwork.gather_segnums
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="swn.SurfaceWaterNetwork.locate_geoms.html">
+     swn.SurfaceWaterNetwork.locate_geoms
     </a>
    </li>
    <li class="toctree-l2">
@@ -628,11 +638,6 @@
   </label>
   <ul class="current">
    <li class="toctree-l2">
-    <a class="reference internal" href="swn.spatial.find_geom_in_swn.html">
-     swn.spatial.find_geom_in_swn
-    </a>
-   </li>
-   <li class="toctree-l2">
     <a class="reference internal" href="swn.spatial.find_location_pairs.html">
      swn.spatial.find_location_pairs
     </a>
@@ -695,7 +700,8 @@
 <dt><strong>pairs</strong><span class="classifier">iterable</span></dt><dd><p>Collection of location pair tuples (upstream, downstream), indexed by
 loc_df from <a class="reference internal" href="swn.spatial.find_location_pairs.html#swn.spatial.find_location_pairs" title="swn.spatial.find_location_pairs"><code class="xref py py-meth docutils literal notranslate"><span class="pre">find_location_pairs()</span></code></a>.</p>
 </dd>
-<dt><strong>loc_df</strong><span class="classifier">geopandas.GeoDataFrame or pandas.DataFrame</span></dt><dd><p>Location [geo] dataframe, from <a class="reference internal" href="swn.spatial.find_geom_in_swn.html#swn.spatial.find_geom_in_swn" title="swn.spatial.find_geom_in_swn"><code class="xref py py-meth docutils literal notranslate"><span class="pre">find_geom_in_swn()</span></code></a>.</p>
+<dt><strong>loc_df</strong><span class="classifier">geopandas.GeoDataFrame or pandas.DataFrame</span></dt><dd><p>Location [geo] dataframe, usually created by
+<code class="xref py py-meth docutils literal notranslate"><span class="pre">SurfaceWaterNetwork.locate_geoms()</span></code>.</p>
 </dd>
 <dt><strong>n</strong><span class="classifier">SurfaceWaterNetwork</span></dt><dd><p>A surface water network.</p>
 </dd>
@@ -730,7 +736,7 @@ loc_df from <a class="reference internal" href="swn.spatial.find_location_pairs.
 <span class="gp">... </span>   <span class="s2">&quot;POINT (606 256)&quot;</span><span class="p">,</span>
 <span class="gp">... </span>   <span class="s2">&quot;POINT (690 170)&quot;</span><span class="p">])</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">obs_gs</span><span class="o">.</span><span class="n">index</span> <span class="o">+=</span> <span class="mi">11</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">obs_match</span> <span class="o">=</span> <span class="n">swn</span><span class="o">.</span><span class="n">spatial</span><span class="o">.</span><span class="n">find_geom_in_swn</span><span class="p">(</span><span class="n">obs_gs</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">obs_match</span> <span class="o">=</span> <span class="n">n</span><span class="o">.</span><span class="n">locate_geoms</span><span class="p">(</span><span class="n">obs_gs</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">pairs</span> <span class="o">=</span> <span class="n">swn</span><span class="o">.</span><span class="n">spatial</span><span class="o">.</span><span class="n">find_location_pairs</span><span class="p">(</span><span class="n">obs_match</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">sorted</span><span class="p">(</span><span class="n">pairs</span><span class="p">)</span>
 <span class="go">[(11, 14), (12, 13), (14, 15), (15, 13)]</span>

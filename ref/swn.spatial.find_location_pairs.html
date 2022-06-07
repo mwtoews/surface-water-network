@@ -33,7 +33,7 @@
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="swn.spatial.location_pair_geoms" href="swn.spatial.location_pair_geoms.html" />
-    <link rel="prev" title="swn.spatial.find_geom_in_swn" href="swn.spatial.find_geom_in_swn.html" />
+    <link rel="prev" title="Spatial methods" href="../spatial.html" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="docsearch:language" content="None">
     
@@ -189,6 +189,11 @@
       </a>
      </li>
      <li class="toctree-l3">
+      <a class="reference internal" href="swn.SurfaceWaterNetwork.locate_geoms.html">
+       swn.SurfaceWaterNetwork.locate_geoms
+      </a>
+     </li>
+     <li class="toctree-l3">
       <a class="reference internal" href="swn.SurfaceWaterNetwork.pair_segments_frame.html">
        swn.SurfaceWaterNetwork.pair_segments_frame
       </a>
@@ -288,6 +293,11 @@
    <li class="toctree-l2">
     <a class="reference internal" href="swn.SurfaceWaterNetwork.gather_segnums.html">
      swn.SurfaceWaterNetwork.gather_segnums
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="swn.SurfaceWaterNetwork.locate_geoms.html">
+     swn.SurfaceWaterNetwork.locate_geoms
     </a>
    </li>
    <li class="toctree-l2">
@@ -627,11 +637,6 @@
    </i>
   </label>
   <ul class="current">
-   <li class="toctree-l2">
-    <a class="reference internal" href="swn.spatial.find_geom_in_swn.html">
-     swn.spatial.find_geom_in_swn
-    </a>
-   </li>
    <li class="toctree-l2 current active">
     <a class="current reference internal" href="#">
      swn.spatial.find_location_pairs
@@ -692,7 +697,8 @@
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><dl class="simple">
-<dt><strong>loc_df</strong><span class="classifier">geopandas.GeoDataFrame or pandas.DataFrame</span></dt><dd><p>Location [geo] dataframe, from <a class="reference internal" href="swn.spatial.find_geom_in_swn.html#swn.spatial.find_geom_in_swn" title="swn.spatial.find_geom_in_swn"><code class="xref py py-meth docutils literal notranslate"><span class="pre">find_geom_in_swn()</span></code></a>.</p>
+<dt><strong>loc_df</strong><span class="classifier">geopandas.GeoDataFrame or pandas.DataFrame</span></dt><dd><p>Location [geo] dataframe, usually created by
+<code class="xref py py-meth docutils literal notranslate"><span class="pre">SurfaceWaterNetwork.locate_geoms()</span></code>.</p>
 </dd>
 <dt><strong>n</strong><span class="classifier">SurfaceWaterNetwork</span></dt><dd><p>A surface water network to evaluate.</p>
 </dd>
@@ -733,7 +739,7 @@
 <span class="gp">... </span>   <span class="s2">&quot;POINT (606 256)&quot;</span><span class="p">,</span>
 <span class="gp">... </span>   <span class="s2">&quot;POINT (690 170)&quot;</span><span class="p">])</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">obs_gs</span><span class="o">.</span><span class="n">index</span> <span class="o">+=</span> <span class="mi">11</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">obs_match</span> <span class="o">=</span> <span class="n">swn</span><span class="o">.</span><span class="n">spatial</span><span class="o">.</span><span class="n">find_geom_in_swn</span><span class="p">(</span><span class="n">obs_gs</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">obs_match</span> <span class="o">=</span> <span class="n">n</span><span class="o">.</span><span class="n">locate_geoms</span><span class="p">(</span><span class="n">obs_gs</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">obs_match</span><span class="p">[[</span><span class="s2">&quot;segnum&quot;</span><span class="p">,</span> <span class="s2">&quot;seg_ndist&quot;</span><span class="p">]]</span>
 <span class="go">    segnum  seg_ndist</span>
 <span class="go">11     102   0.169811</span>
@@ -756,11 +762,11 @@
               
               <!-- Previous / next buttons -->
 <div class='prev-next-area'>
-    <a class='left-prev' id="prev-link" href="swn.spatial.find_geom_in_swn.html" title="previous page">
+    <a class='left-prev' id="prev-link" href="../spatial.html" title="previous page">
         <i class="fas fa-angle-left"></i>
         <div class="prev-next-info">
             <p class="prev-next-subtitle">previous</p>
-            <p class="prev-next-title">swn.spatial.find_geom_in_swn</p>
+            <p class="prev-next-title">Spatial methods</p>
         </div>
     </a>
     <a class='right-next' id="next-link" href="swn.spatial.location_pair_geoms.html" title="next page">

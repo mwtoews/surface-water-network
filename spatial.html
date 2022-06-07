@@ -32,7 +32,7 @@
     <script src="_static/doctools.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="swn.spatial.find_geom_in_swn" href="ref/swn.spatial.find_geom_in_swn.html" />
+    <link rel="next" title="swn.spatial.find_location_pairs" href="ref/swn.spatial.find_location_pairs.html" />
     <link rel="prev" title="swn.file.gdf_to_shapefile" href="ref/swn.file.gdf_to_shapefile.html" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="docsearch:language" content="None">
@@ -189,6 +189,11 @@
       </a>
      </li>
      <li class="toctree-l3">
+      <a class="reference internal" href="ref/swn.SurfaceWaterNetwork.locate_geoms.html">
+       swn.SurfaceWaterNetwork.locate_geoms
+      </a>
+     </li>
+     <li class="toctree-l3">
       <a class="reference internal" href="ref/swn.SurfaceWaterNetwork.pair_segments_frame.html">
        swn.SurfaceWaterNetwork.pair_segments_frame
       </a>
@@ -288,6 +293,11 @@
    <li class="toctree-l2">
     <a class="reference internal" href="ref/swn.SurfaceWaterNetwork.gather_segnums.html">
      swn.SurfaceWaterNetwork.gather_segnums
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="ref/swn.SurfaceWaterNetwork.locate_geoms.html">
+     swn.SurfaceWaterNetwork.locate_geoms
     </a>
    </li>
    <li class="toctree-l2">
@@ -628,11 +638,6 @@
   </label>
   <ul>
    <li class="toctree-l2">
-    <a class="reference internal" href="ref/swn.spatial.find_geom_in_swn.html">
-     swn.spatial.find_geom_in_swn
-    </a>
-   </li>
-   <li class="toctree-l2">
     <a class="reference internal" href="ref/swn.spatial.find_location_pairs.html">
      swn.spatial.find_location_pairs
     </a>
@@ -661,9 +666,19 @@
               
               <div class="toc-item">
                 
+<div class="tocsection onthispage mt-5 pt-1 pb-3">
+    <i class="fas fa-list"></i> On this page
+</div>
 
 <nav id="bd-toc-nav">
-    
+    <ul class="visible nav section-nav flex-column">
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#paired-data-methods">
+   Paired data methods
+  </a>
+ </li>
+</ul>
+
 </nav>
               </div>
               
@@ -685,23 +700,23 @@
                 
   <section id="module-swn.spatial">
 <span id="spatial-methods"></span><h1>Spatial methods<a class="headerlink" href="#module-swn.spatial" title="Permalink to this headline">#</a></h1>
+<section id="paired-data-methods">
+<h2>Paired data methods<a class="headerlink" href="#paired-data-methods" title="Permalink to this headline">#</a></h2>
 <table class="autosummary longtable table autosummary">
 <colgroup>
 <col style="width: 10%" />
 <col style="width: 90%" />
 </colgroup>
 <tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="ref/swn.spatial.find_geom_in_swn.html#swn.spatial.find_geom_in_swn" title="swn.spatial.find_geom_in_swn"><code class="xref py py-obj docutils literal notranslate"><span class="pre">find_geom_in_swn</span></code></a>(geom, n[, override])</p></td>
-<td><p>Return GeoDataFrame of data associated in finding geometies in a swn.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="ref/swn.spatial.find_location_pairs.html#swn.spatial.find_location_pairs" title="swn.spatial.find_location_pairs"><code class="xref py py-obj docutils literal notranslate"><span class="pre">find_location_pairs</span></code></a>(loc_df, n)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="ref/swn.spatial.find_location_pairs.html#swn.spatial.find_location_pairs" title="swn.spatial.find_location_pairs"><code class="xref py py-obj docutils literal notranslate"><span class="pre">find_location_pairs</span></code></a>(loc_df, n)</p></td>
 <td><p>Find pairs of locations in a surface water network that are connected.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="ref/swn.spatial.location_pair_geoms.html#swn.spatial.location_pair_geoms" title="swn.spatial.location_pair_geoms"><code class="xref py py-obj docutils literal notranslate"><span class="pre">location_pair_geoms</span></code></a>(pairs, loc_df, n)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="ref/swn.spatial.location_pair_geoms.html#swn.spatial.location_pair_geoms" title="swn.spatial.location_pair_geoms"><code class="xref py py-obj docutils literal notranslate"><span class="pre">location_pair_geoms</span></code></a>(pairs, loc_df, n)</p></td>
 <td><p>Extract linestring geometry for location pairs, that follow segments.</p></td>
 </tr>
 </tbody>
 </table>
+</section>
 </section>
 
 
@@ -717,10 +732,10 @@
             <p class="prev-next-title">swn.file.gdf_to_shapefile</p>
         </div>
     </a>
-    <a class='right-next' id="next-link" href="ref/swn.spatial.find_geom_in_swn.html" title="next page">
+    <a class='right-next' id="next-link" href="ref/swn.spatial.find_location_pairs.html" title="next page">
     <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">swn.spatial.find_geom_in_swn</p>
+        <p class="prev-next-title">swn.spatial.find_location_pairs</p>
     </div>
     <i class="fas fa-angle-right"></i>
     </a>

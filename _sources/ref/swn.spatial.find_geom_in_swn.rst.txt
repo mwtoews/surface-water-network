@@ -1,6 +1,0 @@
-﻿swn.spatial.find\_geom\_in\_swn
-===============================
-
-.. currentmodule:: swn.spatial
-
-.. autofunction:: find_geom_in_swn

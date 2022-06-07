@@ -189,6 +189,11 @@
       </a>
      </li>
      <li class="toctree-l3">
+      <a class="reference internal" href="ref/swn.SurfaceWaterNetwork.locate_geoms.html">
+       swn.SurfaceWaterNetwork.locate_geoms
+      </a>
+     </li>
+     <li class="toctree-l3">
       <a class="reference internal" href="ref/swn.SurfaceWaterNetwork.pair_segments_frame.html">
        swn.SurfaceWaterNetwork.pair_segments_frame
       </a>
@@ -288,6 +293,11 @@
    <li class="toctree-l2">
     <a class="reference internal" href="ref/swn.SurfaceWaterNetwork.gather_segnums.html">
      swn.SurfaceWaterNetwork.gather_segnums
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="ref/swn.SurfaceWaterNetwork.locate_geoms.html">
+     swn.SurfaceWaterNetwork.locate_geoms
     </a>
    </li>
    <li class="toctree-l2">
@@ -628,11 +638,6 @@
   </label>
   <ul>
    <li class="toctree-l2">
-    <a class="reference internal" href="ref/swn.spatial.find_geom_in_swn.html">
-     swn.spatial.find_geom_in_swn
-    </a>
-   </li>
-   <li class="toctree-l2">
     <a class="reference internal" href="ref/swn.spatial.find_location_pairs.html">
      swn.spatial.find_location_pairs
     </a>
@@ -804,19 +809,22 @@
 <tr class="row-odd"><td><p><a class="reference internal" href="ref/swn.SurfaceWaterNetwork.gather_segnums.html#swn.SurfaceWaterNetwork.gather_segnums" title="swn.SurfaceWaterNetwork.gather_segnums"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SurfaceWaterNetwork.gather_segnums</span></code></a>(*[, ...])</p></td>
 <td><p>Return segnums upstream (inclusive) and downstream (exclusive).</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="ref/swn.SurfaceWaterNetwork.aggregate.html#swn.SurfaceWaterNetwork.aggregate" title="swn.SurfaceWaterNetwork.aggregate"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SurfaceWaterNetwork.aggregate</span></code></a>(segnums[, ...])</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="ref/swn.SurfaceWaterNetwork.locate_geoms.html#swn.SurfaceWaterNetwork.locate_geoms" title="swn.SurfaceWaterNetwork.locate_geoms"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SurfaceWaterNetwork.locate_geoms</span></code></a>(geom, *[, ...])</p></td>
+<td><p>Return GeoDataFrame of data associated in finding geometies.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="ref/swn.SurfaceWaterNetwork.aggregate.html#swn.SurfaceWaterNetwork.aggregate" title="swn.SurfaceWaterNetwork.aggregate"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SurfaceWaterNetwork.aggregate</span></code></a>(segnums[, ...])</p></td>
 <td><p>Aggregate segments (and catchments) to a coarser network of segnums.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="ref/swn.SurfaceWaterNetwork.evaluate_upstream_length.html#swn.SurfaceWaterNetwork.evaluate_upstream_length" title="swn.SurfaceWaterNetwork.evaluate_upstream_length"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SurfaceWaterNetwork.evaluate_upstream_length</span></code></a>()</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="ref/swn.SurfaceWaterNetwork.evaluate_upstream_length.html#swn.SurfaceWaterNetwork.evaluate_upstream_length" title="swn.SurfaceWaterNetwork.evaluate_upstream_length"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SurfaceWaterNetwork.evaluate_upstream_length</span></code></a>()</p></td>
 <td><p>Evaluate upstream length of segments, adds to segments.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="ref/swn.SurfaceWaterNetwork.evaluate_upstream_area.html#swn.SurfaceWaterNetwork.evaluate_upstream_area" title="swn.SurfaceWaterNetwork.evaluate_upstream_area"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SurfaceWaterNetwork.evaluate_upstream_area</span></code></a>()</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="ref/swn.SurfaceWaterNetwork.evaluate_upstream_area.html#swn.SurfaceWaterNetwork.evaluate_upstream_area" title="swn.SurfaceWaterNetwork.evaluate_upstream_area"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SurfaceWaterNetwork.evaluate_upstream_area</span></code></a>()</p></td>
 <td><p>Evaluate upstream area from catchments, adds to segments.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="ref/swn.SurfaceWaterNetwork.estimate_width.html#swn.SurfaceWaterNetwork.estimate_width" title="swn.SurfaceWaterNetwork.estimate_width"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SurfaceWaterNetwork.estimate_width</span></code></a>([a, b, ...])</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="ref/swn.SurfaceWaterNetwork.estimate_width.html#swn.SurfaceWaterNetwork.estimate_width" title="swn.SurfaceWaterNetwork.estimate_width"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SurfaceWaterNetwork.estimate_width</span></code></a>([a, b, ...])</p></td>
 <td><p>Estimate stream width based on upstream area and fitting parameters.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="ref/swn.SurfaceWaterNetwork.adjust_elevation_profile.html#swn.SurfaceWaterNetwork.adjust_elevation_profile" title="swn.SurfaceWaterNetwork.adjust_elevation_profile"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SurfaceWaterNetwork.adjust_elevation_profile</span></code></a>([...])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="ref/swn.SurfaceWaterNetwork.adjust_elevation_profile.html#swn.SurfaceWaterNetwork.adjust_elevation_profile" title="swn.SurfaceWaterNetwork.adjust_elevation_profile"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SurfaceWaterNetwork.adjust_elevation_profile</span></code></a>([...])</p></td>
 <td><p>Check and adjust (if necessary) Z coordinates of elevation profiles.</p></td>
 </tr>
 </tbody>
