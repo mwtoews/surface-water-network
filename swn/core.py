@@ -12,7 +12,6 @@ import geopandas
 import numpy as np
 import pandas as pd
 from shapely.geometry import LineString, Point
-from shapely.ops import cascaded_union, linemerge
 
 from .compat import ignore_shapely_warnings_for_object_array
 from .spatial import get_sindex
@@ -916,6 +915,231 @@ class SurfaceWaterNetwork:
                             segnums += upsegnums
         return segnums
 
+    def locate_geoms(self, geom, *, override={}):
+        """Return GeoDataFrame of data associated in finding geometies.
+
+        Parameters
+        ----------
+        geom : GeoSeries
+            Geometry series input to process, e.g. stream gauge locations,
+            bridges or building footprints.
+        override : dict, optional
+            Override matches, where key is the index from geom, and the value
+            is segnum. If value is None, no match is performed.
+
+        Notes
+        -----
+        Seveal methods are used to pair the geometry with one segnum:
+
+            1. override: explicit pairs are provided as a dict, with key for
+               the geom index, and value with the segnum.
+            2. catchment: if catchments are part of the surface water network,
+               find the catchment polygons that contain the geometries. Input
+               polygons that intersect with more than one catchment are matched
+               with the catchment with the largest intersection polygon area.
+            3. nearest: find the segment lines that are nearest to the input
+               geometries. Input polygons that intersect with more than one
+               segment are matched with the largest intersection line length.
+
+        It is advised that outputs are checked in a GIS to ensure correct
+        matches. Any error can be corrected using an override entry.
+
+        The geometry returned by this method consists of two-coordinate line
+        segments that represent the shortest distance between geom and the
+        surface water network segment.
+
+        Returns
+        -------
+        geopandas.GeoDataFrame
+            Resulting GeoDataFrame has columns geometry (always LineString),
+            method (override, catchment or nearest), segnum,
+            seg_ndist (normalized distance along segment), and
+            dist_to_seg (distance to segment).
+
+        Examples
+        --------
+        >>> import swn
+        >>> lines = swn.spatial.wkt_to_geoseries([
+        ...    "LINESTRING (60 100, 60  80)",
+        ...    "LINESTRING (40 130, 60 100)",
+        ...    "LINESTRING (70 130, 60 100)"])
+        >>> n = swn.SurfaceWaterNetwork.from_lines(lines)
+        >>> obs_gs = swn.spatial.wkt_to_geoseries([
+        ...    "POINT (56 103)",
+        ...    "LINESTRING (58 90, 62 90)",
+        ...    "POLYGON ((60 107, 59 113, 61 113, 60 107))",
+        ...    "POINT (55 130)"])
+        >>> obs_gs.index += 101
+        >>> obs_match = n.locate_geoms(obs_gs, override={104: 2})
+        >>> obs_match[["method", "segnum", "seg_ndist", "dist_to_seg"]]
+               method  segnum  seg_ndist  dist_to_seg
+        101   nearest       1   0.869231     1.664101
+        102   nearest       0   0.500000     0.000000
+        103   nearest       2   0.790000     2.213594
+        104  override       2   0.150000    14.230249
+        """
+        from shapely import wkt
+
+        if not isinstance(geom, geopandas.GeoSeries):
+            raise TypeError("expected 'geom' as an instance of GeoSeries")
+
+        # initialise return data frame
+        res = geopandas.GeoDataFrame(geometry=geom)
+        res["method"] = ""
+        res["segnum"] = self.END_SEGNUM
+
+        if not isinstance(override, dict):
+            raise TypeError("expected 'override' as an instance of dict")
+        if override:
+            override = override.copy()
+            override_keys_s = set(override.keys())
+            missing_geom_idx_s = override_keys_s.difference(res.index)
+            if missing_geom_idx_s:
+                self.logger.warning(
+                    "%d override keys don't match point geom.index: %s",
+                    len(missing_geom_idx_s), sorted(missing_geom_idx_s))
+                for k in missing_geom_idx_s:
+                    del override[k]
+            override_values_s = set(override.values())
+            if None in override_values_s:
+                override.update(
+                    {k: self.END_SEGNUM for k, v in override.items()
+                     if v is None})
+                override_values_s.remove(None)
+            missng_segnum_idx_s = override_values_s.difference(
+                self.segments.index)
+            if missng_segnum_idx_s:
+                self.logger.warning(
+                    "%d override values don't match segments.index: %s",
+                    len(missng_segnum_idx_s), sorted(missng_segnum_idx_s))
+                for k, v in override.copy().items():
+                    if v in missng_segnum_idx_s:
+                        del override[k]
+            if override:
+                res.segnum.update(override)
+                res.loc[override.keys(), "method"] = "override"
+
+        # First, look at geoms in catchments
+        if self.catchments is not None:
+            sel = (res.method == "")
+            if sel.any():
+                catchments_df = self.catchments.to_frame()
+                if catchments_df.crs is None and self.segments.crs is not None:
+                    catchments_df.crs = self.segments.crs
+                match_s = geopandas.sjoin(
+                    res[sel], catchments_df, "inner")["index_right"]
+                match_s.name = "segnum"
+                match_s.index.name = "gidx"
+                match = match_s.reset_index()
+                # geom may cover more than one catchment
+                duplicated = match.gidx.duplicated(keep=False)
+                if duplicated.any():
+                    dupes = match[duplicated]
+                    for gidx, segnums in dupes.groupby("gidx").segnum:
+                        # find catchment with highest area of intersection
+                        ca = segnums.to_frame()
+                        ca["area"] = catchments_df.loc[segnums].intersection(
+                            geom.loc[gidx]).area.values
+                        ca.sort_values("area", ascending=False, inplace=True)
+                        match.drop(index=ca.index[1:], inplace=True)
+                res.loc[match.gidx, "segnum"] = match.segnum.values
+                res.loc[match.gidx, "method"] = "catchment"
+
+        # Match geometry to closest segment
+        sel = res.method == ""
+        if not sel.any():
+            pass
+        else:
+            try:
+                # faster method, not widely available
+                match_s = geopandas.sjoin_nearest(
+                    res[sel],
+                    self.segments[["geometry"]], "inner")["index_right"]
+                has_sjoin_nearest = True
+            except (AttributeError, NotImplementedError):
+                has_sjoin_nearest = False
+            if has_sjoin_nearest:
+                match_s.name = "segnum"
+                match_s.index.name = "gidx"
+                match = match_s.reset_index()
+                duplicated = match.gidx.duplicated(keep=False)
+                if duplicated.any():
+                    dupes = match[duplicated]
+                    for gidx, segnums in dupes.groupby("gidx").segnum:
+                        g = geom.loc[gidx]
+                        sg = self.segments.geometry[segnums]
+                        sl = segnums.to_frame()
+                        sl["length"] = sg.intersection(g).length.values
+                        sl["start"] = sg.interpolate(0.0).intersects(g).values
+                        if sl.length.max() > 0.0:
+                            # find segment with highest length of intersection
+                            sl.sort_values(
+                                "length", ascending=False, inplace=True)
+                        elif sl.start.sum() == 1:
+                            # find start segment at a junction
+                            sl.sort_values(
+                                "start", ascending=False, inplace=True)
+                        else:
+                            sl.sort_values("segnum", inplace=True)
+                        match.drop(index=sl.index[1:], inplace=True)
+                res.loc[match.gidx, "segnum"] = match.segnum.values
+                res.loc[match.gidx, "method"] = "nearest"
+            else:  # slower method
+                for gidx, g in geom[sel].iteritems():
+                    if g.is_empty:
+                        continue
+                    dists = self.segments.distance(g).sort_values()
+                    segnums = dists.index[dists.iloc[0] == dists]
+                    if len(segnums) == 1:
+                        segnum = segnums[0]
+                    else:
+                        sg = self.segments.geometry[segnums]
+                        sl = pd.DataFrame(index=segnums)
+                        sl["length"] = sg.intersection(g).length
+                        sl["start"] = sg.interpolate(0.0).intersects(g)
+                        if sl.length.max() > 0.0:
+                            # find segment with highest length of intersection
+                            sl.sort_values(
+                                "length", ascending=False, inplace=True)
+                        elif sl.start.sum() == 1:
+                            # find start segment at a junction
+                            sl.sort_values(
+                                "start", ascending=False, inplace=True)
+                        else:
+                            sl.sort_index(inplace=True)
+                        segnum = sl.index[0]
+                    res.loc[gidx, "segnum"] = segnum
+                    res.loc[gidx, "method"] = "nearest"
+
+        # For non-point geometries, convert to point
+        sel = (res.geom_type != "Point") & (res.segnum != self.END_SEGNUM)
+        if sel.any():
+            from shapely.ops import nearest_points
+            with ignore_shapely_warnings_for_object_array():
+                res.geometry.loc[sel] = res.loc[sel].apply(
+                    lambda f: nearest_points(
+                        self.segments.geometry[f.segnum], f.geometry)[1],
+                    axis=1)
+
+        # Add attributes for match
+        sel = res.segnum != self.END_SEGNUM
+        res["seg_ndist"] = res.loc[sel].apply(
+            lambda f: self.segments.geometry[f.segnum].project(
+                f.geometry, normalized=True), axis=1)
+        # Line between geometry and line segment
+        with ignore_shapely_warnings_for_object_array():
+            res["link"] = res.loc[sel].apply(
+                lambda f: LineString(
+                    [f.geometry, self.segments.geometry[f.segnum].interpolate(
+                        f.seg_ndist, normalized=True)]), axis=1)
+        if (~sel).any():
+            linestring_empty = wkt.loads("LINESTRING EMPTY")
+            for idx in res[~sel].index:
+                res.at[idx, "link"] = linestring_empty
+        res.set_geometry("link", drop=True, inplace=True)
+        res["dist_to_seg"] = res[sel].length
+        return res
+
     def aggregate(self, segnums, follow_up='upstream_length'):
         """Aggregate segments (and catchments) to a coarser network of segnums.
 
@@ -939,6 +1163,8 @@ class SurfaceWaterNetwork:
             to reflect the uppermost segment.
 
         """
+        from shapely.ops import linemerge, unary_union
+
         if (isinstance(follow_up, str) and follow_up in self.segments.columns):
             pass
         else:
@@ -1062,7 +1288,7 @@ class SurfaceWaterNetwork:
             catchment_segnums = list(up_patch_segnums(segnum))
             agg_patch.at[segnum] = catchment_segnums
             if polygons is not None:
-                polygons.at[segnum] = cascaded_union(
+                polygons.at[segnum] = unary_union(
                         list(self.catchments.loc[catchment_segnums]))
             # determine if headwater or not, if any other junctions go to it
             is_headwater = True

@@ -4,7 +4,6 @@ __all__ = [
     "get_sindex", "interp_2d_to_3d",
     "wkt_to_dataframe", "wkt_to_geodataframe", "wkt_to_geoseries",
     "force_2d", "round_coords", "compare_crs", "get_crs",
-    "find_segnum_in_swn", "find_geom_in_swn",
     "find_location_pairs", "location_pair_geoms",
 ]
 
@@ -15,9 +14,7 @@ import numpy as np
 import pandas as pd
 import pyproj
 from shapely import wkt
-from shapely.geometry import LineString, Point
-
-from .compat import ignore_shapely_warnings_for_object_array
+from shapely.geometry import Point
 
 try:
     from geopandas.tools import sjoin
@@ -206,7 +203,7 @@ def find_segnum_in_swn(n, geom):
     is contained in the catchment, otherwise the closest segment is found.
 
     .. deprecated:: 0.5
-        Use :py:meth:`find_geom_in_swn` instead.
+        Use :py:meth:`SurfaceWaterNetwork.locate_geoms` instead.
 
     Parameters
     ----------
@@ -225,239 +222,18 @@ def find_segnum_in_swn(n, geom):
         (if catchments are found) is_within_catchment.
 
     """
-    warn("Use spatial.find_geom_in_swn", DeprecationWarning, stacklevel=2)
+    warn("Use the n.locate_geoms method", DeprecationWarning, stacklevel=2)
     if isinstance(geom, tuple):
         geom = geopandas.GeoSeries([Point(geom)])
     elif isinstance(geom, list):
         geom = geopandas.GeoSeries([Point(v) for v in geom])
     if geom.crs is None and n.segments.crs is not None:
         geom.crs = n.segments.crs
-    res = find_geom_in_swn(geom, n)
+    res = n.locate_geoms(geom)
     res["is_within_catchment"] = res.method == "catchment"
     res.rename(columns={"dist_to_seg": "dist_to_segnum"}, inplace=True)
     return pd.DataFrame(
         res[["segnum", "dist_to_segnum", "is_within_catchment"]])
-
-
-def find_geom_in_swn(geom, n, override={}):
-    """Return GeoDataFrame of data associated in finding geometies in a swn.
-
-    Parameters
-    ----------
-    geom : GeoSeries
-        Geometry series input to process, e.g. stream gauge locations or
-        or building footprints.
-    n : SurfaceWaterNetwork
-        A surface water network to evaluate.
-    override : dict
-        Override matches, where key is the index from geom, and the value is
-        segnum. If value is None, no match is performed.
-
-    Notes
-    -----
-    Seveal methods are used to pair the geometry with one segnum:
-
-        1. override: explicit pairs are provided as a dict, with key for the
-           geom index, and value with the segnum.
-        2. catchment: if catchments are part of the surface water network,
-           find the catchment polygons that contain the geometries. Input
-           polygons that intersect with more than one catchment are matched
-           with the catchment with the largest intersection polygon area.
-        3. nearest: find the segment lines that are nearest to the input
-           geometries. Input polygons that intersect with more than one
-           segment are matched with the largest intersection line length.
-
-    It is advised that outputs are checked in a GIS to ensure correct
-    matches. Any error can be corrected using an override entry.
-
-    The geometry returned by this method consists of two-coordinate line
-    segments that represent the shortest distance between geom and the
-    surface water network segment.
-
-    Returns
-    -------
-    geopandas.GeoDataFrame
-        Resulting GeoDataFrame has columns geometry (always LineString),
-        method (override, catchment or nearest), segnum, seg_ndist (normalized
-        distance along segment), and dist_to_seg (distance to segment).
-
-    Examples
-    --------
-    >>> import swn
-    >>> lines = swn.spatial.wkt_to_geoseries([
-    ...    "LINESTRING (60 100, 60  80)",
-    ...    "LINESTRING (40 130, 60 100)",
-    ...    "LINESTRING (70 130, 60 100)"])
-    >>> n = swn.SurfaceWaterNetwork.from_lines(lines)
-    >>> obs_gs = swn.spatial.wkt_to_geoseries([
-    ...    "POINT (56 103)",
-    ...    "LINESTRING (58 90, 62 90)",
-    ...    "POLYGON ((60 107, 59 113, 61 113, 60 107))",
-    ...    "POINT (55 130)"])
-    >>> obs_gs.index += 101
-    >>> obs_match = swn.spatial.find_geom_in_swn(obs_gs, n, override={104: 2})
-    >>> print(obs_match[["method", "segnum", "seg_ndist", "dist_to_seg"]])
-           method  segnum  seg_ndist  dist_to_seg
-    101   nearest       1   0.869231     1.664101
-    102   nearest       0   0.500000     0.000000
-    103   nearest       2   0.790000     2.213594
-    104  override       2   0.150000    14.230249
-    """
-    from .core import SurfaceWaterNetwork
-
-    if not isinstance(geom, geopandas.GeoSeries):
-        raise TypeError("expected 'geom' as an instance of GeoSeries")
-    elif not isinstance(n, SurfaceWaterNetwork):
-        raise TypeError("expected 'n' as an instance of SurfaceWaterNetwork")
-
-    # initialise return data frame
-    res = geopandas.GeoDataFrame(geometry=geom)
-    res["method"] = ""
-    res["segnum"] = n.END_SEGNUM
-
-    if not isinstance(override, dict):
-        raise TypeError("expected 'override' as an instance of dict")
-    if override:
-        override = override.copy()
-        override_keys_s = set(override.keys())
-        missing_geom_idx_s = override_keys_s.difference(res.index)
-        if missing_geom_idx_s:
-            warn(
-                f"{len(missing_geom_idx_s)} override keys don't match "
-                f"point geom.index: {sorted(missing_geom_idx_s)}",
-                UserWarning, stacklevel=2)
-            for k in missing_geom_idx_s:
-                del override[k]
-        override_values_s = set(override.values())
-        if None in override_values_s:
-            override.update(
-                {k: n.END_SEGNUM for k, v in override.items() if v is None})
-            override_values_s.remove(None)
-        missng_segnum_idx_s = override_values_s.difference(n.segments.index)
-        if missng_segnum_idx_s:
-            warn(
-                f"{len(missng_segnum_idx_s)} override values don't match "
-                f"segments.index: {sorted(missng_segnum_idx_s)}",
-                UserWarning, stacklevel=2)
-            for k, v in override.copy().items():
-                if v in missng_segnum_idx_s:
-                    del override[k]
-        if override:
-            res.segnum.update(override)
-            res.loc[override.keys(), "method"] = "override"
-
-    # First, look at geoms in catchments
-    if n.catchments is not None:
-        sel = (res.method == "")
-        if sel.any():
-            catchments_df = n.catchments.to_frame()
-            if catchments_df.crs is None and n.segments.crs is not None:
-                catchments_df.crs = n.segments.crs
-            match_s = geopandas.sjoin(
-                res[sel], catchments_df, "inner")["index_right"]
-            match_s.name = "segnum"
-            match_s.index.name = "gidx"
-            match = match_s.reset_index()
-            # geom may cover more than one catchment
-            duplicated = match.gidx.duplicated(keep=False)
-            if duplicated.any():
-                for gidx, segnums in match[duplicated].groupby("gidx").segnum:
-                    # find catchment with highest area of intersection
-                    ca = segnums.to_frame()
-                    ca["area"] = catchments_df.loc[segnums].intersection(
-                        geom.loc[gidx]).area.values
-                    ca.sort_values("area", ascending=False, inplace=True)
-                    match.drop(index=ca.index[1:], inplace=True)
-            res.loc[match.gidx, "segnum"] = match.segnum.values
-            res.loc[match.gidx, "method"] = "catchment"
-
-    # Match geometry to closest segment
-    sel = res.method == ""
-    if not sel.any():
-        pass
-    else:
-        try:
-            # faster method, not widely available
-            match_s = geopandas.sjoin_nearest(
-                res[sel], n.segments[["geometry"]], "inner")["index_right"]
-            has_sjoin_nearest = True
-        except (AttributeError, NotImplementedError):
-            has_sjoin_nearest = False
-        if has_sjoin_nearest:
-            match_s.name = "segnum"
-            match_s.index.name = "gidx"
-            match = match_s.reset_index()
-            duplicated = match.gidx.duplicated(keep=False)
-            if duplicated.any():
-                for gidx, segnums in match[duplicated].groupby("gidx").segnum:
-                    g = geom.loc[gidx]
-                    sg = n.segments.geometry[segnums]
-                    sl = segnums.to_frame()
-                    sl["length"] = sg.intersection(g).length.values
-                    sl["start"] = sg.interpolate(0.0).intersects(g).values
-                    if sl.length.max() > 0.0:
-                        # find segment with highest length of intersection
-                        sl.sort_values("length", ascending=False, inplace=True)
-                    elif sl.start.sum() == 1:
-                        # find start segment at a junction
-                        sl.sort_values("start", ascending=False, inplace=True)
-                    else:
-                        sl.sort_values("segnum", inplace=True)
-                    match.drop(index=sl.index[1:], inplace=True)
-            res.loc[match.gidx, "segnum"] = match.segnum.values
-            res.loc[match.gidx, "method"] = "nearest"
-        else:  # slower method
-            for gidx, g in geom[sel].iteritems():
-                if g.is_empty:
-                    continue
-                dists = n.segments.distance(g).sort_values()
-                segnums = dists.index[dists.iloc[0] == dists]
-                if len(segnums) == 1:
-                    segnum = segnums[0]
-                else:
-                    sg = n.segments.geometry[segnums]
-                    sl = pd.DataFrame(index=segnums)
-                    sl["length"] = sg.intersection(g).length
-                    sl["start"] = sg.interpolate(0.0).intersects(g)
-                    if sl.length.max() > 0.0:
-                        # find segment with highest length of intersection
-                        sl.sort_values("length", ascending=False, inplace=True)
-                    elif sl.start.sum() == 1:
-                        # find start segment at a junction
-                        sl.sort_values("start", ascending=False, inplace=True)
-                    else:
-                        sl.sort_index(inplace=True)
-                    segnum = sl.index[0]
-                res.loc[gidx, "segnum"] = segnum
-                res.loc[gidx, "method"] = "nearest"
-
-    # For non-point geometries, convert to point
-    sel = (res.geom_type != "Point") & (res.segnum != n.END_SEGNUM)
-    if sel.any():
-        from shapely.ops import nearest_points
-        with ignore_shapely_warnings_for_object_array():
-            res.geometry.loc[sel] = res.loc[sel].apply(
-                lambda f: nearest_points(
-                    n.segments.geometry[f.segnum], f.geometry)[1], axis=1)
-
-    # Add attributes for match
-    sel = res.segnum != n.END_SEGNUM
-    res["seg_ndist"] = res.loc[sel].apply(
-        lambda f: n.segments.geometry[f.segnum].project(
-            f.geometry, normalized=True), axis=1)
-    # Line between geometry and line segment
-    with ignore_shapely_warnings_for_object_array():
-        res["link"] = res.loc[sel].apply(
-            lambda f: LineString(
-                [f.geometry, n.segments.geometry[f.segnum].interpolate(
-                    f.seg_ndist, normalized=True)]), axis=1)
-    if (~sel).any():
-        linestring_empty = wkt.loads("LINESTRING EMPTY")
-        for idx in res[~sel].index:
-            res.at[idx, "link"] = linestring_empty
-    res.set_geometry("link", drop=True, inplace=True)
-    res["dist_to_seg"] = res[sel].length
-    return res
 
 
 def find_location_pairs(loc_df, n):
@@ -466,7 +242,8 @@ def find_location_pairs(loc_df, n):
     Parameters
     ----------
     loc_df : geopandas.GeoDataFrame or pandas.DataFrame
-        Location [geo] dataframe, from :py:meth:`find_geom_in_swn`.
+        Location [geo] dataframe, usually created by
+        :py:meth:`SurfaceWaterNetwork.locate_geoms`.
     n : SurfaceWaterNetwork
         A surface water network to evaluate.
 
@@ -501,7 +278,7 @@ def find_location_pairs(loc_df, n):
     ...    "POINT (606 256)",
     ...    "POINT (690 170)"])
     >>> obs_gs.index += 11
-    >>> obs_match = swn.spatial.find_geom_in_swn(obs_gs, n)
+    >>> obs_match = n.locate_geoms(obs_gs)
     >>> obs_match[["segnum", "seg_ndist"]]
         segnum  seg_ndist
     11     102   0.169811
@@ -523,7 +300,7 @@ def find_location_pairs(loc_df, n):
     elif "segnum" not in loc_df.columns:
         raise ValueError(
             "loc_df must have 'segnum' column; "
-            "was it created by spatial.find_geom_in_swn?")
+            "was it created by n.locate_geoms?")
     elif "seg_ndist" not in loc_df.columns:
         raise ValueError("loc_df must have 'seg_ndist' column")
     segnum_is_in_index = loc_df.segnum.isin(n.segments.index)
@@ -572,7 +349,8 @@ def location_pair_geoms(pairs, loc_df, n):
         Collection of location pair tuples (upstream, downstream), indexed by
         loc_df from :py:meth:`find_location_pairs`.
     loc_df : geopandas.GeoDataFrame or pandas.DataFrame
-        Location [geo] dataframe, from :py:meth:`find_geom_in_swn`.
+        Location [geo] dataframe, usually created by
+        :py:meth:`SurfaceWaterNetwork.locate_geoms`.
     n : SurfaceWaterNetwork
         A surface water network.
 
@@ -604,7 +382,7 @@ def location_pair_geoms(pairs, loc_df, n):
     ...    "POINT (606 256)",
     ...    "POINT (690 170)"])
     >>> obs_gs.index += 11
-    >>> obs_match = swn.spatial.find_geom_in_swn(obs_gs, n)
+    >>> obs_match = n.locate_geoms(obs_gs)
     >>> pairs = swn.spatial.find_location_pairs(obs_match, n)
     >>> sorted(pairs)
     [(11, 14), (12, 13), (14, 15), (15, 13)]
@@ -632,7 +410,7 @@ def location_pair_geoms(pairs, loc_df, n):
     elif "segnum" not in loc_df.columns:
         raise ValueError(
             "loc_df must have 'segnum' column; "
-            "was it created by spatial.find_geom_in_swn?")
+            "was it created by n.locate_geoms?")
     elif "seg_ndist" not in loc_df.columns:
         raise ValueError("loc_df must have 'seg_ndist' column")
     segnum_is_in_index = loc_df.segnum.isin(n.segments.index)
