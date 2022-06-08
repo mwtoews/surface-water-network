@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 from shapely import wkt
 from shapely.geometry import LineString, Point, Polygon, box
-from shapely.ops import linemerge
+from shapely.ops import linemerge, substring
 
 from ..compat import ignore_shapely_warnings_for_object_array
 from ..core import SurfaceWaterNetwork
@@ -1214,6 +1214,116 @@ class SwnModflowBase:
         else:
             self.logger.info("inflow not found for any segnums")
         return return_inflow()
+
+    def get_location_frame_reach_info(self, loc_df, next_reach_bias=0.0):
+        """Get reach information to location data frame, matched by segnum.
+
+        Parameters
+        ----------
+        loc_df : geopandas.GeoDataFrame
+            Location geo dataframe, created by
+            :py:meth:`SurfaceWaterNetwork.locate_geoms`.
+        next_reach_bias : float, default 0.0
+            A bias used to increase the likelihood of matching downstream
+            reaches of a segnum to the location. Default 0.0 disables this,
+            and only matches to the closest match of a segnum.
+
+        Returns
+        -------
+        pandas.DataFrame
+            - reachID (SwnModflow) or rno (SwnMf6)
+            - zero-based cell index: k, i, j,
+            - one-based reach index: iseg, ireach
+            - dist_to_reach
+
+        Examples
+        --------
+        >>> import flopy
+        >>> import pandas as pd
+        >>> import swn
+        >>> lines = swn.spatial.wkt_to_geoseries([
+        ...    "LINESTRING (60 100, 60  80)",
+        ...    "LINESTRING (40 130, 60 100)",
+        ...    "LINESTRING (70 130, 60 100)"])
+        >>> lines.index += 100
+        >>> n = swn.SurfaceWaterNetwork.from_lines(lines)
+        >>> sim = flopy.mf6.MFSimulation()
+        >>> _ = flopy.mf6.ModflowTdis(sim, nper=1, time_units="days")
+        >>> gwf = flopy.mf6.ModflowGwf(sim)
+        >>> _ = flopy.mf6.ModflowGwfdis(
+        ...     gwf, nrow=3, ncol=2, delr=20.0, delc=20.0, idomain=1,
+        ...     length_units="meters", xorigin=30.0, yorigin=70.0)
+        >>> nm = swn.SwnMf6.from_swn_flopy(n, gwf)
+        >>> obs_gs = swn.spatial.wkt_to_geoseries([
+        ...    "POINT (56 103)",
+        ...    "POINT (62 90)"])
+        >>> obs_gs.index += 10
+        >>> loc_df = n.locate_geoms(obs_gs)
+        >>> r_df = nm.get_location_frame_reach_info(loc_df)
+        >>> r_df
+            rno  k  i  j  iseg  ireach  dist_to_reach
+        10    3  0  1  1     1       3       1.664101
+        11    7  0  2  1     3       2       2.000000
+        >>> loc_reach_df = pd.concat([loc_df, r_df], axis=1)
+        """  # noqa
+        # Check inputs
+        if not isinstance(loc_df, geopandas.GeoDataFrame):
+            raise TypeError("loc_df must be a GeoDataFrame")
+        elif "segnum" not in loc_df.columns:
+            raise ValueError(
+                "loc_df must have 'segnum' column; "
+                "was it created by n.locate_geoms?")
+        elif not (0.0 <= next_reach_bias <= 1.0):
+            raise ValueError("next_reach_bias must be between 0 and 1")
+
+        loc_df = loc_df.copy()
+        reach_index_name = self.reaches.index.name
+        if reach_index_name in loc_df.columns:
+            self.logger.info(
+                "resetting %s from location frame", reach_index_name)
+            del loc_df[reach_index_name]
+        loc_df[reach_index_name] = -1
+        loc_df["start_geom"] = loc_df.interpolate(0.0)
+        loc_df["end_geom"] = loc_df.interpolate(1.0, normalized=True)
+        for row in loc_df.itertuples():
+            reaches = self.reaches.loc[self.reaches.segnum == row.segnum]
+            if len(reaches) == 0:
+                continue
+            if len(reaches) > 1 and next_reach_bias > 0.0:
+                # distance bewtween original location and a reach substring
+                dists = reaches.geometry.apply(
+                    substring, args=(0, 1.0 - next_reach_bias),
+                    normalized=True).distance(
+                        row.start_geom).sort_values()
+            else:
+                # distance from projected segment match and reach
+                dists = reaches.distance(row.end_geom).sort_values()
+            closest_dist = dists.iloc[0]
+            sel_closest = dists == closest_dist
+            if sel_closest.sum() > 1:
+                # More than one closest match, take downstream
+                closest_reach = dists[sel_closest].index[-1]
+            else:  # normally there is only one close match
+                closest_reach = dists.index[0]
+            loc_df.at[row.Index, reach_index_name] = closest_reach
+        no_match = loc_df[reach_index_name] == -1
+        if no_match.any():
+            drop_loc = no_match.index[no_match]
+            self.logger.warning(
+                "location %s missing %d match%s: %s",
+                loc_df.index.name or "index", len(drop_loc),
+                "" if len(drop_loc) == 1 else "es", str(list(drop_loc))[1:-1])
+            loc_df.drop(labels=drop_loc, inplace=True)
+        copy_cols = ["k", "i", "j", "iseg", "ireach"]
+        loc_reach_idx = loc_df[reach_index_name]
+        for name in copy_cols:
+            loc_df[name] = self.reaches.loc[loc_reach_idx.values, name].values
+        copy_cols.insert(0, reach_index_name)
+        loc_df["dist_to_reach"] = loc_df.start_geom.distance(
+            self.reaches.geometry.loc[loc_df[reach_index_name]], align=False)
+        copy_cols.append("dist_to_reach")
+        return loc_df[copy_cols]
+
 
     def plot(self, column=None, cmap="viridis_r", colorbar=False, ax=None):
         """
