@@ -68,8 +68,8 @@ def topnet2ts(nc_path, varname, *,
                 if run is None:
                     if size > 1:
                         logger.warning(
-                            "no run specified; taking %s index 0 from dim size %s",
-                            var.dimensions[2], var.shape[2])
+                            "no run specified; taking %s index 0 from dim "
+                            "size %s", var.dimensions[2], var.shape[2])
                     run = 0
                 varslice.append(run)
             elif size == 1:
@@ -98,6 +98,29 @@ def topnet2ts(nc_path, varname, *,
     return df
 
 
+# potential names that need to be shortened to <= 10 characters for DBF
+colname10 = {
+    "to_segnum": "to_seg",
+    "from_segnums": "from_seg",
+    "num_to_outlet": "num_to_out",
+    "dist_to_outlet": "dst_to_out",
+    "stream_order": "strm_order",
+    "upstream_length": "upstr_len",
+    "upstream_area": "upstr_area",
+    "inflow_segnums": "inflow_seg",
+    "zcoord_count": "zcoord_num",
+    "zcoord_first": "zcoordfrst",
+    "zcoord_last": "zcoordlast",
+    "strtop_incopt": "stpincopt",
+    "prev_ibound": "previbound",
+    "prev_idomain": "prevdomain",
+    "dist_to_segnum": "dst_to_seg",
+    "dist_to_seg": "dst_to_seg",
+    "is_within_catchment": "within_cat",
+}
+assert all(len(x) <= 10 for x in colname10.values())
+
+
 def gdf_to_shapefile(gdf, shp_fname, **kwargs):
     """Write any GeoDataFrame to a shapefile.
 
@@ -123,6 +146,7 @@ def gdf_to_shapefile(gdf, shp_fname, **kwargs):
     gdf = gdf.copy()
     geom_name = gdf.geometry.name
 
+    # Change data types, as necessary
     for col, dtype in gdf.dtypes.iteritems():
         if col == geom_name:
             continue
@@ -132,29 +156,10 @@ def gdf_to_shapefile(gdf, shp_fname, **kwargs):
             gdf.loc[is_none, col] = ""
         elif dtype == bool:
             gdf[col] = gdf[col].astype(int)
-    # potential names that need to be shortened to <= 10 characters for DBF
-    colname10 = {
-        "to_segnum": "to_seg",
-        "from_segnums": "from_seg",
-        "num_to_outlet": "num_to_out",
-        "dist_to_outlet": "dst_to_out",
-        "stream_order": "strm_order",
-        "upstream_length": "upstr_len",
-        "upstream_area": "upstr_area",
-        "inflow_segnums": "inflow_seg",
-        "zcoord_count": "zcoord_num",
-        "zcoord_first": "zcoordfrst",
-        "zcoord_last": "zcoordlast",
-        "strtop_incopt": "stpincopt",
-        "prev_ibound": "previbound",
-        "prev_idomain": "prevdomain",
-        "dist_to_segnum": "dst_to_out",
-        "dist_to_seg": "dst_to_out",
-        "is_within_catchment": "within_cat",
-    }
-    for k, v in list(colname10.items()):
-        assert len(v) <= 10, v
-        if k == v or k not in gdf.columns:
-            del colname10[k]
-    gdf.rename(columns=colname10).reset_index(drop=False)\
+    # Rename columns for shapefile so they are 10 characters or less
+    rename = {}
+    for key, value in colname10.items():
+        if key in gdf.columns:
+            rename[key] = value
+    gdf.rename(columns=rename).reset_index(drop=False)\
         .to_file(str(shp_fname), **kwargs)

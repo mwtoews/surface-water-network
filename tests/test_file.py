@@ -54,6 +54,17 @@ def test_topnet2ts(coastal_flow_ts):
         swn.file.topnet2ts(datadir / nc_fname, "mod_flow", run=1)
 
 
+def test_gdf_to_shapefile(tmp_path, coastal_swn):
+    gdf = coastal_swn.segments.copy()
+    fname = tmp_path / "segments.shp"
+    swn.file.gdf_to_shapefile(gdf, fname)
+    assert "from_segnums" in gdf.columns
+    assert "from_seg" not in gdf.columns
+    shp = geopandas.read_file(fname)
+    assert "from_segnums" not in shp.columns
+    assert "from_seg" in shp.columns
+
+
 def test_pickle_lines():
     n1 = swn.SurfaceWaterNetwork.from_lines(n3d_lines)
     data = pickle.dumps(n1)
