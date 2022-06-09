@@ -5,6 +5,7 @@ Also check functionality in modflow._misc too.
 MODFLOW models are not run. See test_modflow.py and test_modflow6.py
 for similar, but running models.
 """
+import logging
 from hashlib import md5
 from textwrap import dedent
 
@@ -1060,3 +1061,82 @@ def test_get_segments_inflow():
     pd.testing.assert_frame_equal(
         nm._get_segments_inflow({5: [2.2, 2.3], 4: [1.1, 1.2]}),
         pd.DataFrame({1: [3.3, 3.5]}, index=nm.time_index))
+
+
+def test_get_location_frame_reach_info(caplog, coastal_swn, coastal_points):
+    n = coastal_swn
+    m = flopy.modflow.Modflow.load(
+        "h.nam", version="mfnwt", model_ws=datadir, check=False)
+    nm = swn.SwnModflow.from_swn_flopy(n, m)
+    # edits to make better examples
+    coastal_points = coastal_points.copy()
+    coastal_points.loc[9] = Point(1811234, 5874806)
+    loc_df = n.locate_geoms(coastal_points)
+    r_df = nm.get_location_frame_reach_info(loc_df)
+    np.testing.assert_array_almost_equal(
+        loc_df["dist_to_seg"], r_df.pop("dist_to_reach"))
+    expected_df = pd.DataFrame(
+        index=pd.Series([1, 2, 3, 5, 6, 7, 8, 9, 4, 10], name="id"),
+        data={
+            "reachID": [267, 283, 117, 158, 168, 178, 285, 293, 214, 267],
+            "k": [0] * 10,
+            "i": [8, 3, 6, 9, 13, 6, 2, 4, 1, 8],
+            "j": [12, 10, 10, 9, 10, 15, 10, 9, 11, 12],
+            "iseg": [165, 178, 73, 99, 107, 109, 179, 183, 129, 165],
+            "ireach": [1, 1, 1, 1, 1, 2, 1, 3, 1, 1],
+        }
+    )
+    pd.testing.assert_frame_equal(r_df, expected_df)
+    # df2 = pd.concat([loc_df, r_df], axis=1)
+    # assert not pd.isnull(df2).any().any()
+
+    # Increase next_reach_bias
+    # expect no change with near zero
+    r_df = nm.get_location_frame_reach_info(loc_df, next_reach_bias=0.01)
+    assert list(r_df.reachID) == list(expected_df.reachID)
+    diff = (loc_df["dist_to_seg"] - r_df["dist_to_reach"]).abs()
+    np.testing.assert_allclose(diff.max(), 3.6416736e-10)
+    # expect minor changes
+    r_df = nm.get_location_frame_reach_info(loc_df, next_reach_bias=0.1)
+    assert list(r_df.reachID) == \
+        [268, 284, 117, 158, 168, 178, 285, 293, 214, 267]
+    diff = (loc_df["dist_to_seg"] - r_df["dist_to_reach"]).abs()
+    np.testing.assert_allclose(diff.max(), 0.94459247)
+    # expect more changes
+    r_df = nm.get_location_frame_reach_info(loc_df, next_reach_bias=0.5)
+    assert list(r_df.reachID) == \
+        [268, 284, 117, 158, 168, 178, 285, 294, 214, 267]
+    diff = (loc_df["dist_to_seg"] - r_df["dist_to_reach"]).abs()
+    np.testing.assert_allclose(diff.max(), 98.10718)
+
+    # Add a points outside model
+    ext_points = pd.concat([
+        coastal_points.loc[8:],
+        geopandas.GeoSeries(
+            [Point(1810800.3, 5869003.6), Point(1806822.5, 5869173.5)],
+            index=pd.Index([11, 12], name="id")),
+    ])
+    loc_df = n.locate_geoms(ext_points)
+    assert list(loc_df.index) == [8, 9, 4, 10, 11, 12]
+    with caplog.at_level(logging.WARNING):
+        r_df = nm.get_location_frame_reach_info(loc_df)
+        assert "location id missing 2 matches: 11, 12" in caplog.messages[-1]
+    assert list(r_df.index) == [8, 9, 4, 10]
+    pd.testing.assert_frame_equal(
+        r_df.drop(columns="dist_to_reach"), expected_df.loc[8:])
+
+    # misc
+    loc_df = n.locate_geoms(coastal_points)
+    loc_df["reachID"] = r_df.reachID
+    with caplog.at_level(logging.INFO):
+        r_df = nm.get_location_frame_reach_info(loc_df)
+        assert "resetting reachID from location frame" in caplog.messages[-1]
+    pd.testing.assert_frame_equal(
+        r_df.drop(columns="dist_to_reach"), expected_df)
+    # errors
+    with pytest.raises(TypeError, match="loc_df must be a GeoDataFrame"):
+        nm.get_location_frame_reach_info(loc_df.segnum)
+    with pytest.raises(ValueError, match="loc_df must have 'segnum' column"):
+        nm.get_location_frame_reach_info(loc_df[["geometry", "method"]])
+    with pytest.raises(ValueError, match="next_reach_bias must be between 0"):
+        nm.get_location_frame_reach_info(loc_df, 8)
