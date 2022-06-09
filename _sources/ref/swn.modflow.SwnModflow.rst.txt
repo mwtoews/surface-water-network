@@ -22,6 +22,7 @@
       ~SwnModflow.flopy_segment_data
       ~SwnModflow.from_pickle
       ~SwnModflow.from_swn_flopy
+      ~SwnModflow.get_location_frame_reach_info
       ~SwnModflow.get_outseg_elev
       ~SwnModflow.get_seg_ijk
       ~SwnModflow.get_segment_incision

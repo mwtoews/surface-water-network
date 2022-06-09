@@ -23,6 +23,7 @@
       ~SwnMf6.flopy_packagedata
       ~SwnMf6.from_pickle
       ~SwnMf6.from_swn_flopy
+      ~SwnMf6.get_location_frame_reach_info
       ~SwnMf6.packagedata_frame
       ~SwnMf6.plot
       ~SwnMf6.plot_profile
