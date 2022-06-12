@@ -773,6 +773,7 @@ class SwnModflowBase:
                 if domain_action == "modify" and domain[i, j] == 0:
                     num_domain_modified += 1
                     domain[i, j] = 1
+                    obj.grid_cells[domain_label].at[i, j] = 1
 
         if domain_action == "modify":
             if num_domain_modified:
@@ -794,8 +795,35 @@ class SwnModflowBase:
 
         # Mark segments that are not used
         segments["in_model"] = True
-        outside_model = set(swn.segments.index).difference(reaches["segnum"])
+        reaches_segnum_s = set(reaches["segnum"])
+        outside_model = set(swn.segments.index).difference(reaches_segnum_s)
         segments.loc[list(outside_model), "in_model"] = False
+
+        # Consider adding downstream outside segments if they
+        # collect flow from more than one reach from active domain
+        if domain_action != "modify":
+            for row in segments[~segments.in_model].itertuples():
+                if len(reaches_segnum_s.intersection(row.from_segnums)) > 1:
+                    # create a representative reach geometry in active grid
+                    obj.logger.info(
+                        "adding downstream outside segnum %s, because it is "
+                        "upstream from segnums %s",
+                        row.Index, row.from_segnums)
+                    reach_geom = row.geometry
+                    if reach_geom.length > cell_size:
+                        reach_geom = substring(reach_geom, 0.0, cell_size)
+                    dists = grid_cells.distance(
+                        reach_geom.interpolate(0.0)).sort_values()
+                    i, j = dists.index[0]
+                    reach_record = {
+                        "geometry": reach_geom,
+                        "segnum": row.Index,
+                        "segndist": 0.0,
+                        "i": i,
+                        "j": j,
+                    }
+                    with ignore_shapely_warnings_for_object_array():
+                        reaches.loc[len(reaches.index)] = reach_record
 
         # Evaluate inflow segments that potentially receive flow from outside
         segnums_outside = set(segments[~segments.in_model].index)
@@ -1399,9 +1427,10 @@ class SwnModflowBase:
                 self.segments.inflow_segnums.map(len) > 0]
             reaches_idx = (
                 reaches.segnum.isin(segnums) & (reaches.ireach == 1))
-            inflow_pt = reaches.loc[reaches_idx, "geometry"].apply(firstpt)
-            inflow_pt.plot(
-                ax=ax, label="inflow", marker="P", color="green")
+            if reaches_idx.any():
+                inflow_pt = reaches.loc[reaches_idx, "geometry"].apply(firstpt)
+                inflow_pt.plot(
+                    ax=ax, label="inflow", marker="P", color="green")
 
         if self.diversions is not None:
             div_pt = reaches.loc[reaches.diversion, "geometry"].apply(firstpt)

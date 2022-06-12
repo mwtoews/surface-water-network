@@ -1005,8 +1005,8 @@ def test_coastal(tmp_path, coastal_lines_gdf, coastal_flow_m):
         nm.reaches["segnum"] == 3047926, "geometry"].iloc[0]
     np.testing.assert_almost_equal(reach_geom.length, 237.72893664132727)
     # Data set 1c
-    assert abs(m.sfr.nstrm) == 296
-    assert m.sfr.nss == 184
+    assert abs(m.sfr.nstrm) == 297
+    assert m.sfr.nss == 185
     # Data set 2
     # check_number_sum_hex(
     #    m.sfr.reach_data.node, 49998, "29eb6a019a744893ceb5a09294f62638")
@@ -1075,9 +1075,9 @@ def test_coastal(tmp_path, coastal_lines_gdf, coastal_flow_m):
         m.bas6.ibound.array, 509, "c4135a084b2593e0b69c148136a3ad6d")
     assert repr(nm) == dedent("""\
     <SwnModflow: flopy mfnwt 'h'
-      296 in reaches (reachID): [1, 2, ..., 295, 296]
-      184 in segment_data (nseg): [1, 2, ..., 183, 184]
-        184 from segments (nzsegment) (61% used): [3049818, 3049819, ..., 3046952, 3046736]
+      297 in reaches (reachID): [1, 2, ..., 296, 297]
+      185 in segment_data (nseg): [1, 2, ..., 184, 185]
+        185 from segments (nzsegment) (61% used): [3049818, 3049819, ..., 3046952, 3046736]
       1 stress period with perlen: [1.0] />""")  # noqa
     if matplotlib:
         _ = nm.plot()
@@ -1366,6 +1366,71 @@ def test_coastal_ibound_modify(coastal_swn, coastal_flow_m, tmp_path):
     nm.grid_cells.to_file(tmp_path / "grid_cells.shp")
     gdf_to_shapefile(nm.reaches, tmp_path / "reaches.shp")
     gdf_to_shapefile(nm.segments, tmp_path / "segments.shp")
+
+
+@requires_mf2005
+def test_include_downstream_reach_outside_model(tmp_path):
+    m = get_basic_modflow(tmp_path, with_top=True)
+    m.remove_package("rch")
+    m.remove_package("sip")
+    _ = flopy.modflow.ModflowDe4(m)
+    m.bas6.ibound = np.array([[1, 1], [1, 1], [1, 0]])
+    gt = swn.modflow.geotransform_from_flopy(m)
+    lines = interp_2d_to_3d(
+        wkt_to_geoseries([
+            "LINESTRING (60 89, 60 80)",
+            "LINESTRING (40 130, 60 89)",
+            "LINESTRING (70 130, 60 89)",
+        ]), m.dis.top.array, gt)
+    n = swn.SurfaceWaterNetwork.from_lines(lines)
+    nm = swn.SwnModflow.from_swn_flopy(n, m)
+    nm.default_segment_data(hyd_cond1=0.0)
+    nm.set_segment_data_from_segments("inflow", {1: 1.2, 2: 3.4})
+    nm.set_sfr_obj()
+    m.sfr.istcb2 = 54
+    m.add_output_file(54, extension="sfl", binflag=False)
+    # Data set 1c
+    assert abs(m.sfr.nstrm) == 5
+    assert m.sfr.nss == 3
+    # Data set 2
+    np.testing.assert_array_equal(m.sfr.reach_data.k, [0, 0, 0, 0, 0])
+    np.testing.assert_array_equal(m.sfr.reach_data.i, [0, 1, 0, 1, 1])
+    np.testing.assert_array_equal(m.sfr.reach_data.j, [0, 1, 1, 1, 1])
+    np.testing.assert_array_equal(m.sfr.reach_data.iseg, [1, 1, 2, 2, 3])
+    np.testing.assert_array_equal(m.sfr.reach_data.ireach, [1, 2, 1, 2, 1])
+    np.testing.assert_array_almost_equal(
+        m.sfr.reach_data.rchlen,
+        [22.53083, 23.087149, 20.58629, 21.615604, 9.0])
+    np.testing.assert_array_almost_equal(
+        m.sfr.reach_data.strtop,
+        [15.4927845, 14.849314, 14.865853, 14.548374, 14.225])
+    np.testing.assert_array_almost_equal(
+        m.sfr.reach_data.slope,
+        [0.033977833, 0.033977833, 0.01303259, 0.01303259, 0.05])
+    np.testing.assert_array_equal(m.sfr.reach_data.outreach, [2, 5, 4, 5, 0])
+    sd = m.sfr.segment_data[0]
+    np.testing.assert_array_equal(sd.nseg, [1, 2, 3])
+    np.testing.assert_array_equal(sd.icalc, [1, 1, 0])
+    np.testing.assert_array_equal(sd.outseg, [3, 3, 0])
+    np.testing.assert_array_almost_equal(sd.flow, [1.2, 3.4, 0.0])
+    np.testing.assert_array_almost_equal(sd.roughch, [0.024, 0.024, 0.024])
+    if matplotlib:
+        _ = nm.plot()
+        plt.close()
+
+    # Run model and read outputs
+    m.write_input()
+    success, buff = m.run_model()
+    assert success
+    sfl_fname = tmp_path / "modflowtest.sfl"
+    sfl = read_sfl(sfl_fname, nm.reaches)
+    # Write some files
+    nm.grid_cells.to_file(tmp_path / "grid_cells.shp")
+    gdf_to_shapefile(nm.reaches, tmp_path / "reaches.shp")
+    gdf_to_shapefile(nm.segments, tmp_path / "segments.shp")
+    # Check results
+    np.testing.assert_array_equal(sfl["Qin"], [1.2, 1.2, 3.4, 3.4, 4.6])
+    np.testing.assert_array_equal(sfl["Qout"], [1.2, 1.2, 3.4, 3.4, 4.6])
 
 
 @requires_mf2005

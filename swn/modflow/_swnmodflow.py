@@ -560,7 +560,8 @@ class SwnModflow(SwnModflowBase):
         nseg2segnum = self.segment_data.loc[
             self.segment_data.iupseg == 0, "segnum"]
         mapping = invert_series(nseg2segnum)
-        ignore = set(self.segments.index[~self.segments.in_model])
+        ignore = set(self.segments.index[~self.segments.in_model])\
+            .difference(nseg2segnum.values)
         dtype = self.segment_data[name].dtype
         data = transform_data_to_series_or_frame(
             data, dtype, self.time_index, mapping, ignore)
@@ -871,6 +872,19 @@ class SwnModflow(SwnModflowBase):
         segment_cols.remove("elevdn")
         for name in segment_cols:
             self.set_segment_data_from_segments(name, self.segments[name])
+
+        # Segments not in the model should try to be inactive
+        not_in_model_sel = ~self.segments.in_model
+        if not_in_model_sel.any():
+            idx = not_in_model_sel.index[not_in_model_sel]
+            segment_data_sel = self.segment_data.segnum.isin(idx)
+            self.segment_data.loc[segment_data_sel, "icalc"] = 0
+            self.segment_data.loc[segment_data_sel, "hcond1"] = 0.0
+            # thickness and depth required
+            # self.segment_data.loc[segment_data_sel, "thickm1"] = 1.0
+            # self.segment_data.loc[segment_data_sel, "thickm2"] = 1.0
+            self.segment_data.loc[segment_data_sel, "depth1"] = 1.0
+            self.segment_data.loc[segment_data_sel, "depth2"] = 1.0
 
         # Process diversions / SW takes
         if has_diversions:

@@ -492,8 +492,8 @@ def test_coastal(coastal_lines_gdf):
     nm = swn.SwnModflow.from_swn_flopy(n, m)
 
     # Check dataframes
-    assert len(nm.reaches) == 296
-    assert len(np.unique(nm.reaches.iseg)) == 184
+    assert len(nm.reaches) == 297
+    assert len(np.unique(nm.reaches.iseg)) == 185
     assert len(nm.segments) == 304
     assert nm.segments["in_model"].sum() == 184
 
@@ -518,7 +518,7 @@ def test_coastal(coastal_lines_gdf):
 
     assert repr(nm) == dedent("""\
     <SwnModflow: flopy mfnwt 'h'
-      296 in reaches (reachID): [1, 2, ..., 295, 296]
+      297 in reaches (reachID): [1, 2, ..., 296, 297]
       1 stress period with perlen: [1.0] />""")
 
     if matplotlib:
@@ -623,6 +623,7 @@ def test_coastal_ibound_modify(coastal_swn):
     assert len(np.unique(nm.reaches.iseg)) == 304
     assert len(nm.segments) == 304
     assert nm.segments["in_model"].sum() == 304
+    assert not (nm.reaches.prev_ibound == 1).all()
 
     # Check a remaining reach added that is outside model domain
     reach_geom = nm.reaches.loc[
@@ -1078,11 +1079,11 @@ def test_get_location_frame_reach_info(caplog, coastal_swn, coastal_points):
     expected_df = pd.DataFrame(
         index=pd.Series([1, 2, 3, 5, 6, 7, 8, 9, 4, 10], name="id"),
         data={
-            "reachID": [267, 283, 117, 158, 168, 178, 285, 293, 214, 267],
+            "reachID": [268, 284, 117, 158, 168, 178, 286, 294, 214, 268],
             "k": [0] * 10,
             "i": [8, 3, 6, 9, 13, 6, 2, 4, 1, 8],
             "j": [12, 10, 10, 9, 10, 15, 10, 9, 11, 12],
-            "iseg": [165, 178, 73, 99, 107, 109, 179, 183, 129, 165],
+            "iseg": [166, 179, 73, 99, 107, 109, 180, 184, 129, 166],
             "ireach": [1, 1, 1, 1, 1, 2, 1, 3, 1, 1],
         }
     )
@@ -1099,13 +1100,13 @@ def test_get_location_frame_reach_info(caplog, coastal_swn, coastal_points):
     # expect minor changes
     r_df = nm.get_location_frame_reach_info(loc_df, next_reach_bias=0.1)
     assert list(r_df.reachID) == \
-        [268, 284, 117, 158, 168, 178, 285, 293, 214, 267]
+        [269, 285, 117, 158, 168, 178, 286, 294, 214, 268]
     diff = (loc_df["dist_to_seg"] - r_df["dist_to_reach"]).abs()
     np.testing.assert_allclose(diff.max(), 0.94459247)
     # expect more changes
     r_df = nm.get_location_frame_reach_info(loc_df, next_reach_bias=0.5)
     assert list(r_df.reachID) == \
-        [268, 284, 117, 158, 168, 178, 285, 294, 214, 267]
+        [269, 285, 117, 158, 168, 178, 286, 295, 214, 268]
     diff = (loc_df["dist_to_seg"] - r_df["dist_to_reach"]).abs()
     np.testing.assert_allclose(diff.max(), 98.10718)
 
@@ -1113,7 +1114,7 @@ def test_get_location_frame_reach_info(caplog, coastal_swn, coastal_points):
     ext_points = pd.concat([
         coastal_points.loc[8:],
         geopandas.GeoSeries(
-            [Point(1810800.3, 5869003.6), Point(1806822.5, 5869173.5)],
+            [Point(1810531, 5869152), Point(1806822.5, 5869173.5)],
             index=pd.Index([11, 12], name="id")),
     ])
     loc_df = n.locate_geoms(ext_points)
