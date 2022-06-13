@@ -550,6 +550,7 @@ def test_coastal(
     # Check dataframes
     assert len(nm.segments) == 304
     assert nm.segments["in_model"].sum() == 184
+    assert len(nm.reaches) == 297
     # Check remaining reaches added that are inside model domain
     reach_geom = nm.reaches.loc[
         nm.reaches["segnum"] == 3047735, "geometry"].iloc[0]
@@ -573,7 +574,7 @@ def test_coastal(
         m.dis.idomain.array, 509, "c4135a084b2593e0b69c148136a3ad6d")
     assert repr(nm) == dedent("""\
     <SwnMf6: flopy mf6 'h'
-      296 in reaches (rno): [1, 2, ..., 295, 296]
+      297 in reaches (rno): [1, 2, ..., 296, 297]
       1 stress period with perlen: [1.0] days />""")
     if matplotlib:
         _ = nm.plot()
@@ -747,6 +748,71 @@ def test_coastal_idomain_modify(coastal_swn, coastal_flow_m, tmp_path):
     gdf_to_shapefile(nm.reaches, tmp_path / "reaches.shp")
     gdf_to_shapefile(nm.segments, tmp_path / "segments.shp")
     nm.grid_cells.to_file(tmp_path / "grid_cells.shp")
+
+
+@requires_mf6
+def test_include_downstream_reach_outside_model(tmp_path):
+    sim, m = get_basic_modflow(tmp_path, with_top=True)
+    m.remove_package("rch")
+    m.dis.idomain.set_data([[1, 1], [1, 1], [1, 0]])
+    gt = swn.modflow.geotransform_from_flopy(m)
+    lines = interp_2d_to_3d(
+        wkt_to_geoseries([
+            "LINESTRING (60 89, 60 80)",
+            "LINESTRING (40 130, 60 89)",
+            "LINESTRING (70 130, 60 89)",
+        ]), m.dis.top.array, gt)
+    n = swn.SurfaceWaterNetwork.from_lines(lines)
+    nm = swn.SwnMf6.from_swn_flopy(n, m)
+    nm.default_packagedata(hyd_cond1=0.0)
+    perioddata = [
+        [0, "inflow", 1.2],
+        [2, "inflow", 3.4],
+    ]
+    nm.set_sfr_obj(
+        save_flows=True,
+        budget_filerecord="model.sfr.bud",
+        maximum_iterations=100,
+        maximum_picard_iterations=10,
+        perioddata=perioddata,
+    )
+    assert m.sfr.nreaches.data == 5
+    dat = m.sfr.packagedata.array
+    np.testing.assert_array_equal(dat.rno, [0, 1, 2, 3, 4])
+    cellid = np.array(dat.cellid, dtype=[("k", int), ("i", int), ("j", int)])
+    np.testing.assert_array_equal(cellid["k"], [0, 0, 0, 0, 0])
+    np.testing.assert_array_equal(cellid["i"], [0, 1, 0, 1, 1])
+    np.testing.assert_array_equal(cellid["j"], [0, 1, 1, 1, 1])
+    np.testing.assert_array_almost_equal(
+        dat.rlen,
+        [22.53083, 23.087149, 20.58629, 21.615604, 9.0])
+    np.testing.assert_array_almost_equal(
+        dat.rgrd,
+        [0.033977833, 0.033977833, 0.01303259, 0.01303259, 0.05])
+    np.testing.assert_array_almost_equal(
+        dat.rtp,
+        [15.4927845, 14.849314, 14.865853, 14.548374, 14.225])
+    np.testing.assert_array_equal(dat.rbth, [1.0, 1.0, 1.0, 1.0, 1.0])
+    np.testing.assert_array_equal(dat.rhk, [0.0, 0.0, 0.0, 0.0, 0.0])
+    np.testing.assert_array_equal(dat.man, [0.024, 0.024, 0.024, 0.024, 0.024])
+    np.testing.assert_array_equal(dat.ncon, [1, 2, 1, 2, 2])
+    np.testing.assert_array_equal(dat.ndv, [0, 0, 0, 0, 0])
+    assert list(nm.connectiondata_series("native")) == \
+        [[-2], [1, -5], [-4], [3, -5], [2, 4]]
+    if matplotlib:
+        _ = nm.plot()
+        plt.close()
+
+    # Run model and read outputs
+    sim.write_simulation()
+    success, buff = sim.run_simulation()
+    assert success
+    sfr_bud_fname = tmp_path / "model.sfr.bud"
+    read_budget(sfr_bud_fname, "EXT-INFLOW", nm.reaches, colname="Qin")
+    read_budget(sfr_bud_fname, "EXT-OUTFLOW", nm.reaches, colname="Qout")
+    # Check results
+    np.testing.assert_array_equal(nm.reaches["Qin"], [1.2, 0., 3.4, 0., 0.])
+    np.testing.assert_array_equal(nm.reaches["Qout"], [0., 0., 0., 0., -4.6])
 
 
 @pytest.mark.xfail
