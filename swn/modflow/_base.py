@@ -803,12 +803,12 @@ class SwnModflowBase:
         # collect flow from more than one reach from active domain
         if domain_action != "modify":
             for row in segments[~segments.in_model].itertuples():
-                if len(reaches_segnum_s.intersection(row.from_segnums)) > 1:
+                from_segnums = reaches_segnum_s.intersection(row.from_segnums)
+                if len(from_segnums) > 1:
                     # create a representative reach geometry in active grid
                     obj.logger.info(
-                        "adding downstream outside segnum %s, because it is "
-                        "upstream from segnums %s",
-                        row.Index, row.from_segnums)
+                        "adding outside segnum %s, because it is downstream "
+                        "from upstream segnums %s", row.Index, from_segnums)
                     reach_geom = row.geometry
                     if reach_geom.length > cell_size:
                         reach_geom = substring(reach_geom, 0.0, cell_size)
