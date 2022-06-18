@@ -12,6 +12,7 @@ from shapely.ops import linemerge, substring
 from ..compat import ignore_shapely_warnings_for_object_array
 from ..core import SurfaceWaterNetwork
 from ..spatial import compare_crs, get_sindex, visible_wkt
+from ..util import is_location_frame
 from ._misc import tile_series_as_frame, transform_data_to_series_or_frame
 
 
@@ -1243,7 +1244,7 @@ class SwnModflowBase:
             self.logger.info("inflow not found for any segnums")
         return return_inflow()
 
-    def get_location_frame_reach_info(self, loc_df, next_reach_bias=0.0):
+    def get_location_frame_reach_info(self, loc_df, downstream_bias=0.0):
         """Get reach information to location data frame, matched by segnum.
 
         Parameters
@@ -1251,10 +1252,11 @@ class SwnModflowBase:
         loc_df : geopandas.GeoDataFrame
             Location geo dataframe, created by
             :py:meth:`SurfaceWaterNetwork.locate_geoms`.
-        next_reach_bias : float, default 0.0
-            A bias used to increase the likelihood of matching downstream
-            reaches of a segnum to the location. Default 0.0 disables this,
-            and only matches to the closest match of a segnum.
+        downstream_bias : float, default 0.0
+            A bias used for spatial location matching that increase the
+            likelihood of finding downstream reaches of a segnum if positive,
+            and upstream reaches if negative. Valid range is -1.0 to 1.0.
+            Default 0.0 is no bias, matching to the closest reach.
 
         Returns
         -------
@@ -1295,16 +1297,11 @@ class SwnModflowBase:
         >>> loc_reach_df = pd.concat([loc_df, r_df], axis=1)
         """  # noqa
         # Check inputs
-        if not isinstance(loc_df, geopandas.GeoDataFrame):
-            raise TypeError("loc_df must be a GeoDataFrame")
-        elif "segnum" not in loc_df.columns:
-            raise ValueError(
-                "loc_df must have 'segnum' column; "
-                "was it created by n.locate_geoms?")
-        elif not (0.0 <= next_reach_bias <= 1.0):
-            raise ValueError("next_reach_bias must be between 0 and 1")
-
+        is_location_frame(loc_df, geom_required=True)
         loc_df = loc_df.copy()
+        if not (-1.0 <= downstream_bias <= 1.0):
+            raise ValueError("downstream_bias must be between -1 and 1")
+
         reach_index_name = self.reaches.index.name
         if reach_index_name in loc_df.columns:
             self.logger.info(
@@ -1317,11 +1314,14 @@ class SwnModflowBase:
             reaches = self.reaches.loc[self.reaches.segnum == row.segnum]
             if len(reaches) == 0:
                 continue
-            if len(reaches) > 1 and next_reach_bias > 0.0:
+            if len(reaches) > 1 and downstream_bias != 0.0:
                 # distance bewtween original location and a reach substring
+                if downstream_bias > 0.0:
+                    args = (0.0, 1.0 - downstream_bias)
+                else:
+                    args = (-downstream_bias, 1.0)
                 dists = reaches.geometry.apply(
-                    substring, args=(0, 1.0 - next_reach_bias),
-                    normalized=True).distance(
+                    substring, args=args, normalized=True).distance(
                         row.start_geom).sort_values()
             else:
                 # distance from projected segment match and reach

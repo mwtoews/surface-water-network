@@ -1091,24 +1091,32 @@ def test_get_location_frame_reach_info(caplog, coastal_swn, coastal_points):
     # df2 = pd.concat([loc_df, r_df], axis=1)
     # assert not pd.isnull(df2).any().any()
 
-    # Increase next_reach_bias
+    # Change downstream_bias
     # expect no change with near zero
-    r_df = nm.get_location_frame_reach_info(loc_df, next_reach_bias=0.01)
+    r_df = nm.get_location_frame_reach_info(loc_df, downstream_bias=0.01)
     assert list(r_df.reachID) == list(expected_df.reachID)
     diff = (loc_df["dist_to_seg"] - r_df["dist_to_reach"]).abs()
     np.testing.assert_allclose(diff.max(), 3.6416736e-10)
+    r_df = nm.get_location_frame_reach_info(loc_df, downstream_bias=-0.01)
+    assert list(r_df.reachID) == list(expected_df.reachID)
     # expect minor changes
-    r_df = nm.get_location_frame_reach_info(loc_df, next_reach_bias=0.1)
+    r_df = nm.get_location_frame_reach_info(loc_df, downstream_bias=0.1)
     assert list(r_df.reachID) == \
         [269, 285, 117, 158, 168, 178, 286, 294, 214, 268]
     diff = (loc_df["dist_to_seg"] - r_df["dist_to_reach"]).abs()
     np.testing.assert_allclose(diff.max(), 0.94459247)
     # expect more changes
-    r_df = nm.get_location_frame_reach_info(loc_df, next_reach_bias=0.5)
+    r_df = nm.get_location_frame_reach_info(loc_df, downstream_bias=0.5)
     assert list(r_df.reachID) == \
         [269, 285, 117, 158, 168, 178, 286, 295, 214, 268]
     diff = (loc_df["dist_to_seg"] - r_df["dist_to_reach"]).abs()
     np.testing.assert_allclose(diff.max(), 98.10718)
+    # negative upstream match bias
+    r_df = nm.get_location_frame_reach_info(loc_df, downstream_bias=-0.5)
+    assert list(r_df.reachID) == \
+        [268, 284, 117, 158, 168, 177, 286, 294, 214, 268]
+    diff = (loc_df["dist_to_seg"] - r_df["dist_to_reach"]).abs()
+    np.testing.assert_allclose(diff.max(), 38.063676)
 
     # Add a points outside model
     ext_points = pd.concat([
@@ -1139,5 +1147,7 @@ def test_get_location_frame_reach_info(caplog, coastal_swn, coastal_points):
         nm.get_location_frame_reach_info(loc_df.segnum)
     with pytest.raises(ValueError, match="loc_df must have 'segnum' column"):
         nm.get_location_frame_reach_info(loc_df[["geometry", "method"]])
-    with pytest.raises(ValueError, match="next_reach_bias must be between 0"):
+    with pytest.raises(ValueError, match="downstream_bias must be between -1"):
         nm.get_location_frame_reach_info(loc_df, 8)
+    with pytest.raises(ValueError, match="downstream_bias must be between -1"):
+        nm.get_location_frame_reach_info(loc_df, -2)
