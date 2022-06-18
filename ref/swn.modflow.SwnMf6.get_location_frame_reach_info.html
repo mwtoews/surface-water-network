@@ -731,7 +731,7 @@
 <h1>swn.modflow.SwnMf6.get_location_frame_reach_info<a class="headerlink" href="#swn-modflow-swnmf6-get-location-frame-reach-info" title="Permalink to this heading">#</a></h1>
 <dl class="py method">
 <dt class="sig sig-object py" id="swn.modflow.SwnMf6.get_location_frame_reach_info">
-<span class="sig-prename descclassname"><span class="pre">SwnMf6.</span></span><span class="sig-name descname"><span class="pre">get_location_frame_reach_info</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">loc_df</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">next_reach_bias</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#swn.modflow.SwnMf6.get_location_frame_reach_info" title="Permalink to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">SwnMf6.</span></span><span class="sig-name descname"><span class="pre">get_location_frame_reach_info</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">loc_df</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">downstream_bias</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#swn.modflow.SwnMf6.get_location_frame_reach_info" title="Permalink to this definition">#</a></dt>
 <dd><p>Get reach information to location data frame, matched by segnum.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -739,9 +739,10 @@
 <dt><strong>loc_df</strong><span class="classifier">geopandas.GeoDataFrame</span></dt><dd><p>Location geo dataframe, created by
 <code class="xref py py-meth docutils literal notranslate"><span class="pre">SurfaceWaterNetwork.locate_geoms()</span></code>.</p>
 </dd>
-<dt><strong>next_reach_bias</strong><span class="classifier">float, default 0.0</span></dt><dd><p>A bias used to increase the likelihood of matching downstream
-reaches of a segnum to the location. Default 0.0 disables this,
-and only matches to the closest match of a segnum.</p>
+<dt><strong>downstream_bias</strong><span class="classifier">float, default 0.0</span></dt><dd><p>A bias used for spatial location matching that increase the
+likelihood of finding downstream reaches of a segnum if positive,
+and upstream reaches if negative. Valid range is -1.0 to 1.0.
+Default 0.0 is no bias, matching to the closest reach.</p>
 </dd>
 </dl>
 </dd>
@@ -836,7 +837,7 @@ and only matches to the closest match of a segnum.</p>
   
   <div class="footer-item">
     <p class="sphinx-version">
-Created using <a href="http://sphinx-doc.org/">Sphinx</a> 5.0.1.<br>
+Created using <a href="http://sphinx-doc.org/">Sphinx</a> 5.0.2.<br>
 </p>
   </div>
   
