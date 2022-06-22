@@ -61,7 +61,7 @@ def is_location_frame(loc_df, geom_required=True):
         try:
             non_empty = ~loc_df.is_empty
         except AttributeError:
-            raise ValueError("GeoDataFrame does not have geometry data")
+            raise TypeError("loc_df must be a GeoDataFrame")
     else:
         if not isinstance(loc_df, (geopandas.GeoDataFrame, pd.DataFrame)):
             raise TypeError("loc_df must be a GeoDataFrame or DataFrame")

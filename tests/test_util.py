@@ -37,7 +37,7 @@ def test_is_location_frame():
         is_location_frame(object())
     with pytest.raises(TypeError, match="must be a GeoDataFrame"):
         is_location_frame(df, True)
-    with pytest.raises(ValueError, match="does not have geometry data"):
+    with pytest.raises(TypeError, match="must be a GeoDataFrame"):
         is_location_frame(gdf.drop(columns="geometry"), True)
     with pytest.raises(ValueError, match="must have 'segnum' column"):
         is_location_frame(gdf.drop(columns="segnum"))
