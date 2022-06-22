@@ -4,6 +4,7 @@ __all__ = [
     "get_sindex", "interp_2d_to_3d",
     "wkt_to_dataframe", "wkt_to_geodataframe", "wkt_to_geoseries",
     "force_2d", "round_coords", "compare_crs", "get_crs",
+    "bias_substring",
     "find_location_pairs", "location_pair_geoms",
 ]
 
@@ -26,6 +27,9 @@ try:
     from rtree.index import Index
 except ImportError:
     rtree = False
+
+from .util import is_location_frame
+
 
 # default threshold size of geometries when Rtree index is built
 rtree_threshold = 100
@@ -133,7 +137,7 @@ def wkt_to_dataframe(wkt_list, geom_name='geometry'):
     """Convert list of WKT strings to a DataFrame."""
     df = pd.DataFrame({'wkt': wkt_list})
     df[geom_name] = df['wkt'].apply(wkt.loads)
-    return df
+    return df.drop(columns="wkt")
 
 
 def wkt_to_geodataframe(wkt_list, geom_name='geometry'):
@@ -194,6 +198,45 @@ def get_crs(s):
     elif isinstance(s, dict) and "init" in s.keys() and len(s) == 1:
         s = s["init"]
     return pyproj.CRS(s)
+
+
+def bias_substring(gs, downstream_bias, end_cut=1e-10):
+    """Create substring of LineString GeoSeries with a bias value.
+
+    Parameters
+    ----------
+    gs : geopandas.GeoSeries
+        LineString GeoSeries to process.
+    downstream_bias : float
+        Bias value, where 0 is no bias on either end of linestring, negative
+        removes downstream part of line to produce a distance bias towards
+        the upstream end of lines, and a positive bias removes upstream part
+        to bias the downstream end of lines. Valid range is -1 to +1.
+    end_cut : float, default 1e-10
+        The extra amout to remove on each end. Valid range is 0 to 0.5.
+
+    Returns
+    -------
+    geopandas.GeoSeries
+    """
+    from shapely.ops import substring
+
+    if not isinstance(gs, geopandas.GeoSeries):
+        raise TypeError("expected 'gs' as an instance of GeoSeries")
+    elif not (-1.0 <= downstream_bias <= 1.0):
+        raise ValueError("downstream_bias must be between -1 and 1")
+    elif not (0.0 <= end_cut <= 0.5):
+        raise ValueError("end_cut must between 0 and 0.5")
+
+    us = 0.0
+    ds = 1.0
+    if downstream_bias > 0.0:
+        ds = 1.0 - downstream_bias
+    else:
+        us = float(-downstream_bias)
+    # move start/end points so they are not exactly at start/end
+    args = tuple(np.clip([us, ds], end_cut, 1.0 - end_cut))
+    return gs.apply(substring, args=args, normalized=True)
 
 
 def find_segnum_in_swn(n, geom):
@@ -295,14 +338,7 @@ def find_location_pairs(loc_df, n):
     # Check inputs
     if not isinstance(n, SurfaceWaterNetwork):
         raise TypeError("expected 'n' as an instance of SurfaceWaterNetwork")
-    elif not isinstance(loc_df, (geopandas.GeoDataFrame, pd.DataFrame)):
-        raise TypeError("loc_df must be a GeoDataFrame or DataFrame")
-    elif "segnum" not in loc_df.columns:
-        raise ValueError(
-            "loc_df must have 'segnum' column; "
-            "was it created by n.locate_geoms?")
-    elif "seg_ndist" not in loc_df.columns:
-        raise ValueError("loc_df must have 'seg_ndist' column")
+    is_location_frame(loc_df, geom_required=False)
     segnum_is_in_index = loc_df.segnum.isin(n.segments.index)
     if not segnum_is_in_index.all():
         raise ValueError(
@@ -405,14 +441,7 @@ def location_pair_geoms(pairs, loc_df, n):
     # Check inputs
     if not isinstance(n, SurfaceWaterNetwork):
         raise TypeError("expected 'n' as an instance of SurfaceWaterNetwork")
-    elif not isinstance(loc_df, (geopandas.GeoDataFrame, pd.DataFrame)):
-        raise TypeError("loc_df must be a GeoDataFrame or DataFrame")
-    elif "segnum" not in loc_df.columns:
-        raise ValueError(
-            "loc_df must have 'segnum' column; "
-            "was it created by n.locate_geoms?")
-    elif "seg_ndist" not in loc_df.columns:
-        raise ValueError("loc_df must have 'seg_ndist' column")
+    is_location_frame(loc_df, geom_required=False)
     segnum_is_in_index = loc_df.segnum.isin(n.segments.index)
     if not segnum_is_in_index.all():
         raise ValueError(

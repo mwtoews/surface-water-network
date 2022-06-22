@@ -1,3 +1,4 @@
+import logging
 from textwrap import dedent
 
 import geopandas
@@ -1083,7 +1084,7 @@ def test_locate_geoms_in_basic_swn(caplog):
         "seg_ndist": [0.0, 0.0, 0.0, 2/3., 0.0, np.nan, 0.5],
         "dist_to_seg": [72.80109889, 72.53275122, 0.0, 0.0, 0.0, np.nan, 0.0]},
         index=[11, 12, 13, 14, 15, 16, 17])
-    e.at[16, "method"] = ""
+    e.at[16, "method"] = "empty"
     # check everything except the empty geometry
     r2 = r.drop(index=16)
     e2 = e.drop(index=16)
@@ -1102,6 +1103,19 @@ def test_locate_geoms_in_basic_swn(caplog):
         re = e.at[16, k]
         assert (rv == re) or (pd.isna(rv) and pd.isna(re))
     assert r.at[16, "geometry"].is_empty
+    # check downstream_bias parameter
+    assert list(n.locate_geoms(gs, downstream_bias=0.01).segnum) == \
+        [102, 103, 101, 102, 101, 0, 101]
+    assert list(n.locate_geoms(gs, downstream_bias=-0.01).segnum) == \
+        [102, 103, 102, 102, 101, 0, 101]
+    assert list(n.locate_geoms(gs, downstream_bias=0.5).segnum) == \
+        [102, 103, 101, 102, 101, 0, 101]
+    assert list(n.locate_geoms(gs, downstream_bias=-0.5).segnum) == \
+        [102, 103, 102, 102, 102, 0, 101]
+    assert list(n.locate_geoms(gs, downstream_bias=1).segnum) == \
+        [102, 103, 101, 101, 101, 0, 101]
+    assert list(n.locate_geoms(gs, downstream_bias=-1).segnum) == \
+        [102, 103, 102, 102, 102, 0, 101]
     # check override parameter
     r = n.locate_geoms(gs, override={11: 103, 12: 103})
     r2 = r.drop(index=16)
@@ -1109,7 +1123,6 @@ def test_locate_geoms_in_basic_swn(caplog):
     e2.loc[11, "segnum"] = 103
     e2.loc[[11, 12], "method"] = "override"
     pd.testing.assert_frame_equal(r2[e2.columns], e2)
-    import logging
     with caplog.at_level(logging.WARNING):
         r = n.locate_geoms(gs, override={1: 103})
         assert "1 override key" in caplog.messages[-1]
@@ -1139,7 +1152,13 @@ def coastal_geom():
     with ignore_shapely_warnings_for_object_array():
         gs[len(gs)] = wkt.loads("""\
             POLYGON ((1812532 5872498, 1812428 5872361, 1812561 5872390,
-                      1812561 5872390, 1812532 5872498))""")
+                      1812532 5872498))""")
+        gs[len(gs)] = wkt.loads("""\
+            POLYGON ((1814560 5875222, 1814655 5875215, 1814580 5875114,
+                      1814560 5875222))""")
+        gs[len(gs)] = wkt.loads("""\
+            POLYGON ((1812200 5876599, 1812213 5876629, 1812219 5876606,
+                      1812200 5876599))""")
     gs.index += 101
     gs.set_crs("EPSG:2193", inplace=True)
     return gs
@@ -1149,41 +1168,75 @@ def test_locate_geoms_only_lines(coastal_geom, coastal_swn):
     r = coastal_swn.locate_geoms(coastal_geom)
     e = pd.DataFrame({
         "method": "nearest",
-        "segnum": [3047364, 3048663, 3048249, 3049113, 3047736],
-        "seg_ndist": [0.5954064, 0.0974058, 0.279147, 0.0, 0.684387],
-        "dist_to_seg": [80.25, 315.519943, 364.7475, 586.13982, 203.144242]},
-        index=[101, 102, 103, 104, 105])
+        "segnum": [3047364, 3048663, 3048249, 3049113, 3047736, 3047145,
+                   3046736],
+        "seg_ndist": [0.5954064, 0.0974058, 0.279147, 0.0, 0.684387, 0.0,
+                      0.541026],
+        "dist_to_seg": [80.25, 315.519943, 364.7475, 586.13982, 203.144242,
+                        76.995938, 13.84302]},
+        index=[101, 102, 103, 104, 105, 106, 107])
     pd.testing.assert_frame_equal(r[e.columns], e)
     pd.testing.assert_series_equal(r.dist_to_seg, r.length, check_names=False)
     assert list(r.geom_type.unique()) == ["LineString"]
+    assert (r.geometry.apply(lambda g: len(g.coords)) == 2).all()
+    a = r.geometry.interpolate(0.0)
+    b = r.geometry.interpolate(1.0, normalized=True)
     seg_mls = coastal_swn.segments.geometry[r.segnum].unary_union
-    a = r.geometry.apply(lambda x: Point(*x.coords[0]))
-    assert (a.distance(coastal_geom) == 0.0).all()
+    assert (a.distance(coastal_geom) < 1e-10).all()
     assert (a.distance(seg_mls) > 0.0).all()
-    b = r.geometry.apply(lambda x: Point(*x.coords[-1]))
     assert (b.distance(coastal_geom) > 0.0).all()
     assert (b.distance(seg_mls) < 1e-10).all()
+    r1 = coastal_swn.locate_geoms(coastal_geom, min_stream_order=1)
+    pd.testing.assert_frame_equal(r[e.columns], e)
+    assert list(r1.segnum) == \
+        [3047364, 3048663, 3048249, 3049113, 3047736, 3047145, 3046745]
+    r2 = coastal_swn.locate_geoms(coastal_geom, min_stream_order=2)
+    assert list(r2.segnum) == \
+        [3046952, 3048504, 3048552, 3049106, 3047365, 3047040, 3046745]
+    r2 = coastal_swn.locate_geoms(coastal_geom, min_stream_order=2)
+    assert list(r2.segnum) == \
+        [3046952, 3048504, 3048552, 3049106, 3047365, 3047040, 3046745]
+    r6 = coastal_swn.locate_geoms(coastal_geom, min_stream_order=6)
+    assert list(r6.segnum) == \
+        [3046952, 3047683, 3047683, 3047683, 3046952, 3046736, 3046736]
 
 
 def test_locate_geoms_with_catchments(coastal_geom, coastal_swn_w_poly):
     r = coastal_swn_w_poly.locate_geoms(coastal_geom)
     e = pd.DataFrame({
         "method": ["catchment", "catchment", "nearest", "nearest",
-                   "catchment"],
-        "segnum": [3046952, 3048504, 3048249, 3049113, 3047737],
-        "seg_ndist": [0.3356222, 0.087803396575, 0.279147, 0.0, 0.798942725],
-        "dist_to_seg": [169.243199, 496.662756, 364.7475, 586.1398, 247.3825]},
-        index=[101, 102, 103, 104, 105])
+                   "catchment", "catchment", "catchment"],
+        "segnum": [3046952, 3048504, 3048249, 3049113, 3047737, 3047145,
+                   3046745],
+        "seg_ndist": [0.3356222, 0.087803396575, 0.279147, 0.0, 0.798942725,
+                      0.0, 0.541026],
+        "dist_to_seg": [169.243199, 496.662756, 364.7475, 586.1398, 247.3825,
+                        76.995938, 13.84302]},
+        index=[101, 102, 103, 104, 105, 106, 107])
     pd.testing.assert_frame_equal(r[e.columns], e)
     pd.testing.assert_series_equal(r.dist_to_seg, r.length, check_names=False)
     assert list(r.geom_type.unique()) == ["LineString"]
+    assert (r.geometry.apply(lambda g: len(g.coords)) == 2).all()
+    a = r.geometry.interpolate(0.0)
+    b = r.geometry.interpolate(1.0, normalized=True)
     seg_mls = coastal_swn_w_poly.segments.geometry[r.segnum].unary_union
-    a = r.geometry.apply(lambda x: Point(*x.coords[0]))
-    assert (a.distance(coastal_geom) == 0.0).all()
+    assert (a.distance(coastal_geom) < 1e-10).all()
     assert (a.distance(seg_mls) > 0.0).all()
-    b = r.geometry.apply(lambda x: Point(*x.coords[-1]))
     assert (b.distance(coastal_geom) > 0.0).all()
     assert (b.distance(seg_mls) < 1e-10).all()
+    r1 = coastal_swn_w_poly.locate_geoms(coastal_geom, min_stream_order=1)
+    pd.testing.assert_frame_equal(r[e.columns], e)
+    assert list(r1.segnum) == \
+        [3046952, 3048504, 3048249, 3049113, 3047737, 3047145, 3046745]
+    r2 = coastal_swn_w_poly.locate_geoms(coastal_geom, min_stream_order=2)
+    assert list(r2.segnum) == \
+        [3046952, 3048504, 3048552, 3049106, 3047365, 3047040, 3046745]
+    r2 = coastal_swn_w_poly.locate_geoms(coastal_geom, min_stream_order=2)
+    assert list(r2.segnum) == \
+        [3046952, 3048504, 3048552, 3049106, 3047365, 3047040, 3046745]
+    r6 = coastal_swn_w_poly.locate_geoms(coastal_geom, min_stream_order=6)
+    assert list(r6.segnum) == \
+        [3046736, 3046736, 3047683, 3047683, 3046737, 3046737, 3046736]
 
 
 def test_aggregate_fluss_headwater(fluss_n):

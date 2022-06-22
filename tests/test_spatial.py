@@ -1,5 +1,6 @@
 import geopandas
 import numpy as np
+import pandas as pd
 import pytest
 from shapely import wkt
 from shapely.geometry import Point
@@ -79,6 +80,78 @@ def test_compare_crs():
     assert spatial.compare_crs(2193, None)[2] is False
     assert spatial.compare_crs(2193, 'EPSG:2193')[2] is True
     assert spatial.compare_crs(2193, {'init': 'EPSG:2193'})[2] is True
+
+
+def test_bias_substring():
+    line = spatial.wkt_to_geoseries(["LINESTRING (0 0, 10 0)"])
+    pd.testing.assert_series_equal(
+        spatial.bias_substring(line, 0, end_cut=0), line)
+    pd.testing.assert_series_equal(
+        spatial.bias_substring(line, -1, end_cut=0),
+        spatial.wkt_to_geoseries(["POINT (10 0)"]))
+    pd.testing.assert_series_equal(
+        spatial.bias_substring(line, 1, end_cut=0),
+        spatial.wkt_to_geoseries(["POINT (0 0)"]))
+    pd.testing.assert_series_equal(
+        spatial.bias_substring(line, 0.5, end_cut=0),
+        spatial.wkt_to_geoseries(["LINESTRING (0 0, 5 0)"]))
+    pd.testing.assert_series_equal(
+        spatial.bias_substring(line, -0.2, end_cut=0),
+        spatial.wkt_to_geoseries(["LINESTRING (2 0, 10 0)"]))
+    pd.testing.assert_series_equal(
+        spatial.bias_substring(line, 0, end_cut=0.1),
+        spatial.wkt_to_geoseries(["LINESTRING (1 0, 9 0)"]))
+    pd.testing.assert_series_equal(
+        spatial.bias_substring(line, 0.5, end_cut=0.1),
+        spatial.wkt_to_geoseries(["LINESTRING (1 0, 5 0)"]))
+    pd.testing.assert_series_equal(
+        spatial.bias_substring(line, -0.2, end_cut=0.1),
+        spatial.wkt_to_geoseries(["LINESTRING (2 0, 9 0)"]))
+    pd.testing.assert_series_equal(
+        spatial.bias_substring(line, -1, end_cut=0.1),
+        spatial.wkt_to_geoseries(["POINT (9 0)"]))
+    pd.testing.assert_series_equal(
+        spatial.bias_substring(line, 1, end_cut=0.1),
+        spatial.wkt_to_geoseries(["POINT (1 0)"]))
+    pd.testing.assert_series_equal(
+        spatial.bias_substring(line, 0.2, end_cut=0.4),
+        spatial.wkt_to_geoseries(["LINESTRING (4 0, 6 0)"]))
+    pd.testing.assert_series_equal(
+        spatial.bias_substring(line, -0.2, end_cut=0.4),
+        spatial.wkt_to_geoseries(["LINESTRING (4 0, 6 0)"]))
+    pd.testing.assert_series_equal(
+        spatial.bias_substring(line, -0.2, end_cut=0.5),
+        spatial.wkt_to_geoseries(["POINT (5 0)"]))
+    # errors
+    with pytest.raises(TypeError, match="xpected 'gs' as an instance of GeoS"):
+        spatial.bias_substring(line.to_frame(), 0)
+    with pytest.raises(ValueError, match="must be between -1 and 1"):
+        spatial.bias_substring(line, 2)
+    with pytest.raises(ValueError, match="must between 0 and 0.5"):
+        spatial.bias_substring(line, 0, 1)
+
+
+def test_bias_substring_confluence():
+    lines = swn.spatial.wkt_to_geoseries([
+        "LINESTRING (60 100, 60 80)",
+        "LINESTRING (40 130, 60 100)",
+        "LINESTRING (70 130, 60 100)"])
+    pts = swn.spatial.wkt_to_geoseries([
+        "POINT (58 97)", "POINT (62 97)", "POINT (59 89)"])
+
+    def nearest_pt_idx(lines):
+        ret = []
+        for pt in pts:
+            ret.append(lines.distance(pt).sort_values().index[0])
+        return ret
+
+    assert nearest_pt_idx(lines) == [0, 0, 0]
+    assert nearest_pt_idx(spatial.bias_substring(lines, 1)) == [0, 0, 0]
+    assert nearest_pt_idx(spatial.bias_substring(lines, -0.3)) == [0, 0, 0]
+    assert nearest_pt_idx(spatial.bias_substring(lines, -0.4)) == [1, 2, 0]
+    assert nearest_pt_idx(spatial.bias_substring(lines, -1)) == [1, 2, 0]
+    assert nearest_pt_idx(spatial.bias_substring(lines, -0.4, end_cut=0)) == \
+        [1, 1, 0]
 
 
 def test_find_segnum_in_swn_only_lines(coastal_swn):
