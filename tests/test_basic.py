@@ -565,42 +565,56 @@ def test_set_diversions_geodataframe():
         n.set_diversions(geopandas.GeoDataFrame([1]))
     # normal operation
     assert n.diversions is None
-    n.set_diversions(diversions)
+    # use -ve downstream_bias to replicte previous behaviour
+    n.set_diversions(diversions, downstream_bias=-0.5)
     assert n.diversions is not None
-    np.testing.assert_array_almost_equal(
-        n.diversions['dist_end'], [3.605551, 3.605551, 9.055385, 9.055385])
-    np.testing.assert_array_almost_equal(
-        n.diversions['dist_line'], [3.605551, 3.605551, 1.0, 1.0])
-    np.testing.assert_array_equal(
-        n.diversions['from_segnum'], [1, 2, 0, 0])
+    expected = geopandas.GeoDataFrame(
+        {
+            "method": ["nearest"] * 4,
+            "from_segnum": [1, 2, 0, 0],
+            "seg_ndist": [1.0, 1.0, 0.55, 0.55],
+            "dist_to_seg": [3.605551, 3.605551, 1.0, 1.0],
+        },
+        geometry=diversions.geometry,
+        index=diversions.index)
+    assert set(n.diversions.columns) == set(expected.columns)
+    pd.testing.assert_frame_equal(n.diversions[expected.columns], expected)
     np.testing.assert_array_equal(
         n.segments['diversions'], [{2, 3}, {0}, {1}])
+    # defalut parameters
+    n.set_diversions(diversions)
+    expected = geopandas.GeoDataFrame(
+        {
+            "method": ["nearest"] * 4,
+            "from_segnum": [0, 0, 0, 0],
+            "seg_ndist": [0.15, 0.15, 0.55, 0.55],
+            "dist_to_seg": [2.0, 2.0, 1.0, 1.0],
+        },
+        geometry=diversions.geometry,
+        index=diversions.index)
+    pd.testing.assert_frame_equal(n.diversions[expected.columns], expected)
     # Unset
     n.set_diversions(None)
     assert n.diversions is None
     assert 'diversions' not in n.segments.columns
     # Try again with min_stream_order option
     n.set_diversions(diversions, min_stream_order=2)
-    assert n.diversions is not None
-    np.testing.assert_array_almost_equal(
-        n.diversions['dist_end'], [17.117243, 17.117243, 9.055385, 9.055385])
-    np.testing.assert_array_equal(
-        n.diversions['dist_line'], [2.0, 2.0, 1.0, 1.0])
-    np.testing.assert_array_equal(
-        n.diversions['from_segnum'], [0, 0, 0, 0])
+    pd.testing.assert_frame_equal(n.diversions[expected.columns], expected)
     np.testing.assert_array_equal(
         n.segments['diversions'], [{0, 1, 2, 3}, set(), set()])
     # Try again, but use 'from_segnum' column
     diversions = geopandas.GeoDataFrame(
         {'from_segnum': [0, 2]}, geometry=[Point(55, 97), Point(68, 105)])
     n.set_diversions(diversions)
-    assert n.diversions is not None
-    np.testing.assert_array_almost_equal(
-        n.diversions['dist_end'], [17.720045,  9.433981])
-    np.testing.assert_array_almost_equal(
-        n.diversions['dist_line'], [5.0, 6.008328])
-    np.testing.assert_array_equal(
-        n.diversions['from_segnum'], [0, 2])
+    expected = geopandas.GeoDataFrame(
+        {
+            "from_segnum": [0, 2],
+            "seg_ndist": [0.15, 0.77],
+            "dist_to_seg": [5.0, 6.008328],
+        },
+        geometry=diversions.geometry,
+        index=diversions.index)
+    pd.testing.assert_frame_equal(n.diversions[expected.columns], expected)
     np.testing.assert_array_equal(
         n.segments['diversions'], [{0}, set(), {1}])
     assert repr(n) == dedent('''\
@@ -634,9 +648,12 @@ def test_set_diversions_dataframe():
     assert n.diversions is None
     n.set_diversions(diversions)
     assert n.diversions is not None
-    assert 'dist_end' not in n.diversions.columns
-    assert 'dist_line' not in n.diversions.columns
-    np.testing.assert_array_equal(n.diversions['from_segnum'], [0, 2])
+    expected = pd.DataFrame({
+        "from_segnum": [0, 2],
+        "seg_ndist": [1.0] * 2,
+    })
+    assert set(n.diversions.columns) == set(expected.columns)
+    pd.testing.assert_frame_equal(n.diversions[expected.columns], expected)
     np.testing.assert_array_equal(
         n.segments['diversions'], [{0}, set(), {1}])
     assert repr(n) == dedent('''\
