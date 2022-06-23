@@ -11,7 +11,7 @@ from shapely.ops import linemerge, substring
 
 from ..compat import ignore_shapely_warnings_for_object_array
 from ..core import SurfaceWaterNetwork
-from ..spatial import compare_crs, get_sindex, visible_wkt
+from ..spatial import bias_substring, compare_crs, get_sindex, visible_wkt
 from ..util import is_location_frame
 from ._misc import tile_series_as_frame, transform_data_to_series_or_frame
 
@@ -1315,14 +1315,9 @@ class SwnModflowBase:
             if len(reaches) == 0:
                 continue
             if len(reaches) > 1 and downstream_bias != 0.0:
-                # distance bewtween original location and a reach substring
-                if downstream_bias > 0.0:
-                    args = (0.0, 1.0 - downstream_bias)
-                else:
-                    args = (-downstream_bias, 1.0)
-                dists = reaches.geometry.apply(
-                    substring, args=args, normalized=True).distance(
-                        row.start_geom).sort_values()
+                dists = bias_substring(
+                    reaches.geometry, downstream_bias=downstream_bias)\
+                    .distance(row.start_geom).sort_values()
             else:
                 # distance from projected segment match and reach
                 dists = reaches.distance(row.end_geom).sort_values()

@@ -14,7 +14,7 @@ import pandas as pd
 from shapely.geometry import LineString, Point
 
 from .compat import ignore_shapely_warnings_for_object_array
-from .spatial import get_sindex
+from .spatial import bias_substring, get_sindex
 from .util import abbr_str
 
 
@@ -915,7 +915,9 @@ class SurfaceWaterNetwork:
                             segnums += upsegnums
         return segnums
 
-    def locate_geoms(self, geom, *, override={}):
+    def locate_geoms(
+            self, geom, *, override={}, min_stream_order=None,
+            downstream_bias=0.0):
         """Return GeoDataFrame of data associated in finding geometies.
 
         Parameters
@@ -926,18 +928,29 @@ class SurfaceWaterNetwork:
         override : dict, optional
             Override matches, where key is the index from geom, and the value
             is segnum. If value is None, no match is performed.
+        min_stream_order : int, default None
+            Finds stream segments with a minimum stream order.
+        downstream_bias : float, default 0.0
+            A bias used for spatial location matching on nearest segments
+            that increase the likelihood of finding downstream segments if
+            positive, and upstream segments if negative. Valid range is -1.0
+            to 1.0. Default 0.0 is no bias, matching to the closest segment.
 
         Notes
         -----
         Seveal methods are used to pair the geometry with one segnum:
 
-            1. override: explicit pairs are provided as a dict, with key for
+            1. empty: geometry cannot be matched to anything. Use override with
+               None value to suppress warning.
+            2. override: explicit pairs are provided as a dict, with key for
                the geom index, and value with the segnum.
-            2. catchment: if catchments are part of the surface water network,
+            3. catchment: if catchments are part of the surface water network,
                find the catchment polygons that contain the geometries. Input
                polygons that intersect with more than one catchment are matched
                with the catchment with the largest intersection polygon area.
-            3. nearest: find the segment lines that are nearest to the input
+               If ``min_stream_order`` is specified, then a catchment
+               downstream might be identified.
+            4. nearest: find the segment lines that are nearest to the input
                geometries. Input polygons that intersect with more than one
                segment are matched with the largest intersection line length.
 
@@ -964,24 +977,35 @@ class SurfaceWaterNetwork:
         ...    "LINESTRING (40 130, 60 100)",
         ...    "LINESTRING (70 130, 60 100)"])
         >>> n = swn.SurfaceWaterNetwork.from_lines(lines)
+        >>> lines.index += 101
         >>> obs_gs = swn.spatial.wkt_to_geoseries([
         ...    "POINT (56 103)",
         ...    "LINESTRING (58 90, 62 90)",
         ...    "POLYGON ((60 107, 59 113, 61 113, 60 107))",
         ...    "POINT (55 130)"])
-        >>> obs_gs.index += 101
-        >>> obs_match = n.locate_geoms(obs_gs, override={104: 2})
+        >>> obs_gs.index += 11
+        >>> obs_match = n.locate_geoms(obs_gs, override={14: 2})
         >>> obs_match[["method", "segnum", "seg_ndist", "dist_to_seg"]]
-               method  segnum  seg_ndist  dist_to_seg
-        101   nearest       1   0.869231     1.664101
-        102   nearest       0   0.500000     0.000000
-        103   nearest       2   0.790000     2.213594
-        104  override       2   0.150000    14.230249
+              method  segnum  seg_ndist  dist_to_seg
+        11   nearest       1   0.869231     1.664101
+        12   nearest       0   0.500000     0.000000
+        13   nearest       2   0.790000     2.213594
+        14  override       2   0.150000    14.230249
         """
         from shapely import wkt
 
         if not isinstance(geom, geopandas.GeoSeries):
             raise TypeError("expected 'geom' as an instance of GeoSeries")
+        elif not (-1.0 <= downstream_bias <= 1.0):
+            raise ValueError("downstream_bias must be between -1 and 1")
+
+        # Make sure CRS is the same as segments (if defined)
+        geom_crs = getattr(geom, 'crs', None)
+        segments_crs = getattr(self.segments, 'crs', None)
+        if geom_crs != segments_crs:
+            self.logger.warning(
+                'CRS for geoseries and segments are different: '
+                '%s vs. %s', geom_crs, segments_crs)
 
         # initialise return data frame
         res = geopandas.GeoDataFrame(geometry=geom)
@@ -1019,7 +1043,12 @@ class SurfaceWaterNetwork:
                 res.segnum.update(override)
                 res.loc[override.keys(), "method"] = "override"
 
-        # First, look at geoms in catchments
+        # Mark empty geometries
+        sel = (res.method == "") & (res.is_empty)
+        if sel.any():
+            res.loc[sel, "method"] = "empty"
+
+        # Look at geoms in catchments
         if self.catchments is not None:
             sel = (res.method == "")
             if sel.any():
@@ -1031,18 +1060,56 @@ class SurfaceWaterNetwork:
                 match_s.name = "segnum"
                 match_s.index.name = "gidx"
                 match = match_s.reset_index()
+                if min_stream_order is not None:
+                    to_segnums = dict(self.to_segnums)
+
+                    def find_downstream_in_min_stream_order(segnum):
+                        while True:
+                            if self.segments.stream_order.at[segnum] >= \
+                                    min_stream_order:
+                                return segnum
+                            elif segnum in to_segnums:
+                                segnum = to_segnums[segnum]
+                            else:  # nothing found with stream order criteria
+                                return segnum
+
+                    match["stream_order"] = \
+                        self.segments.stream_order[match.segnum].values
+                    match["down_segnum"] = \
+                        match.segnum.apply(find_downstream_in_min_stream_order)
+                    match["down_stream_order"] = \
+                        self.segments.stream_order[match.down_segnum].values
+
                 # geom may cover more than one catchment
                 duplicated = match.gidx.duplicated(keep=False)
                 if duplicated.any():
                     dupes = match[duplicated]
-                    for gidx, segnums in dupes.groupby("gidx").segnum:
-                        # find catchment with highest area of intersection
-                        ca = segnums.to_frame()
-                        ca["area"] = catchments_df.loc[segnums].intersection(
+                    for gidx, ca in dupes.groupby("gidx"):
+                        # sort catchment with highest area of intersection
+                        ca["area"] = catchments_df.loc[ca.segnum].intersection(
                             geom.loc[gidx]).area.values
                         ca.sort_values("area", ascending=False, inplace=True)
-                        match.drop(index=ca.index[1:], inplace=True)
-                res.loc[match.gidx, "segnum"] = match.segnum.values
+                        if min_stream_order is not None:
+                            sel_stream_order = \
+                                (ca.stream_order >= min_stream_order)
+                            if sel_stream_order.sum() == 0:
+                                # all minor; take highest stream order
+                                ca.sort_values(
+                                    ["stream_order", "down_stream_order",
+                                     "area"], ascending=False, inplace=True)
+                                match.drop(index=ca.index[1:], inplace=True)
+                            elif sel_stream_order.sum() == 1:
+                                match.drop(index=sel_stream_order.index[
+                                    ~sel_stream_order], inplace=True)
+                            else:
+                                # more than one major; take most overlap area
+                                match.drop(index=ca.index[1:], inplace=True)
+                        else:
+                            match.drop(index=ca.index[1:], inplace=True)
+                if min_stream_order is None:
+                    res.loc[match.gidx, "segnum"] = match.segnum.values
+                else:
+                    res.loc[match.gidx, "segnum"] = match.down_segnum.values
                 res.loc[match.gidx, "method"] = "catchment"
 
         # Match geometry to closest segment
@@ -1050,11 +1117,21 @@ class SurfaceWaterNetwork:
         if not sel.any():
             pass
         else:
+            if min_stream_order is None:
+                min_stream_order = 1
+            else:
+                max_stream_order = self.segments.stream_order.max()
+                if min_stream_order > max_stream_order:
+                    min_stream_order = max_stream_order
+            seg_sel = self.segments.stream_order >= min_stream_order
+            segments_gs = self.segments.geometry[seg_sel]
+            if downstream_bias != 0.0:
+                segments_gs = bias_substring(
+                    segments_gs, downstream_bias=downstream_bias)
             try:
                 # faster method, not widely available
                 match_s = geopandas.sjoin_nearest(
-                    res[sel],
-                    self.segments[["geometry"]], "inner")["index_right"]
+                    res[sel], segments_gs.to_frame(), "inner")["index_right"]
                 has_sjoin_nearest = True
             except (AttributeError, NotImplementedError):
                 has_sjoin_nearest = False
@@ -1086,9 +1163,7 @@ class SurfaceWaterNetwork:
                 res.loc[match.gidx, "method"] = "nearest"
             else:  # slower method
                 for gidx, g in geom[sel].iteritems():
-                    if g.is_empty:
-                        continue
-                    dists = self.segments.distance(g).sort_values()
+                    dists = segments_gs.distance(g).sort_values()
                     segnums = dists.index[dists.iloc[0] == dists]
                     if len(segnums) == 1:
                         segnum = segnums[0]
