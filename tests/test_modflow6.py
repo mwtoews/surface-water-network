@@ -43,7 +43,7 @@ def get_basic_swn(has_z: bool = True, has_diversions: bool = False):
         n = swn.SurfaceWaterNetwork.from_lines(force_2d(n3d_lines))
     if has_diversions:
         diversions = geopandas.GeoDataFrame(geometry=[
-            Point(58, 97), Point(62, 97), Point(61, 89), Point(59, 89)])
+            Point(58, 100), Point(62, 100), Point(61, 89), Point(59, 89)])
         n.set_diversions(diversions=diversions)
     return n
 
@@ -823,7 +823,7 @@ def test_diversions(tmp_path):
     n = swn.SurfaceWaterNetwork.from_lines(lsz)
     n.adjust_elevation_profile()
     diversions = geopandas.GeoDataFrame(geometry=[
-        Point(58, 97), Point(62, 97), Point(61, 89), Point(59, 89)])
+        Point(58, 100), Point(62, 100), Point(61, 89), Point(59, 89)])
     n.set_diversions(diversions=diversions)
 
     # With zero specified flow for all terms
@@ -850,7 +850,7 @@ def test_pickle(tmp_path):
     assert nm1 == nm2
     # use to_pickle / from_pickle methods
     diversions = geopandas.GeoDataFrame(geometry=[
-        Point(58, 97), Point(62, 97), Point(61, 89), Point(59, 89)])
+        Point(58, 100), Point(62, 100), Point(61, 89), Point(59, 89)])
     n.set_diversions(diversions=diversions)
     nm3 = swn.SwnMf6.from_swn_flopy(n, m)
     nm3.to_pickle(tmp_path / "nm4.pickle")

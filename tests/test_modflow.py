@@ -48,7 +48,7 @@ def get_basic_swn(has_z: bool = True, has_diversions: bool = False):
         n = swn.SurfaceWaterNetwork.from_lines(force_2d(n3d_lines))
     if has_diversions:
         diversions = geopandas.GeoDataFrame(geometry=[
-            Point(58, 97), Point(62, 97), Point(61, 89), Point(59, 89)])
+            Point(58, 100), Point(62, 100), Point(61, 89), Point(59, 89)])
         n.set_diversions(diversions=diversions)
     return n
 
@@ -609,10 +609,11 @@ def test_set_segment_data_from_diversions():
         "abstraction", pd.Series([4.0], index=[1]))
     assert list(nm.segment_data.abstraction) == \
         [0.0, 0.0, 0.0, 1.1, 4.0, 3.3, 4.4]
-    nm.set_segment_data_from_diversions("abstraction", n.diversions.dist_line)
+    nm.set_segment_data_from_diversions(
+        "abstraction", n.diversions.dist_to_seg)
     np.testing.assert_array_almost_equal(
         nm.segment_data.abstraction,
-        [0.0, 0.0, 0.0, 3.605551275463989, 3.605551275463989, 1.0, 1.0])
+        [0.0, 0.0, 0.0, 1.664101, 1.897367, 1.0, 1.0])
 
     # frame
     nm.set_segment_data_from_scalar("abstraction", 0.0)
@@ -1444,7 +1445,7 @@ def test_diversions(tmp_path):
     n = swn.SurfaceWaterNetwork.from_lines(lsz)
     n.adjust_elevation_profile()
     diversions = geopandas.GeoDataFrame(geometry=[
-        Point(58, 97), Point(62, 97), Point(61, 89), Point(59, 89)])
+        Point(58, 100), Point(62, 100), Point(61, 89), Point(59, 89)])
     n.set_diversions(diversions=diversions)
 
     nm = swn.SwnModflow.from_swn_flopy(n, m)
@@ -1599,7 +1600,7 @@ def test_pickle(tmp_path):
     assert nm1 == nm2
     # use to_pickle / from_pickle methods
     diversions = geopandas.GeoDataFrame(geometry=[
-        Point(58, 97), Point(62, 97), Point(61, 89), Point(59, 89)])
+        Point(58, 100), Point(62, 100), Point(61, 89), Point(59, 89)])
     n.set_diversions(diversions=diversions)
     nm3 = swn.SwnModflow.from_swn_flopy(n, m)
     nm3.default_segment_data(hyd_cond1=0.0)

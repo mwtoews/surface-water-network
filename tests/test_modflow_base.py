@@ -43,7 +43,7 @@ def get_basic_swn(has_z: bool = True, has_diversions: bool = False):
         n = swn.SurfaceWaterNetwork.from_lines(force_2d(n3d_lines))
     if has_diversions:
         diversions = geopandas.GeoDataFrame(geometry=[
-            Point(58, 97), Point(62, 97), Point(61, 89), Point(59, 89)])
+            Point(58, 100), Point(62, 100), Point(61, 89), Point(59, 89)])
         n.set_diversions(diversions=diversions)
     return n
 
@@ -686,7 +686,7 @@ def test_diversions():
     lsz = interp_2d_to_3d(n3d_lines, m.dis.top.array, gt)
     n = swn.SurfaceWaterNetwork.from_lines(lsz)
     diversions = geopandas.GeoDataFrame(geometry=[
-        Point(58, 97), Point(62, 97), Point(61, 89), Point(59, 89)])
+        Point(58, 100), Point(62, 100), Point(61, 89), Point(59, 89)])
     n.set_diversions(diversions=diversions)
     n.adjust_elevation_profile()
     nm = swn.SwnModflow.from_swn_flopy(n, m)
