@@ -1030,7 +1030,7 @@ class SurfaceWaterNetwork:
         if self.catchments is not None:
             sel = (res.method == "")
             if sel.any():
-                catchments_df = self.catchments.to_frame()
+                catchments_df = self.catchments.to_frame("geometry")
                 if catchments_df.crs is None and self.segments.crs is not None:
                     catchments_df.crs = self.segments.crs
                 match_s = geopandas.sjoin(
