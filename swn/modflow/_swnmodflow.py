@@ -592,8 +592,8 @@ class SwnModflow(SwnModflowBase):
         >>> lines.index += 100
         >>> n = swn.SurfaceWaterNetwork.from_lines(lines)
         >>> diversions = swn.spatial.wkt_to_geoseries([
-        ...    "POINT (58 97)",
-        ...    "POINT (58 97)"]).to_frame("geometry")
+        ...    "POINT (58 100)",
+        ...    "POINT (58 100)"]).to_frame("geometry")
         >>> diversions.index += 10
         >>> diversions["rate"] = [1.1, 2.2]
         >>> n.set_diversions(diversions=diversions)
