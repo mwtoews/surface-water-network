@@ -731,7 +731,7 @@
 <h1>swn.SurfaceWaterNetwork.locate_geoms<a class="headerlink" href="#swn-surfacewaternetwork-locate-geoms" title="Permalink to this heading">#</a></h1>
 <dl class="py method">
 <dt class="sig sig-object py" id="swn.SurfaceWaterNetwork.locate_geoms">
-<span class="sig-prename descclassname"><span class="pre">SurfaceWaterNetwork.</span></span><span class="sig-name descname"><span class="pre">locate_geoms</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">geom</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">override</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{}</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#swn.SurfaceWaterNetwork.locate_geoms" title="Permalink to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">SurfaceWaterNetwork.</span></span><span class="sig-name descname"><span class="pre">locate_geoms</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">geom</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">override</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{}</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_stream_order</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">downstream_bias</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#swn.SurfaceWaterNetwork.locate_geoms" title="Permalink to this definition">#</a></dt>
 <dd><p>Return GeoDataFrame of data associated in finding geometies.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -741,6 +741,13 @@ bridges or building footprints.</p>
 </dd>
 <dt><strong>override</strong><span class="classifier">dict, optional</span></dt><dd><p>Override matches, where key is the index from geom, and the value
 is segnum. If value is None, no match is performed.</p>
+</dd>
+<dt><strong>min_stream_order</strong><span class="classifier">int, default None</span></dt><dd><p>Finds stream segments with a minimum stream order.</p>
+</dd>
+<dt><strong>downstream_bias</strong><span class="classifier">float, default 0.0</span></dt><dd><p>A bias used for spatial location matching on nearest segments
+that increase the likelihood of finding downstream segments if
+positive, and upstream segments if negative. Valid range is -1.0
+to 1.0. Default 0.0 is no bias, matching to the closest segment.</p>
 </dd>
 </dl>
 </dd>
@@ -758,12 +765,16 @@ dist_to_seg (distance to segment).</p>
 <p>Seveal methods are used to pair the geometry with one segnum:</p>
 <blockquote>
 <div><ol class="arabic simple">
+<li><p>empty: geometry cannot be matched to anything. Use override with
+None value to suppress warning.</p></li>
 <li><p>override: explicit pairs are provided as a dict, with key for
 the geom index, and value with the segnum.</p></li>
 <li><p>catchment: if catchments are part of the surface water network,
 find the catchment polygons that contain the geometries. Input
 polygons that intersect with more than one catchment are matched
-with the catchment with the largest intersection polygon area.</p></li>
+with the catchment with the largest intersection polygon area.
+If <code class="docutils literal notranslate"><span class="pre">min_stream_order</span></code> is specified, then a catchment
+downstream might be identified.</p></li>
 <li><p>nearest: find the segment lines that are nearest to the input
 geometries. Input polygons that intersect with more than one
 segment are matched with the largest intersection line length.</p></li>
@@ -781,19 +792,20 @@ surface water network segment.</p>
 <span class="gp">... </span>   <span class="s2">&quot;LINESTRING (40 130, 60 100)&quot;</span><span class="p">,</span>
 <span class="gp">... </span>   <span class="s2">&quot;LINESTRING (70 130, 60 100)&quot;</span><span class="p">])</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">n</span> <span class="o">=</span> <span class="n">swn</span><span class="o">.</span><span class="n">SurfaceWaterNetwork</span><span class="o">.</span><span class="n">from_lines</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">lines</span><span class="o">.</span><span class="n">index</span> <span class="o">+=</span> <span class="mi">101</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">obs_gs</span> <span class="o">=</span> <span class="n">swn</span><span class="o">.</span><span class="n">spatial</span><span class="o">.</span><span class="n">wkt_to_geoseries</span><span class="p">([</span>
 <span class="gp">... </span>   <span class="s2">&quot;POINT (56 103)&quot;</span><span class="p">,</span>
 <span class="gp">... </span>   <span class="s2">&quot;LINESTRING (58 90, 62 90)&quot;</span><span class="p">,</span>
 <span class="gp">... </span>   <span class="s2">&quot;POLYGON ((60 107, 59 113, 61 113, 60 107))&quot;</span><span class="p">,</span>
 <span class="gp">... </span>   <span class="s2">&quot;POINT (55 130)&quot;</span><span class="p">])</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">obs_gs</span><span class="o">.</span><span class="n">index</span> <span class="o">+=</span> <span class="mi">101</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">obs_match</span> <span class="o">=</span> <span class="n">n</span><span class="o">.</span><span class="n">locate_geoms</span><span class="p">(</span><span class="n">obs_gs</span><span class="p">,</span> <span class="n">override</span><span class="o">=</span><span class="p">{</span><span class="mi">104</span><span class="p">:</span> <span class="mi">2</span><span class="p">})</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">obs_gs</span><span class="o">.</span><span class="n">index</span> <span class="o">+=</span> <span class="mi">11</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">obs_match</span> <span class="o">=</span> <span class="n">n</span><span class="o">.</span><span class="n">locate_geoms</span><span class="p">(</span><span class="n">obs_gs</span><span class="p">,</span> <span class="n">override</span><span class="o">=</span><span class="p">{</span><span class="mi">14</span><span class="p">:</span> <span class="mi">2</span><span class="p">})</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">obs_match</span><span class="p">[[</span><span class="s2">&quot;method&quot;</span><span class="p">,</span> <span class="s2">&quot;segnum&quot;</span><span class="p">,</span> <span class="s2">&quot;seg_ndist&quot;</span><span class="p">,</span> <span class="s2">&quot;dist_to_seg&quot;</span><span class="p">]]</span>
-<span class="go">       method  segnum  seg_ndist  dist_to_seg</span>
-<span class="go">101   nearest       1   0.869231     1.664101</span>
-<span class="go">102   nearest       0   0.500000     0.000000</span>
-<span class="go">103   nearest       2   0.790000     2.213594</span>
-<span class="go">104  override       2   0.150000    14.230249</span>
+<span class="go">      method  segnum  seg_ndist  dist_to_seg</span>
+<span class="go">11   nearest       1   0.869231     1.664101</span>
+<span class="go">12   nearest       0   0.500000     0.000000</span>
+<span class="go">13   nearest       2   0.790000     2.213594</span>
+<span class="go">14  override       2   0.150000    14.230249</span>
 </pre></div>
 </div>
 </dd></dl>
