@@ -41,6 +41,7 @@ Methods
 .. autosummary::
    :toctree: ref/
 
+   SurfaceWaterNetwork.set_diversions
    SurfaceWaterNetwork.segments_series
    SurfaceWaterNetwork.pair_segments_frame
    SurfaceWaterNetwork.accumulate_values

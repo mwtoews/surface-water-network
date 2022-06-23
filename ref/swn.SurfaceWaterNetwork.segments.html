@@ -234,6 +234,11 @@
       </a>
      </li>
      <li class="toctree-l3">
+      <a class="reference internal" href="swn.SurfaceWaterNetwork.set_diversions.html">
+       swn.SurfaceWaterNetwork.set_diversions
+      </a>
+     </li>
+     <li class="toctree-l3">
       <a class="reference internal" href="swn.SurfaceWaterNetwork.to_pickle.html">
        swn.SurfaceWaterNetwork.to_pickle
       </a>
@@ -288,6 +293,11 @@
    <li class="toctree-l2">
     <a class="reference internal" href="swn.SurfaceWaterNetwork.from_segnums.html">
      swn.SurfaceWaterNetwork.from_segnums
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="swn.SurfaceWaterNetwork.set_diversions.html">
+     swn.SurfaceWaterNetwork.set_diversions
     </a>
    </li>
    <li class="toctree-l2">
@@ -733,8 +743,7 @@
 <dt class="sig sig-object py" id="swn.SurfaceWaterNetwork.segments">
 <em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">SurfaceWaterNetwork.</span></span><span class="sig-name descname"><span class="pre">segments</span></span><a class="headerlink" href="#swn.SurfaceWaterNetwork.segments" title="Permalink to this definition">#</a></dt>
 <dd><p>GeoDataFrame of stream segments derived from the lines input.</p>
-<p>This GeoDataFrame is created by
-<a class="reference internal" href="swn.SurfaceWaterNetwork.from_lines.html#swn.SurfaceWaterNetwork.from_lines" title="swn.SurfaceWaterNetwork.from_lines"><code class="xref py py-meth docutils literal notranslate"><span class="pre">swn.SurfaceWaterNetwork.from_lines()</span></code></a>.</p>
+<p>This GeoDataFrame is created by <a class="reference internal" href="swn.SurfaceWaterNetwork.from_lines.html#swn.SurfaceWaterNetwork.from_lines" title="swn.SurfaceWaterNetwork.from_lines"><code class="xref py py-meth docutils literal notranslate"><span class="pre">from_lines()</span></code></a>.</p>
 <p class="rubric">Examples</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">swn</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">lines</span> <span class="o">=</span> <span class="n">swn</span><span class="o">.</span><span class="n">spatial</span><span class="o">.</span><span class="n">wkt_to_geoseries</span><span class="p">([</span>
@@ -782,15 +791,13 @@ as <code class="docutils literal notranslate"><span class="pre">{}</span></code>
 <dt><strong>stream_order</strong><span class="classifier">int</span></dt><dd><p>Strahler number.</p>
 </dd>
 <dt><strong>upstream_length</strong><span class="classifier">float</span></dt><dd><p>Total lengths of streams upstream. See
-<code class="xref py py-meth docutils literal notranslate"><span class="pre">swn.SurfaceWaterNetwork.evaluate_upstream_width()</span></code>
-for details.</p>
+<a class="reference internal" href="swn.SurfaceWaterNetwork.evaluate_upstream_length.html#swn.SurfaceWaterNetwork.evaluate_upstream_length" title="swn.SurfaceWaterNetwork.evaluate_upstream_length"><code class="xref py py-meth docutils literal notranslate"><span class="pre">evaluate_upstream_length()</span></code></a> for details.</p>
 </dd>
 <dt><strong>upstream_area</strong><span class="classifier">float</span></dt><dd><p>If catchments are defined, this is the upstream catchment area.
-See <a class="reference internal" href="swn.SurfaceWaterNetwork.evaluate_upstream_area.html#swn.SurfaceWaterNetwork.evaluate_upstream_area" title="swn.SurfaceWaterNetwork.evaluate_upstream_area"><code class="xref py py-meth docutils literal notranslate"><span class="pre">swn.SurfaceWaterNetwork.evaluate_upstream_area()</span></code></a>
-for details.</p>
+See <a class="reference internal" href="swn.SurfaceWaterNetwork.evaluate_upstream_area.html#swn.SurfaceWaterNetwork.evaluate_upstream_area" title="swn.SurfaceWaterNetwork.evaluate_upstream_area"><code class="xref py py-meth docutils literal notranslate"><span class="pre">evaluate_upstream_area()</span></code></a> for details.</p>
 </dd>
 <dt><strong>width</strong><span class="classifier">float</span></dt><dd><p>If upstream_area is defined, this is an estimate of stream width.
-See <a class="reference internal" href="swn.SurfaceWaterNetwork.estimate_width.html#swn.SurfaceWaterNetwork.estimate_width" title="swn.SurfaceWaterNetwork.estimate_width"><code class="xref py py-meth docutils literal notranslate"><span class="pre">swn.SurfaceWaterNetwork.estimate_width()</span></code></a> for details.</p>
+See <a class="reference internal" href="swn.SurfaceWaterNetwork.estimate_width.html#swn.SurfaceWaterNetwork.estimate_width" title="swn.SurfaceWaterNetwork.estimate_width"><code class="xref py py-meth docutils literal notranslate"><span class="pre">estimate_width()</span></code></a> for details.</p>
 </dd>
 <dt><strong>diversions</strong><span class="classifier">set</span></dt><dd><p>If diversions are defined, this is a set of zero or more indexes
 to which the segment connects to.</p>

@@ -234,6 +234,11 @@
       </a>
      </li>
      <li class="toctree-l3">
+      <a class="reference internal" href="swn.SurfaceWaterNetwork.set_diversions.html">
+       swn.SurfaceWaterNetwork.set_diversions
+      </a>
+     </li>
+     <li class="toctree-l3">
       <a class="reference internal" href="swn.SurfaceWaterNetwork.to_pickle.html">
        swn.SurfaceWaterNetwork.to_pickle
       </a>
@@ -288,6 +293,11 @@
    <li class="toctree-l2">
     <a class="reference internal" href="swn.SurfaceWaterNetwork.from_segnums.html">
      swn.SurfaceWaterNetwork.from_segnums
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="swn.SurfaceWaterNetwork.set_diversions.html">
+     swn.SurfaceWaterNetwork.set_diversions
     </a>
    </li>
    <li class="toctree-l2">
@@ -733,8 +743,7 @@
 <dt class="sig sig-object py" id="swn.SurfaceWaterNetwork.diversions">
 <em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">SurfaceWaterNetwork.</span></span><span class="sig-name descname"><span class="pre">diversions</span></span><a class="headerlink" href="#swn.SurfaceWaterNetwork.diversions" title="Permalink to this definition">#</a></dt>
 <dd><p>[Geo]DataFrame of surface water diversions.</p>
-<p>Use <code class="xref py py-meth docutils literal notranslate"><span class="pre">swn.SurfaceWaterNetwork.set_diversions()</span></code> to set this
-property.</p>
+<p>Use <a class="reference internal" href="swn.SurfaceWaterNetwork.set_diversions.html#swn.SurfaceWaterNetwork.set_diversions" title="swn.SurfaceWaterNetwork.set_diversions"><code class="xref py py-meth docutils literal notranslate"><span class="pre">set_diversions()</span></code></a> to set this property.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Attributes<span class="colon">:</span></dt>
 <dd class="field-odd"><dl class="simple">
@@ -745,12 +754,15 @@ and is used to relate and exchange stream information.</p>
 <dt><strong>geometry</strong><span class="classifier">geometry</span></dt><dd><p>If a GeoDataFrame was used to define diversions, this is a copy
 of the GeoSeries.</p>
 </dd>
-<dt><strong>from_segnum</strong><span class="classifier">same type as segments.index</span></dt><dd><p>Index of upstream segment from which diversion is connected to.</p>
+<dt><strong>from_segnum</strong><span class="classifier">same type as segments.index</span></dt><dd><p>Index of segment from which diversion is connected to.</p>
 </dd>
-<dt><strong>dist_end</strong><span class="classifier">float</span></dt><dd><p>Distance to most-downstream-end of segment described by
-<code class="docutils literal notranslate"><span class="pre">from_segnum</span></code>.</p>
+<dt><strong>method</strong><span class="classifier">str, optional</span></dt><dd><p>Method used to match diversion to segment location; see
+<a class="reference internal" href="swn.SurfaceWaterNetwork.locate_geoms.html#swn.SurfaceWaterNetwork.locate_geoms" title="swn.SurfaceWaterNetwork.locate_geoms"><code class="xref py py-meth docutils literal notranslate"><span class="pre">locate_geoms()</span></code></a> for further information. This column is
+absent if assigned directly with a <code class="docutils literal notranslate"><span class="pre">from_segnum</span></code> column.</p>
 </dd>
-<dt><strong>dist_end</strong><span class="classifier">float</span></dt><dd><p>Distance to segment line described by <code class="docutils literal notranslate"><span class="pre">from_segnum</span></code>.</p>
+<dt><strong>seg_ndist</strong><span class="classifier">float</span></dt><dd><p>Normalized distance along segment to closest point to diversion.</p>
+</dd>
+<dt><strong>dist_to_seg</strong><span class="classifier">float</span></dt><dd><p>Distance to segment line described by <code class="docutils literal notranslate"><span class="pre">from_segnum</span></code>.</p>
 </dd>
 </dl>
 </dd>

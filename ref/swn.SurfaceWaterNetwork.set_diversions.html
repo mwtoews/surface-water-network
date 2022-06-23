@@ -6,7 +6,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
-    <title>swn.modflow.SwnModflow.new_segment_data &#8212; Surface water network 2019 documentation</title>
+    <title>swn.SurfaceWaterNetwork.set_diversions &#8212; Surface water network 2019 documentation</title>
 <script>
   document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
   document.documentElement.dataset.theme = localStorage.getItem("theme") || "light"
@@ -37,8 +37,8 @@
     <script src="../_static/doctools.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="swn.modflow.SwnModflow.route_reaches" href="swn.modflow.SwnModflow.route_reaches.html" />
-    <link rel="prev" title="swn.modflow.SwnModflow.get_location_frame_reach_info" href="swn.modflow.SwnModflow.get_location_frame_reach_info.html" />
+    <link rel="next" title="swn.SurfaceWaterNetwork.to_pickle" href="swn.SurfaceWaterNetwork.to_pickle.html" />
+    <link rel="prev" title="swn.SurfaceWaterNetwork.segments_series" href="swn.SurfaceWaterNetwork.segments_series.html" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta name="docsearch:language" content="en">
   </head>
@@ -143,26 +143,26 @@
 </form><nav class="bd-links" id="bd-docs-nav" aria-label="Main navigation">
   <div class="bd-toc-item active">
     <ul class="current nav bd-sidenav">
- <li class="toctree-l1 has-children">
+ <li class="toctree-l1 current active has-children">
   <a class="reference internal" href="../swn.html">
    SurfaceWaterNetwork
   </a>
-  <input class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" type="checkbox"/>
+  <input checked="" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" type="checkbox"/>
   <label for="toctree-checkbox-1">
    <i class="fas fa-chevron-down">
    </i>
   </label>
-  <ul>
-   <li class="toctree-l2 has-children">
+  <ul class="current">
+   <li class="toctree-l2 current active has-children">
     <a class="reference internal" href="swn.SurfaceWaterNetwork.html">
      swn.SurfaceWaterNetwork
     </a>
-    <input class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" type="checkbox"/>
+    <input checked="" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" type="checkbox"/>
     <label for="toctree-checkbox-2">
      <i class="fas fa-chevron-down">
      </i>
     </label>
-    <ul>
+    <ul class="current">
      <li class="toctree-l3">
       <a class="reference internal" href="swn.SurfaceWaterNetwork.accumulate_values.html">
        swn.SurfaceWaterNetwork.accumulate_values
@@ -233,8 +233,8 @@
        swn.SurfaceWaterNetwork.segments_series
       </a>
      </li>
-     <li class="toctree-l3">
-      <a class="reference internal" href="swn.SurfaceWaterNetwork.set_diversions.html">
+     <li class="toctree-l3 current active">
+      <a class="current reference internal" href="#">
        swn.SurfaceWaterNetwork.set_diversions
       </a>
      </li>
@@ -295,8 +295,8 @@
      swn.SurfaceWaterNetwork.from_segnums
     </a>
    </li>
-   <li class="toctree-l2">
-    <a class="reference internal" href="swn.SurfaceWaterNetwork.set_diversions.html">
+   <li class="toctree-l2 current active">
+    <a class="current reference internal" href="#">
      swn.SurfaceWaterNetwork.set_diversions
     </a>
    </li>
@@ -367,26 +367,26 @@
    </li>
   </ul>
  </li>
- <li class="toctree-l1 current active has-children">
+ <li class="toctree-l1 has-children">
   <a class="reference internal" href="../swnmodflow.html">
    SwnModflow
   </a>
-  <input checked="" class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" type="checkbox"/>
+  <input class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" type="checkbox"/>
   <label for="toctree-checkbox-3">
    <i class="fas fa-chevron-down">
    </i>
   </label>
-  <ul class="current">
-   <li class="toctree-l2 current active has-children">
+  <ul>
+   <li class="toctree-l2 has-children">
     <a class="reference internal" href="swn.modflow.SwnModflow.html">
      swn.modflow.SwnModflow
     </a>
-    <input checked="" class="toctree-checkbox" id="toctree-checkbox-4" name="toctree-checkbox-4" type="checkbox"/>
+    <input class="toctree-checkbox" id="toctree-checkbox-4" name="toctree-checkbox-4" type="checkbox"/>
     <label for="toctree-checkbox-4">
      <i class="fas fa-chevron-down">
      </i>
     </label>
-    <ul class="current">
+    <ul>
      <li class="toctree-l3">
       <a class="reference internal" href="swn.modflow.SwnModflow.default_segment_data.html">
        swn.modflow.SwnModflow.default_segment_data
@@ -407,8 +407,8 @@
        swn.modflow.SwnModflow.get_location_frame_reach_info
       </a>
      </li>
-     <li class="toctree-l3 current active">
-      <a class="current reference internal" href="#">
+     <li class="toctree-l3">
+      <a class="reference internal" href="swn.modflow.SwnModflow.new_segment_data.html">
        swn.modflow.SwnModflow.new_segment_data
       </a>
      </li>
@@ -504,8 +504,8 @@
      swn.modflow.SwnModflow.set_reach_slope
     </a>
    </li>
-   <li class="toctree-l2 current active">
-    <a class="current reference internal" href="#">
+   <li class="toctree-l2">
+    <a class="reference internal" href="swn.modflow.SwnModflow.new_segment_data.html">
      swn.modflow.SwnModflow.new_segment_data
     </a>
    </li>
@@ -737,54 +737,49 @@
               
               <article class="bd-article" role="main">
                 
-  <section id="swn-modflow-swnmodflow-new-segment-data">
-<h1>swn.modflow.SwnModflow.new_segment_data<a class="headerlink" href="#swn-modflow-swnmodflow-new-segment-data" title="Permalink to this heading">#</a></h1>
+  <section id="swn-surfacewaternetwork-set-diversions">
+<h1>swn.SurfaceWaterNetwork.set_diversions<a class="headerlink" href="#swn-surfacewaternetwork-set-diversions" title="Permalink to this heading">#</a></h1>
 <dl class="py method">
-<dt class="sig sig-object py" id="swn.modflow.SwnModflow.new_segment_data">
-<span class="sig-prename descclassname"><span class="pre">SwnModflow.</span></span><span class="sig-name descname"><span class="pre">new_segment_data</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#swn.modflow.SwnModflow.new_segment_data" title="Permalink to this definition">#</a></dt>
-<dd><p>Generate empty segment data.</p>
-<div class="admonition seealso">
-<p class="admonition-title">See also</p>
-<dl class="simple">
-<dt><a class="reference internal" href="swn.modflow.SwnModflow.default_segment_data.html#swn.modflow.SwnModflow.default_segment_data" title="swn.modflow.SwnModflow.default_segment_data"><code class="xref py py-obj docutils literal notranslate"><span class="pre">default_segment_data</span></code></a></dt><dd><p>High-level frame constructor for segment data.</p>
+<dt class="sig sig-object py" id="swn.SurfaceWaterNetwork.set_diversions">
+<span class="sig-prename descclassname"><span class="pre">SurfaceWaterNetwork.</span></span><span class="sig-name descname"><span class="pre">set_diversions</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">diversions</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">override</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{}</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_stream_order</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">downstream_bias</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#swn.SurfaceWaterNetwork.set_diversions" title="Permalink to this definition">#</a></dt>
+<dd><p>Set surface water diversion locations.</p>
+<p>This method checks or assigns a segment number to divert surface water
+flow from, and adds other columns to the diversions and segments data
+frames.</p>
+<p>If a <code class="docutils literal notranslate"><span class="pre">from_segnum</span></code> column exists, these values are checked against
+the index for segments, and adds/updates (where possible)</p>
+<blockquote>
+<div><p><code class="docutils literal notranslate"><span class="pre">dist_to_seg</span></code> and <code class="docutils literal notranslate"><span class="pre">seg_ndist</span></code>. If a non-spatial frame is used,
+it is assumed that the diversion is from the segment end, where
+<code class="docutils literal notranslate"><span class="pre">seg_ndist</span></code> is 1.0.</p>
+</div></blockquote>
+<p>If <code class="docutils literal notranslate"><span class="pre">from_segnum</span></code> is not provided and a GeoDataFrame is provided, then
+the segment is identified using <a class="reference internal" href="swn.SurfaceWaterNetwork.locate_geoms.html#swn.SurfaceWaterNetwork.locate_geoms" title="swn.SurfaceWaterNetwork.locate_geoms"><code class="xref py py-meth docutils literal notranslate"><span class="pre">locate_geoms()</span></code></a>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>diversions</strong><span class="classifier">pandas.DataFrame, geopandas.GeoDataFrame or None</span></dt><dd><p>Data frame of surface water diversions, a modified copy kept as a
+<code class="docutils literal notranslate"><span class="pre">diversions</span></code> property. Use None to remove diversions.</p>
+</dd>
+<dt><strong>override</strong><span class="classifier">dict, optional</span></dt><dd><p>Override matches, where key is the index from diversions, and the
+value is segnum. If value is None, the diversion is ignored.</p>
+</dd>
+<dt><strong>min_stream_order</strong><span class="classifier">int, default None</span></dt><dd><p>Finds stream segments with a minimum stream order.</p>
+</dd>
+<dt><strong>downstream_bias</strong><span class="classifier">float, default 0.0</span></dt><dd><p>A bias used for spatial location matching on nearest segments
+that increase the likelihood of finding downstream segments if
+positive, and upstream segments if negative. Valid range is -1.0
+to 1.0. Default 0.0 is no bias, matching to the closest segment.</p>
 </dd>
 </dl>
-</div>
-<p class="rubric">Notes</p>
-<p>All values are zero except for:</p>
-<blockquote>
-<div><ul class="simple">
-<li><p>nseg - 1, 2, …,  nss</p></li>
-<li><p>iupseg - 0 for most segments, except diversions</p></li>
-<li><p>outseg - outflowing nseg</p></li>
-</ul>
-</div></blockquote>
-<p>If <a class="reference internal" href="swn.modflow.SwnModflow.segment_data.html#swn.modflow.SwnModflow.segment_data" title="swn.modflow.SwnModflow.segment_data"><code class="xref py py-attr docutils literal notranslate"><span class="pre">segment_data</span></code></a> is already set, subsequent calls will
-reset the DataFrame and <a class="reference internal" href="swn.modflow.SwnModflow.segment_data_ts.html#swn.modflow.SwnModflow.segment_data_ts" title="swn.modflow.SwnModflow.segment_data_ts"><code class="xref py py-attr docutils literal notranslate"><span class="pre">segment_data_ts</span></code></a>.</p>
-<p class="rubric">Examples</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">flopy</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">swn</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">lines</span> <span class="o">=</span> <span class="n">swn</span><span class="o">.</span><span class="n">spatial</span><span class="o">.</span><span class="n">wkt_to_geoseries</span><span class="p">([</span>
-<span class="gp">... </span>   <span class="s2">&quot;LINESTRING (60 100, 60  80)&quot;</span><span class="p">,</span>
-<span class="gp">... </span>   <span class="s2">&quot;LINESTRING (40 130, 60 100)&quot;</span><span class="p">,</span>
-<span class="gp">... </span>   <span class="s2">&quot;LINESTRING (70 130, 60 100)&quot;</span><span class="p">])</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">lines</span><span class="o">.</span><span class="n">index</span> <span class="o">+=</span> <span class="mi">100</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">n</span> <span class="o">=</span> <span class="n">swn</span><span class="o">.</span><span class="n">SurfaceWaterNetwork</span><span class="o">.</span><span class="n">from_lines</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">m</span> <span class="o">=</span> <span class="n">flopy</span><span class="o">.</span><span class="n">modflow</span><span class="o">.</span><span class="n">Modflow</span><span class="p">(</span><span class="n">version</span><span class="o">=</span><span class="s2">&quot;mf2005&quot;</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">_</span> <span class="o">=</span> <span class="n">flopy</span><span class="o">.</span><span class="n">modflow</span><span class="o">.</span><span class="n">ModflowDis</span><span class="p">(</span>
-<span class="gp">... </span>    <span class="n">m</span><span class="p">,</span> <span class="n">nrow</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">ncol</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">delr</span><span class="o">=</span><span class="mf">20.0</span><span class="p">,</span> <span class="n">delc</span><span class="o">=</span><span class="mf">20.0</span><span class="p">,</span> <span class="n">xul</span><span class="o">=</span><span class="mf">30.0</span><span class="p">,</span> <span class="n">yul</span><span class="o">=</span><span class="mf">130.0</span><span class="p">,</span>
-<span class="gp">... </span>    <span class="n">top</span><span class="o">=</span><span class="mf">15.0</span><span class="p">,</span> <span class="n">botm</span><span class="o">=</span><span class="mf">10.0</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">_</span> <span class="o">=</span> <span class="n">flopy</span><span class="o">.</span><span class="n">modflow</span><span class="o">.</span><span class="n">ModflowBas</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">nm</span> <span class="o">=</span> <span class="n">swn</span><span class="o">.</span><span class="n">modflow</span><span class="o">.</span><span class="n">SwnModflow</span><span class="o">.</span><span class="n">from_swn_flopy</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">m</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">nm</span><span class="o">.</span><span class="n">new_segment_data</span><span class="p">()</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">nm</span><span class="o">.</span><span class="n">segment_data</span><span class="p">[[</span><span class="s2">&quot;segnum&quot;</span><span class="p">,</span> <span class="s2">&quot;icalc&quot;</span><span class="p">,</span> <span class="s2">&quot;outseg&quot;</span><span class="p">,</span> <span class="s2">&quot;elevup&quot;</span><span class="p">]])</span>
-<span class="go">      segnum  icalc  outseg  elevup</span>
-<span class="go">nseg                               </span>
-<span class="go">1        101      0       3     0.0</span>
-<span class="go">2        102      0       3     0.0</span>
-<span class="go">3        100      0       0     0.0</span>
-</pre></div>
-</div>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><dl class="simple">
+<dt>None</dt><dd><p>See <a class="reference internal" href="swn.SurfaceWaterNetwork.diversions.html#swn.SurfaceWaterNetwork.diversions" title="swn.SurfaceWaterNetwork.diversions"><code class="xref py py-attr docutils literal notranslate"><span class="pre">diversions</span></code></a> for result object description.</p>
+</dd>
+</dl>
+</dd>
+</dl>
 </dd></dl>
 
 </section>
@@ -797,17 +792,17 @@ reset the DataFrame and <a class="reference internal" href="swn.modflow.SwnModfl
               <footer class="bd-footer-article">
                   <!-- Previous / next buttons -->
 <div class='prev-next-area'>
-  <a class='left-prev' id="prev-link" href="swn.modflow.SwnModflow.get_location_frame_reach_info.html" title="previous page">
+  <a class='left-prev' id="prev-link" href="swn.SurfaceWaterNetwork.segments_series.html" title="previous page">
       <i class="fas fa-angle-left"></i>
       <div class="prev-next-info">
           <p class="prev-next-subtitle">previous</p>
-          <p class="prev-next-title">swn.modflow.SwnModflow.get_location_frame_reach_info</p>
+          <p class="prev-next-title">swn.SurfaceWaterNetwork.segments_series</p>
       </div>
   </a>
-  <a class='right-next' id="next-link" href="swn.modflow.SwnModflow.route_reaches.html" title="next page">
+  <a class='right-next' id="next-link" href="swn.SurfaceWaterNetwork.to_pickle.html" title="next page">
   <div class="prev-next-info">
       <p class="prev-next-subtitle">next</p>
-      <p class="prev-next-title">swn.modflow.SwnModflow.route_reaches</p>
+      <p class="prev-next-title">swn.SurfaceWaterNetwork.to_pickle</p>
   </div>
   <i class="fas fa-angle-right"></i>
   </a>

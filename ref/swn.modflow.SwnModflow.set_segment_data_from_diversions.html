@@ -234,6 +234,11 @@
       </a>
      </li>
      <li class="toctree-l3">
+      <a class="reference internal" href="swn.SurfaceWaterNetwork.set_diversions.html">
+       swn.SurfaceWaterNetwork.set_diversions
+      </a>
+     </li>
+     <li class="toctree-l3">
       <a class="reference internal" href="swn.SurfaceWaterNetwork.to_pickle.html">
        swn.SurfaceWaterNetwork.to_pickle
       </a>
@@ -288,6 +293,11 @@
    <li class="toctree-l2">
     <a class="reference internal" href="swn.SurfaceWaterNetwork.from_segnums.html">
      swn.SurfaceWaterNetwork.from_segnums
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="swn.SurfaceWaterNetwork.set_diversions.html">
+     swn.SurfaceWaterNetwork.set_diversions
     </a>
    </li>
    <li class="toctree-l2">
@@ -765,8 +775,8 @@ each item is applied for each key matched by divid.</p>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">lines</span><span class="o">.</span><span class="n">index</span> <span class="o">+=</span> <span class="mi">100</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">n</span> <span class="o">=</span> <span class="n">swn</span><span class="o">.</span><span class="n">SurfaceWaterNetwork</span><span class="o">.</span><span class="n">from_lines</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">diversions</span> <span class="o">=</span> <span class="n">swn</span><span class="o">.</span><span class="n">spatial</span><span class="o">.</span><span class="n">wkt_to_geoseries</span><span class="p">([</span>
-<span class="gp">... </span>   <span class="s2">&quot;POINT (58 97)&quot;</span><span class="p">,</span>
-<span class="gp">... </span>   <span class="s2">&quot;POINT (58 97)&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">to_frame</span><span class="p">(</span><span class="s2">&quot;geometry&quot;</span><span class="p">)</span>
+<span class="gp">... </span>   <span class="s2">&quot;POINT (58 100)&quot;</span><span class="p">,</span>
+<span class="gp">... </span>   <span class="s2">&quot;POINT (58 100)&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">to_frame</span><span class="p">(</span><span class="s2">&quot;geometry&quot;</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">diversions</span><span class="o">.</span><span class="n">index</span> <span class="o">+=</span> <span class="mi">10</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">diversions</span><span class="p">[</span><span class="s2">&quot;rate&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="mf">1.1</span><span class="p">,</span> <span class="mf">2.2</span><span class="p">]</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">n</span><span class="o">.</span><span class="n">set_diversions</span><span class="p">(</span><span class="n">diversions</span><span class="o">=</span><span class="n">diversions</span><span class="p">)</span>
