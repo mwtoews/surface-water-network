@@ -1064,7 +1064,117 @@ def test_get_segments_inflow():
         pd.DataFrame({1: [3.3, 3.5]}, index=nm.time_index))
 
 
-def test_get_location_frame_reach_info(caplog, coastal_swn, coastal_points):
+def test_get_location_frame_reach_info(caplog):
+    m = get_basic_modflow(with_top=True)
+    gt = swn.modflow.geotransform_from_flopy(m)
+    lsz = interp_2d_to_3d(n3d_lines, m.dis.top.array, gt)
+    n = swn.SurfaceWaterNetwork.from_lines(lsz)
+    n.adjust_elevation_profile()
+    diversions = geopandas.GeoSeries([
+        Point(58, 100), Point(62, 100), Point(61, 89), Point(59, 89)])
+    # n.set_diversions(diversions=geopandas.GeoDataFrame(geometry=diversions))
+    nm = swn.SwnModflow.from_swn_flopy(n, m)
+
+    loc_gdf = n.locate_geoms(diversions)
+    r_df = nm.get_location_frame_reach_info(loc_gdf)
+    expected_df = pd.DataFrame(
+        data={
+            "reachID": [3, 5, 7, 7],
+            "k": [0] * 4,
+            "i": [1, 1, 2, 2],
+            "j": [1, 1, 1, 1],
+            "iseg": [1, 2, 3, 3],
+            "ireach": [3, 2, 2, 2],
+            "dist_to_reach": [1.6641005886756874, 1.897366596101, 1.0, 1.0],
+        }
+    )
+    pd.testing.assert_frame_equal(r_df, expected_df)
+
+    # With DataFrame
+    loc_df = pd.DataFrame(loc_gdf.drop(columns="geometry"))
+    r_df = nm.get_location_frame_reach_info(loc_df)
+    assert "dist_to_reach" not in r_df.columns
+    pd.testing.assert_frame_equal(
+        r_df, expected_df.drop(columns="dist_to_reach"))
+
+    # With optional geom_loc_df
+    r_df = nm.get_location_frame_reach_info(loc_df, geom_loc_df=diversions)
+    pd.testing.assert_frame_equal(r_df, expected_df)
+
+    # With DataFrame and optional geom_loc_df
+
+    # Change downstream_bias -- no change with most values
+    r_df = nm.get_location_frame_reach_info(loc_gdf, downstream_bias=0.01)
+    pd.testing.assert_frame_equal(r_df, expected_df)
+    r_df = nm.get_location_frame_reach_info(loc_gdf, downstream_bias=-0.01)
+    pd.testing.assert_frame_equal(r_df, expected_df)
+    r_df = nm.get_location_frame_reach_info(loc_gdf, downstream_bias=0.5)
+    pd.testing.assert_frame_equal(r_df, expected_df)
+    assert list(r_df.reachID) == [3, 5, 7, 7]
+    r_df = nm.get_location_frame_reach_info(loc_gdf, downstream_bias=-0.5)
+    assert list(r_df.reachID) == [3, 5, 6, 6]
+
+    # Test with non-zero downstream_bias and optional geom_loc_df
+    r_df = nm.get_location_frame_reach_info(
+        loc_df, downstream_bias=-0.5, geom_loc_df=diversions)
+    assert list(r_df.reachID) == [3, 5, 6, 6]
+
+    # Consider points outside model
+    ext_points = pd.concat([
+        diversions,
+        geopandas.GeoSeries(
+            [Point(1, 2), Point(2000, 3000)],
+            index=[4, 5])])
+    expected_ext_df = pd.concat([
+        expected_df,
+        pd.DataFrame(
+            data={
+                "reachID": [7, 4],
+                "k": [0] * 2,
+                "i": [2, 0],
+                "j": [1, 1],
+                "iseg": [3, 2],
+                "ireach": [2, 1],
+                "dist_to_reach": [97.8008179924892, 3458.583525086535],
+            },
+            index=[4, 5])])
+    loc_df = n.locate_geoms(ext_points)
+    r_df = nm.get_location_frame_reach_info(loc_df)
+    pd.testing.assert_frame_equal(r_df, expected_ext_df)
+    assert list(loc_df.index) == [0, 1, 2, 3, 4, 5]
+    loc_df.loc[loc_df.dist_to_seg > 100.0, "segnum"] = n.END_SEGNUM
+    with caplog.at_level(logging.WARNING):
+        r_df = nm.get_location_frame_reach_info(loc_df)
+        assert "location index missing 1 match: 5" in caplog.messages[-1]
+    assert list(r_df.index) == [0, 1, 2, 3, 4]
+    pd.testing.assert_frame_equal(r_df, expected_ext_df.drop(index=5))
+    loc_df.loc[loc_df.dist_to_seg > 10.0, "segnum"] = n.END_SEGNUM
+    with caplog.at_level(logging.WARNING):
+        r_df = nm.get_location_frame_reach_info(loc_df)
+        assert "location index missing 2 matches: 4, 5" in caplog.messages[-1]
+    assert list(r_df.index) == [0, 1, 2, 3]
+    pd.testing.assert_frame_equal(r_df, expected_ext_df.drop(index=[4, 5]))
+
+    # misc
+    loc_df = n.locate_geoms(diversions)
+    loc_df["reachID"] = r_df.reachID
+    with caplog.at_level(logging.INFO):
+        r_df = nm.get_location_frame_reach_info(loc_df)
+        assert "resetting reachID from location frame" in caplog.messages[-1]
+    pd.testing.assert_frame_equal(r_df, expected_df)
+    # errors
+    with pytest.raises(TypeError, match="loc_df must be a GeoDataFrame or Da"):
+        nm.get_location_frame_reach_info(loc_df.index)
+    with pytest.raises(ValueError, match="loc_df must have 'segnum' column"):
+        nm.get_location_frame_reach_info(loc_df[["geometry", "method"]])
+    with pytest.raises(ValueError, match="downstream_bias must be between -1"):
+        nm.get_location_frame_reach_info(loc_df, 8)
+    with pytest.raises(ValueError, match="downstream_bias must be between -1"):
+        nm.get_location_frame_reach_info(loc_df, -2)
+
+
+def test_get_location_frame_reach_info_coastal(
+        caplog, coastal_swn, coastal_points):
     n = coastal_swn
     m = flopy.modflow.Modflow.load(
         "h.nam", version="mfnwt", model_ws=datadir, check=False)
@@ -1072,10 +1182,10 @@ def test_get_location_frame_reach_info(caplog, coastal_swn, coastal_points):
     # edits to make better examples
     coastal_points = coastal_points.copy()
     coastal_points.loc[9] = Point(1811234, 5874806)
-    loc_df = n.locate_geoms(coastal_points)
-    r_df = nm.get_location_frame_reach_info(loc_df)
+    loc_gdf = n.locate_geoms(coastal_points)
+    r_df = nm.get_location_frame_reach_info(loc_gdf)
     np.testing.assert_array_almost_equal(
-        loc_df["dist_to_seg"], r_df.pop("dist_to_reach"))
+        loc_gdf["dist_to_seg"], r_df.pop("dist_to_reach"))
     expected_df = pd.DataFrame(
         index=pd.Series([1, 2, 3, 5, 6, 7, 8, 9, 4, 10], name="id"),
         data={
@@ -1088,31 +1198,54 @@ def test_get_location_frame_reach_info(caplog, coastal_swn, coastal_points):
         }
     )
     pd.testing.assert_frame_equal(r_df, expected_df)
-    # df2 = pd.concat([loc_df, r_df], axis=1)
+    # df2 = pd.concat([loc_gdf, r_df], axis=1)
     # assert not pd.isnull(df2).any().any()
+
+    # With DataFrame
+    loc_df = pd.DataFrame(loc_gdf.drop(columns="geometry"))
+    r_df = nm.get_location_frame_reach_info(loc_df)
+    assert "dist_to_reach" not in r_df.columns
+    pd.testing.assert_frame_equal(r_df, expected_df)
+
+    # With optional geom_loc_df
+    r_df = nm.get_location_frame_reach_info(
+        loc_df, geom_loc_df=coastal_points)
+    np.testing.assert_array_almost_equal(
+        loc_df["dist_to_seg"], r_df.pop("dist_to_reach"))
+    pd.testing.assert_frame_equal(r_df, expected_df)
+
+    # With DataFrame and optional geom_loc_df
 
     # Change downstream_bias
     # expect no change with near zero
-    r_df = nm.get_location_frame_reach_info(loc_df, downstream_bias=0.01)
+    r_df = nm.get_location_frame_reach_info(loc_gdf, downstream_bias=0.01)
     assert list(r_df.reachID) == list(expected_df.reachID)
-    diff = (loc_df["dist_to_seg"] - r_df["dist_to_reach"]).abs()
+    diff = (loc_gdf["dist_to_seg"] - r_df["dist_to_reach"]).abs()
     np.testing.assert_allclose(diff.max(), 3.6416736e-10)
-    r_df = nm.get_location_frame_reach_info(loc_df, downstream_bias=-0.01)
+    r_df = nm.get_location_frame_reach_info(loc_gdf, downstream_bias=-0.01)
     assert list(r_df.reachID) == list(expected_df.reachID)
     # expect minor changes
-    r_df = nm.get_location_frame_reach_info(loc_df, downstream_bias=0.1)
+    r_df = nm.get_location_frame_reach_info(loc_gdf, downstream_bias=0.1)
     assert list(r_df.reachID) == \
         [269, 285, 117, 158, 168, 178, 286, 294, 214, 268]
-    diff = (loc_df["dist_to_seg"] - r_df["dist_to_reach"]).abs()
+    diff = (loc_gdf["dist_to_seg"] - r_df["dist_to_reach"]).abs()
     np.testing.assert_allclose(diff.max(), 0.94459247)
     # expect more changes
-    r_df = nm.get_location_frame_reach_info(loc_df, downstream_bias=0.5)
+    r_df = nm.get_location_frame_reach_info(loc_gdf, downstream_bias=0.5)
     assert list(r_df.reachID) == \
         [269, 285, 117, 158, 168, 178, 286, 295, 214, 268]
-    diff = (loc_df["dist_to_seg"] - r_df["dist_to_reach"]).abs()
+    diff = (loc_gdf["dist_to_seg"] - r_df["dist_to_reach"]).abs()
     np.testing.assert_allclose(diff.max(), 98.10718)
     # negative upstream match bias
-    r_df = nm.get_location_frame_reach_info(loc_df, downstream_bias=-0.5)
+    r_df = nm.get_location_frame_reach_info(loc_gdf, downstream_bias=-0.5)
+    assert list(r_df.reachID) == \
+        [268, 284, 117, 158, 168, 177, 286, 294, 214, 268]
+    diff = (loc_gdf["dist_to_seg"] - r_df["dist_to_reach"]).abs()
+    np.testing.assert_allclose(diff.max(), 38.063676)
+
+    # Test with non-zero downstream_bias and optional geom_loc_df
+    r_df = nm.get_location_frame_reach_info(
+        loc_df, downstream_bias=-0.5, geom_loc_df=coastal_points)
     assert list(r_df.reachID) == \
         [268, 284, 117, 158, 168, 177, 286, 294, 214, 268]
     diff = (loc_df["dist_to_seg"] - r_df["dist_to_reach"]).abs()
@@ -1133,21 +1266,3 @@ def test_get_location_frame_reach_info(caplog, coastal_swn, coastal_points):
     assert list(r_df.index) == [8, 9, 4, 10]
     pd.testing.assert_frame_equal(
         r_df.drop(columns="dist_to_reach"), expected_df.loc[8:])
-
-    # misc
-    loc_df = n.locate_geoms(coastal_points)
-    loc_df["reachID"] = r_df.reachID
-    with caplog.at_level(logging.INFO):
-        r_df = nm.get_location_frame_reach_info(loc_df)
-        assert "resetting reachID from location frame" in caplog.messages[-1]
-    pd.testing.assert_frame_equal(
-        r_df.drop(columns="dist_to_reach"), expected_df)
-    # errors
-    with pytest.raises(TypeError, match="loc_df must be a GeoDataFrame"):
-        nm.get_location_frame_reach_info(loc_df.segnum)
-    with pytest.raises(ValueError, match="loc_df must have 'segnum' column"):
-        nm.get_location_frame_reach_info(loc_df[["geometry", "method"]])
-    with pytest.raises(ValueError, match="downstream_bias must be between -1"):
-        nm.get_location_frame_reach_info(loc_df, 8)
-    with pytest.raises(ValueError, match="downstream_bias must be between -1"):
-        nm.get_location_frame_reach_info(loc_df, -2)

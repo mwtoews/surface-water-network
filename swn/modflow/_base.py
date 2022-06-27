@@ -1244,19 +1244,25 @@ class SwnModflowBase:
             self.logger.info("inflow not found for any segnums")
         return return_inflow()
 
-    def get_location_frame_reach_info(self, loc_df, downstream_bias=0.0):
+    def get_location_frame_reach_info(
+            self, loc_df, downstream_bias=0.0, geom_loc_df=None):
         """Get reach information to location data frame, matched by segnum.
 
         Parameters
         ----------
-        loc_df : geopandas.GeoDataFrame
-            Location geo dataframe, created by
+        loc_df : pd.DataFrame or geopandas.GeoDataFrame
+            Location [geo] dataframe, created by
             :py:meth:`SurfaceWaterNetwork.locate_geoms`.
         downstream_bias : float, default 0.0
             A bias used for spatial location matching that increase the
             likelihood of finding downstream reaches of a segnum if positive,
             and upstream reaches if negative. Valid range is -1.0 to 1.0.
             Default 0.0 is no bias, matching to the closest reach.
+        geom_loc_df : geopandas.GeoDataFrame, optional
+            Optional original geometry used to create ``loc_df``, which is
+            only needed if ``loc_df`` is a DataFrame or geometries are
+            non-Point, otherwise there may be some ambiguity matching the best
+            stream reach.
 
         Returns
         -------
@@ -1296,11 +1302,45 @@ class SwnModflowBase:
         11    7  0  2  1     3       2       2.000000
         >>> loc_reach_df = pd.concat([loc_df, r_df], axis=1)
         """  # noqa
-        # Check inputs
-        is_location_frame(loc_df, geom_required=True)
         loc_df = loc_df.copy()
-        if not (-1.0 <= downstream_bias <= 1.0):
-            raise ValueError("downstream_bias must be between -1 and 1")
+        try:
+            loc_df_has_line = is_location_frame(loc_df, geom_required=True)
+        except Exception:
+            is_location_frame(loc_df, geom_required=False)
+            loc_df_has_line = False
+        # There are two methods to get the point on the segment
+        if loc_df_has_line:
+            # second coordinate is always nearest on segment
+            loc_df["seg_pt"] = loc_df.interpolate(1.0, normalized=True)
+            if geom_loc_df is None:
+                # this best assumes that original geometry is Point
+                geom_loc_df = loc_df.interpolate(0.0, normalized=True)
+        else:
+            # get segment point from segments and seg_ndist
+            with ignore_shapely_warnings_for_object_array():
+                loc_df["seg_pt"] = loc_df.apply(
+                    lambda r: self.segments.geometry[r.segnum].interpolate(
+                            r.seg_ndist, normalized=True), axis=1)
+        if downstream_bias != 0.0:
+            if geom_loc_df is None:
+                raise ValueError(
+                    "downstream_bias is non-zero, but original "
+                    "geometry position is not available")
+            elif not (-1.0 <= downstream_bias <= 1.0):
+                raise ValueError("downstream_bias must be between -1 and 1")
+        has_orig_geom = False
+        if geom_loc_df is not None:
+            try:
+                pd.testing.assert_index_equal(
+                    loc_df.index, geom_loc_df.index, check_names=False)
+            except AssertionError as e:
+                raise ValueError(
+                    f"index for geom_loc_df does not match loc_df: {e}")
+            if not isinstance(loc_df, geopandas.GeoDataFrame):
+                loc_df = geopandas.GeoDataFrame(
+                    loc_df, geometry=geom_loc_df, crs=geom_loc_df.crs)
+            loc_df["orig_geom"] = geom_loc_df
+            has_orig_geom = True
 
         reach_index_name = self.reaches.index.name
         if reach_index_name in loc_df.columns:
@@ -1308,24 +1348,24 @@ class SwnModflowBase:
                 "resetting %s from location frame", reach_index_name)
             del loc_df[reach_index_name]
         loc_df[reach_index_name] = -1
-        loc_df["start_geom"] = loc_df.interpolate(0.0)
-        loc_df["end_geom"] = loc_df.interpolate(1.0, normalized=True)
         for row in loc_df.itertuples():
             reaches = self.reaches.loc[self.reaches.segnum == row.segnum]
             if len(reaches) == 0:
                 continue
-            if len(reaches) > 1 and downstream_bias != 0.0:
-                dists = bias_substring(
-                    reaches.geometry, downstream_bias=downstream_bias)\
-                    .distance(row.start_geom).sort_values()
+            if has_orig_geom:
+                if len(reaches) > 1 and downstream_bias != 0.0:
+                    dists = bias_substring(
+                        reaches.geometry, downstream_bias=downstream_bias)\
+                        .distance(row.orig_geom).sort_values()
+                else:
+                    dists = reaches.distance(row.orig_geom).sort_values()
             else:
-                # distance from projected segment match and reach
-                dists = reaches.distance(row.end_geom).sort_values()
+                dists = reaches.distance(row.seg_pt).sort_values()
             closest_dist = dists.iloc[0]
             sel_closest = dists == closest_dist
             if sel_closest.sum() > 1:
-                # More than one closest match, take downstream
-                closest_reach = dists[sel_closest].index[-1]
+                # More than one closest match, take last index (downstream?)
+                closest_reach = dists[sel_closest].sort_index().index[-1]
             else:  # normally there is only one close match
                 closest_reach = dists.index[0]
             loc_df.at[row.Index, reach_index_name] = closest_reach
@@ -1342,11 +1382,12 @@ class SwnModflowBase:
         for name in copy_cols:
             loc_df[name] = self.reaches.loc[loc_reach_idx.values, name].values
         copy_cols.insert(0, reach_index_name)
-        loc_df["dist_to_reach"] = loc_df.start_geom.distance(
-            self.reaches.geometry.loc[loc_df[reach_index_name]], align=False)
-        copy_cols.append("dist_to_reach")
+        if has_orig_geom:
+            loc_df["dist_to_reach"] = loc_df.orig_geom.distance(
+                self.reaches.geometry.loc[loc_df[reach_index_name]],
+                align=False)
+            copy_cols.append("dist_to_reach")
         return loc_df[copy_cols]
-
 
     def plot(self, column=None, cmap="viridis_r", colorbar=False, ax=None):
         """
