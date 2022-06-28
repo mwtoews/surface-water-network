@@ -741,18 +741,23 @@
 <h1>swn.modflow.SwnMf6.get_location_frame_reach_info<a class="headerlink" href="#swn-modflow-swnmf6-get-location-frame-reach-info" title="Permalink to this heading">#</a></h1>
 <dl class="py method">
 <dt class="sig sig-object py" id="swn.modflow.SwnMf6.get_location_frame_reach_info">
-<span class="sig-prename descclassname"><span class="pre">SwnMf6.</span></span><span class="sig-name descname"><span class="pre">get_location_frame_reach_info</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">loc_df</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">downstream_bias</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#swn.modflow.SwnMf6.get_location_frame_reach_info" title="Permalink to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">SwnMf6.</span></span><span class="sig-name descname"><span class="pre">get_location_frame_reach_info</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">loc_df</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">downstream_bias</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">geom_loc_df</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#swn.modflow.SwnMf6.get_location_frame_reach_info" title="Permalink to this definition">#</a></dt>
 <dd><p>Get reach information to location data frame, matched by segnum.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><dl class="simple">
-<dt><strong>loc_df</strong><span class="classifier">geopandas.GeoDataFrame</span></dt><dd><p>Location geo dataframe, created by
+<dt><strong>loc_df</strong><span class="classifier">pd.DataFrame or geopandas.GeoDataFrame</span></dt><dd><p>Location [geo] dataframe, created by
 <code class="xref py py-meth docutils literal notranslate"><span class="pre">SurfaceWaterNetwork.locate_geoms()</span></code>.</p>
 </dd>
 <dt><strong>downstream_bias</strong><span class="classifier">float, default 0.0</span></dt><dd><p>A bias used for spatial location matching that increase the
 likelihood of finding downstream reaches of a segnum if positive,
 and upstream reaches if negative. Valid range is -1.0 to 1.0.
 Default 0.0 is no bias, matching to the closest reach.</p>
+</dd>
+<dt><strong>geom_loc_df</strong><span class="classifier">geopandas.GeoDataFrame, optional</span></dt><dd><p>Optional original geometry used to create <code class="docutils literal notranslate"><span class="pre">loc_df</span></code>, which is
+only needed if <code class="docutils literal notranslate"><span class="pre">loc_df</span></code> is a DataFrame or geometries are
+non-Point, otherwise there may be some ambiguity matching the best
+stream reach.</p>
 </dd>
 </dl>
 </dd>
