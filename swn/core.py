@@ -612,8 +612,9 @@ class SurfaceWaterNetwork:
                     self.segments.geometry[diversions.from_segnum],
                     align=False)
             else:
-                # assume diversion at downstream end of segment
-                diversions["seg_ndist"] = 1.0
+                if "seg_ndist" not in diversions.columns:
+                    # assume diversion at downstream end of segment
+                    diversions["seg_ndist"] = 1.0
                 if "dist_to_seg" in diversions.columns:
                     diversions.drop(columns="dist_to_seg", inplace=True)
         elif is_spatial:
@@ -1854,6 +1855,12 @@ class SurfaceWaterNetwork:
 
         diversions = self.diversions
         if diversions is not None:
+            with ignore_shapely_warnings_for_object_array():
+                div_seg_pt = geopandas.GeoSeries(
+                    self.diversions.apply(
+                        lambda r: self.segments.geometry[
+                            r.from_segnum].interpolate(
+                                r.seg_ndist, normalized=True), axis=1))
             diversions_is_spatial = (
                 isinstance(diversions, geopandas.GeoDataFrame) and
                 'geometry' in diversions.columns and
@@ -1861,17 +1868,15 @@ class SurfaceWaterNetwork:
             if diversions_is_spatial:
                 diversion_points = diversions.geometry
             else:
-                diversion_points = self.segments.loc[
-                    self.diversions['from_segnum']].geometry.apply(
-                        lambda g: Point(g.coords[-1]))
+                diversion_points = div_seg_pt
             diversion_points.plot(
                 ax=ax, label='diversion', marker='+', color='red')
             if diversions_is_spatial:
                 diversion_lines = []
                 for item in self.diversions.itertuples():
-                    p = self.segments.loc[item.from_segnum].geometry.coords[-1]
                     diversion_lines.append(
-                        LineString([item.geometry.coords[0], p]))
+                        LineString([item.geometry.centroid,
+                                    div_seg_pt[item.Index]]))
                 diversion_lines = geopandas.GeoSeries(diversion_lines)
                 diversion_lines.plot(
                     ax=ax, label='diversion lines',

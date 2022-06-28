@@ -669,6 +669,14 @@ def test_set_diversions_dataframe():
     n.set_diversions(None)
     assert n.diversions is None
     assert 'diversions' not in n.segments.columns
+    # add column to dataframe that should be preserved
+    diversions["seg_ndist"] = [0.7, 0.3]
+    expected["seg_ndist"] = [0.7, 0.3]
+    n.set_diversions(diversions)
+    pd.testing.assert_frame_equal(n.diversions[expected.columns], expected)
+    if matplotlib:
+        _ = n.plot()
+        plt.close()
 
 
 def test_estimate_width():
