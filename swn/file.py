@@ -117,6 +117,8 @@ colname10 = {
     "dist_to_segnum": "dst_to_seg",
     "dist_to_seg": "dst_to_seg",
     "is_within_catchment": "within_cat",
+    "div_from_rno": "divfromrno",
+    "div_to_rnos": "divtornos",
 }
 assert all(len(x) <= 10 for x in colname10.values())
 

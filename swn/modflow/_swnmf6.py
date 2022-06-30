@@ -3,11 +3,12 @@
 __all__ = ["SwnMf6"]
 
 from itertools import zip_longest
-from textwrap import dedent
 
 import numpy as np
 import pandas as pd
+from shapely import wkt
 
+from ..compat import ignore_shapely_warnings_for_object_array
 from ..util import abbr_str
 from ._base import SwnModflowBase
 
@@ -56,7 +57,7 @@ class SwnMf6(SwnModflowBase):
     @classmethod
     def from_swn_flopy(
             cls, swn, model, idomain_action="freeze",
-            reach_include_fraction=0.2):
+            reach_include_fraction=0.2, diversion_downstream_bias=0.0):
         """Create a MODFLOW 6 SFR structure from a surface water network.
 
         Parameters
@@ -74,6 +75,11 @@ class SwnMf6(SwnModflowBase):
             reaches outside the active grid should be included to a cell.
             Based on the furthest distance of the line and cell geometries.
             Default 0.2 (e.g. for a 100 m grid cell, this is 20 m).
+        diversion_downstream_bias : float, default 0.0
+            A bias used for spatial location matching that increase the
+            likelihood of finding downstream reaches of a segnum if positive,
+            and upstream reaches if negative. Valid range is -1.0 to 1.0.
+            Default 0.0 is no bias, matching to the closest reach.
 
         Returns
         -------
@@ -86,14 +92,13 @@ class SwnMf6(SwnModflowBase):
             swn=swn, model=model, domain_action=idomain_action,
             reach_include_fraction=reach_include_fraction)
 
-        # Add more information to reaches
-        obj.reaches.index.name = "rno"
-        obj.reaches["rlen"] = obj.reaches.geometry.length
-
-        # Evaluate connections
-        # Assume only converging network
+        # Evaluate connections, assume only converging network
         to_segnums_d = swn.to_segnums.to_dict()
-        reaches_segnum_s = set(obj.reaches["segnum"])
+        has_diversions = obj.diversions is not None
+        if has_diversions:
+            reaches_segnum_s = set(obj.reaches[~obj.reaches.diversion].segnum)
+        else:
+            reaches_segnum_s = set(obj.reaches.segnum)
 
         def find_next_rno(segnum):
             if segnum in to_segnums_d:
@@ -113,24 +118,96 @@ class SwnMf6(SwnModflowBase):
                 return find_next_rno(segnum)
 
         obj.reaches["to_rno"] = -1
-        segnum_iter = obj.reaches["segnum"].iteritems()
+        if has_diversions:
+            segnum_iter = obj.reaches.loc[
+                ~obj.reaches.diversion, "segnum"].iteritems()
+        else:
+            segnum_iter = obj.reaches["segnum"].iteritems()
         rno, segnum = next(segnum_iter)
         for next_rno, next_segnum in segnum_iter:
             obj.reaches.at[rno, "to_rno"] = get_to_rno()
             rno, segnum = next_rno, next_segnum
         next_segnum = swn.END_SEGNUM
         obj.reaches.at[rno, "to_rno"] = get_to_rno()
+        if has_diversions:
+            obj.reaches.loc[obj.reaches["diversion"], "to_rno"] = 0
         assert obj.reaches.to_rno.min() >= 0
 
         # Populate from_rnos set
         obj.reaches["from_rnos"] = [set() for _ in range(len(obj.reaches))]
-        to_rnos = obj.reaches.loc[obj.reaches["to_rno"] != 0, "to_rno"]
+        to_rnos = obj.reaches.loc[obj.reaches["to_rno"] > 0, "to_rno"]
         for k, v in to_rnos.items():
             obj.reaches.at[v, "from_rnos"].add(k)
 
-        # TODO: Diversions not handled (yet)
-        obj.reaches["to_div"] = 0
-        obj.reaches["ustrf"] = 1.
+        # Refresh diversions if set
+        if has_diversions:
+            div_sel = obj.diversions["in_model"]
+            # populate (rno, idv) from their match to non-diversion reaches
+            diversions_in_model = obj.diversions[div_sel]
+            r_df = obj.get_location_frame_reach_info(
+                diversions_in_model.rename(columns={"from_segnum": "segnum"})[
+                    ["segnum", "seg_ndist"]],
+                downstream_bias=diversion_downstream_bias,
+                geom_loc_df=getattr(diversions_in_model, "geometry", None))
+            obj.diversions["rno"] = 0  # valid from 1
+            obj.diversions.loc[r_df.index, "rno"] = r_df.rno
+            # evaluate idv, which is betwen 1 and ndv
+            obj.diversions["idv"] = 0
+            obj.diversions.loc[div_sel, "idv"] = 1
+            rno_counts = obj.diversions[div_sel].groupby(
+                "rno").count()["in_model"]
+            for rno, count in rno_counts[rno_counts > 1].iteritems():
+                obj.diversions.loc[obj.diversions["rno"] == rno, "idv"] = \
+                    obj.diversions.idv[obj.diversions["rno"] == rno].cumsum()
+            # cross-reference iconr to rno used as a reach
+            diversion_reaches = obj.reaches.loc[
+                obj.reaches.diversion].reset_index().set_index("divid")
+            obj.diversions["iconr"] = diversion_reaches["rno"]
+            # Also put data into reaches frame
+            obj.reaches["div_from_rno"] = 0
+            rdiv = obj.diversions.loc[div_sel, ["rno", "iconr"]].rename(
+                columns={"rno": "from_rno", "iconr": "rno"}
+                ).reset_index().set_index("rno")
+            obj.reaches.loc[rdiv.index, "div_from_rno"] = rdiv["from_rno"]
+            obj.reaches["div_to_rnos"] = \
+                [set() for _ in range(len(obj.reaches))]
+            to_rnos = obj.reaches.loc[
+                obj.reaches["div_from_rno"] > 0, "div_from_rno"]
+            for k, v in to_rnos.items():
+                obj.reaches.at[v, "div_to_rnos"].add(k)
+
+            # Workaround potential MODFLOW6 bug where diversions cannot attach
+            # to outlet reach, so add another reach
+            sel = (
+                (obj.reaches["to_rno"] == 0) & (~obj.reaches["diversion"]) &
+                (obj.reaches["div_to_rnos"].apply(len) > 0))
+            if sel.any() and "mask" not in obj.reaches.columns:
+                obj.reaches["mask"] = False
+                if swn.has_z:
+                    empty_geom = wkt.loads("linestring z empty")
+                else:
+                    empty_geom = wkt.loads("linestring empty")
+            for rno in sel[sel].index:
+                new_rno = len(obj.reaches) + 1
+                # Correction to this reach
+                obj.reaches.loc[rno, "to_rno"] = new_rno
+                # Use as template for new reach
+                reach_d = obj.reaches.loc[rno].to_dict()
+                reach_d.update({
+                    "geometry": empty_geom,
+                    "mask": True,
+                    "ireach": reach_d["ireach"] + 1,
+                    "to_rno": 0,
+                    "from_rnos": {rno},
+                    "div_to_rnos": set(),
+                })
+                with ignore_shapely_warnings_for_object_array():
+                    obj.reaches.loc[new_rno] = reach_d
+
+        # Set 1.0 for most, 0.0 for head and diversion nodes
+        obj.reaches["ustrf"] = 1.0
+        zero_from_rnos = obj.reaches.from_rnos.apply(len) == 0
+        obj.reaches.loc[zero_from_rnos, "ustrf"] = 0.0
 
         return obj
 
@@ -148,17 +225,20 @@ class SwnMf6(SwnModflowBase):
                 nper, "" if nper == 1 else "s",
                 abbr_str(list(tdis.perioddata.array["perlen"]), 4),
                 tdis.time_units.data)
+        s = f"<{self.__class__.__name__}: {model_info}\n"
         reaches = self.reaches
-        if reaches is None:
-            reaches_info = "reaches not set"
-        else:
-            reaches_info = "{} in reaches ({}): {}".format(
-                len(self.reaches), self.reaches.index.name,
-                abbr_str(list(self.reaches.index), 4))
-        return dedent(f"""\
-            <{self.__class__.__name__}: {model_info}
-              {reaches_info}
-              {sp_info} />""")
+        if reaches is not None:
+            s += "  {} in reaches ({}): {}\n".format(
+                len(reaches), reaches.index.name,
+                abbr_str(list(reaches.index), 4))
+        diversions = self.diversions
+        if diversions is not None:
+            diversions_in_model = self.diversions[self.diversions["in_model"]]
+            s += "  {} in diversions (iconr): {}\n".format(
+                len(diversions_in_model),
+                abbr_str(list(diversions_in_model.iconr), 4))
+        s += f"  {sp_info} />"
+        return s
 
     def __eq__(self, other):
         """Return true if objects are equal."""
@@ -248,10 +328,10 @@ class SwnMf6(SwnModflowBase):
         >>> nm.packagedata_frame("native", auxiliary="aux1")
              k  i  j       rlen  rwid   rgrd  ...    man  ncon  ustrf  ndv  aux1  boundname
         rno                                   ...                                          
-        1    1  1  1  18.027756  10.0  0.001  ...  0.024     1    1.0    0   2.1        101
+        1    1  1  1  18.027756  10.0  0.001  ...  0.024     1    0.0    0   2.1        101
         2    1  1  2   6.009252  10.0  0.001  ...  0.024     2    1.0    0   2.2        101
         3    1  2  2  12.018504  10.0  0.001  ...  0.024     2    1.0    0   2.3        101
-        4    1  1  2  21.081851  10.0  0.001  ...  0.024     1    1.0    0   2.4        102
+        4    1  1  2  21.081851  10.0  0.001  ...  0.024     1    0.0    0   2.4        102
         5    1  2  2  10.540926  10.0  0.001  ...  0.024     2    1.0    0   2.5        102
         6    1  2  2  10.000000  10.0  0.001  ...  0.024     3    1.0    0   2.6        100
         7    1  3  2  10.000000  10.0  0.001  ...  0.024     1    1.0    0   2.7        100
@@ -260,10 +340,10 @@ class SwnMf6(SwnModflowBase):
         >>> nm.packagedata_frame("flopy", boundname=False)
                 cellid       rlen  rwid   rgrd  rtp  rbth  rhk    man  ncon  ustrf  ndv
         rno                                                                            
-        0    (0, 0, 0)  18.027756  10.0  0.001  1.0   1.0  1.0  0.024     1    1.0    0
+        0    (0, 0, 0)  18.027756  10.0  0.001  1.0   1.0  1.0  0.024     1    0.0    0
         1    (0, 0, 1)   6.009252  10.0  0.001  1.0   1.0  1.0  0.024     2    1.0    0
         2    (0, 1, 1)  12.018504  10.0  0.001  1.0   1.0  1.0  0.024     2    1.0    0
-        3    (0, 0, 1)  21.081851  10.0  0.001  1.0   1.0  1.0  0.024     1    1.0    0
+        3    (0, 0, 1)  21.081851  10.0  0.001  1.0   1.0  1.0  0.024     1    0.0    0
         4    (0, 1, 1)  10.540926  10.0  0.001  1.0   1.0  1.0  0.024     2    1.0    0
         5    (0, 1, 1)  10.000000  10.0  0.001  1.0   1.0  1.0  0.024     3    1.0    0
         6    (0, 2, 1)  10.000000  10.0  0.001  1.0   1.0  1.0  0.024     1    1.0    0
@@ -279,6 +359,8 @@ class SwnMf6(SwnModflowBase):
         dat["idomain"] = \
             self.model.dis.idomain.array[dat["k"], dat["i"], dat["j"]]
         cellid_none = dat["idomain"] < 1
+        if "mask" in dat.columns:
+            cellid_none |= dat["mask"]
         kij_l = list("kij")
         if style == "native":
             # Convert from zero-based to one-based notation
@@ -292,21 +374,31 @@ class SwnMf6(SwnModflowBase):
                 dat.loc[cellid_none, "k"] = "NONE"
                 dat.loc[cellid_none, ["i", "j"]] = ""
         elif style == "flopy":
-            # Convert rno from one-based to zero-based notation
-            dat.index -= 1
             # make cellid into tuple
             dat["cellid"] = dat[kij_l].to_records(index=False).tolist()
             if cellid_none.any():
-                dat.loc[cellid_none, "cellid"] = None
+                dat.loc[cellid_none, "cellid"] = "NONE"
+            # Convert rno from one-based to zero-based notation
+            dat.index -= 1
         else:
             raise ValueError("'style' must be either 'native' or 'flopy'")
         if "rlen" not in dat.columns:
             dat.loc[:, "rlen"] = dat.geometry.length
         dat["ncon"] = (
-            dat.from_rnos.apply(len) +
-            (dat.to_rno > 0).astype(int)
+            dat["from_rnos"].apply(len) +
+            (dat["to_rno"] > 0).astype(int)
         )
-        dat["ndv"] = (dat.to_div > 0).astype(int)
+        dat["ndv"] = 0
+        if self.diversions is not None:
+            dat["ncon"] += (
+                dat["div_to_rnos"].apply(len) +
+                (dat["div_from_rno"] > 0).astype(int)
+            )
+            ndv = self.diversions[
+                self.diversions["in_model"]].groupby("rno").count().in_model
+            if style == "flopy":
+                ndv.index -= 1
+            dat.loc[ndv.index, "ndv"] = ndv
         if boundname is None:
             boundname = "boundname" in dat.columns
         if boundname:
@@ -401,17 +493,33 @@ class SwnMf6(SwnModflowBase):
             If "native", all indicies (including kij) use one-based notation.
             If "flopy", all indices (including rno) use zero-based notation.
         """
-        r = (self.reaches["from_rnos"].apply(sorted) +
-             self.reaches["to_rno"].apply(lambda x: [-x] if x > 0 else []))
-        if self.reaches["to_div"].any():
-            r += self.reaches["to_div"].apply(lambda x: [-x] if x > 0 else [])
+        def nonzerolst(x, neg=False):
+            if neg:
+                return [-x] if x > 0 else []
+            else:
+                return [x] if x > 0 else []
+
+        if self.diversions is not None:
+            res = (
+                self.reaches["from_rnos"].apply(sorted) +
+                self.reaches["div_from_rno"].apply(nonzerolst, neg=False) +
+                self.reaches["to_rno"].apply(nonzerolst, neg=True) +
+                self.reaches["div_to_rnos"].apply(sorted).apply(
+                    lambda x: [-i for i in x])
+            )
+        else:
+            res = (
+                self.reaches["from_rnos"].apply(sorted) +
+                self.reaches["to_rno"].apply(nonzerolst, neg=True)
+            )
+
         if style == "native":
             # keep one-based notation, but convert list to str
-            return r
+            return res
         elif style == "flopy":
             # Convert rno from one-based to zero-based notation
-            r.index -= 1
-            return r.apply(lambda x: [v - 1 if v > 0 else v + 1 for v in x])
+            res.index -= 1
+            return res.apply(lambda x: [v - 1 if v > 0 else v + 1 for v in x])
         else:
             raise ValueError("'style' must be either 'native' or 'flopy'")
 
@@ -450,22 +558,130 @@ class SwnMf6(SwnModflowBase):
         s = self.connectiondata_series("flopy")
         return (s.index.to_series().apply(lambda x: list([x])) + s).to_list()
 
-    # TODO: add methods for diversions for flopy and writing file
+    def diversions_frame(self, style: str):
+        """Return DataFrame of DIVERSIONS for MODFLOW 6 SFR.
+
+        This DataFrame is derived from :py:attr:`diversions`.
+
+        Parameters
+        ----------
+        style : str
+            If "native", all indicies use one-based notation.
+            If "flopy", all indices use zero-based notation.
+
+        Returns
+        -------
+        DataFrame
+
+        See Also
+        --------
+        SwnMf6.write_diversions : Write native file.
+        SwnMf6.flopy_diversions : List of lists for flopy.
+
+        Examples
+        --------
+        >>> import flopy
+        >>> import swn
+        >>> lines = swn.spatial.wkt_to_geoseries([
+        ...    "LINESTRING (60 100, 60  80)",
+        ...    "LINESTRING (40 130, 60 100)",
+        ...    "LINESTRING (70 130, 60 100)"])
+        >>> lines.index += 100
+        >>> n = swn.SurfaceWaterNetwork.from_lines(lines)
+        >>> diversions = swn.spatial.wkt_to_geodataframe([
+        ...    "POINT (58 100)", "POINT (62 100)",
+        ...    "POINT (59 95)", "POINT (61 92)"])
+        >>> diversions.index += 11
+        >>> n.set_diversions(diversions)
+        >>> sim = flopy.mf6.MFSimulation()
+        >>> _ = flopy.mf6.ModflowTdis(sim, nper=1, time_units="days")
+        >>> gwf = flopy.mf6.ModflowGwf(sim)
+        >>> _ = flopy.mf6.ModflowGwfdis(
+        ...     gwf, nrow=3, ncol=2, delr=20.0, delc=20.0, idomain=1,
+        ...     length_units="meters", xorigin=30.0, yorigin=70.0)
+        >>> nm = swn.SwnMf6.from_swn_flopy(n, gwf)
+        >>> nm.diversions_frame("native")
+            rno  idv  iconr cprior
+        11    3    1      8   upto
+        12    5    1      9   upto
+        13    6    1     10   upto
+        14    6    2     11   upto
+        >>> nm.diversions_frame("flopy")
+            rno  idv  iconr cprior
+        11    2    0      7   upto
+        12    4    0      8   upto
+        13    5    0      9   upto
+        14    5    1     10   upto
+        """  # noqa
+        from flopy.mf6 import ModflowGwfsfr as Mf6Sfr
+        defcols_dtype = Mf6Sfr.diversions.empty(self.model).dtype
+        if self.diversions is None:
+            self.logger.warning("diversions not set")
+            return pd.DataFrame(np.recarray(0, dtype=defcols_dtype))
+        defcols_names = list(defcols_dtype.names)
+        dat = pd.DataFrame(self.diversions[self.diversions["in_model"]].copy())
+        if "cprior" not in dat.columns:
+            self.logger.info("diversions missing cprior; assuming UPTO")
+            dat["cprior"] = "upto"
+        # checking missing columns
+        div_columns = set(dat.columns)
+        missing = set(defcols_names).difference(div_columns)
+        if missing:
+            missing_l = []
+            for name in defcols_names:
+                if name not in div_columns:
+                    missing_l.append(name)
+            raise KeyError(
+                "missing {} diversions dataset(s): {}"
+                .format(len(missing_l), ", ".join(sorted(missing_l))))
+        if style == "native":
+            pass
+        elif style == "flopy":
+            # Convert rno from one-based to zero-based notation
+            dat[["rno", "idv", "iconr"]] -= 1
+        else:
+            raise ValueError("'style' must be either 'native' or 'flopy'")
+        return dat[defcols_names]
+
     def write_diversions(self, fname: str):
-        """Write DIVERSIONS file for MODFLOW 6 SFR."""
-        # TODO
-        raise NotImplementedError("method is not finished")
+        """Write DIVERSIONS file for MODFLOW 6 SFR.
+
+        File can be used in a ``OPEN/CLOSE`` statement for a DIVERSIONS block,
+        which can be set with ``diversions={"filename": "diversions.dat"}`` in
+        :py:meth:`set_sfr_obj`.
+
+        This method is based on :py:meth:`diversions_frame`.
+
+        Parameters
+        ----------
+        fname : str
+            Output file name.
+        """
+        dat = self.diversions_frame("native")
+        if len(dat) == 0:
+            with open(fname, "w") as f:
+                f.write("# " + " ".join(dat.columns) + "\n")
+            return
+        dat.rename(columns={"rno": "# rno"}, inplace=True)
+        # left-justify cprior
+        cprior_len = dat["cprior"].str.len().max()
+        formatters = {"cprior": f"{{:<{cprior_len}s}}".format}
+        with open(fname, "w") as f:
+            dat.to_string(f, header=True, index=False, formatters=formatters)
+            f.write("\n")
 
     def flopy_diversions(self):
         """Return list of lists for flopy.
+
+        This method is based on :py:meth:`diversions_frame`.
 
         Returns
         -------
         list
 
         """
-        # TODO
-        raise NotImplementedError("method is not finished")
+        dat = self.diversions_frame("flopy")
+        return [list(x) for x in dat.itertuples(index=False)]
 
     _tsvar_meta = pd.DataFrame([
         ("status", "str"),
@@ -586,6 +802,10 @@ class SwnMf6(SwnModflowBase):
         self.set_reach_data_from_segments("rbth", thickness1, thickness_out)
         self.set_reach_data_from_segments("rhk", hyd_cond1, hyd_cond_out, True)
         self.set_reach_data_from_segments("man", roughch)
+        if self.diversions is not None:
+            diversion_reaches = self.reaches["diversion"]
+            self.reaches.loc[diversion_reaches, "rwid"] = 1.0
+            self.reaches.loc[diversion_reaches, "rhk"] = 0.0
 
     def set_sfr_obj(self, auxiliary=None, boundnames=None, **kwds):
         """Set MODFLOW 6 SFR package data to flopy model.
