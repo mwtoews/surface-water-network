@@ -435,8 +435,14 @@ class SwnModflowBase:
         this_class = cls.__name__
         if this_class == "SwnModflow":
             domain_label = "ibound"
+            reach_index_name = "reachID"
+            reach_length_name = "rchlen"
+            uses_segments = True
         elif this_class == "SwnMf6":
             domain_label = "idomain"
+            reach_index_name = "rno"
+            reach_length_name = "rlen"
+            uses_segments = False
         else:
             raise TypeError(f"unsupported subclass {cls!r}")
         if not isinstance(swn, SurfaceWaterNetwork):
@@ -928,20 +934,31 @@ class SwnModflowBase:
         iseg = ireach = 0
         prev_segnum = None
         for idx, segnum in reaches.segnum.iteritems():
-            if has_diversions and reaches.at[idx, "diversion"]:
-                # Each diversion gets a new segment/reach
-                iseg += 1
+            is_diversion = has_diversions and reaches.at[idx, "diversion"]
+            if is_diversion:
+                if uses_segments:
+                    # Each diversion gets a new segment/reach
+                    iseg += 1
                 ireach = 0
             elif segnum != prev_segnum:
                 # Start of a regular segment/reach
                 iseg += 1
                 ireach = 0
             ireach += 1
-            reaches.at[idx, "iseg"] = iseg
-            reaches.at[idx, "ireach"] = ireach
+            if uses_segments or not is_diversion:
+                reaches.at[idx, "iseg"] = iseg
+                reaches.at[idx, "ireach"] = ireach
             prev_segnum = segnum
 
+        # Evaluate reach length from geometry
+        reaches[reach_length_name] = reaches.geometry.length
+        sel = reaches[reach_length_name] == 0.0
+        if sel.any():
+            # zero lengths not permitted by any modflow version
+            reaches.loc[sel, reach_length_name] = 1.0
+
         reaches.reset_index(inplace=True, drop=True)
+        reaches.index.name = reach_index_name
         reaches.index += 1  # flopy series starts at one
 
         if not hasattr(reaches.geometry, "geom_type"):

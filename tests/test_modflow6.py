@@ -43,7 +43,7 @@ def get_basic_swn(has_z: bool = True, has_diversions: bool = False):
         n = swn.SurfaceWaterNetwork.from_lines(force_2d(n3d_lines))
     if has_diversions:
         diversions = geopandas.GeoDataFrame(geometry=[
-            Point(58, 100), Point(62, 100), Point(61, 89), Point(59, 89)])
+            Point(58, 100), Point(62, 100), Point(61, 91), Point(59, 91)])
         n.set_diversions(diversions=diversions)
     return n
 
@@ -76,6 +76,12 @@ def get_basic_modflow(outdir=".", with_top: bool = False, nper: int = 1):
     _ = flopy.mf6.ModflowGwfnpf(m, k=1e-2, save_flows=True)
     _ = flopy.mf6.ModflowGwfrcha(m, recharge=1e-4, save_flows=True)
     return sim, m
+
+
+def write_list(fname, data):
+    with open(fname, "w") as f:
+        for line in data:
+            f.write(" " + " ".join(str(x) for x in line) + "\n")
 
 
 def read_head(hed_fname, reaches=None):
@@ -111,9 +117,13 @@ def read_budget(bud_fname, text, reaches=None, colname=None):
         data = res[0]
     if reaches is not None:
         if isinstance(data, np.recarray) and "q" in data.dtype.names:
-            reaches[colname] = data["q"]
+            coldata = data["q"]
         else:
-            reaches[colname] = data[reaches["k"], reaches["i"], reaches["j"]]
+            coldata = data[reaches["k"], reaches["i"], reaches["j"]]
+        if "mask" in reaches.columns:
+            reaches.loc[~reaches["mask"], colname] = coldata
+        else:
+            reaches[colname] = coldata
     return data
 
 
@@ -157,86 +167,198 @@ def test_from_swn_flopy_errors():
     swn.SwnMf6.from_swn_flopy(n, m)
 
 
-def test_n3d_defaults(tmp_path):
-    n = get_basic_swn()
+@pytest.mark.parametrize(
+    "has_diversions", [False, True], ids=["nodiv", "div"])
+def test_n3d_defaults(tmp_path, has_diversions):
+    n = get_basic_swn(has_diversions=has_diversions)
     sim, m = get_basic_modflow(tmp_path, with_top=False)
     nm = swn.SwnMf6.from_swn_flopy(n, m)
     # check object reaches
-    r = nm.reaches
-    assert len(r) == 7
-    assert r.index.name == "rno"
-    assert list(r.index) == [1, 2, 3, 4, 5, 6, 7]
-    # i and j are base-0
-    assert list(r.i) == [0, 0, 1, 0, 1, 1, 2]
-    assert list(r.j) == [0, 1, 1, 1, 1, 1, 1]
-    assert list(r.segnum) == [1, 1, 1, 2, 2, 0, 0]
-    assert list(r.to_rno) == [2, 3, 6, 5, 6, 7, 0]
-    assert list(r.from_rnos) == [set(), {1}, {2}, set(), {4}, {3, 5}, {6}]
-    assert list(r.to_div) == [0, 0, 0, 0, 0, 0, 0]
+    nodiv_expected = pd.DataFrame({
+        "segnum": [1, 1, 1, 2, 2, 0, 0],
+        # k,i,j are base-0
+        "k": 0,
+        "i": [0, 0, 1, 0, 1, 1, 2],
+        "j": [0, 1, 1, 1, 1, 1, 1],
+        "iseg": [1, 1, 1, 2, 2, 3, 3],
+        "ireach": [1, 2, 3, 1, 2, 1, 2],
+        "rlen": [
+            18.027756, 6.009252, 12.018504, 21.081851, 10.5409255, 10.0, 10.0],
+        "to_rno": [2, 3, 6, 5, 6, 7, 0],
+        "from_rnos": [set(), {1}, {2}, set(), {4}, {3, 5}, {6}],
+        }, index=pd.RangeIndex(1, 8, name="rno"))
+    if not has_diversions:
+        pd.testing.assert_frame_equal(
+            nm.reaches[nodiv_expected.columns], nodiv_expected)
+    else:
+        div_expected = pd.concat([
+            nodiv_expected,
+            pd.DataFrame({
+                "segnum": -1,
+                "k": 0,
+                "i": [1, 1, 1, 1],
+                "j": [1, 1, 1, 1],
+                "iseg": 0,
+                "ireach": 0,
+                "rlen": 1.0,
+                "to_rno": 0,
+                "from_rnos": [set(), set(), set(), set()],
+                }, index=pd.RangeIndex(8, 12, name="rno"))])
+        div_expected["diversion"] = [False] * 7 + [True] * 4
+        div_expected["divid"] = [0] * 7 + [0, 1, 2, 3]
+        div_expected["div_from_rno"] = [0] * 7 + [3, 5, 6, 6]
+        div_expected["div_to_rnos"] = [
+            set(), set(), {8}, set(), {9}, {10, 11}, set(), set(), set(),
+            set(), set()]
+        pd.testing.assert_frame_equal(
+            nm.reaches[div_expected.columns], div_expected)
     with pytest.raises(KeyError, match="missing 6 reach dataset"):
         nm.packagedata_frame("native")
     nm.set_reach_slope()
     with pytest.raises(KeyError, match="missing 5 reach dataset"):
         nm.packagedata_frame("native")
     nm.default_packagedata(hyd_cond1=1e-4)
-    np.testing.assert_array_almost_equal(
-        nm.reaches["rlen"],
-        [18.027756, 6.009252, 12.018504, 21.081851, 10.540926, 10.0, 10.0])
-    np.testing.assert_array_almost_equal(nm.reaches["rwid"], [10.0] * 7)
-    np.testing.assert_array_almost_equal(
-        nm.reaches["rgrd"],
-        [0.027735, 0.027735, 0.027735, 0.0316227766, 0.0316227766, 0.1, 0.1])
-    np.testing.assert_array_almost_equal(
-        nm.reaches["rtp"],
-        [14.75, 14.416667, 14.166667, 14.666667, 14.166667, 13.5, 12.5])
-    np.testing.assert_array_almost_equal(nm.reaches["rbth"], [1.0] * 7)
-    np.testing.assert_array_almost_equal(nm.reaches["rhk"], [1e-4] * 7)
-    np.testing.assert_array_almost_equal(nm.reaches["man"], [0.024] * 7)
+    nodiv_expected = pd.DataFrame({
+        "rwid": 10.0,
+        "rgrd": [
+            0.027735, 0.027735, 0.027735, 0.0316227766, 0.0316227766,
+            0.1, 0.1],
+        "rtp": [14.75, 14.416667, 14.166667, 14.666667, 14.166667, 13.5, 12.5],
+        "rbth": 1.0,
+        "rhk": 1e-4,
+        "man": 0.024,
+        "ncon": [1, 2, 2, 1, 2, 3, 1],
+        "ndv": 0,
+        }, index=pd.RangeIndex(1, 8, name="rno"))
+    if not has_diversions:
+        pd.testing.assert_frame_equal(
+            nm.packagedata_frame("native")[nodiv_expected.columns],
+            nodiv_expected)
+    else:
+        div_expected = pd.concat([
+            nodiv_expected,
+            pd.DataFrame({
+                "rwid": 1.0,
+                "rgrd": 0.001,
+                "rtp": [15.0, 15.0, 15.0, 15.0],
+                "rbth": 1.0,
+                "rhk": 0.0,
+                "man": 0.024,
+                "ncon": 1,
+                "ndv": 0,
+                }, index=pd.RangeIndex(8, 12, name="rno"))])
+        div_expected["ncon"] = [1, 2, 3, 1, 3, 5, 1, 1, 1, 1, 1]
+        div_expected["ndv"] = [0, 0, 1, 0, 1, 2, 0, 0, 0, 0, 0]
+        pd.testing.assert_frame_equal(
+            nm.packagedata_frame("native")[div_expected.columns],
+            div_expected)
     # Write native MF6 file and flopy datasets
     nm.write_packagedata(tmp_path / "packagedata.dat")
     fpd = nm.flopy_packagedata()
     # Don't check everything
     assert isinstance(fpd, list)
-    assert len(fpd) == 7
+    assert len(fpd) == 11 if has_diversions else 7
     assert isinstance(fpd[0], list)
     assert len(fpd[0]) == 12
-    assert fpd[-1][0] == 6
-    assert fpd[-1][1] == (0, 2, 1)
+    assert fpd[-1][0] == 10 if has_diversions else 6
+    assert fpd[0][1] == (0, 0, 0)
     # Write native MF6 file and flopy datasets
     nm.write_connectiondata(tmp_path / "connectiondata.dat")
-    assert nm.flopy_connectiondata() == \
-        [[0, -1], [1, 0, -2], [2, 1, -5], [3, -4], [4, 3, -5], [5, 2, 4, -6],
-         [6, 5]]
-    # Use with flopy
-    nm.set_sfr_obj(
-        save_flows=True,
-        stage_filerecord="model.sfr.bin",
-        budget_filerecord="model.sfr.bud",
-        maximum_iterations=100,
-        maximum_picard_iterations=10,
-        packagedata={"filename": "packagedata.dat"},
-        connectiondata={"filename": "connectiondata.dat"},
-        perioddata={},
-    )
-    assert repr(nm) == dedent("""\
-        <SwnMf6: flopy mf6 'model'
-          7 in reaches (rno): [1, 2, ..., 6, 7]
-          1 stress period with perlen: [1.0] days />""")
+    nodiv_expected = [
+        [0, -1], [1, 0, -2], [2, 1, -5], [3, -4], [4, 3, -5], [5, 2, 4, -6],
+        [6, 5]]
+    if not has_diversions:
+        assert nm.flopy_connectiondata() == nodiv_expected
+    else:
+        div_expected = nodiv_expected + [[7, 2], [8, 4], [9, 5], [10, 5]]
+        div_expected[2].append(-7)
+        div_expected[4].append(-8)
+        div_expected[5].extend([-9, -10])
+        assert nm.flopy_connectiondata() == div_expected
+    nm.write_diversions(tmp_path / "diversions.dat")
+    if not has_diversions:
+        assert nm.diversions_frame("native").shape == (0, 4)
+        assert nm.flopy_diversions() == []
+    else:
+        pd.testing.assert_frame_equal(
+            nm.diversions_frame("native"),
+            pd.DataFrame({
+                "rno": [3, 5, 6, 6],
+                "idv": [1, 1, 1, 2],
+                "iconr": [8, 9, 10, 11],
+                "cprior": "upto"}))
+        expected = [
+            [2, 0, 7, "upto"],
+            [4, 0, 8, "upto"],
+            [5, 0, 9, "upto"],
+            [5, 1, 10, "upto"]]
+        assert nm.flopy_diversions() == expected
+    if not has_diversions:
+        assert repr(nm) == dedent("""\
+            <SwnMf6: flopy mf6 'model'
+              7 in reaches (rno): [1, 2, ..., 6, 7]
+              1 stress period with perlen: [1.0] days />""")
+    else:
+        assert repr(nm) == dedent("""\
+            <SwnMf6: flopy mf6 'model'
+              11 in reaches (rno): [1, 2, ..., 10, 11]
+              4 in diversions (iconr): [8, 9, 10, 11]
+              1 stress period with perlen: [1.0] days />""")
     if matplotlib:
         _ = nm.plot()
         plt.close()
-    # Run model and read outputs
-    sim.write_simulation()
-    success, buff = sim.run_simulation()
-    assert success
-    head = read_head(tmp_path / "model.hds")
-    sl = read_budget(tmp_path / "model.cbc", "SFR", nm.reaches, "sfrleakage")
-    sf = read_budget(tmp_path / "model.sfr.bud", "GWF", nm.reaches, "sfr_Q")
+    # Use with flopy
+    diversions = None
+    for use_open_close in [False, True]:
+        m.remove_package("sfr")
+        if use_open_close:
+            # m.name = "openclose"
+            # m.rename_all_packages("openclose")
+            if has_diversions:
+                diversions = {"filename": "diversions.dat"}
+            nm.set_sfr_obj(
+                print_input=True,
+                save_flows=True,
+                stage_filerecord="model.sfr.bin",
+                budget_filerecord="model.sfr.bud",
+                maximum_iterations=100,
+                maximum_picard_iterations=10,
+                packagedata={"filename": "packagedata.dat"},
+                connectiondata={"filename": "connectiondata.dat"},
+                diversions=diversions,
+                perioddata={},
+            )
+        else:
+            if has_diversions:
+                diversions = nm.flopy_diversions()
+            nm.set_sfr_obj(
+                print_input=True,
+                save_flows=True,
+                stage_filerecord="model.sfr.bin",
+                budget_filerecord="model.sfr.bud",
+                maximum_iterations=100,
+                maximum_picard_iterations=10,
+                packagedata=nm.flopy_packagedata(),
+                connectiondata=nm.flopy_connectiondata(),
+                diversions=diversions,
+                perioddata={},
+            )
+        # Run model and read outputs
+        sim.write_simulation()
+        success, buff = sim.run_simulation()
+        assert success
     # Write some files
-    gdf_to_shapefile(nm.reaches, tmp_path / "reaches.shp")
+    gdf_to_shapefile(
+        nm.reaches[nm.reaches.geom_type == "LineString"],
+        tmp_path / "reaches.shp")
     gdf_to_shapefile(nm.segments, tmp_path / "segments.shp")
     nm.grid_cells.to_file(tmp_path / "grid_cells.shp")
     # Check results
+    head = read_head(tmp_path / "model.hds")
+    sl = read_budget(tmp_path / "model.cbc", "SFR", nm.reaches, "sfrleakage")
+    sf = read_budget(tmp_path / "model.sfr.bud", "GWF", nm.reaches, "sfr_Q")
+    print(pd.DataFrame(sl))
+    print(pd.DataFrame(sf))
     assert head.shape == (1, 3, 2)
     np.testing.assert_array_almost_equal(
         head,
@@ -244,16 +366,18 @@ def test_n3d_defaults(tmp_path):
             [17.10986328, 16.77658646],
             [17.49119547, 16.81176342],
             [17.75195983, 17.2127244]]]))
-    np.testing.assert_array_almost_equal(
-        sl["q"],
-        np.array([
-            -0.04240276, -0.01410363, -0.03159486, -0.04431906, -0.02773725,
-            -0.03292868, -0.04691372]))
-    np.testing.assert_array_almost_equal(
-        sf["q"],
-        np.array([
-            0.04240276, 0.01410362, 0.03159486, 0.04431904, 0.02773725,
-            0.03292867, 0.04691372]))
+    expected = np.array([
+        -0.04240276, -0.01410363, -0.03159486, -0.04431906, -0.02773725,
+        -0.03292868, -0.04691372])
+    if has_diversions:
+        expected = np.concatenate([expected, np.zeros(4, float)])
+    np.testing.assert_array_almost_equal(sl["q"], expected)
+    expected = np.array([
+        0.04240276, 0.01410362, 0.03159486, 0.04431904, 0.02773725,
+        0.03292867, 0.04691372])
+    if has_diversions:
+        expected = np.concatenate([expected, np.zeros(4, float)])
+    np.testing.assert_array_almost_equal(sf["q"], expected)
 
 
 def test_model_property():
@@ -393,6 +517,7 @@ def test_n2d_defaults(tmp_path):
     np.testing.assert_array_almost_equal(nm.reaches["man"], [0.024] * 7)
     # Use with flopy
     nm.set_sfr_obj(
+        print_input=True,
         save_flows=True,
         stage_filerecord="model.sfr.bin",
         budget_filerecord="model.sfr.bud",
@@ -770,6 +895,7 @@ def test_include_downstream_reach_outside_model(tmp_path):
         [2, "inflow", 3.4],
     ]
     nm.set_sfr_obj(
+        print_input=True,
         save_flows=True,
         budget_filerecord="model.sfr.bud",
         maximum_iterations=100,
@@ -815,21 +941,228 @@ def test_include_downstream_reach_outside_model(tmp_path):
     np.testing.assert_array_equal(nm.reaches["Qout"], [0., 0., 0., 0., -4.6])
 
 
-@pytest.mark.xfail
+def test_n3d_defaults_with_div_on_outlet(tmp_path):
+    """Test special case to handle, possible MODFLOW6 bug."""
+    n = get_basic_swn()
+    diversions = geopandas.GeoDataFrame(geometry=[
+        Point(58, 100), Point(62, 100), Point(61, 89), Point(59, 89)])
+    n.set_diversions(diversions=diversions)
+    sim, m = get_basic_modflow(tmp_path, with_top=False)
+    nm = swn.SwnMf6.from_swn_flopy(n, m)
+    # check object reaches
+    expected = pd.DataFrame({
+        "segnum": [1, 1, 1, 2, 2, 0, 0, -1, -1, -1, -1, 0],
+        "k": 0,
+        "i": [0, 0, 1, 0, 1, 1, 2, 1, 1, 2, 2, 2],
+        "j": [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+        "iseg": [1, 1, 1, 2, 2, 3, 3, 0, 0, 0, 0, 3],
+        "ireach": [1, 2, 3, 1, 2, 1, 2, 0, 0, 0, 0, 3],
+        "rlen": [
+            18.027756, 6.009252, 12.018504, 21.081851, 10.5409255, 10.0, 10.0,
+            1.0, 1.0, 1.0, 1.0, 10.0],
+        "to_rno": [2, 3, 6, 5, 6, 7, 12, 0, 0, 0, 0, 0],
+        "from_rnos": [
+            set(), {1}, {2}, set(), {4}, {3, 5}, {6}, set(), set(), set(),
+            set(), {7}],
+        "div_from_rno": [0, 0, 0, 0, 0, 0, 0, 3, 5, 7, 7, 0],
+        "div_to_rnos": [
+            set(), set(), {8}, set(), {9}, set(), {10, 11}, set(), set(),
+            set(), set(), set()],
+        "mask": [False] * 11 + [True],
+        }, index=pd.RangeIndex(1, 13, name="rno"))
+    pd.testing.assert_frame_equal(nm.reaches[expected.columns], expected)
+    nm.default_packagedata(hyd_cond1=1e-4)
+    expected = pd.DataFrame({
+        "rwid": [10.0] * 7 + [1.0] * 4 + [10.0],
+        "rgrd": [
+            0.027735, 0.027735, 0.027735, 0.0316227766, 0.0316227766,
+            0.1, 0.1] + [0.001] * 5,
+        "rtp": [
+            14.75, 14.416667, 14.166667, 14.666667, 14.166667,
+            13.5, 12.5] + [15.0] * 5,
+        "rbth": 1.0,
+        "rhk": [1e-4] * 7 + [0.0] * 4 + [1e-4],
+        "man": 0.024,
+        "ncon": [1, 2, 3, 1, 3, 3, 4, 1, 1, 1, 1, 1],
+        "ndv": [0, 0, 1, 0, 1, 0, 2, 0, 0, 0, 0, 0],
+        }, index=pd.RangeIndex(1, 13, name="rno"))
+    pd.testing.assert_frame_equal(
+        nm.packagedata_frame("native")[expected.columns], expected)
+    # Write native MF6 file and flopy datasets
+    nm.write_packagedata(tmp_path / "packagedata.dat")
+    fpd = nm.flopy_packagedata()
+    # Don't check everything
+    assert len(fpd) == 12
+    assert fpd[11][1] == "NONE"
+    # Write native MF6 file and flopy datasets
+    nm.write_connectiondata(tmp_path / "connectiondata.dat")
+    expected = [
+        [0, -1], [1, 0, -2], [2, 1, -5, -7], [3, -4], [4, 3, -5, -8],
+        [5, 2, 4, -6], [6, 5, -11, -9, -10], [7, 2], [8, 4], [9, 6], [10, 6],
+        [11, 6]]
+    assert nm.flopy_connectiondata() == expected
+    nm.write_diversions(tmp_path / "diversions.dat")
+    pd.testing.assert_frame_equal(
+        nm.diversions_frame("native"),
+        pd.DataFrame({
+            "rno": [3, 5, 7, 7],
+            "idv": [1, 1, 1, 2],
+            "iconr": [8, 9, 10, 11],
+            "cprior": "upto"}))
+    expected = [
+        [2, 0, 7, "upto"],
+        [4, 0, 8, "upto"],
+        [6, 0, 9, "upto"],
+        [6, 1, 10, "upto"]]
+    assert nm.flopy_diversions() == expected
+    assert repr(nm) == dedent("""\
+        <SwnMf6: flopy mf6 'model'
+          12 in reaches (rno): [1, 2, ..., 11, 12]
+          4 in diversions (iconr): [8, 9, 10, 11]
+          1 stress period with perlen: [1.0] days />""")
+    if matplotlib:
+        _ = nm.plot()
+        plt.close()
+    # Use with flopy
+    diversions = None
+    for use_open_close in [False, True]:
+        m.remove_package("sfr")
+        if use_open_close:
+            nm.set_sfr_obj(
+                print_input=True,
+                save_flows=True,
+                stage_filerecord="model.sfr.bin",
+                budget_filerecord="model.sfr.bud",
+                maximum_iterations=100,
+                maximum_picard_iterations=10,
+                packagedata={"filename": "packagedata.dat"},
+                connectiondata={"filename": "connectiondata.dat"},
+                diversions={"filename": "diversions.dat"},
+                perioddata={},
+            )
+        else:
+            nm.set_sfr_obj(
+                print_input=True,
+                save_flows=True,
+                stage_filerecord="model.sfr.bin",
+                budget_filerecord="model.sfr.bud",
+                maximum_iterations=100,
+                maximum_picard_iterations=10,
+                packagedata=nm.flopy_packagedata(),
+                connectiondata=nm.flopy_connectiondata(),
+                diversions=nm.flopy_diversions(),
+                perioddata={},
+            )
+        # Run model and read outputs
+        sim.write_simulation()
+        success, buff = sim.run_simulation()
+        assert success
+    # Write some files
+    gdf_to_shapefile(
+        nm.reaches[nm.reaches.geom_type == "LineString"],
+        tmp_path / "reaches.shp")
+    # Check results
+    head = read_head(tmp_path / "model.hds")
+    sl = read_budget(tmp_path / "model.cbc", "SFR", nm.reaches, "sfrleakage")
+    sf = read_budget(tmp_path / "model.sfr.bud", "GWF", nm.reaches, "sfr_Q")
+    assert head.shape == (1, 3, 2)
+    np.testing.assert_array_almost_equal(
+        head,
+        np.array([[
+            [17.10986328, 16.77658646],
+            [17.49119547, 16.81176342],
+            [17.75195983, 17.2127244]]]))
+    expected = np.array([
+        -0.04240276, -0.01410363, -0.03159486, -0.04431906, -0.02773725,
+        -0.03292868, -0.04691372, 0.0, 0.0, 0.0, 0.0])
+    np.testing.assert_array_almost_equal(sl["q"], expected)
+    expected = np.array([
+        0.04240276, 0.01410362, 0.03159486, 0.04431904, 0.02773725,
+        0.03292867, 0.04691372, 0.0, 0.0, 0.0, 0.0])
+    np.testing.assert_array_almost_equal(sf["q"], expected)
+
+
+@requires_mf6
 def test_diversions(tmp_path):
     sim, m = get_basic_modflow(tmp_path, with_top=True)
+    m.remove_package("rch")
     gt = swn.modflow.geotransform_from_flopy(m)
     lsz = interp_2d_to_3d(n3d_lines, m.dis.top.array, gt)
     n = swn.SurfaceWaterNetwork.from_lines(lsz)
     n.adjust_elevation_profile()
     diversions = geopandas.GeoDataFrame(geometry=[
-        Point(58, 100), Point(62, 100), Point(61, 89), Point(59, 89)])
+        Point(58, 100), Point(62, 100), Point(61, 91), Point(59, 91)])
     n.set_diversions(diversions=diversions)
 
-    # With zero specified flow for all terms
-    nm = swn.SwnMf6.from_swn_flopy(n, m, hyd_cond1=0.0)
-    del nm
-    # TODO: diversions not yet supported
+    nm = swn.SwnMf6.from_swn_flopy(n, m)
+    assert list(nm.diversions.rno) == [3, 5, 6, 6]
+    assert list(nm.diversions.idv) == [1, 1, 1, 2]
+
+    # Check optional parameter
+    nm2 = swn.SwnMf6.from_swn_flopy(n, m, diversion_downstream_bias=0.3)
+    assert list(nm2.diversions.rno) == [3, 5, 7, 7]
+    assert list(nm2.diversions.idv) == [1, 1, 1, 2]
+
+    # Assemble MODFLOW SFR data
+    nm.default_packagedata(hyd_cond1=0.0)
+    nm.write_packagedata(tmp_path / "packagedata.dat")
+    nm.write_connectiondata(tmp_path / "connectiondata.dat")
+    nm.write_diversions(tmp_path / "diversions.dat")
+    # Route some flow from headwater reaches
+    perioddata = [
+        [1, "inflow", 2.0],
+        [4, "inflow", 3.0],
+    ]
+    write_list(tmp_path / "perioddata.dat", perioddata)
+
+    nm.set_sfr_obj(
+        print_input=True,
+        print_flows=True,
+        save_flows=True,
+        stage_filerecord="model.sfr.bin",
+        budget_filerecord="model.sfr.bud",
+        maximum_iterations=100,
+        maximum_picard_iterations=10,
+        packagedata={"filename": "packagedata.dat"},
+        connectiondata={"filename": "connectiondata.dat"},
+        diversions={"filename": "diversions.dat"},
+        perioddata={0: {"filename": "perioddata.dat"}},
+    )
+    sim.write_simulation()
+    success, buff = sim.run_simulation()
+    res = pd.DataFrame(index=nm.reaches.index)
+    _ = read_budget(tmp_path / "model.sfr.bud", "EXT-INFLOW", res, "Qin")
+    _ = read_budget(tmp_path / "model.sfr.bud", "EXT-OUTFLOW", res, "Qout")
+    expected = pd.DataFrame({
+        "Qin": [2.0, 0.0, 0.0, 3.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        "Qout": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -5.0, 0.0, 0.0, 0.0, 0.0]},
+        index=nm.reaches.index)
+    pd.testing.assert_frame_equal(res, expected)
+
+    # With abstraction
+    perioddata = [
+        [1, "inflow", 2.0],
+        [4, "inflow", 3.0],
+        [5, "diversion", 1, 1.1]
+    ]
+    write_list(tmp_path / "perioddata.dat", perioddata)
+    success, buff = sim.run_simulation()
+    np.testing.assert_array_almost_equal(
+        read_budget(tmp_path / "model.sfr.bud", "EXT-OUTFLOW").q,
+        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -3.9, 0.0, -1.1, 0.0, 0.0]
+    )
+    # More abstraction with dry streams
+    perioddata = [
+        [1, "inflow", 2.0],
+        [4, "inflow", 3.0],
+        [5, "diversion", 1, 3.3]
+    ]
+    write_list(tmp_path / "perioddata.dat", perioddata)
+    success, buff = sim.run_simulation()
+    np.testing.assert_array_almost_equal(
+        read_budget(tmp_path / "model.sfr.bud", "EXT-OUTFLOW").q,
+        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -2.0, 0.0, -3.0, 0.0, 0.0]
+    )
 
 
 def test_pickle(tmp_path):

@@ -123,14 +123,6 @@ class SwnModflow(SwnModflowBase):
             swn=swn, model=model, domain_action=ibound_action,
             reach_include_fraction=reach_include_fraction)
 
-        # Add more information to reaches
-        obj.reaches.index.name = "reachID"
-        obj.reaches["rchlen"] = obj.reaches.geometry.length
-        sel = obj.reaches["rchlen"] == 0
-        if sel.any():
-            # zero lengths not permitted
-            obj.reaches.loc[sel, "rchlen"] = 1.0
-
         return obj
 
     def __repr__(self):
@@ -150,8 +142,8 @@ class SwnModflow(SwnModflowBase):
         reaches = self.reaches
         if reaches is not None:
             s += "  {} in reaches ({}): {}\n".format(
-                len(self.reaches), self.reaches.index.name,
-                abbr_str(list(self.reaches.index), 4))
+                len(reaches), reaches.index.name,
+                abbr_str(list(reaches.index), 4))
         segment_data = self.segment_data
         if segment_data is not None:
             s += "  {} in segment_data ({}): {}\n".format(

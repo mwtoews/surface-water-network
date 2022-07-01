@@ -33,6 +33,23 @@ Reach data generation
    SwnMf6.set_reach_data_from_segments
    SwnMf6.set_reach_slope
 
+Streamflow Routing Package
+--------------------------
+.. autosummary::
+   :toctree: ref/
+
+   SwnMf6.set_sfr_obj
+   SwnMf6.default_packagedata
+   SwnMf6.packagedata_frame
+   SwnMf6.write_packagedata
+   SwnMf6.flopy_packagedata
+   SwnMf6.connectiondata_series
+   SwnMf6.write_connectiondata
+   SwnMf6.flopy_connectiondata
+   SwnMf6.diversions_frame
+   SwnMf6.write_diversions
+   SwnMf6.flopy_diversions
+
 Utilities
 ---------
 .. autosummary::
