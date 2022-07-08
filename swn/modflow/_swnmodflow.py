@@ -1305,7 +1305,7 @@ class SwnModflow(SwnModflowBase):
             self.reaches[reachsel]["iseg"].unique().shape[0])
         # get segments with reaches above the top surface
         segsabove = self.reaches[reachsel].groupby(
-            "iseg").size().sort_values(ascending=False)
+            "iseg")["iseg"].size().sort_values(ascending=False)
         # get incision gradient from segment elevups and elevdns
         # ("diff_up" and "diff_dn" are the incisions of the top and
         # bottom reaches from the segment data)
