@@ -206,7 +206,7 @@ class SwnMf6(SwnModflowBase):
 
         # Set 1.0 for most, 0.0 for head and diversion nodes
         obj.reaches["ustrf"] = 1.0
-        zero_from_rnos = obj.reaches.from_rnos.apply(len) == 0
+        zero_from_rnos = obj.reaches["from_rnos"].apply(len) == 0
         obj.reaches.loc[zero_from_rnos, "ustrf"] = 0.0
 
         return obj
@@ -835,6 +835,8 @@ class SwnMf6(SwnModflowBase):
                 auxiliary=auxiliary, boundname=boundnames)
         if "connectiondata" not in kwds:
             kwds["connectiondata"] = self.flopy_connectiondata()
+        if self.diversions is not None and "diversions" not in kwds:
+            kwds["diversions"] = self.flopy_diversions()
 
         flopy.mf6.ModflowGwfsfr(
             self.model,
@@ -1133,7 +1135,10 @@ class SwnMf6(SwnModflowBase):
         self.logger.info("%s reaches above model top", reachsel.sum())
         # copy of layer 1 bottom (for updating to fit in stream reaches)
         layerbots = self.model.dis.botm.array.copy()
-        headreaches = self.reaches.loc[self.reaches.from_rnos == set()]
+        sel = self.reaches["from_rnos"] == set()
+        if self.diversions is not None:
+            sel &= ~self.reaches["diversion"]
+        headreaches = self.reaches.loc[sel]
         # through reaches DF
         for hdrch in headreaches.itertuples():
             # check if head reach above model top

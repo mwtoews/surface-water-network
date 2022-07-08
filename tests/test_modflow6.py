@@ -308,7 +308,6 @@ def test_n3d_defaults(tmp_path, has_diversions):
         _ = nm.plot()
         plt.close()
     # Use with flopy
-    diversions = None
     for use_open_close in [False, True]:
         m.remove_package("sfr")
         if use_open_close:
@@ -316,6 +315,8 @@ def test_n3d_defaults(tmp_path, has_diversions):
             # m.rename_all_packages("openclose")
             if has_diversions:
                 diversions = {"filename": "diversions.dat"}
+            else:
+                diversions = None
             nm.set_sfr_obj(
                 print_input=True,
                 save_flows=True,
@@ -329,8 +330,6 @@ def test_n3d_defaults(tmp_path, has_diversions):
                 perioddata={},
             )
         else:
-            if has_diversions:
-                diversions = nm.flopy_diversions()
             nm.set_sfr_obj(
                 print_input=True,
                 save_flows=True,
@@ -338,9 +337,6 @@ def test_n3d_defaults(tmp_path, has_diversions):
                 budget_filerecord="model.sfr.bud",
                 maximum_iterations=100,
                 maximum_picard_iterations=10,
-                packagedata=nm.flopy_packagedata(),
-                connectiondata=nm.flopy_connectiondata(),
-                diversions=diversions,
                 perioddata={},
             )
         # Run model and read outputs
