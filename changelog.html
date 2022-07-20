@@ -6,7 +6,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
-    <title>Change log &#8212; Surface water network 2019 documentation</title>
+    <title>Change log &#8212; Surface water network 2022 documentation</title>
 <script>
   document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
   document.documentElement.dataset.theme = localStorage.getItem("theme") || "light"
@@ -168,11 +168,6 @@
   <a class="reference internal nav-link" href="#version-0-5">
    Version 0.5
   </a>
- </li>
- <li class="toc-h2 nav-item toc-entry">
-  <a class="reference internal nav-link" href="#version-0-4">
-   Version 0.4
-  </a>
   <ul class="nav section-nav flex-column">
    <li class="toc-h3 nav-item toc-entry">
     <a class="reference internal nav-link" href="#breaking-changes">
@@ -186,6 +181,28 @@
    </li>
    <li class="toc-h3 nav-item toc-entry">
     <a class="reference internal nav-link" href="#other-changes">
+     Other changes
+    </a>
+   </li>
+  </ul>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#version-0-4">
+   Version 0.4
+  </a>
+  <ul class="nav section-nav flex-column">
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#id1">
+     Breaking changes
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#id2">
+     New things
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#id3">
      Other changes
     </a>
    </li>
@@ -231,14 +248,38 @@
 <h2>Version 0.5<a class="headerlink" href="#version-0-5" title="Permalink to this heading">#</a></h2>
 <dl class="field-list simple">
 <dt class="field-odd">Date<span class="colon">:</span></dt>
-<dd class="field-odd"><p>dd mmm yyyy</p>
+<dd class="field-odd"><p>20 July 2022</p>
 </dd>
 </dl>
+<section id="breaking-changes">
+<h3>Breaking changes<a class="headerlink" href="#breaking-changes" title="Permalink to this heading">#</a></h3>
 <ul class="simple">
-<li><p>Not released</p></li>
-<li><p>Minimum requirements are Python 3.7, pandas 1.2</p></li>
-<li><p>Add <code class="docutils literal notranslate"><span class="pre">swn.spatial.find_geom_in_swn</span></code> method</p></li>
+<li><p>Minimum requirements are Python 3.7, pandas 1.2 (<a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/38">#38</a>)</p></li>
+<li><p>Add outside segnum to modflow if it is downstream from others (<a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/50">#50</a>)</p></li>
+<li><p>Change behaviour of <a class="reference internal" href="ref/swn.SurfaceWaterNetwork.set_diversions.html#swn.SurfaceWaterNetwork.set_diversions" title="swn.SurfaceWaterNetwork.set_diversions"><code class="xref py py-meth docutils literal notranslate"><span class="pre">SurfaceWaterNetwork.set_diversions()</span></code></a> which by default will now match to the closest segment line (<a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/52">#52</a>)</p></li>
 </ul>
+</section>
+<section id="new-things">
+<h3>New things<a class="headerlink" href="#new-things" title="Permalink to this heading">#</a></h3>
+<ul class="simple">
+<li><p>Add <a class="reference internal" href="ref/swn.SurfaceWaterNetwork.locate_geoms.html#swn.SurfaceWaterNetwork.locate_geoms" title="swn.SurfaceWaterNetwork.locate_geoms"><code class="xref py py-meth docutils literal notranslate"><span class="pre">SurfaceWaterNetwork.locate_geoms()</span></code></a> method (<a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/41">#41</a>, <a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/48">#48</a>, <a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/51">#51</a>)</p></li>
+<li><p>Add <code class="docutils literal notranslate"><span class="pre">run</span></code> option to <a class="reference internal" href="ref/swn.file.topnet2ts.html#swn.file.topnet2ts" title="swn.file.topnet2ts"><code class="xref py py-func docutils literal notranslate"><span class="pre">topnet2ts()</span></code></a>, improve error messages (<a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/44">#44</a>)</p></li>
+<li><p>Add routing methods: <a class="reference internal" href="ref/swn.SurfaceWaterNetwork.route_segnums.html#swn.SurfaceWaterNetwork.route_segnums" title="swn.SurfaceWaterNetwork.route_segnums"><code class="xref py py-meth docutils literal notranslate"><span class="pre">SurfaceWaterNetwork.route_segnums()</span></code></a>, <a class="reference internal" href="ref/swn.modflow.SwnModflow.route_reaches.html#swn.modflow.SwnModflow.route_reaches" title="swn.modflow.SwnModflow.route_reaches"><code class="xref py py-meth docutils literal notranslate"><span class="pre">modflow.SwnModflow.route_reaches()</span></code></a>, and <a class="reference internal" href="ref/swn.modflow.SwnMf6.route_reaches.html#swn.modflow.SwnMf6.route_reaches" title="swn.modflow.SwnMf6.route_reaches"><code class="xref py py-meth docutils literal notranslate"><span class="pre">modflow.SwnMf6.route_reaches()</span></code></a> (<a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/45">#45</a>)</p></li>
+<li><p>Add <a class="reference internal" href="spatial.html#module-swn.spatial" title="swn.spatial"><code class="xref py py-mod docutils literal notranslate"><span class="pre">spatial</span></code></a> module functions: <a class="reference internal" href="ref/swn.spatial.find_location_pairs.html#swn.spatial.find_location_pairs" title="swn.spatial.find_location_pairs"><code class="xref py py-func docutils literal notranslate"><span class="pre">find_location_pairs()</span></code></a> and <a class="reference internal" href="ref/swn.spatial.location_pair_geoms.html#swn.spatial.location_pair_geoms" title="swn.spatial.location_pair_geoms"><code class="xref py py-func docutils literal notranslate"><span class="pre">location_pair_geoms()</span></code></a> (<a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/46">#46</a>)</p></li>
+<li><p>Add methods <a class="reference internal" href="ref/swn.modflow.SwnModflow.get_location_frame_reach_info.html#swn.modflow.SwnModflow.get_location_frame_reach_info" title="swn.modflow.SwnModflow.get_location_frame_reach_info"><code class="xref py py-meth docutils literal notranslate"><span class="pre">modflow.SwnModflow.get_location_frame_reach_info()</span></code></a> and <a class="reference internal" href="ref/swn.modflow.SwnMf6.get_location_frame_reach_info.html#swn.modflow.SwnMf6.get_location_frame_reach_info" title="swn.modflow.SwnMf6.get_location_frame_reach_info"><code class="xref py py-meth docutils literal notranslate"><span class="pre">modflow.SwnMf6.get_location_frame_reach_info()</span></code></a> (<a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/49">#49</a>)</p></li>
+<li><p>Implement diversions for MODFLOW6 (<a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/54">#54</a>)</p></li>
+</ul>
+</section>
+<section id="other-changes">
+<h3>Other changes<a class="headerlink" href="#other-changes" title="Permalink to this heading">#</a></h3>
+<ul class="simple">
+<li><p>Add packing dependency to check package version (<a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/37">#37</a>)</p></li>
+<li><p>Convert class attributes to properties for <a class="reference internal" href="ref/swn.modflow.SwnModflow.segment_data.html#swn.modflow.SwnModflow.segment_data" title="swn.modflow.SwnModflow.segment_data"><code class="xref py py-attr docutils literal notranslate"><span class="pre">modflow.SwnModflow.segment_data</span></code></a> and <a class="reference internal" href="ref/swn.modflow.SwnModflow.segment_data_ts.html#swn.modflow.SwnModflow.segment_data_ts" title="swn.modflow.SwnModflow.segment_data_ts"><code class="xref py py-attr docutils literal notranslate"><span class="pre">segment_data_ts</span></code></a> (<a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/42">#42</a>);</p></li>
+<li><p>Convert class attributes to properties for <a class="reference internal" href="ref/swn.modflow.SwnMf6.segments.html#swn.modflow.SwnMf6.segments" title="swn.modflow.SwnMf6.segments"><code class="xref py py-attr docutils literal notranslate"><span class="pre">modflow.SwnMf6.segments</span></code></a>, <a class="reference internal" href="ref/swn.modflow.SwnMf6.diversions.html#swn.modflow.SwnMf6.diversions" title="swn.modflow.SwnMf6.diversions"><code class="xref py py-attr docutils literal notranslate"><span class="pre">diversions</span></code></a>, and <a class="reference internal" href="ref/swn.modflow.SwnMf6.reaches.html#swn.modflow.SwnMf6.reaches" title="swn.modflow.SwnMf6.reaches"><code class="xref py py-attr docutils literal notranslate"><span class="pre">reaches</span></code></a> (<a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/43">#43</a>)</p></li>
+<li><p>Rename <code class="docutils literal notranslate"><span class="pre">SurfaceWaterNetwork.query()</span></code> → <a class="reference internal" href="ref/swn.SurfaceWaterNetwork.gather_segnums.html#swn.SurfaceWaterNetwork.gather_segnums" title="swn.SurfaceWaterNetwork.gather_segnums"><code class="xref py py-meth docutils literal notranslate"><span class="pre">gather_segnums()</span></code></a>; show <code class="docutils literal notranslate"><span class="pre">DeprecationWarning</span></code> with former method (<a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/47">#47</a>)</p></li>
+<li><p>Move project metadata to <code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code>, add a few optional dependencies (<a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/53">#53</a>)</p></li>
+</ul>
+</section>
 </section>
 <section id="version-0-4">
 <h2>Version 0.4<a class="headerlink" href="#version-0-4" title="Permalink to this heading">#</a></h2>
@@ -247,30 +288,31 @@
 <dd class="field-odd"><p>20 October 2021</p>
 </dd>
 </dl>
-<section id="breaking-changes">
-<h3>Breaking changes<a class="headerlink" href="#breaking-changes" title="Permalink to this heading">#</a></h3>
+<section id="id1">
+<h3>Breaking changes<a class="headerlink" href="#id1" title="Permalink to this heading">#</a></h3>
 <ul class="simple">
-<li><p>Change <code class="docutils literal notranslate"><span class="pre">SurfaceWaterNetwork(lines.geometry)</span></code> -&gt; <code class="docutils literal notranslate"><span class="pre">SurfaceWaterNetwork.from_lines(lines.geometry)</span></code></p></li>
-<li><p>Change <code class="docutils literal notranslate"><span class="pre">MfSfrNetwork(n,</span> <span class="pre">m,</span> <span class="pre">...)</span></code> -&gt; <code class="docutils literal notranslate"><span class="pre">SwnModflow.from_swn_flopy(n,</span> <span class="pre">m)</span></code></p></li>
-<li><p>Legacy <code class="docutils literal notranslate"><span class="pre">swn.modflow.MfSfrNetwork</span></code> kept, but will be dropped next release</p></li>
+<li><p>Change <code class="docutils literal notranslate"><span class="pre">SurfaceWaterNetwork(lines.geometry)</span></code> → <a class="reference internal" href="ref/swn.SurfaceWaterNetwork.from_lines.html#swn.SurfaceWaterNetwork.from_lines" title="swn.SurfaceWaterNetwork.from_lines"><code class="xref py py-meth docutils literal notranslate"><span class="pre">SurfaceWaterNetwork.from_lines(lines.geometry)</span></code></a></p></li>
+<li><p>Change <code class="docutils literal notranslate"><span class="pre">MfSfrNetwork(n,</span> <span class="pre">m,</span> <span class="pre">...)</span></code> → <a class="reference internal" href="ref/swn.modflow.SwnModflow.from_swn_flopy.html#swn.modflow.SwnModflow.from_swn_flopy" title="swn.modflow.SwnModflow.from_swn_flopy"><code class="xref py py-meth docutils literal notranslate"><span class="pre">SwnModflow.from_swn_flopy(n,</span> <span class="pre">m)</span></code></a></p></li>
+<li><p>Legacy <code class="docutils literal notranslate"><span class="pre">modflow.MfSfrNetwork</span></code> kept, but will be dropped by version 0.6</p></li>
 </ul>
 </section>
-<section id="new-things">
-<h3>New things<a class="headerlink" href="#new-things" title="Permalink to this heading">#</a></h3>
+<section id="id2">
+<h3>New things<a class="headerlink" href="#id2" title="Permalink to this heading">#</a></h3>
 <ul class="simple">
-<li><p>Add <code class="docutils literal notranslate"><span class="pre">.to_pickle()</span></code> and <code class="docutils literal notranslate"><span class="pre">.from_pickle()</span></code> methods</p></li>
-<li><p>Support MODFLOW 6 models (as well as classic MODFLOW)</p></li>
-<li><p>Add <code class="docutils literal notranslate"><span class="pre">segments_series</span></code> and <code class="docutils literal notranslate"><span class="pre">pair_segments_frame</span></code> methods to <code class="docutils literal notranslate"><span class="pre">SurfaceWaterNetwork</span></code></p></li>
-<li><p>Add <code class="docutils literal notranslate"><span class="pre">swn.compat</span></code> module for compatibility</p></li>
-<li><p>Add Sphinx documentation, with doctests</p></li>
+<li><p>Add <code class="docutils literal notranslate"><span class="pre">.to_pickle()</span></code> and <code class="docutils literal notranslate"><span class="pre">.from_pickle()</span></code> methods to core classes</p></li>
+<li><p>Support MODFLOW 6 models with <a class="reference internal" href="ref/swn.modflow.SwnMf6.html#swn.modflow.SwnMf6" title="swn.modflow.SwnMf6"><code class="xref py py-class docutils literal notranslate"><span class="pre">modflow.SwnMf6</span></code></a> (<a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/12">#12</a>)</p></li>
+<li><p>Add <a class="reference internal" href="ref/swn.SurfaceWaterNetwork.segments_series.html#swn.SurfaceWaterNetwork.segments_series" title="swn.SurfaceWaterNetwork.segments_series"><code class="xref py py-meth docutils literal notranslate"><span class="pre">SurfaceWaterNetwork.segments_series()</span></code></a> and <a class="reference internal" href="ref/swn.SurfaceWaterNetwork.pair_segments_frame.html#swn.SurfaceWaterNetwork.pair_segments_frame" title="swn.SurfaceWaterNetwork.pair_segments_frame"><code class="xref py py-meth docutils literal notranslate"><span class="pre">pair_segments_frame()</span></code></a> methods (<a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/15">#15</a>)</p></li>
+<li><p>Add methods for setting stream bed elevations (<a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/27">#27</a>)</p></li>
+<li><p>Add <code class="xref py py-mod docutils literal notranslate"><span class="pre">compat</span></code> module for compatibility</p></li>
+<li><p>Add Sphinx documentation, with doctests (<a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/18">#18</a>)</p></li>
 </ul>
 </section>
-<section id="other-changes">
-<h3>Other changes<a class="headerlink" href="#other-changes" title="Permalink to this heading">#</a></h3>
+<section id="id3">
+<h3>Other changes<a class="headerlink" href="#id3" title="Permalink to this heading">#</a></h3>
 <ul class="simple">
-<li><p>Improve performance of <code class="docutils literal notranslate"><span class="pre">SurfaceWaterNetwork.from_lines</span></code></p></li>
-<li><p>Add <code class="docutils literal notranslate"><span class="pre">mult</span></code> multiplier to <code class="docutils literal notranslate"><span class="pre">topnet2ts</span></code></p></li>
-<li><p>Use declarative configuration for project setup, remove <code class="docutils literal notranslate"><span class="pre">setup.py</span></code></p></li>
+<li><p>Improve performance of <a class="reference internal" href="ref/swn.SurfaceWaterNetwork.from_lines.html#swn.SurfaceWaterNetwork.from_lines" title="swn.SurfaceWaterNetwork.from_lines"><code class="xref py py-meth docutils literal notranslate"><span class="pre">SurfaceWaterNetwork.from_lines()</span></code></a> (<a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/33">#33</a>)</p></li>
+<li><p>Add <code class="docutils literal notranslate"><span class="pre">mult</span></code> multiplier to <a class="reference internal" href="ref/swn.file.topnet2ts.html#swn.file.topnet2ts" title="swn.file.topnet2ts"><code class="xref py py-func docutils literal notranslate"><span class="pre">topnet2ts()</span></code></a></p></li>
+<li><p>Use declarative configuration for project setup, remove <code class="docutils literal notranslate"><span class="pre">setup.py</span></code> (<a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/35">#35</a>)</p></li>
 </ul>
 </section>
 </section>
@@ -282,10 +324,10 @@
 </dd>
 </dl>
 <ul class="simple">
-<li><p>Add GitHub Actions for testing</p></li>
+<li><p>Add GitHub Actions for testing (<a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/9">#9</a>)</p></li>
 <li><p>Remove GDAL dependency</p></li>
 <li><p>Require pyproj&gt;=2.0</p></li>
-<li><p>Add several methods in <code class="docutils literal notranslate"><span class="pre">swn.spatial</span></code>: <code class="docutils literal notranslate"><span class="pre">compare_crs</span></code>, <code class="docutils literal notranslate"><span class="pre">get_crs</span></code>, <code class="docutils literal notranslate"><span class="pre">find_segnum_in_swn</span></code></p></li>
+<li><p>Add several functions to <a class="reference internal" href="spatial.html#module-swn.spatial" title="swn.spatial"><code class="xref py py-mod docutils literal notranslate"><span class="pre">spatial</span></code></a>: <code class="xref py py-func docutils literal notranslate"><span class="pre">compare_crs()</span></code>, <code class="xref py py-func docutils literal notranslate"><span class="pre">get_crs()</span></code>, <code class="xref py py-func docutils literal notranslate"><span class="pre">find_segnum_in_swn()</span></code></p></li>
 </ul>
 </section>
 <section id="version-0-2">
@@ -349,7 +391,7 @@
   
   <div class="footer-item">
     <p class="copyright">
-    &copy; Copyright 2021, Mike Taves, Brioch Hemmings.<br>
+    &copy; Copyright 2022, Mike Taves, Brioch Hemmings.<br>
 </p>
   </div>
   
