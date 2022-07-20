@@ -8,9 +8,9 @@ __credits__ = ['Brioch Hemmings']
 __all__ = [
     "__version__",
     "core", "file", "modflow", "spatial",
-    "SurfaceWaterNetwork", "MfSfrNetwork", "SwnMf6", "SwnModflow"]
+    "SurfaceWaterNetwork", "SwnMf6", "SwnModflow"]
 
 from . import core, file, modflow, spatial
 from ._version import version as __version__
 from .core import SurfaceWaterNetwork
-from .modflow import MfSfrNetwork, SwnMf6, SwnModflow
+from .modflow import SwnMf6, SwnModflow
