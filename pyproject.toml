@@ -39,11 +39,12 @@ dependencies = [
 
 [project.optional-dependencies]
 doc = [
-    "sphinx",
     "ipython",
-    "numpydoc",
     "matplotlib",
+    "numpydoc",
     "pydata-sphinx-theme",
+    "sphinx",
+    "sphinx-issues",
 ]
 extra = [
     "flopy",

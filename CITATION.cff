@@ -1,0 +1,26 @@
+cff-version: 1.2.0
+message: Please cite this software using these metadata.
+type: software
+title: Surface water network
+version: 0.5
+date-released: "2022-07-20"
+doi: 10.5281/zenodo.6865974
+abstract: A Python package to create and analyze surface water networks.
+url: https://github.com/mwtoews/surface-water-network
+license: "BSD-3-Clause"
+authors:
+  - given-names: Mike W.
+    family-names: Taves
+    email: mwtoews@gmail.com
+    affiliation: GNS Science
+    orcid: "https://orcid.org/0000-0003-3657-7963"
+  - given-names: Brioch
+    family-names: Hemmings
+    email: briochh@gmail.com
+    affiliation: GNS Science
+    orcid: "https://orcid.org/0000-0001-6311-8450"
+keywords:
+  - surface water
+  - groundwater
+  - MODFLOW
+  - flopy

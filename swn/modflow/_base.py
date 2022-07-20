@@ -992,6 +992,7 @@ class SwnModflowBase:
         method : str, default None
             This option determines how ``value_out`` values should be
             determined, if not specified. Choose one of:
+
               - None (default): automatically determine method. If value is
                 float-like or ``log=True``, choose ``continuous`` with
                 interpolation (if necessary) along reaches, otherwise
@@ -1008,6 +1009,7 @@ class SwnModflowBase:
                 lengths of segments are ignored. Segments with
                 different ``value`` and ``value_out`` use interpolation
                 along reaches.
+
         log : bool, default False
             If True and ``method`` is not "constant", apply a log
             transformation applied to interpolation.
@@ -1092,12 +1094,14 @@ class SwnModflowBase:
         ----------
         method: str, default "auto"
             Method used to evaluate reach slope.
-            - "auto": automatically determine method.
-            - "zcoord_ab": if surface water network has Z information,
+
+            - ``auto``: automatically determine method.
+            - ``zcoord_ab``: if surface water network has Z information,
               use the start/end elevations to determine elevation drop.
-            - "grid_top": evaluate the slope from the top grid of the model.
-            - "rch_len": calc dz from slope of top model grid
+            - ``grid_top``: evaluate the slope from the top grid of the model.
+            - ``rch_len``: calc dz from slope of top model grid
               calc rgrd as dz/rlen
+
         min_slope : float or pandas.Series, optional
             Minimum downwards slope imposed on segments. If float, then this is
             a global value, otherwise it is per-segment with a Series.

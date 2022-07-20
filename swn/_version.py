@@ -1,6 +1,6 @@
 """Package version."""
 major = 0
 minor = 5
-word = "dev"
+word = ""
 
 version = f"{major}.{minor}{word}"
