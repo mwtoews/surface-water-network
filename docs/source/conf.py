@@ -14,17 +14,17 @@ import os
 import sys
 
 sys.path.insert(0, os.path.abspath("../.."))
-print(sys.path)
+
 import swn
 
 # -- Project information -----------------------------------------------------
 
 project = "Surface water network"
-copyright = "2021, Mike Taves, Brioch Hemmings"
+copyright = "2022, Mike Taves, Brioch Hemmings"
 author = "Mike Taves, Brioch Hemmings"
 
 # The full version, including alpha/beta/rc tags
-release = "2019"
+release = "2022"
 
 
 # -- General configuration ---------------------------------------------------
@@ -36,9 +36,10 @@ extensions = [
     "IPython.sphinxext.ipython_console_highlighting",
     "IPython.sphinxext.ipython_directive",
     "matplotlib.sphinxext.plot_directive",
+    "numpydoc",
     "sphinx.ext.autosummary",
     "sphinx.ext.intersphinx",
-    "numpydoc",
+    "sphinx_issues",
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -79,3 +80,6 @@ intersphinx_mapping = {
 }
 
 autosummary_generate = True
+
+# sphinx-issues
+issues_github_path = "mwtoews/surface-water-network"

@@ -1221,7 +1221,7 @@ def test_get_location_frame_reach_info_coastal(
     r_df = nm.get_location_frame_reach_info(loc_gdf, downstream_bias=0.01)
     assert list(r_df.reachID) == list(expected_df.reachID)
     diff = (loc_gdf["dist_to_seg"] - r_df["dist_to_reach"]).abs()
-    np.testing.assert_allclose(diff.max(), 3.6416736e-10)
+    np.testing.assert_allclose(diff.max(), 5e-10, rtol=0.5)
     r_df = nm.get_location_frame_reach_info(loc_gdf, downstream_bias=-0.01)
     assert list(r_df.reachID) == list(expected_df.reachID)
     # expect minor changes

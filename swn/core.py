@@ -550,9 +550,9 @@ class SurfaceWaterNetwork:
 
         If a ``from_segnum`` column exists, these values are checked against
         the index for segments, and adds/updates (where possible)
-         ``dist_to_seg`` and ``seg_ndist``. If a non-spatial frame is used,
-         it is assumed that the diversion is from the segment end, where
-         ``seg_ndist`` is 1.0.
+        ``dist_to_seg`` and ``seg_ndist``. If a non-spatial frame is used,
+        it is assumed that the diversion is from the segment end, where
+        ``seg_ndist`` is 1.0.
 
         If ``from_segnum`` is not provided and a GeoDataFrame is provided, then
         the segment is identified using :py:meth:`locate_geoms`.
