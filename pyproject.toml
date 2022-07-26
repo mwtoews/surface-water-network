@@ -52,6 +52,7 @@ extra = [
     "netcdf4",
 ]
 lint = [
+    "cffconvert",
     "flake8",
 ]
 test = [
