@@ -26,7 +26,7 @@ New things
 Other changes
 ~~~~~~~~~~~~~
 - Add packing dependency to check package version (:pr:`37`)
-- Convert class attributes to properties for :py:attr:`modflow.SwnModflow.segment_data` and :py:attr:`~swn.modflow.SwnModflow.segment_data_ts` (:pr:`42`); 
+- Convert class attributes to properties for :py:attr:`modflow.SwnModflow.segment_data` and :py:attr:`~swn.modflow.SwnModflow.segment_data_ts` (:pr:`42`)
 - Convert class attributes to properties for :py:attr:`modflow.SwnMf6.segments`, :py:attr:`~swn.modflow.SwnMf6.diversions`, and :py:attr:`~swn.modflow.SwnMf6.reaches` (:pr:`43`)
 - Rename ``SurfaceWaterNetwork.query()`` → :py:meth:`~swn.SurfaceWaterNetwork.gather_segnums`; show ``DeprecationWarning`` with former method (:pr:`47`)
 - Move project metadata to ``pyproject.toml``, add a few optional dependencies (:pr:`53`)
