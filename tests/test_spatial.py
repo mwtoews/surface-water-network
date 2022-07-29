@@ -18,8 +18,10 @@ def test_get_sindex():
         geometry=geopandas.points_from_xy(
             range(spatial.rtree_threshold), range(spatial.rtree_threshold)))
     if spatial.rtree:
-        assert spatial.get_sindex(xy) is not None
-        assert spatial.get_sindex(xy.geometry) is not None
+        with pytest.deprecated_call():
+            assert spatial.get_sindex(xy) is not None
+        with pytest.deprecated_call():
+            assert spatial.get_sindex(xy.geometry) is not None
 
 
 def test_interp_2d_to_3d():

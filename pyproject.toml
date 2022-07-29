@@ -29,7 +29,7 @@ classifiers = [
 ]
 requires-python = ">=3.7"
 dependencies = [
-    "geopandas",
+    "geopandas >=0.9",
     "packaging",
     "pandas >=1.2",
     "pyproj >=2.2",

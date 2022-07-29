@@ -11,7 +11,7 @@ from shapely.ops import linemerge, substring
 
 from ..compat import ignore_shapely_warnings_for_object_array
 from ..core import SurfaceWaterNetwork
-from ..spatial import bias_substring, compare_crs, get_sindex, visible_wkt
+from ..spatial import bias_substring, compare_crs, visible_wkt
 from ..util import is_location_frame
 from ._misc import tile_series_as_frame, transform_data_to_series_or_frame
 
