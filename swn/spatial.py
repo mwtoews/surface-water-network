@@ -1,7 +1,7 @@
 """Spatial methods."""
 
 __all__ = [
-    "get_sindex", "interp_2d_to_3d",
+    "interp_2d_to_3d",
     "wkt_to_dataframe", "wkt_to_geodataframe", "wkt_to_geoseries",
     "force_2d", "round_coords", "compare_crs", "get_crs",
     "bias_substring",
@@ -38,8 +38,10 @@ rtree_threshold = 100
 def get_sindex(gdf):
     """Get or build an R-Tree spatial index.
 
-    Particularly useful for geopandas<0.2.0;>0.7.0;0.9.0
+    .. deprecated:: 0.6
+        This method is no longer used.
     """
+    warn("get_sindex is no longer used", DeprecationWarning, stacklevel=2)
     sindex = None
     if (hasattr(gdf, '_rtree_sindex')):
         return getattr(gdf, '_rtree_sindex')
