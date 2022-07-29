@@ -465,6 +465,7 @@ class SwnModflowBase:
             if sel.any():
                 # Remove any inactive grid cells from analysis
                 grid_cells = grid_cells.loc[sel]
+        _ = grid_cells.sindex  # create spatial index
         num_domain_modified = 0
         if this_class == "SwnModflow":
             domain_label = "ibound"
@@ -488,7 +489,6 @@ class SwnModflowBase:
 
         # Break up source segments according to the model grid definition
         obj.logger.debug("evaluating reach data on model grid")
-        grid_sindex = get_sindex(grid_cells)
         reach_include = swn.segments_series(reach_include_fraction) * cell_size
         # Make an empty DataFrame for reaches
         reaches = pd.DataFrame(columns=["geometry"])
@@ -553,12 +553,12 @@ class SwnModflowBase:
                 # don't merge, e.g. reach does not connect to adjacent cell
                 pass
             elif len(matches) == 1:
-                # short segment is in one other cell only
+                # short reach is in one other cell only
                 # update new i and j values, keep geometry as it is
                 ij1 = tuple(reach_df.loc[matches[0][0], ["i", "j"]])
                 reach_df.loc[idx, ["i", "j", "moved"]] = ij1 + (True,)
-                # self.logger.debug(
-                #    "moved short segment of %s from %s to %s",
+                # obj.logger.debug(
+                #    "moved short reach of segnum %s from %s to %s",
                 #    segnum, this_ij, ij1)
             elif len(matches) == 2:
                 assert grid_points.geom_type == "MultiPoint", grid_points.wkt
@@ -602,8 +602,8 @@ class SwnModflowBase:
                     (i1, j1, reach_geom1.length, True)
                 reach_df.at[idx, "geometry"] = reach_geom1
                 append_reach_df(reach_df, i2, j2, reach_geom2, moved=True)
-                # self.logger.debug(
-                #   "split and moved short segment of %s from %s to %s and %s",
+                # obj.logger.debug(
+                #   "split and moved short reach of %s from %s to %s and %s",
                 #   segnum, this_ij, (i1, j1), (i2, j2))
             else:
                 obj.logger.critical(
@@ -615,20 +615,14 @@ class SwnModflowBase:
                 threshold = cell_size * 2.0
                 if rem.length > threshold:
                     obj.logger.debug(
-                        "remaining line segment from %s too long to merge "
+                        "remaining line from segnum %s too long to merge "
                         "(%.1f > %.1f)", segnum, rem.length, threshold)
                     return
                 # search full grid for other cells that could match
-                if grid_sindex:
-                    bbox_match = sorted(grid_sindex.intersection(rem.bounds))
-                    sub = grid_cells.geometry.iloc[bbox_match]
-                else:  # slow scan of all cells
-                    sub = grid_cells.geometry
-                assert len(sub) > 0, len(sub)
                 matches = []
-                for (i, j), grid_geom in sub.iteritems():
-                    if grid_geom.touches(rem):
-                        matches.append((i, j, grid_geom))
+                for gc in grid_cells[grid_cells.intersects(rem)].itertuples():
+                    assert gc.geometry.touches(rem)
+                    matches.append((*gc.Index, gc.geometry))
                 if len(matches) == 0:
                     return
                 threshold = reach_include[segnum]
@@ -642,7 +636,7 @@ class SwnModflowBase:
                                     lambda p: grid_geom.distance(p)).max()
                     if mdist > threshold:
                         obj.logger.debug(
-                            "remaining line segment from %s too far away to "
+                            "remaining line from segnum %s too far away to "
                             "merge (%.1f > %.1f)", segnum, mdist, threshold)
                         return
                     append_reach_df(reach_df, i, j, rem, moved=True)
@@ -665,7 +659,7 @@ class SwnModflowBase:
                     mdist = rem_c["dm"].max()
                     if mdist > threshold:
                         obj.logger.debug(
-                            "remaining line segment from %s too far away to "
+                            "remaining line from segnum %s too far away to "
                             "merge (%.1f > %.1f)", segnum, mdist, threshold)
                         return
                     # try a simple split where distances switch
@@ -718,26 +712,38 @@ class SwnModflowBase:
                 obj.logger.warning(
                     "failed to merge segnum %s at %s: %s", segnum, ij, geom)
 
-        # Looping over each segment breaking down into reaches
-        for segnum, line in segments.geometry.iteritems():
-            remaining_line = line
-            if grid_sindex:
-                bbox_match = sorted(grid_sindex.intersection(line.bounds))
-                if not bbox_match:
-                    continue
-                sub = grid_cells.geometry.iloc[bbox_match]
-            else:  # slow scan of all cells
-                sub = grid_cells.geometry
-            # Find all intersections between segment and grid cells
+        # Break down segments into reaches by overlaying grid
+        df1 = segments[["geometry"]].assign(segnum=segments.index)
+        if segments.has_sindex and not df1.has_sindex:
+            obj.logger.debug("copying sindex from segments")
+            df1.geometry.values._sindex = segments.geometry.values._sindex
+        df2 = grid_cells.reset_index()
+        if grid_cells.has_sindex and not df2.has_sindex:
+            obj.logger.debug("copying sindex from grid_cells")
+            df2.geometry.values._sindex = grid_cells.geometry.values._sindex
+        if df1.crs is None and df2.crs is not None:
+            df1.crs = df2.crs
+        elif df1.crs is not None and df2.crs is None:
+            df2.crs = df1.crs
+        grid_reaches = geopandas.overlay(
+            df1, df2,
+            how="intersection", keep_geom_type=True, make_valid=False)
+        check_geom_type = (
+            (grid_reaches.geom_type == "LineString") |
+            (grid_reaches.geom_type == "MultiLineString"))
+        assert check_geom_type.all()
+        # erase some odd floating point issues
+        grid_reaches["geometry"] = grid_reaches.geometry.apply(visible_wkt)
+
+        # Process each segment
+        for segnum, grid_reaches_df in grid_reaches.groupby("segnum"):
+            remaining_line = line = segments.geometry[segnum]
+            # process all intersections between segment and grid cells
             reach_df = empty_reach_df.copy()
-            for (i, j), grid_geom in sub.iteritems():
-                reach_geom = grid_geom.intersection(line)
-                if reach_geom.is_empty or reach_geom.geom_type == "Point":
-                    continue
-                # erase some odd floating point issues
-                reach_geom = visible_wkt(reach_geom)
+            for gr in grid_reaches_df.itertuples():
+                grid_geom = grid_cells.geometry[gr.i, gr.j]
                 remaining_line = remaining_line.difference(grid_geom)
-                append_reach_df(reach_df, i, j, reach_geom)
+                append_reach_df(reach_df, gr.i, gr.j, gr.geometry)
             # Determine if any remaining portions of the line can be used
             if line is not remaining_line and remaining_line.length > 0:
                 assign_remaining_reach(reach_df, segnum, remaining_line)
@@ -761,9 +767,8 @@ class SwnModflowBase:
                 i = reach.i
                 j = reach.j
                 reach_geom = reach.geometry
-                if line.has_z:
-                    # intersection(line) does not preserve Z coords,
-                    # but line.interpolate(d) works as expected
+                if line.has_z and not reach_geom.has_z:
+                    # this should not be necessary, it can be expensive
                     reach_geom = LineString(line.interpolate(
                         line.project(Point(c))) for c in reach_geom.coords)
                 # Get a point from the middle of the reach_geom
@@ -872,6 +877,17 @@ class SwnModflowBase:
                 isinstance(diversions, geopandas.GeoDataFrame) and
                 "geometry" in diversions.columns and
                 (~diversions_in_model.is_empty).all())
+            if is_spatial:
+                try:
+                    match_s = geopandas.sjoin_nearest(
+                        diversions_in_model, obj.grid_cells,
+                        "inner")[["index_right0", "index_right1"]].rename(
+                        columns={"index_right0": "i", "index_right1": "j"})
+                    match_s.index.name = "divid"
+                    match = match_s.reset_index()
+                    has_sjoin_nearest = True
+                except (AttributeError, NotImplementedError):
+                    has_sjoin_nearest = False
             for divn in diversions_in_model.itertuples():
                 # Use the last upstream reach as a template for a new reach
                 reach_d = dict(reaches.loc[
@@ -886,19 +902,17 @@ class SwnModflowBase:
                 # Assign one reach at grid cell
                 if is_spatial:
                     # Find grid cell nearest to diversion
-                    grid_cells = obj.grid_cells
-                    grid_sindex = get_sindex(grid_cells)
-                    if grid_sindex:
-                        bbox_match = sorted(
-                            grid_sindex.nearest(divn.geometry.bounds))
-                        # more than one nearest can exist! just take one...
-                        num_found = len(bbox_match)
-                        grid_cell = grid_cells.iloc[bbox_match[0]]
+                    if has_sjoin_nearest:
+                        sel = match["divid"] == divn.Index
+                        sel0_ij = tuple(match.loc[sel, ["i", "j"]].iloc[0])
+                        grid_cell = obj.grid_cells.loc[sel0_ij]
                     else:  # slow scan of all cells
-                        sel = grid_cells.intersects(divn.geometry)
-                        num_found = sel.sum()
-                        grid_cell = grid_cells.loc[sel].iloc[0]
+                        sel = obj.grid_cells.intersects(divn.geometry)
+                        # TODO: if it's outside, search nearest distance?
+                        grid_cell = obj.grid_cells.loc[sel].iloc[0]
+                    num_found = sel.sum()
                     if num_found > 1:
+                        # TODO: if non-point, consider using centroid
                         obj.logger.warning(
                             "%d grid cells are nearest to diversion %r, "
                             "but only taking the first %s",
