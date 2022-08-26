@@ -479,5 +479,8 @@ def location_pair_geoms(pairs, loc_df, n):
                     n.segments.geometry[downstream.segnum],
                     0.0, downstream.seg_ndist, normalized=True)
             )
-            geoms_d[pair] = linemerge(unary_union(geoms))
+            geom = unary_union(geoms)
+            if geom.geom_type != "LineString":
+                geom = linemerge(geom)
+            geoms_d[pair] = geom
     return geoms_d

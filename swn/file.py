@@ -114,6 +114,7 @@ colname10 = {
     "strtop_incopt": "stpincopt",
     "prev_ibound": "previbound",
     "prev_idomain": "prevdomain",
+    "dist_to_reach": "dst_to_rch",
     "dist_to_segnum": "dst_to_seg",
     "dist_to_seg": "dst_to_seg",
     "is_within_catchment": "within_cat",
