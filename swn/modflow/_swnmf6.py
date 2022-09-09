@@ -1666,5 +1666,6 @@ class SwnMf6(SwnModflowBase):
 
 def _flopy_set3darray(flopyobj, array3d):
     data = [{"filename": flopyobj[k].fname, "data":ar}
+            if flopyobj[k].fname else {"data": ar}
             for k, ar in enumerate(array3d)]
     flopyobj.set_data(data)
