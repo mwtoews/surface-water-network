@@ -1057,7 +1057,10 @@ class SwnMf6(SwnModflowBase):
                     "%s cells less than %s", thincells.sum(), minthick)
                 laythick[thincells] = minthick
                 layerbots[k + 1] = layerbots[k] - laythick
-            self.model.dis.botm.set_data(layerbots)
+            # flopy messing with external file names so apply in wrapper
+            # TODO remove line if flopy is patched (https://github.com/modflowpy/flopy/issues/1534)
+            _flopy_set3darray(self.model.dis.botm, layerbots)
+            # self.model.dis.botm.set_data(layerbots)
 
     def _reachbyreach_elevs(
             self, minslope=1e-4, minincise=0.2, minthick=0.5, fix_dis=True,
@@ -1347,7 +1350,11 @@ class SwnMf6(SwnModflowBase):
                     "%s cells less than %s", thincells.sum(), minthick)
                 laythick[thincells] = minthick
                 layerbots[k + 1] = layerbots[k] - laythick
-            self.model.dis.botm.set_data(layerbots)
+            # flopy messing with external file names so apply in wrapper
+            # TODO remove line if flopy is patched (https://github.com/modflowpy/flopy/issues/1534)
+            _flopy_set3darray(self.model.dis.botm, layerbots)
+            # self.model.dis.botm.set_data(layerbots)
+
 
     def _to_rno_elevs(
             self, minslope=0.0001, minincise=0.2, minthick=0.5, buffer=0.5,
@@ -1656,3 +1663,8 @@ class SwnMf6(SwnModflowBase):
                 idx1 = tmp1
                 idx2 = con2.index(rno)
         return con1[:idx1] + list(reversed(con2[:idx2]))
+
+def _flopy_set3darray(flopyobj, array3d):
+    data = [{"filename": flopyobj[k].fname, "data":ar}
+            for k, ar in enumerate(array3d)]
+    flopyobj.set_data(data)
