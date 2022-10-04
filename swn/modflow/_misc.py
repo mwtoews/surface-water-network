@@ -151,7 +151,7 @@ def transform_data_to_series_or_frame(
         do_astype = True
         if isinstance(data, dict):
             try:
-                series = pd.Series(data, dtype=dtype)
+                series = pd.Series(data).astype(dtype)
                 do_astype = False
             except ValueError:
                 data = pd.Series(data)

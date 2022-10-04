@@ -120,9 +120,9 @@ class SwnMf6(SwnModflowBase):
         obj.reaches["to_rno"] = -1
         if has_diversions:
             segnum_iter = obj.reaches.loc[
-                ~obj.reaches.diversion, "segnum"].iteritems()
+                ~obj.reaches.diversion, "segnum"].items()
         else:
-            segnum_iter = obj.reaches["segnum"].iteritems()
+            segnum_iter = obj.reaches["segnum"].items()
         rno, segnum = next(segnum_iter)
         for next_rno, next_segnum in segnum_iter:
             obj.reaches.at[rno, "to_rno"] = get_to_rno()
@@ -156,7 +156,7 @@ class SwnMf6(SwnModflowBase):
             obj.diversions.loc[div_sel, "idv"] = 1
             rno_counts = obj.diversions[div_sel].groupby(
                 "rno").count()["in_model"]
-            for rno, count in rno_counts[rno_counts > 1].iteritems():
+            for rno, count in rno_counts[rno_counts > 1].items():
                 obj.diversions.loc[obj.diversions["rno"] == rno, "idv"] = \
                     obj.diversions.idv[obj.diversions["rno"] == rno].cumsum()
             # cross-reference iconr to rno used as a reach
@@ -544,7 +544,7 @@ class SwnMf6(SwnModflowBase):
         cn = cn.apply(lambda x: " ".join(str(v).rjust(rnolen) for v in x))
         with open(fname, "w") as f:
             f.write(f"# rno {' '.join(icn)}\n")
-            for rno, ic in cn.iteritems():
+            for rno, ic in cn.items():
                 f.write(rowfmt.format(rno, ic))
 
     def flopy_connectiondata(self):

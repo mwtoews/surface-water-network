@@ -150,7 +150,7 @@ def gdf_to_shapefile(gdf, shp_fname, **kwargs):
     geom_name = gdf.geometry.name
 
     # Change data types, as necessary
-    for col, dtype in gdf.dtypes.iteritems():
+    for col, dtype in gdf.dtypes.items():
         if col == geom_name:
             continue
         if dtype == object:
