@@ -243,7 +243,7 @@ class SurfaceWaterNetwork:
 
         # A few checks
         sel = to_segnum_l.apply(len) > 1
-        for segnum1, to_segnums in to_segnum_l.loc[sel].iteritems():
+        for segnum1, to_segnums in to_segnum_l.loc[sel].items():
             m = ('segment %s has more than one downstream segments: %s',
                  segnum1, str(to_segnums))
             obj.logger.error(*m)
@@ -1141,7 +1141,7 @@ class SurfaceWaterNetwork:
                 res.loc[match.gidx, "segnum"] = match.segnum.values
                 res.loc[match.gidx, "method"] = "nearest"
             else:  # slower method
-                for gidx, g in geom[sel].iteritems():
+                for gidx, g in geom[sel].items():
                     dists = segments_gs.distance(g).sort_values()
                     segnums = dists.index[dists.iloc[0] == dists]
                     if len(segnums) == 1:
@@ -1609,14 +1609,14 @@ class SurfaceWaterNetwork:
             to_segnums = self.to_segnums
             df.loc[to_segnums.index, c2] = df.loc[to_segnums, c1].values
         elif method == "additive":
-            for segnum, from_segnums in self.from_segnums.iteritems():
+            for segnum, from_segnums in self.from_segnums.items():
                 if len(from_segnums) <= 1:
                     continue
                 # get proportions of upstream values
                 from_value1 = df.loc[sorted(from_segnums), c1]
                 from_value1_prop = from_value1 / from_value1.sum()
                 from_value2 = df.loc[segnum, c1] * from_value1_prop
-                for from_segnum, v2 in from_value2.iteritems():
+                for from_segnum, v2 in from_value2.items():
                     df.loc[from_segnum, c2] = v2
         elif method == "constant":
             pass
@@ -1664,7 +1664,7 @@ class SurfaceWaterNetwork:
         #   [dx, elev], where dx is 2D distance from upstream coord
         #   elev is the adjusted elevation
         profile_d = {}  # key is segnum, value is list of profile tuples
-        for segnum, geom in self.segments.geometry.iteritems():
+        for segnum, geom in self.segments.geometry.items():
             coords = geom.coords[:]  # coordinates
             x0, y0, z0 = coords[0]  # upstream coordinate
             profile = [[0.0, z0]]

@@ -353,7 +353,7 @@ def find_location_pairs(loc_df, n):
     loc_df.sort_values(["sequence", "seg_ndist"], inplace=True)
     # Start from upstream locations, querying downstream, except last
     pairs = set()
-    for upstream_idx, upstream_segnum in loc_df.segnum.iloc[:-1].iteritems():
+    for upstream_idx, upstream_segnum in loc_df.segnum.iloc[:-1].items():
         downstream_idx = None
         # First case that the downstream segnum is in the same segnum
         next_loc = loc_df.iloc[loc_df.index.get_loc(upstream_idx) + 1]

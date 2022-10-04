@@ -831,7 +831,7 @@ class SwnModflow(SwnModflowBase):
             swn.pair_segments_frame(
                 width1, width_out, name="width", method="constant")
         ], axis=1, copy=False)
-        for name, series in more_segment_columns.iteritems():
+        for name, series in more_segment_columns.items():
             self.segments[name] = series
         self.segments["roughch"] = swn.segments_series(roughch)
 
@@ -1633,7 +1633,7 @@ class SwnModflow(SwnModflowBase):
             "segnum", verify_integrity=True).iseg
 
         to_reachids = {}
-        for segnum, iseg in segnum_iseg.iteritems():
+        for segnum, iseg in segnum_iseg.items():
             sel = self.reaches.index[self.reaches.iseg == iseg]
             to_reachids.update(dict(zip(sel[0:-1], sel[1:])))
             next_segnum = self.segments.to_segnum[segnum]

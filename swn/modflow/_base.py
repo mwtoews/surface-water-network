@@ -392,7 +392,7 @@ class SwnModflowBase:
         xv = modelgrid.xvertices
         yv = modelgrid.yvertices
         i, j = (np.array(s[1])
-                for s in grid_df.reset_index()[["i", "j"]].iteritems())
+                for s in grid_df.reset_index()[["i", "j"]].items())
         cell_verts = zip(
             zip(xv[i, j], yv[i, j]),
             zip(xv[i, j + 1], yv[i, j + 1]),
@@ -855,7 +855,7 @@ class SwnModflowBase:
             diversions["in_model"] = True
             outside_model = []
             segnum_s = set(reaches.segnum)
-            for divid, from_segnum in diversions.from_segnum.iteritems():
+            for divid, from_segnum in diversions.from_segnum.items():
                 if from_segnum not in segnum_s:
                     # segnum does not exist -- segment is outside model
                     outside_model.append(divid)
@@ -947,7 +947,7 @@ class SwnModflowBase:
         reaches["ireach"] = 0
         iseg = ireach = 0
         prev_segnum = None
-        for idx, segnum in reaches.segnum.iteritems():
+        for idx, segnum in reaches.segnum.items():
             is_diversion = has_diversions and reaches.at[idx, "diversion"]
             if is_diversion:
                 if uses_segments:
