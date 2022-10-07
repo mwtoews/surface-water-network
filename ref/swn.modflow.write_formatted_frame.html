@@ -6,7 +6,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
 
-    <title>swn.SurfaceWaterNetwork &#8212; Surface water network 2022 documentation</title>
+    <title>swn.modflow.write_formatted_frame &#8212; Surface water network 2022 documentation</title>
   <script>
     document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
     document.documentElement.dataset.theme = localStorage.getItem("theme") || "light";
@@ -38,11 +38,11 @@
     <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
     <script src="../_static/doctools.js"></script>
     <script src="../_static/sphinx_highlight.js"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'ref/swn.SurfaceWaterNetwork';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'ref/swn.modflow.write_formatted_frame';</script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="swn.SurfaceWaterNetwork.accumulate_values" href="swn.SurfaceWaterNetwork.accumulate_values.html" />
-    <link rel="prev" title="SurfaceWaterNetwork" href="../swn.html" />
+    <link rel="next" title="File reading/writing helpers" href="../file.html" />
+    <link rel="prev" title="swn.modflow.read_formatted_frame" href="swn.modflow.read_formatted_frame.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="docsearch:language" content="en">
   </head>
@@ -276,8 +276,8 @@
   </p>
   <div class="bd-toc-item navbar-nav">
     <ul class="current nav bd-sidenav">
-<li class="toctree-l1 current active has-children"><a class="reference internal" href="../swn.html">SurfaceWaterNetwork</a><input checked="" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-1"><i class="fa-solid fa-chevron-down"></i></label><ul class="current">
-<li class="toctree-l2 current active has-children"><a class="current reference internal" href="#">swn.SurfaceWaterNetwork</a><input checked="" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-2"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../swn.html">SurfaceWaterNetwork</a><input class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-1"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="swn.SurfaceWaterNetwork.html">swn.SurfaceWaterNetwork</a><input class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-2"><i class="fa-solid fa-chevron-down"></i></label><ul>
 <li class="toctree-l3"><a class="reference internal" href="swn.SurfaceWaterNetwork.accumulate_values.html">swn.SurfaceWaterNetwork.accumulate_values</a></li>
 <li class="toctree-l3"><a class="reference internal" href="swn.SurfaceWaterNetwork.adjust_elevation_profile.html">swn.SurfaceWaterNetwork.adjust_elevation_profile</a></li>
 <li class="toctree-l3"><a class="reference internal" href="swn.SurfaceWaterNetwork.aggregate.html">swn.SurfaceWaterNetwork.aggregate</a></li>
@@ -358,7 +358,7 @@
 <li class="toctree-l2"><a class="reference internal" href="swn.modflow.SwnModflow.route_reaches.html">swn.modflow.SwnModflow.route_reaches</a></li>
 </ul>
 </li>
-<li class="toctree-l1 has-children"><a class="reference internal" href="../swnmf6.html">SwnMf6</a><input class="toctree-checkbox" id="toctree-checkbox-5" name="toctree-checkbox-5" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-5"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="../swnmf6.html">SwnMf6</a><input checked="" class="toctree-checkbox" id="toctree-checkbox-5" name="toctree-checkbox-5" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-5"><i class="fa-solid fa-chevron-down"></i></label><ul class="current">
 <li class="toctree-l2 has-children"><a class="reference internal" href="swn.modflow.SwnMf6.html">swn.modflow.SwnMf6</a><input class="toctree-checkbox" id="toctree-checkbox-6" name="toctree-checkbox-6" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-6"><i class="fa-solid fa-chevron-down"></i></label><ul>
 <li class="toctree-l3"><a class="reference internal" href="swn.modflow.SwnMf6.connectiondata_series.html">swn.modflow.SwnMf6.connectiondata_series</a></li>
 <li class="toctree-l3"><a class="reference internal" href="swn.modflow.SwnMf6.default_packagedata.html">swn.modflow.SwnMf6.default_packagedata</a></li>
@@ -403,7 +403,7 @@
 <li class="toctree-l2"><a class="reference internal" href="swn.modflow.SwnMf6.get_location_frame_reach_info.html">swn.modflow.SwnMf6.get_location_frame_reach_info</a></li>
 <li class="toctree-l2"><a class="reference internal" href="swn.modflow.SwnMf6.route_reaches.html">swn.modflow.SwnMf6.route_reaches</a></li>
 <li class="toctree-l2"><a class="reference internal" href="swn.modflow.read_formatted_frame.html">swn.modflow.read_formatted_frame</a></li>
-<li class="toctree-l2"><a class="reference internal" href="swn.modflow.write_formatted_frame.html">swn.modflow.write_formatted_frame</a></li>
+<li class="toctree-l2 current active"><a class="current reference internal" href="#">swn.modflow.write_formatted_frame</a></li>
 </ul>
 </li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../file.html">File reading/writing helpers</a><input class="toctree-checkbox" id="toctree-checkbox-7" name="toctree-checkbox-7" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-7"><i class="fa-solid fa-chevron-down"></i></label><ul>
@@ -444,197 +444,65 @@
             
             <article class="bd-article" role="main">
               
-  <section id="swn-surfacewaternetwork">
-<h1>swn.SurfaceWaterNetwork<a class="headerlink" href="#swn-surfacewaternetwork" title="Permalink to this heading">#</a></h1>
-<dl class="py class">
-<dt class="sig sig-object py" id="swn.SurfaceWaterNetwork">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">swn.</span></span><span class="sig-name descname"><span class="pre">SurfaceWaterNetwork</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">segments</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">END_SEGNUM</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">logger</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#swn.SurfaceWaterNetwork" title="Permalink to this definition">#</a></dt>
-<dd><p>Surface water network class.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Attributes<span class="colon">:</span></dt>
-<dd class="field-odd"><dl class="simple">
-<dt><strong>END_SEGNUM</strong><span class="classifier">int</span></dt><dd><p>Special segment number that indicates a line end, default is
-usually 0. This number is not part of segments.index.</p>
-</dd>
-<dt><strong>logger</strong><span class="classifier">logging.Logger</span></dt><dd><p>Logger to show messages.</p>
-</dd>
-<dt><strong>warnings</strong><span class="classifier">list</span></dt><dd><p>List of warning messages.</p>
-</dd>
-<dt><strong>errors</strong><span class="classifier">list</span></dt><dd><p>List of error messages.</p>
-</dd>
-</dl>
-</dd>
-</dl>
-<p class="rubric">Methods</p>
-<table class="autosummary longtable table autosummary">
-<tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.accumulate_values.html#swn.SurfaceWaterNetwork.accumulate_values" title="swn.SurfaceWaterNetwork.accumulate_values"><code class="xref py py-obj docutils literal notranslate"><span class="pre">accumulate_values</span></code></a>(values)</p></td>
-<td><p>Accumulate values down the stream network.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.adjust_elevation_profile.html#swn.SurfaceWaterNetwork.adjust_elevation_profile" title="swn.SurfaceWaterNetwork.adjust_elevation_profile"><code class="xref py py-obj docutils literal notranslate"><span class="pre">adjust_elevation_profile</span></code></a>([min_slope])</p></td>
-<td><p>Check and adjust (if necessary) Z coordinates of elevation profiles.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.aggregate.html#swn.SurfaceWaterNetwork.aggregate" title="swn.SurfaceWaterNetwork.aggregate"><code class="xref py py-obj docutils literal notranslate"><span class="pre">aggregate</span></code></a>(segnums[, follow_up])</p></td>
-<td><p>Aggregate segments (and catchments) to a coarser network of segnums.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.estimate_width.html#swn.SurfaceWaterNetwork.estimate_width" title="swn.SurfaceWaterNetwork.estimate_width"><code class="xref py py-obj docutils literal notranslate"><span class="pre">estimate_width</span></code></a>([a, b, upstream_area])</p></td>
-<td><p>Estimate stream width based on upstream area and fitting parameters.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.evaluate_upstream_area.html#swn.SurfaceWaterNetwork.evaluate_upstream_area" title="swn.SurfaceWaterNetwork.evaluate_upstream_area"><code class="xref py py-obj docutils literal notranslate"><span class="pre">evaluate_upstream_area</span></code></a>()</p></td>
-<td><p>Evaluate upstream area from catchments, adds to segments.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.evaluate_upstream_length.html#swn.SurfaceWaterNetwork.evaluate_upstream_length" title="swn.SurfaceWaterNetwork.evaluate_upstream_length"><code class="xref py py-obj docutils literal notranslate"><span class="pre">evaluate_upstream_length</span></code></a>()</p></td>
-<td><p>Evaluate upstream length of segments, adds to segments.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.from_lines.html#swn.SurfaceWaterNetwork.from_lines" title="swn.SurfaceWaterNetwork.from_lines"><code class="xref py py-obj docutils literal notranslate"><span class="pre">from_lines</span></code></a>(lines[, polygons])</p></td>
-<td><p>Create and evaluate a new SurfaceWaterNetwork from lines for segments.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.from_pickle.html#swn.SurfaceWaterNetwork.from_pickle" title="swn.SurfaceWaterNetwork.from_pickle"><code class="xref py py-obj docutils literal notranslate"><span class="pre">from_pickle</span></code></a>(path)</p></td>
-<td><p>Read a pickled format from a file.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.gather_segnums.html#swn.SurfaceWaterNetwork.gather_segnums" title="swn.SurfaceWaterNetwork.gather_segnums"><code class="xref py py-obj docutils literal notranslate"><span class="pre">gather_segnums</span></code></a>(*[, upstream, downstream, ...])</p></td>
-<td><p>Return segnums upstream (inclusive) and downstream (exclusive).</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.locate_geoms.html#swn.SurfaceWaterNetwork.locate_geoms" title="swn.SurfaceWaterNetwork.locate_geoms"><code class="xref py py-obj docutils literal notranslate"><span class="pre">locate_geoms</span></code></a>(geom, *[, override, ...])</p></td>
-<td><p>Return GeoDataFrame of data associated in finding geometies.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.pair_segments_frame.html#swn.SurfaceWaterNetwork.pair_segments_frame" title="swn.SurfaceWaterNetwork.pair_segments_frame"><code class="xref py py-obj docutils literal notranslate"><span class="pre">pair_segments_frame</span></code></a>(value[, value_out, ...])</p></td>
-<td><p>Generate a DataFrame of paired values for top/bottom of segments.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.plot.html#swn.SurfaceWaterNetwork.plot" title="swn.SurfaceWaterNetwork.plot"><code class="xref py py-obj docutils literal notranslate"><span class="pre">plot</span></code></a>([column, sort_column, cmap, legend, ax])</p></td>
-<td><p>Plot map of surface water network.</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">query</span></code>([upstream, downstream, barrier, ...])</p></td>
-<td><p>Return segnums upstream (inclusive) and downstream (exclusive).</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">remove</span></code>([condition, segnums])</p></td>
-<td><p>Remove segments (and catchments).</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.route_segnums.html#swn.SurfaceWaterNetwork.route_segnums" title="swn.SurfaceWaterNetwork.route_segnums"><code class="xref py py-obj docutils literal notranslate"><span class="pre">route_segnums</span></code></a>(start, end, *[, allow_indirect])</p></td>
-<td><p>Return a list of segnums that connect a pair of segnums.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.segments_series.html#swn.SurfaceWaterNetwork.segments_series" title="swn.SurfaceWaterNetwork.segments_series"><code class="xref py py-obj docutils literal notranslate"><span class="pre">segments_series</span></code></a>(value[, name])</p></td>
-<td><p>Generate a Series along the segments index.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.set_diversions.html#swn.SurfaceWaterNetwork.set_diversions" title="swn.SurfaceWaterNetwork.set_diversions"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_diversions</span></code></a>(diversions, *[, override, ...])</p></td>
-<td><p>Set surface water diversion locations.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.to_pickle.html#swn.SurfaceWaterNetwork.to_pickle" title="swn.SurfaceWaterNetwork.to_pickle"><code class="xref py py-obj docutils literal notranslate"><span class="pre">to_pickle</span></code></a>(path[, protocol])</p></td>
-<td><p>Pickle (serialize) object to file.</p></td>
-</tr>
-</tbody>
-</table>
-<dl class="py method">
-<dt class="sig sig-object py" id="swn.SurfaceWaterNetwork.__init__">
-<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">segments</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">END_SEGNUM</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">logger</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#swn.SurfaceWaterNetwork.__init__" title="Permalink to this definition">#</a></dt>
-<dd><p>Initialise SurfaceWaterNetwork.</p>
+  <section id="swn-modflow-write-formatted-frame">
+<h1>swn.modflow.write_formatted_frame<a class="headerlink" href="#swn-modflow-write-formatted-frame" title="Permalink to this heading">#</a></h1>
+<dl class="py function">
+<dt class="sig sig-object py" id="swn.modflow.write_formatted_frame">
+<span class="sig-prename descclassname"><span class="pre">swn.modflow.</span></span><span class="sig-name descname"><span class="pre">write_formatted_frame</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">df</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fname</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">index</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">comment_header</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#swn.modflow.write_formatted_frame" title="Permalink to this definition">#</a></dt>
+<dd><p>Write a data frame as a free formatted table.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><dl class="simple">
-<dt><strong>segments</strong><span class="classifier">geopandas.GeoDataFrame</span></dt><dd><p>Primary GeoDataFrame for stream segments. Index is treated as a
-segment number or ID.</p>
+<dt><strong>df</strong><span class="classifier">pandas.DataFrame</span></dt><dd><p>DataFrame to write.</p>
 </dd>
-<dt><strong>END_SEGNUM</strong><span class="classifier">int</span></dt><dd><p>Special segment number that indicates a line end, default is
-0. This number is not part of segments.index.</p>
+<dt><strong>fname</strong><span class="classifier">Path, str or file-like object</span></dt><dd><p>Path to write file.</p>
 </dd>
-<dt><strong>logger</strong><span class="classifier">logging.Logger, optional</span></dt><dd><p>Logger to show messages.</p>
+<dt><strong>index</strong><span class="classifier">bool, default True</span></dt><dd><p>Write row names (index).</p>
+</dd>
+<dt><strong>comment_header</strong><span class="classifier">bool, default True</span></dt><dd><p>If True, first line starts with ‘#’ to make it a comment, otherwise
+it will be an uncommented header.</p>
 </dd>
 </dl>
 </dd>
 </dl>
-</dd></dl>
-
-<p class="rubric">Methods</p>
-<table class="autosummary longtable table autosummary">
-<tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="#swn.SurfaceWaterNetwork.__init__" title="swn.SurfaceWaterNetwork.__init__"><code class="xref py py-obj docutils literal notranslate"><span class="pre">__init__</span></code></a>(segments[, END_SEGNUM, logger])</p></td>
-<td><p>Initialise SurfaceWaterNetwork.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.accumulate_values.html#swn.SurfaceWaterNetwork.accumulate_values" title="swn.SurfaceWaterNetwork.accumulate_values"><code class="xref py py-obj docutils literal notranslate"><span class="pre">accumulate_values</span></code></a>(values)</p></td>
-<td><p>Accumulate values down the stream network.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.adjust_elevation_profile.html#swn.SurfaceWaterNetwork.adjust_elevation_profile" title="swn.SurfaceWaterNetwork.adjust_elevation_profile"><code class="xref py py-obj docutils literal notranslate"><span class="pre">adjust_elevation_profile</span></code></a>([min_slope])</p></td>
-<td><p>Check and adjust (if necessary) Z coordinates of elevation profiles.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.aggregate.html#swn.SurfaceWaterNetwork.aggregate" title="swn.SurfaceWaterNetwork.aggregate"><code class="xref py py-obj docutils literal notranslate"><span class="pre">aggregate</span></code></a>(segnums[, follow_up])</p></td>
-<td><p>Aggregate segments (and catchments) to a coarser network of segnums.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.estimate_width.html#swn.SurfaceWaterNetwork.estimate_width" title="swn.SurfaceWaterNetwork.estimate_width"><code class="xref py py-obj docutils literal notranslate"><span class="pre">estimate_width</span></code></a>([a, b, upstream_area])</p></td>
-<td><p>Estimate stream width based on upstream area and fitting parameters.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.evaluate_upstream_area.html#swn.SurfaceWaterNetwork.evaluate_upstream_area" title="swn.SurfaceWaterNetwork.evaluate_upstream_area"><code class="xref py py-obj docutils literal notranslate"><span class="pre">evaluate_upstream_area</span></code></a>()</p></td>
-<td><p>Evaluate upstream area from catchments, adds to segments.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.evaluate_upstream_length.html#swn.SurfaceWaterNetwork.evaluate_upstream_length" title="swn.SurfaceWaterNetwork.evaluate_upstream_length"><code class="xref py py-obj docutils literal notranslate"><span class="pre">evaluate_upstream_length</span></code></a>()</p></td>
-<td><p>Evaluate upstream length of segments, adds to segments.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.from_lines.html#swn.SurfaceWaterNetwork.from_lines" title="swn.SurfaceWaterNetwork.from_lines"><code class="xref py py-obj docutils literal notranslate"><span class="pre">from_lines</span></code></a>(lines[, polygons])</p></td>
-<td><p>Create and evaluate a new SurfaceWaterNetwork from lines for segments.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.from_pickle.html#swn.SurfaceWaterNetwork.from_pickle" title="swn.SurfaceWaterNetwork.from_pickle"><code class="xref py py-obj docutils literal notranslate"><span class="pre">from_pickle</span></code></a>(path)</p></td>
-<td><p>Read a pickled format from a file.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.gather_segnums.html#swn.SurfaceWaterNetwork.gather_segnums" title="swn.SurfaceWaterNetwork.gather_segnums"><code class="xref py py-obj docutils literal notranslate"><span class="pre">gather_segnums</span></code></a>(*[, upstream, downstream, ...])</p></td>
-<td><p>Return segnums upstream (inclusive) and downstream (exclusive).</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.locate_geoms.html#swn.SurfaceWaterNetwork.locate_geoms" title="swn.SurfaceWaterNetwork.locate_geoms"><code class="xref py py-obj docutils literal notranslate"><span class="pre">locate_geoms</span></code></a>(geom, *[, override, ...])</p></td>
-<td><p>Return GeoDataFrame of data associated in finding geometies.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.pair_segments_frame.html#swn.SurfaceWaterNetwork.pair_segments_frame" title="swn.SurfaceWaterNetwork.pair_segments_frame"><code class="xref py py-obj docutils literal notranslate"><span class="pre">pair_segments_frame</span></code></a>(value[, value_out, ...])</p></td>
-<td><p>Generate a DataFrame of paired values for top/bottom of segments.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.plot.html#swn.SurfaceWaterNetwork.plot" title="swn.SurfaceWaterNetwork.plot"><code class="xref py py-obj docutils literal notranslate"><span class="pre">plot</span></code></a>([column, sort_column, cmap, legend, ax])</p></td>
-<td><p>Plot map of surface water network.</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">query</span></code>([upstream, downstream, barrier, ...])</p></td>
-<td><p>Return segnums upstream (inclusive) and downstream (exclusive).</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">remove</span></code>([condition, segnums])</p></td>
-<td><p>Remove segments (and catchments).</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.route_segnums.html#swn.SurfaceWaterNetwork.route_segnums" title="swn.SurfaceWaterNetwork.route_segnums"><code class="xref py py-obj docutils literal notranslate"><span class="pre">route_segnums</span></code></a>(start, end, *[, allow_indirect])</p></td>
-<td><p>Return a list of segnums that connect a pair of segnums.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.segments_series.html#swn.SurfaceWaterNetwork.segments_series" title="swn.SurfaceWaterNetwork.segments_series"><code class="xref py py-obj docutils literal notranslate"><span class="pre">segments_series</span></code></a>(value[, name])</p></td>
-<td><p>Generate a Series along the segments index.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.set_diversions.html#swn.SurfaceWaterNetwork.set_diversions" title="swn.SurfaceWaterNetwork.set_diversions"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_diversions</span></code></a>(diversions, *[, override, ...])</p></td>
-<td><p>Set surface water diversion locations.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.to_pickle.html#swn.SurfaceWaterNetwork.to_pickle" title="swn.SurfaceWaterNetwork.to_pickle"><code class="xref py py-obj docutils literal notranslate"><span class="pre">to_pickle</span></code></a>(path[, protocol])</p></td>
-<td><p>Pickle (serialize) object to file.</p></td>
-</tr>
-</tbody>
-</table>
-<p class="rubric">Attributes</p>
-<table class="autosummary longtable table autosummary">
-<tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.catchments.html#swn.SurfaceWaterNetwork.catchments" title="swn.SurfaceWaterNetwork.catchments"><code class="xref py py-obj docutils literal notranslate"><span class="pre">catchments</span></code></a></p></td>
-<td><p>Polygon GeoSeries of surface water catchments.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.diversions.html#swn.SurfaceWaterNetwork.diversions" title="swn.SurfaceWaterNetwork.diversions"><code class="xref py py-obj docutils literal notranslate"><span class="pre">diversions</span></code></a></p></td>
-<td><p>[Geo]DataFrame of surface water diversions.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.from_segnums.html#swn.SurfaceWaterNetwork.from_segnums" title="swn.SurfaceWaterNetwork.from_segnums"><code class="xref py py-obj docutils literal notranslate"><span class="pre">from_segnums</span></code></a></p></td>
-<td><p>Return partial Series of a set of segnums to connect upstream.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.has_z.html#swn.SurfaceWaterNetwork.has_z" title="swn.SurfaceWaterNetwork.has_z"><code class="xref py py-obj docutils literal notranslate"><span class="pre">has_z</span></code></a></p></td>
-<td><p>Return True if all segment lines have Z dimension.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.headwater.html#swn.SurfaceWaterNetwork.headwater" title="swn.SurfaceWaterNetwork.headwater"><code class="xref py py-obj docutils literal notranslate"><span class="pre">headwater</span></code></a></p></td>
-<td><p>Return index of headwater segments.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.outlets.html#swn.SurfaceWaterNetwork.outlets" title="swn.SurfaceWaterNetwork.outlets"><code class="xref py py-obj docutils literal notranslate"><span class="pre">outlets</span></code></a></p></td>
-<td><p>Return index of outlets.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.segments.html#swn.SurfaceWaterNetwork.segments" title="swn.SurfaceWaterNetwork.segments"><code class="xref py py-obj docutils literal notranslate"><span class="pre">segments</span></code></a></p></td>
-<td><p>GeoDataFrame of stream segments derived from the lines input.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.to_segnums.html#swn.SurfaceWaterNetwork.to_segnums" title="swn.SurfaceWaterNetwork.to_segnums"><code class="xref py py-obj docutils literal notranslate"><span class="pre">to_segnums</span></code></a></p></td>
-<td><p>Return Series of segnum to connect downstream.</p></td>
-</tr>
-</tbody>
-</table>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<dl class="simple">
+<dt><a class="reference internal" href="swn.modflow.read_formatted_frame.html#swn.modflow.read_formatted_frame" title="swn.modflow.read_formatted_frame"><code class="xref py py-obj docutils literal notranslate"><span class="pre">read_formatted_frame</span></code></a></dt><dd></dd>
+</dl>
+</div>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">io</span> <span class="kn">import</span> <span class="n">StringIO</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">swn.modflow</span> <span class="kn">import</span> <span class="n">write_formatted_frame</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span>
+<span class="gp">... </span>    <span class="s2">&quot;value1&quot;</span><span class="p">:</span> <span class="p">[</span><span class="o">-</span><span class="mf">1e10</span><span class="p">,</span> <span class="o">-</span><span class="mf">1e-10</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mf">1e-10</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1000</span><span class="p">],</span>
+<span class="gp">... </span>    <span class="s2">&quot;value2&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">100</span><span class="p">,</span> <span class="mi">1000</span><span class="p">,</span> <span class="mi">10000</span><span class="p">,</span> <span class="mi">100000</span><span class="p">],</span>
+<span class="gp">... </span>    <span class="s2">&quot;value3&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;first one&quot;</span><span class="p">,</span> <span class="s2">&quot;two&quot;</span><span class="p">,</span> <span class="s2">&quot;three&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;five&quot;</span><span class="p">,</span> <span class="s2">&quot;six&quot;</span><span class="p">],</span>
+<span class="gp">... </span>    <span class="p">},</span> <span class="n">index</span><span class="o">=</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="mi">33</span><span class="p">,</span> <span class="mi">40</span><span class="p">,</span> <span class="mi">450</span><span class="p">,</span> <span class="mi">6267</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">df</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;rno&quot;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">df</span><span class="p">)</span>
+<span class="go">            value1  value2     value3</span>
+<span class="go">rno                                  </span>
+<span class="go">1    -1.000000e+10       1  first one</span>
+<span class="go">12   -1.000000e-10      10        two</span>
+<span class="go">33    0.000000e+00     100      three</span>
+<span class="go">40    1.000000e-10    1000       None</span>
+<span class="go">450   1.000000e+00   10000       five</span>
+<span class="go">6267  1.000000e+03  100000        six</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">f</span> <span class="o">=</span> <span class="n">StringIO</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">write_formatted_frame</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">_</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">seek</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">read</span><span class="p">(),</span> <span class="n">end</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+<span class="go"># rno        value1  value2  value3</span>
+<span class="go">1     -1.000000e+10       1  &#39;first one&#39;</span>
+<span class="go">12    -1.000000e-10      10   two</span>
+<span class="go">33     0.000000e+00     100   three</span>
+<span class="go">40     1.000000e-10    1000</span>
+<span class="go">450    1.000000e+00   10000   five</span>
+<span class="go">6267   1.000000e+03  100000   six</span>
+</pre></div>
+</div>
 </dd></dl>
 
 </section>
@@ -647,17 +515,17 @@ segment number or ID.</p>
             <footer class="bd-footer-article">
                 <!-- Previous / next buttons -->
 <div class='prev-next-area'>
-  <a class='left-prev' id="prev-link" href="../swn.html" title="previous page">
+  <a class='left-prev' id="prev-link" href="swn.modflow.read_formatted_frame.html" title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
           <p class="prev-next-subtitle">previous</p>
-          <p class="prev-next-title">SurfaceWaterNetwork</p>
+          <p class="prev-next-title">swn.modflow.read_formatted_frame</p>
       </div>
   </a>
-  <a class='right-next' id="next-link" href="swn.SurfaceWaterNetwork.accumulate_values.html" title="next page">
+  <a class='right-next' id="next-link" href="../file.html" title="next page">
   <div class="prev-next-info">
       <p class="prev-next-subtitle">next</p>
-      <p class="prev-next-title">swn.SurfaceWaterNetwork.accumulate_values</p>
+      <p class="prev-next-title">File reading/writing helpers</p>
   </div>
   <i class="fa-solid fa-angle-right"></i>
   </a>
@@ -678,24 +546,13 @@ segment number or ID.</p>
 <nav id="bd-toc-nav" class="page-toc">
     <ul class="visible nav section-nav flex-column">
  <li class="toc-h2 nav-item toc-entry">
-  <a class="reference internal nav-link" href="#swn.SurfaceWaterNetwork">
+  <a class="reference internal nav-link" href="#swn.modflow.write_formatted_frame">
    <code class="docutils literal notranslate">
     <span class="pre">
-     SurfaceWaterNetwork
+     write_formatted_frame()
     </span>
    </code>
   </a>
-  <ul class="nav section-nav flex-column">
-   <li class="toc-h3 nav-item toc-entry">
-    <a class="reference internal nav-link" href="#swn.SurfaceWaterNetwork.__init__">
-     <code class="docutils literal notranslate">
-      <span class="pre">
-       SurfaceWaterNetwork.__init__()
-      </span>
-     </code>
-    </a>
-   </li>
-  </ul>
  </li>
 </ul>
 
@@ -714,7 +571,7 @@ segment number or ID.</p>
 <div class="toc-item">
   
 <div class="tocsection sourcelink">
-    <a href="../_sources/ref/swn.SurfaceWaterNetwork.rst.txt">
+    <a href="../_sources/ref/swn.modflow.write_formatted_frame.rst.txt">
         <i class="fa-solid fa-file-lines"></i> Show Source
     </a>
 </div>
