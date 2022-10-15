@@ -1509,7 +1509,7 @@ class SwnMf6(SwnModflowBase):
             raise NotImplementedError("option 'segbyseg=True' not finished")
             self._segbyseg_elevs(minslope, fix_dis, minthick)
         elif to_rno_elevs:
-            self._to_rno_elevs(minslope, minincise, minthick, buffer)
+            self._to_rno_elevs(minslope, minincise, minthick, buffer, fix_dis)
         else:
             if direction == 'both':
                 direction = ['upstream', 'downstream']
