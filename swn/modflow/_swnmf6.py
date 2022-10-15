@@ -1382,8 +1382,8 @@ class SwnMf6(SwnModflowBase):
         """
 
         # copy some data
-        top = self.model.dis.top.array.copy()
-        botm = self.model.dis.botm.array.copy()
+        top = self.model.dis.top.get_data()
+        botm = self.model.dis.botm.get_data()
         delr = self.model.dis.delr.data.copy()
         delc = self.model.dis.delc.data.copy()
         rdf = self.reaches.copy()
@@ -1404,71 +1404,48 @@ class SwnMf6(SwnModflowBase):
         if "incise" not in rdf.columns:
             rdf["incise"] = minincise
             icols.append("incise")
-        # reach specific so iterrows?
-        for idx, r in rdf.iterrows():
-            if np.isnan(r["rtp"]):
-                rdf.loc[idx, "rbth"] = np.max([r["rbth"], minthick])
-                rdf.loc[idx, "rtp"] = top[r["ij"]]-minincise
-        for idx, r in rdf.iterrows():
-            trno = int(r["to_rno"])
-            if trno != 0:
-                rdf.loc[idx, "to_rtp"] = rdf.loc[trno, "rtp"]
-        # start loop
+        rdf['rbth'] = rdf[['rtp', 'rbth']].apply(lambda x: np.max([x[1], minthick]) if np.isnan(x[0]) else x[0], axis=1)
+        rdf['rtp'] = rdf[['rtp', 'ij']].apply(lambda x: top[x[1]] - minincise if np.isnan(x[0]) else x[0], axis=1)
+        # initial criteria
+        rdf['mx_to_rtp'] = rdf['rtp'] - rdf['mindz']
+        rdf['to_rtp'] = rdf['to_rno'].apply(lambda x: rdf.loc[x, 'rtp'] if x in rdf.index else -10)
+        sel = rdf['to_rtp'] > rdf['mx_to_rtp']
         loop = 0
-        cont = True
-        while cont:
-            bad_reaches = [i for i in rdf.index
-                           if rdf.loc[i, "to_rtp"] > rdf.loc[i, "rtp"] -
-                           rdf.loc[i, "mindz"]]
+        adj_reaches = []
+        while sel.sum() > 0 and loop < 1000:
+            # this gives geodataframe
+            mx_rtp = rdf.loc[sel, ['to_rno','mx_to_rtp']].groupby('to_rno').min()
+            # so make it a series
+            mx_rtp = mx_rtp['mx_to_rtp']
+            # reset rtp values in rdf
+            rdf.loc[mx_rtp.index, 'rtp'] = mx_rtp
+            # reset top and bot values in rdf
+            rdf['top'] = rdf[['top', 'rtp']].max(axis=1)
+            rdf['bot'] = rdf[['bot', 'rtp', 'rbth']].apply(
+                lambda x: np.min([x[0], x[1]-x[2]-buffer]), axis=1)
+            # report
+            self.logger.debug("%s changed in loop %s", sel.sum(), loop)
             loop += 1
-            chg = 0
-            for br in bad_reaches:
-                rno = br
-                trno = int(rdf.loc[br, "to_rno"])
-                chglist = []
-                if trno != 0:
-                    # count how many downstream reaches offend
-                    # keep track of changes in elev
-                    dz = rdf.loc[rno, "mindz"]
-                    check = rdf.loc[trno, "rtp"] > rdf.loc[rno, "rtp"] - dz
-                    while trno != 0 and check:
-                        # keep list of dz in case another inflowing stream is
-                        # even lower
-                        chglist.append(trno)
-                        nelev = rdf.loc[rno, "rtp"] - dz
-                        # set to_rtp and rtp
-                        rdf.loc[rno, "to_rtp"] = nelev
-                        rdf.loc[trno, "rtp"] = nelev
-                        # move downstream
-                        rno = trno
-                        trno = rdf.loc[rno, "to_rno"]
-                        dz = rdf.loc[rno, "mindz"]
-
-                    # now adjust layering if necessary
-                    if len(chglist) > 0 and fix_dis:
-                        self.logger.debug(
-                            "adjusting top for %s reaches", len(chglist))
-                        for r in chglist:
-                            # bump top elev up to rtp+incise if need be
-                            new_top = rdf.loc[r, "rtp"] + rdf.loc[r, "incise"]
-                            if top[rdf.loc[r, "ij"]] < new_top:
-                                top[rdf.loc[r, "ij"]] = new_top
-                            # bump bottoms down if needed
-                            maxbot = rdf.loc[r, "rtp"] - rdf.loc[r, "rbth"] - buffer
-                            if botm[0][rdf.loc[r, "ij"]] >= maxbot:
-                                botdz = botm[0][rdf.loc[r, "ij"]] - maxbot
-                                for b in range(botm.shape[0]):
-                                    botm[b][rdf.loc[r, "ij"]] = \
-                                        botm[b][rdf.loc[r, "ij"]] - botdz
-
-                chg += len(chglist)
-            if chg == 0:
-                cont = False
-            else:
-                self.logger.debug("%s changed in loop %s", chg, loop)
+            adj_reaches = list(set(mx_rtp.index.to_list() + adj_reaches))
+            # reevaluate
+            rdf['mx_to_rtp'] = rdf['rtp'] - rdf['mindz']
+            rdf['to_rtp'] = rdf['to_rno'].apply(lambda x: rdf.loc[x, 'rtp'] if x in rdf.index else -10)
+            sel = rdf['to_rtp'] > rdf['mx_to_rtp']
+        if loop >= 1000:
+            # maybe stronger warning, kill it?
+            self.logger.debug("to_rno_elev did not find final solution after %s loops", loop)
+        if fix_dis:
+            for r in adj_reaches:
+                top[rdf.loc[r, "ij"]] = np.max([top[rdf.loc[r, "ij"]], rdf.loc[r, 'top']])
+                bdz = botm[0][rdf.loc[r, "ij"]] - rdf.loc[r, 'bot']
+                if bdz > 0:
+                    for b in range(botm.shape[0]):
+                        botm[b][rdf.loc[r, "ij"]] = botm[b][rdf.loc[r, "ij"]] - bdz
         setattr(self, "reaches", rdf[icols + ["to_rtp", "mindz"]])
-        self.model.dis.botm = botm
-        self.model.dis.top = top
+        # may do funny things to flopy external file reference?
+        if fix_dis:
+            self.model.dis.top.set_data(top)
+            self.model.dis.botm.set_data(botm)
 
     def fix_reach_elevs(
             self, minslope=1e-4, minincise=0.2, minthick=0.5, buffer=0.1,
@@ -1532,7 +1509,7 @@ class SwnMf6(SwnModflowBase):
             raise NotImplementedError("option 'segbyseg=True' not finished")
             self._segbyseg_elevs(minslope, fix_dis, minthick)
         elif to_rno_elevs:
-            self._to_rno_elevs(minslope, minincise, minthick, buffer, fix_dis)
+            self._to_rno_elevs(minslope, minincise, minthick, buffer)
         else:
             if direction == 'both':
                 direction = ['upstream', 'downstream']

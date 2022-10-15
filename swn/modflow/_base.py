@@ -727,7 +727,7 @@ class SwnModflowBase:
             df2.crs = df1.crs
         grid_reaches = geopandas.overlay(
             df1, df2,
-            how="intersection", keep_geom_type=True, make_valid=False)
+            how="intersection", keep_geom_type=False, make_valid=False)
         check_geom_type = (
             (grid_reaches.geom_type == "LineString") |
             (grid_reaches.geom_type == "MultiLineString"))
