@@ -988,6 +988,9 @@ class SwnModflowBase:
         # each subclass should do more processing with returned object
         return obj
 
+    def clip_reach_data(self, name, lower=None, upper=None):
+        self.reaches.loc[:, name] = self.reaches.loc[:, name].clip(lower, upper)
+
     def set_reach_data_from_segments(
             self, name, value, value_out=None, method=None, log=False):
         """Set reach data based on segment series (or scalar).

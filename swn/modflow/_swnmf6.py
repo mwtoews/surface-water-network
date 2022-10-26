@@ -1404,7 +1404,7 @@ class SwnMf6(SwnModflowBase):
         if "incise" not in rdf.columns:
             rdf["incise"] = minincise
             icols.append("incise")
-        rdf['rbth'] = rdf[['rtp', 'rbth']].apply(lambda x: np.max([x[1], minthick]) if np.isnan(x[0]) else x[0], axis=1)
+        rdf['rbth'] = rdf['rbth'].apply(lambda x: np.nanmax([x, minthick]))
         rdf['rtp'] = rdf[['rtp', 'ij']].apply(lambda x: top[x[1]] - minincise if np.isnan(x[0]) else x[0], axis=1)
         # initial criteria
         rdf['mx_to_rtp'] = rdf['rtp'] - rdf['mindz']
@@ -1419,10 +1419,6 @@ class SwnMf6(SwnModflowBase):
             mx_rtp = mx_rtp['mx_to_rtp']
             # reset rtp values in rdf
             rdf.loc[mx_rtp.index, 'rtp'] = mx_rtp
-            # reset top and bot values in rdf
-            rdf['top'] = rdf[['top', 'rtp']].max(axis=1)
-            rdf['bot'] = rdf[['bot', 'rtp', 'rbth']].apply(
-                lambda x: np.min([x[0], x[1]-x[2]-buffer]), axis=1)
             # report
             self.logger.debug("%s changed in loop %s", sel.sum(), loop)
             loop += 1
@@ -1431,6 +1427,10 @@ class SwnMf6(SwnModflowBase):
             rdf['mx_to_rtp'] = rdf['rtp'] - rdf['mindz']
             rdf['to_rtp'] = rdf['to_rno'].apply(lambda x: rdf.loc[x, 'rtp'] if x in rdf.index else -10)
             sel = rdf['to_rtp'] > rdf['mx_to_rtp']
+        # reset top and bot values in rdf
+        rdf['top'] = rdf[['top', 'rtp']].max(axis=1)
+        rdf['bot'] = rdf[['bot', 'rtp', 'rbth']].apply(
+            lambda x: np.min([x[0], x[1] - x[2] - buffer]), axis=1)
         if loop >= 1000:
             # maybe stronger warning, kill it?
             self.logger.debug("to_rno_elev did not find final solution after %s loops", loop)
