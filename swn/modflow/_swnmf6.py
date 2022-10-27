@@ -1343,20 +1343,36 @@ class SwnMf6(SwnModflowBase):
             # self.model.dis.botm.set_data(layerbots)
 
 
-    def _to_rno_elevs(
-            self, minslope=0.0001, minincise=0.2, minthick=0.5, buffer=0.5,
-            fix_dis=True):
-        """
-        Wes's hacky attempt to set reach elevations. Doesn't really ensure
-        anything, but the goal is:
+    def _fix_dis(self, buffer=0.5):
+        top = self.model.dis.top.get_data()
+        botm = self.model.dis.botm.get_data()
+        rdf = self.reaches.copy()
+        icols = rdf.columns.to_list()
 
-            0. get a list of cells with to_rtp > rtp-minslope*(delr+delc)/2
-            1. drop rtp of downstream reach (to_rno) when higher than rtp
-               (of rno)
-            2. grab all offensive reaches downstream of rno
-            3. check and fix all layer bottoms to be above minthick+buffer
-            4. adjust top, up only, to accomodate minincision or rtp above
-               cell top
+        rdf['botm0'] = rdf[['i','j']].apply(lambda x: botm[0,x[0],x[1]], axis=1)
+        rdf['maxbot'] = rdf[['rtp', 'rbth']].apply(lambda x: x[0] - x[1] - buffer, axis=1)
+        rdf['bdz'] = rdf['maxbot'] - rdf['botm0']
+        # shift all layers in column, TODO: enforce min layer thickness instead?
+        high = rdf.loc[rdf['bdz'] <= 0,['i','j','bdz']]
+        high['ij'] = rdf[['i', 'j']].apply(lambda x: (x[0], x[1]), axis=1)
+        high['rno'] = high.index
+        bc = high.groupby('ij').min()
+        bc.set_index('rno', inplace=True)
+        for r in bc.index:
+            botm[:,bc.loc[r, 'i'], bc.loc[r, 'j']] = botm[:,bc.loc[r, 'i'], bc.loc[r, 'j']] + bc.loc[r,'bdz']
+        # may do funny things to flopy external file reference?
+        self.model.dis.top.set_data(top)
+        self.model.dis.botm.set_data(botm)
+        self.add_model_topbot_to_reaches()
+
+
+    def _to_rno_elevs(self, minslope=0.0001, minincise=0.2, minthick=0.5, buffer=0.5, fix_dis=True):
+        """
+        Attempt to set reach elevations, pandas approach:
+            0. ensure minimum incision
+            1. find minimum dz to next reach rtp-minslope*(delr+delc)/2
+            2. adjust rtp of receiving reaches that are too high (while loop)
+            3. optionally fix discretization in external method
 
         Parameters
         ----------
@@ -1381,9 +1397,9 @@ class SwnMf6(SwnModflowBase):
 
         """
 
+        self.add_model_topbot_to_reaches()
         # copy some data
-        top = self.model.dis.top.get_data()
-        botm = self.model.dis.botm.get_data()
+        top = self.model.dis.top.array.copy()
         delr = self.model.dis.delr.data.copy()
         delc = self.model.dis.delc.data.copy()
         rdf = self.reaches.copy()
@@ -1391,7 +1407,7 @@ class SwnMf6(SwnModflowBase):
 
         # add some columns to rdf
         rdf["ij"] = rdf.apply(lambda x: (int(x["i"]), int(x["j"])), axis=1)
-        # hopefully this sort of addresses local grid refinement?
+        # attempt to sort of addresses local grid refinement?
         rdf["mindz"] = minslope * \
             (delr[rdf.loc[:, "j"]] + delc[rdf.loc[:, "i"]]) / 2.0
         if "rbth" not in rdf.columns:
@@ -1411,7 +1427,6 @@ class SwnMf6(SwnModflowBase):
         rdf['to_rtp'] = rdf['to_rno'].apply(lambda x: rdf.loc[x, 'rtp'] if x in rdf.index else -10)
         sel = rdf['to_rtp'] > rdf['mx_to_rtp']
         loop = 0
-        adj_reaches = []
         while sel.sum() > 0 and loop < 1000:
             # this gives geodataframe
             mx_rtp = rdf.loc[sel, ['to_rno','mx_to_rtp']].groupby('to_rno').min()
@@ -1422,30 +1437,16 @@ class SwnMf6(SwnModflowBase):
             # report
             self.logger.debug("%s changed in loop %s", sel.sum(), loop)
             loop += 1
-            adj_reaches = list(set(mx_rtp.index.to_list() + adj_reaches))
             # reevaluate
             rdf['mx_to_rtp'] = rdf['rtp'] - rdf['mindz']
             rdf['to_rtp'] = rdf['to_rno'].apply(lambda x: rdf.loc[x, 'rtp'] if x in rdf.index else -10)
             sel = rdf['to_rtp'] > rdf['mx_to_rtp']
-        # reset top and bot values in rdf
-        rdf['top'] = rdf[['top', 'rtp']].max(axis=1)
-        rdf['bot'] = rdf[['bot', 'rtp', 'rbth']].apply(
-            lambda x: np.min([x[0], x[1] - x[2] - buffer]), axis=1)
         if loop >= 1000:
             # maybe stronger warning, kill it?
             self.logger.debug("to_rno_elev did not find final solution after %s loops", loop)
-        if fix_dis:
-            for r in adj_reaches:
-                top[rdf.loc[r, "ij"]] = np.max([top[rdf.loc[r, "ij"]], rdf.loc[r, 'top']])
-                bdz = botm[0][rdf.loc[r, "ij"]] - rdf.loc[r, 'bot']
-                if bdz > 0:
-                    for b in range(botm.shape[0]):
-                        botm[b][rdf.loc[r, "ij"]] = botm[b][rdf.loc[r, "ij"]] - bdz
         setattr(self, "reaches", rdf[icols + ["to_rtp", "mindz"]])
-        # may do funny things to flopy external file reference?
         if fix_dis:
-            self.model.dis.top.set_data(top)
-            self.model.dis.botm.set_data(botm)
+            self._fix_dis(buffer)
 
     def fix_reach_elevs(
             self, minslope=1e-4, minincise=0.2, minthick=0.5, buffer=0.1,
