@@ -1430,8 +1430,9 @@ class SwnMf6(SwnModflowBase):
         while sel.sum() > 0 and loop < 1000:
             # this gives geodataframe
             mx_rtp = rdf.loc[sel, ['to_rno','mx_to_rtp']].groupby('to_rno').min()
-            # so make it a series
+            # so make it a series, exclude mx_rtp==0
             mx_rtp = mx_rtp['mx_to_rtp']
+            mx_rtp.drop([_ for _ in mx_rtp.index if _ not in rdf.index], inplace=True)
             # reset rtp values in rdf
             rdf.loc[mx_rtp.index, 'rtp'] = mx_rtp
             # report
