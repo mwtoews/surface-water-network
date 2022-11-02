@@ -1366,7 +1366,8 @@ class SwnMf6(SwnModflowBase):
         self.add_model_topbot_to_reaches()
 
 
-    def _to_rno_elevs(self, minslope=0.0001, minincise=0.2, minthick=0.5, buffer=0.5, fix_dis=True):
+    def _to_rno_elevs(self, minslope=0.0001, minincise=0.2,
+                      minthick=0.5, buffer=0.5, fix_dis=True):
         """
         Attempt to set reach elevations, pandas approach:
             0. ensure minimum incision
@@ -1397,7 +1398,6 @@ class SwnMf6(SwnModflowBase):
 
         """
 
-        self.add_model_topbot_to_reaches()
         # copy some data
         top = self.model.dis.top.array.copy()
         delr = self.model.dis.delr.data.copy()
@@ -1424,7 +1424,10 @@ class SwnMf6(SwnModflowBase):
         rdf['rtp'] = rdf[['rtp', 'ij']].apply(lambda x: top[x[1]] - minincise if np.isnan(x[0]) else x[0], axis=1)
         # initial criteria
         rdf['mx_to_rtp'] = rdf['rtp'] - rdf['mindz']
-        rdf['to_rtp'] = rdf['to_rno'].apply(lambda x: rdf.loc[x, 'rtp'] if x in rdf.index else -10)
+        network = rdf['to_rno'] != 0
+        rdf.loc[~network,'to_rtp'] = -9999
+        rdf.loc[network, 'to_rtp'] = rdf.loc[network, 'to_rno'].apply(lambda x: rdf.loc[x, 'rtp'])
+        #rdf['to_rtp'] = rdf['to_rno'].apply(lambda x: rdf.loc[x, 'rtp'] if x in rdf.index else -10)
         sel = rdf['to_rtp'] > rdf['mx_to_rtp']
         loop = 0
         while sel.sum() > 0 and loop < 1000:
@@ -1440,7 +1443,8 @@ class SwnMf6(SwnModflowBase):
             loop += 1
             # reevaluate
             rdf['mx_to_rtp'] = rdf['rtp'] - rdf['mindz']
-            rdf['to_rtp'] = rdf['to_rno'].apply(lambda x: rdf.loc[x, 'rtp'] if x in rdf.index else -10)
+            rdf.loc[network, 'to_rtp'] = rdf.loc[network, 'to_rno'].apply(lambda x: rdf.loc[x, 'rtp'])
+            #rdf['to_rtp'] = rdf['to_rno'].apply(lambda x: rdf.loc[x, 'rtp'] if x in rdf.index else -10)
             sel = rdf['to_rtp'] > rdf['mx_to_rtp']
         if loop >= 1000:
             # maybe stronger warning, kill it?
