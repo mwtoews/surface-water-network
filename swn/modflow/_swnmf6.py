@@ -1431,7 +1431,7 @@ class SwnMf6(SwnModflowBase):
         if "incise" not in rdf.columns:
             rdf["incise"] = minincise
             icols.append("incise")
-        rdf['rbth'] = rdf['rbth'].where(rdf['rbth'] > minthick, minthick)
+        rdf['rbth'].where(rdf['rbth'] > minthick, minthick, inplace=True)
         # lambda is slow
         rdf['rtp'] = rdf[['rtp', 'ij']].apply(lambda x: top[x[1]] - minincise if np.isnan(x[0]) else x[0], axis=1)
         # initial criteria
@@ -1440,7 +1440,7 @@ class SwnMf6(SwnModflowBase):
         rdf['mx_to_rtp'] = rdf['rtp'] - rdf['mindz']
         sel = rdf['to_rtp'] > rdf['mx_to_rtp']
         loop = 0
-        while sel.sum() > 0 and loop < 1000:
+        while sel.sum() > 0 and loop < 10000:
             # this gives geodataframe
             mx_rtp = rdf.loc[sel, ['to_rno','mx_to_rtp']].groupby('to_rno').min()
             # so make it a series, exclude mx_rtp==0
@@ -1455,7 +1455,7 @@ class SwnMf6(SwnModflowBase):
             get_to_rtp()
             rdf['mx_to_rtp'] = rdf['rtp'] - rdf['mindz']
             sel = rdf['to_rtp'] > rdf['mx_to_rtp']
-        if loop >= 1000:
+        if loop >= 10000:
             # maybe stronger warning, kill it?
             self.logger.debug("to_rno_elev did not find final solution after %s loops", loop)
         setattr(self, "reaches", rdf[icols + ["to_rtp", "mindz"]])
