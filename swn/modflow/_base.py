@@ -731,7 +731,12 @@ class SwnModflowBase:
         check_geom_type = (
             (grid_reaches.geom_type == "LineString") |
             (grid_reaches.geom_type == "MultiLineString"))
-        assert check_geom_type.all()
+        try:
+            assert check_geom_type.all()
+        except:
+            obj.logger.warning(
+                "dropping %s reaches represented as POINT", (~check_geom_type).sum())
+            grid_reaches.drop(grid_reaches[~check_geom_type].index, inplace=True)
         # erase some odd floating point issues
         grid_reaches["geometry"] = grid_reaches.geometry.apply(visible_wkt)
 
