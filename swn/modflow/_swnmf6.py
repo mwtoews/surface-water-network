@@ -1383,11 +1383,11 @@ class SwnMf6(SwnModflowBase):
         minincise : float, default 0.2
             The minimum allowable incision of a reach below the model top.
         minthick : float, default 0.5
-            The minimum thickness of stream bed. Will try to ensure that this
-            is available below stream top before layer bottom.
+            The minimum thickness of stream bed. Ensure that this
+            is available below stream top before layer bottom or model will fail.
         buffer : float, default 0.5
             The minimum cell thickness between the bottom of stream bed
-            (rtp-minthick) and the bottom of the layer 1 cell
+            (rtp-minthick) and the bottom of the cell below
         fix_dis : bool, default True
             Move layer elevations down where it is not possible to honor
             minimum slope without going below layer 1 bottom.
@@ -1397,6 +1397,17 @@ class SwnMf6(SwnModflowBase):
         None
 
         """
+
+        def get_to_rtp():
+            inet = rdf['to_rno'] != 0
+            trno = rdf.loc[inet, 'to_rno']
+            trno.drop_duplicates(inplace=True)
+            trtp = rdf.loc[trno.values, 'rtp']
+            rdf['rno'] = rdf.index
+            ndf = rdf[['rno','to_rno']].merge(trtp,left_on='to_rno',right_on='rno',how='outer')
+            ndf.index = ndf.rno
+            rdf['to_rtp'] = ndf['rtp']
+            rdf.loc[~inet, 'to_rtp'] = -9999
 
         # copy some data
         top = self.model.dis.top.array.copy()
@@ -1420,14 +1431,13 @@ class SwnMf6(SwnModflowBase):
         if "incise" not in rdf.columns:
             rdf["incise"] = minincise
             icols.append("incise")
-        rdf['rbth'] = rdf['rbth'].apply(lambda x: np.nanmax([x, minthick]))
+        rdf['rbth'] = rdf['rbth'].where(rdf['rbth'] > minthick, minthick)
+        # lambda is slow
         rdf['rtp'] = rdf[['rtp', 'ij']].apply(lambda x: top[x[1]] - minincise if np.isnan(x[0]) else x[0], axis=1)
         # initial criteria
-        rdf['mx_to_rtp'] = rdf['rtp'] - rdf['mindz']
-        network = rdf['to_rno'] != 0
-        rdf.loc[~network,'to_rtp'] = -9999
-        rdf.loc[network, 'to_rtp'] = rdf.loc[network, 'to_rno'].apply(lambda x: rdf.loc[x, 'rtp'])
+        get_to_rtp()
         #rdf['to_rtp'] = rdf['to_rno'].apply(lambda x: rdf.loc[x, 'rtp'] if x in rdf.index else -10)
+        rdf['mx_to_rtp'] = rdf['rtp'] - rdf['mindz']
         sel = rdf['to_rtp'] > rdf['mx_to_rtp']
         loop = 0
         while sel.sum() > 0 and loop < 1000:
@@ -1441,10 +1451,9 @@ class SwnMf6(SwnModflowBase):
             # report
             self.logger.debug("%s changed in loop %s", sel.sum(), loop)
             loop += 1
-            # reevaluate
+            # prep for next
+            get_to_rtp()
             rdf['mx_to_rtp'] = rdf['rtp'] - rdf['mindz']
-            rdf.loc[network, 'to_rtp'] = rdf.loc[network, 'to_rno'].apply(lambda x: rdf.loc[x, 'rtp'])
-            #rdf['to_rtp'] = rdf['to_rno'].apply(lambda x: rdf.loc[x, 'rtp'] if x in rdf.index else -10)
             sel = rdf['to_rtp'] > rdf['mx_to_rtp']
         if loop >= 1000:
             # maybe stronger warning, kill it?
