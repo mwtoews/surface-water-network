@@ -1344,26 +1344,22 @@ class SwnMf6(SwnModflowBase):
 
 
     def _fix_dis(self, buffer=0.5):
-        top = self.model.dis.top.get_data()
         botm = self.model.dis.botm.get_data()
         rdf = self.reaches.copy()
-        icols = rdf.columns.to_list()
 
         rdf['botm0'] = rdf[['i','j']].apply(lambda x: botm[0,x[0],x[1]], axis=1)
         rdf['maxbot'] = rdf[['rtp', 'rbth']].apply(lambda x: x[0] - x[1] - buffer, axis=1)
         rdf['bdz'] = rdf['maxbot'] - rdf['botm0']
-        # shift all layers in column, TODO: enforce min layer thickness instead?
-        high = rdf.loc[rdf['bdz'] <= 0,['i','j','bdz']]
-        high['ij'] = rdf[['i', 'j']].apply(lambda x: (x[0], x[1]), axis=1)
-        high['rno'] = high.index
-        bc = high.groupby('ij').min()
-        bc.set_index('rno', inplace=True)
-        for r in bc.index:
-            botm[:,bc.loc[r, 'i'], bc.loc[r, 'j']] = botm[:,bc.loc[r, 'i'], bc.loc[r, 'j']] + bc.loc[r,'bdz']
+        # shift all layers in model column, TODO: enforce min layer thickness instead?
+        rdf['unq'] = rdf['i']*100000 + rdf['j']
+        rdf['rno'] = rdf.index
+        # need to get min bdz for each cell (unique 'unq')
+        rdf = rdf.loc[rdf.bdz <= 0, ['i','j','bdz','unq','rno']].groupby('unq').min()
+        rdf.set_index('rno', inplace=True)
+        for r in rdf.index:
+            botm[:,rdf.loc[r, 'i'], rdf.loc[r, 'j']] = botm[:,rdf.loc[r, 'i'], rdf.loc[r, 'j']] + rdf.loc[r,'bdz']
         # may do funny things to flopy external file reference?
-        self.model.dis.top.set_data(top)
         self.model.dis.botm.set_data(botm)
-        self.add_model_topbot_to_reaches()
 
 
     def _to_rno_elevs(self, minslope=0.0001, minincise=0.2,
@@ -1413,27 +1409,24 @@ class SwnMf6(SwnModflowBase):
         top = self.model.dis.top.array.copy()
         delr = self.model.dis.delr.data.copy()
         delc = self.model.dis.delc.data.copy()
+
+        if 'rtp' not in self.reaches.columns:
+            self.set_reach_data_from_array('rtp', top)
+            self.reaches['rtp'] = self.reaches['rtp'] - minincise
         rdf = self.reaches.copy()
         icols = rdf.columns.to_list()
 
         # add some columns to rdf
-        rdf["ij"] = rdf.apply(lambda x: (int(x["i"]), int(x["j"])), axis=1)
         # attempt to sort of addresses local grid refinement?
-        rdf["mindz"] = minslope * \
+        rdf.loc[:,"mindz"] = minslope * \
             (delr[rdf.loc[:, "j"]] + delc[rdf.loc[:, "i"]]) / 2.0
         if "rbth" not in rdf.columns:
             rdf["rbth"] = minthick
             icols.append("rbth")
-        if "rtp" not in rdf.columns:
-            rdf["rtp"] = np.nan
-            # add to list of columns to be returned
-            icols.append("rtp")
         if "incise" not in rdf.columns:
             rdf["incise"] = minincise
             icols.append("incise")
         rdf['rbth'].where(rdf['rbth'] > minthick, minthick, inplace=True)
-        # lambda is slow
-        rdf['rtp'] = rdf[['rtp', 'ij']].apply(lambda x: top[x[1]] - minincise if np.isnan(x[0]) else x[0], axis=1)
         # initial criteria
         get_to_rtp()
         #rdf['to_rtp'] = rdf['to_rno'].apply(lambda x: rdf.loc[x, 'rtp'] if x in rdf.index else -10)
@@ -1447,7 +1440,7 @@ class SwnMf6(SwnModflowBase):
             mx_rtp = mx_rtp['mx_to_rtp']
             mx_rtp.drop([_ for _ in mx_rtp.index if _ not in rdf.index], inplace=True)
             # reset rtp values in rdf
-            rdf.loc[mx_rtp.index, 'rtp'] = mx_rtp
+            rdf.loc[mx_rtp.index, 'rtp'] = mx_rtp.values
             # report
             self.logger.debug("%s changed in loop %s", sel.sum(), loop)
             loop += 1
@@ -1458,9 +1451,11 @@ class SwnMf6(SwnModflowBase):
         if loop >= 10000:
             # maybe stronger warning, kill it?
             self.logger.debug("to_rno_elev did not find final solution after %s loops", loop)
-        setattr(self, "reaches", rdf[icols + ["to_rtp", "mindz"]])
+        # copy here removes pd warning about setting value on copy
+        self.reaches.loc[:,icols] = rdf.loc[:, icols]
         if fix_dis:
             self._fix_dis(buffer)
+        self.add_model_topbot_to_reaches()
 
     def fix_reach_elevs(
             self, minslope=1e-4, minincise=0.2, minthick=0.5, buffer=0.1,

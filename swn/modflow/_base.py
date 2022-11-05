@@ -1103,7 +1103,7 @@ class SwnModflowBase:
                 f"unsupported subclass {self.__class__.__name__!r}")
         if expected_shape != array.shape:
             raise ValueError("'array' must have shape (nrow, ncol)")
-        self.reaches.loc[:, name] = array[self.reaches["i"], self.reaches["j"]]
+        self.reaches.loc[:, name] = array[self.reaches["i"], self.reaches[ "j"]]
 
     def set_reach_slope(self, method: str = "auto", min_slope=1./1000):
         """Set slope for reaches.
