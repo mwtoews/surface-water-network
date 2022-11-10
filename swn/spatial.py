@@ -281,7 +281,7 @@ def find_segnum_in_swn(n, geom):
         res[["segnum", "dist_to_segnum", "is_within_catchment"]])
 
 
-def find_location_pairs(loc_df, n):
+def find_location_pairs(loc_df, n, *, all_pairs=False, exclude_branches=False):
     r"""Find pairs of locations in a surface water network that are connected.
 
     Parameters
@@ -291,6 +291,11 @@ def find_location_pairs(loc_df, n):
         :py:meth:`SurfaceWaterNetwork.locate_geoms`.
     n : SurfaceWaterNetwork
         A surface water network to evaluate.
+    all_pairs : bool, default False
+        If True, find all combination pairs, including those that overlap.
+        Default False will find shortest pair combinations only.
+    exclude_branches : bool, default False
+        If True, only pairs without branches between are permitted.
 
     Returns
     -------
@@ -331,9 +336,12 @@ def find_location_pairs(loc_df, n):
     13     118   0.377049
     14     108   0.093093
     15     108   0.857357
-    >>> pairs = swn.spatial.find_location_pairs(obs_match, n)
-    >>> sorted(pairs)
+    >>> sorted(swn.spatial.find_location_pairs(obs_match, n))
     [(11, 14), (12, 13), (14, 15), (15, 13)]
+    >>> sorted(swn.spatial.find_location_pairs(obs_match, n, all_pairs=True))
+    [(11, 13), (11, 14), (11, 15), (12, 13), (14, 13), (14, 15), (15, 13)]
+    >>> swn.spatial.find_location_pairs(obs_match, n, exclude_branches=True)
+    {(14, 15)}
     """
     from .core import SurfaceWaterNetwork
 
@@ -347,34 +355,59 @@ def find_location_pairs(loc_df, n):
             "loc_df has segnum values not found in surface water network")
 
     to_segnums = dict(n.to_segnums)
+    if exclude_branches:
+        from_segnums = dict(n.from_segnums)
     loc_df = loc_df[["segnum", "seg_ndist"]].assign(_="")  # also does .copy()
     loc_segnum_s = set(loc_df.segnum)
     loc_df["sequence"] = n.segments.sequence[loc_df.segnum].values
     loc_df.sort_values(["sequence", "seg_ndist"], inplace=True)
     # Start from upstream locations, querying downstream, except last
     pairs = set()
-    for upstream_idx, upstream_segnum in loc_df.segnum.iloc[:-1].items():
-        downstream_idx = None
-        # First case that the downstream segnum is in the same segnum
-        next_loc = loc_df.iloc[loc_df.index.get_loc(upstream_idx) + 1]
-        if next_loc.segnum == upstream_segnum:
-            downstream_idx = next_loc.name
-        else:
-            # otherwise search downstream
-            cur_segnum = upstream_segnum
+    for us_idx, us_segnum in loc_df.segnum.iloc[:-1].items():
+        next_iloc = loc_df.index.get_loc(us_idx) + 1
+        if all_pairs:
+            # find downstream segnums in the same segnum
+            sel = loc_df.iloc[next_iloc:].segnum == us_segnum
+            for ds_idx in sel[sel].index:
+                pairs.add((us_idx, ds_idx))
+            # continue searching downstream
+            cur_segnum = us_segnum
             while True:
                 if cur_segnum in to_segnums:
                     next_segnum = to_segnums[cur_segnum]
-                    if next_segnum in loc_segnum_s:
-                        downstream_idx = loc_df.segnum[
-                            loc_df.segnum == next_segnum].index[0]
-                        break
+                    if (exclude_branches and
+                            len(from_segnums.get(next_segnum, [])) > 1):
+                        break  # stop searching due to branch
+                    sel = loc_df["segnum"] == next_segnum
+                    for ds_idx in sel[sel].index:
+                        pairs.add((us_idx, ds_idx))
                 else:
-                    # print(f"no downstream location from {upstream_idx}")
-                    break
+                    break  # stop searching due to no downstream location
                 cur_segnum = next_segnum
-        if downstream_idx is not None:
-            pairs.add((upstream_idx, downstream_idx))
+        else:
+            ds_idx = None
+            # First case that the downstream segnum is in the same segnum
+            next_loc = loc_df.iloc[next_iloc]
+            if next_loc.segnum == us_segnum:
+                ds_idx = next_loc.name
+            else:
+                # otherwise search downstream
+                cur_segnum = us_segnum
+                while True:
+                    if cur_segnum in to_segnums:
+                        next_segnum = to_segnums[cur_segnum]
+                        if (exclude_branches and
+                                len(from_segnums.get(next_segnum, [])) > 1):
+                            break  # no pair due to branch
+                        if next_segnum in loc_segnum_s:
+                            ds_idx = loc_df.segnum[
+                                loc_df.segnum == next_segnum].index[0]
+                            break  # found pair
+                    else:
+                        break  # no pair due to no downstream location
+                    cur_segnum = next_segnum
+            if ds_idx is not None:
+                pairs.add((us_idx, ds_idx))
     return pairs
 
 

@@ -233,6 +233,23 @@ def test_find_location_pairs(coastal_points, coastal_swn):
     sub_df = loc_df.loc[loc_df.dist_to_seg < 20, ["segnum", "seg_ndist"]]
     pairs = spatial.find_location_pairs(sub_df, coastal_swn)
     assert pairs == {(3, 8), (5, 8), (6, 8)}
+    # all pairs
+    pairs = spatial.find_location_pairs(loc_df, coastal_swn, all_pairs=True)
+    assert pairs == \
+        {(1, 2), (1, 8), (2, 8), (3, 2), (3, 8), (5, 1), (5, 2),
+         (5, 8), (5, 10), (6, 1), (6, 2), (6, 8), (6, 10), (7, 2),
+         (7, 8), (10, 1), (10, 2), (10, 8)}
+    # exclude branches
+    assert {(10, 1)} == \
+        spatial.find_location_pairs(loc_df, coastal_swn, exclude_branches=True)
+    # re-gen a simpler network to retry exlude branches
+    n2 = swn.SurfaceWaterNetwork.from_lines(
+        coastal_swn.segments.geometry[coastal_swn.segments.stream_order >= 2])
+    loc_df2 = n2.locate_geoms(coastal_points)
+    pairs = spatial.find_location_pairs(loc_df2, n2)
+    assert pairs == {(1, 2), (2, 8), (3, 2), (5, 10), (6, 10), (7, 2), (10, 1)}
+    pairs = spatial.find_location_pairs(loc_df2, n2, exclude_branches=True)
+    assert pairs == {(2, 8), (10, 1)}
     # errors
     with pytest.raises(TypeError, match="expected 'n' as an instance of Surf"):
         spatial.find_location_pairs(loc_df, False)

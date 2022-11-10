@@ -28,8 +28,7 @@ datadir = Path("tests") / "data"
 @pytest.fixture(scope="session", autouse=True)
 def coastal_lines_gdf():
     gdf = geopandas.read_file(datadir / "DN2_Coastal_strahler1z_stream_vf.shp")
-    gdf.set_index("nzsegment", inplace=True)
-    return gdf
+    return gdf.set_index("nzsegment")
 
 
 @pytest.fixture(scope="module")
