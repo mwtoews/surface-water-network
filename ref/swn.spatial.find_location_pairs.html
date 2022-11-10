@@ -448,7 +448,7 @@
 <h1>swn.spatial.find_location_pairs<a class="headerlink" href="#swn-spatial-find-location-pairs" title="Permalink to this heading">#</a></h1>
 <dl class="py function">
 <dt class="sig sig-object py" id="swn.spatial.find_location_pairs">
-<span class="sig-prename descclassname"><span class="pre">swn.spatial.</span></span><span class="sig-name descname"><span class="pre">find_location_pairs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">loc_df</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#swn.spatial.find_location_pairs" title="Permalink to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">swn.spatial.</span></span><span class="sig-name descname"><span class="pre">find_location_pairs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">loc_df</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">all_pairs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">exclude_branches</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#swn.spatial.find_location_pairs" title="Permalink to this definition">#</a></dt>
 <dd><p>Find pairs of locations in a surface water network that are connected.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -457,6 +457,11 @@
 <code class="xref py py-meth docutils literal notranslate"><span class="pre">SurfaceWaterNetwork.locate_geoms()</span></code>.</p>
 </dd>
 <dt><strong>n</strong><span class="classifier">SurfaceWaterNetwork</span></dt><dd><p>A surface water network to evaluate.</p>
+</dd>
+<dt><strong>all_pairs</strong><span class="classifier">bool, default False</span></dt><dd><p>If True, find all combination pairs, including those that overlap.
+Default False will find shortest pair combinations only.</p>
+</dd>
+<dt><strong>exclude_branches</strong><span class="classifier">bool, default False</span></dt><dd><p>If True, only pairs without branches between are permitted.</p>
 </dd>
 </dl>
 </dd>
@@ -503,9 +508,12 @@
 <span class="go">13     118   0.377049</span>
 <span class="go">14     108   0.093093</span>
 <span class="go">15     108   0.857357</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">pairs</span> <span class="o">=</span> <span class="n">swn</span><span class="o">.</span><span class="n">spatial</span><span class="o">.</span><span class="n">find_location_pairs</span><span class="p">(</span><span class="n">obs_match</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">sorted</span><span class="p">(</span><span class="n">pairs</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">sorted</span><span class="p">(</span><span class="n">swn</span><span class="o">.</span><span class="n">spatial</span><span class="o">.</span><span class="n">find_location_pairs</span><span class="p">(</span><span class="n">obs_match</span><span class="p">,</span> <span class="n">n</span><span class="p">))</span>
 <span class="go">[(11, 14), (12, 13), (14, 15), (15, 13)]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">sorted</span><span class="p">(</span><span class="n">swn</span><span class="o">.</span><span class="n">spatial</span><span class="o">.</span><span class="n">find_location_pairs</span><span class="p">(</span><span class="n">obs_match</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">all_pairs</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+<span class="go">[(11, 13), (11, 14), (11, 15), (12, 13), (14, 13), (14, 15), (15, 13)]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">swn</span><span class="o">.</span><span class="n">spatial</span><span class="o">.</span><span class="n">find_location_pairs</span><span class="p">(</span><span class="n">obs_match</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">exclude_branches</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="go">{(14, 15)}</span>
 </pre></div>
 </div>
 </dd></dl>
@@ -617,7 +625,7 @@
   <div class="footer-item">
     
 <p class="sphinx-version">
-Created using <a href="http://sphinx-doc.org/">Sphinx</a> 5.2.3.<br>
+Created using <a href="http://sphinx-doc.org/">Sphinx</a> 5.3.0.<br>
 </p>
 
   </div>
