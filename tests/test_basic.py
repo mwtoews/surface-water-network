@@ -106,7 +106,8 @@ def test_segments(valid_n):
     assert valid_n.segments is valid_n._segments
     assert isinstance(valid_n.segments, geopandas.GeoDataFrame)
     # columns are checked in other tests
-    with pytest.raises(AttributeError, match="can't set attribute"):
+    with pytest.raises(
+            AttributeError, match="can't set attribute|object has no setter"):
         valid_n.segments = None
 
 

@@ -1,6 +1,7 @@
 [build-system]
 requires = [
     "setuptools>=61",
+    "setuptools-scm[toml]>=6.2",
 ]
 build-backend = "setuptools.build_meta"
 
@@ -27,7 +28,7 @@ classifiers = [
     "Programming Language :: Python :: 3 :: Only",
     "Topic :: Scientific/Engineering :: Hydrology",
 ]
-requires-python = ">=3.7"
+requires-python = ">=3.8"
 dependencies = [
     "geopandas >=0.9",
     "packaging",
@@ -69,5 +70,5 @@ include = [
     "swn.*",
 ]
 
-[tool.setuptools.dynamic]
-version = {attr = "swn._version.version"}
+[tool.setuptools_scm]
+write_to = "swn/_version.py"
