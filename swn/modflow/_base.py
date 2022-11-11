@@ -727,11 +727,16 @@ class SwnModflowBase:
             df2.crs = df1.crs
         grid_reaches = geopandas.overlay(
             df1, df2,
-            how="intersection", keep_geom_type=True, make_valid=False)
+            how="intersection", keep_geom_type=False, make_valid=False)
         check_geom_type = (
             (grid_reaches.geom_type == "LineString") |
             (grid_reaches.geom_type == "MultiLineString"))
-        assert check_geom_type.all()
+        try:
+            assert check_geom_type.all()
+        except:
+            obj.logger.warning(
+                "dropping %s reaches represented as POINT", (~check_geom_type).sum())
+            grid_reaches.drop(grid_reaches[~check_geom_type].index, inplace=True)
         # erase some odd floating point issues
         grid_reaches["geometry"] = grid_reaches.geometry.apply(visible_wkt)
 
@@ -988,6 +993,9 @@ class SwnModflowBase:
         # each subclass should do more processing with returned object
         return obj
 
+    def clip_reach_data(self, name, lower=None, upper=None):
+        self.reaches.loc[:, name] = self.reaches.loc[:, name].clip(lower, upper)
+
     def set_reach_data_from_segments(
             self, name, value, value_out=None, method=None, log=False):
         """Set reach data based on segment series (or scalar).
@@ -1095,7 +1103,7 @@ class SwnModflowBase:
                 f"unsupported subclass {self.__class__.__name__!r}")
         if expected_shape != array.shape:
             raise ValueError("'array' must have shape (nrow, ncol)")
-        self.reaches.loc[:, name] = array[self.reaches["i"], self.reaches["j"]]
+        self.reaches.loc[:, name] = array[self.reaches["i"], self.reaches[ "j"]]
 
     def set_reach_slope(self, method: str = "auto", min_slope=1./1000):
         """Set slope for reaches.
