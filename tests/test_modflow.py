@@ -28,10 +28,6 @@ mfnwt_exe = which("mfnwt")
 mf2005_exe = which("mf2005")
 requires_mfnwt = pytest.mark.skipif(not mfnwt_exe, reason="requires mfnwt")
 requires_mf2005 = pytest.mark.skipif(not mf2005_exe, reason="requires mf2005")
-if mfnwt_exe is None:
-    mfnwt_exe = "mfnwt"
-if mf2005_exe is None:
-    mf2005_exe = "mf2005"
 
 # same valid network used in test_basic
 n3d_lines = wkt_to_geoseries([

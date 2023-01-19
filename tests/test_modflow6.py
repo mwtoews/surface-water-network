@@ -25,8 +25,6 @@ except ImportError:
 
 mf6_exe = which("mf6")
 requires_mf6 = pytest.mark.skipif(not mf6_exe, reason="requires mf6")
-if mf6_exe is None:
-    mf6_exe = "mf6"
 
 # same valid network used in test_basic
 n3d_lines = wkt_to_geoseries([
@@ -340,15 +338,18 @@ def test_n3d_defaults(tmp_path, has_diversions):
                 perioddata={},
             )
         # Run model and read outputs
-        sim.write_simulation()
-        success, buff = sim.run_simulation()
-        assert success
+        if mf6_exe:
+            sim.write_simulation()
+            success, buff = sim.run_simulation()
+            assert success
     # Write some files
     gdf_to_shapefile(
         nm.reaches[nm.reaches.geom_type == "LineString"],
         tmp_path / "reaches.shp")
     gdf_to_shapefile(nm.segments, tmp_path / "segments.shp")
     nm.grid_cells.to_file(tmp_path / "grid_cells.shp")
+    if not mf6_exe:
+        return
     # Check results
     head = read_head(tmp_path / "model.hds")
     sl = read_budget(tmp_path / "model.cbc", "SFR", nm.reaches, "sfrleakage")
@@ -1049,14 +1050,17 @@ def test_n3d_defaults_with_div_on_outlet(tmp_path):
                 diversions=nm.flopy_diversions(),
                 perioddata={},
             )
-        # Run model and read outputs
-        sim.write_simulation()
-        success, buff = sim.run_simulation()
-        assert success
+        if mf6_exe:
+            # Run model and read outputs
+            sim.write_simulation()
+            success, buff = sim.run_simulation()
+            assert success
     # Write some files
     gdf_to_shapefile(
         nm.reaches[nm.reaches.geom_type == "LineString"],
         tmp_path / "reaches.shp")
+    if not mf6_exe:
+        return
     # Check results
     head = read_head(tmp_path / "model.hds")
     sl = read_budget(tmp_path / "model.cbc", "SFR", nm.reaches, "sfrleakage")
