@@ -7,8 +7,12 @@ exclude =
 ignore =
     # https://flake8.pycqa.org/en/latest/user/error-codes.html
     # https://pycodestyle.readthedocs.io/en/latest/intro.html#error-codes
-    E126, # continuation line over-indented for hanging indent
-    E226, # missing whitespace around arithmetic operator
-    E241, # multiple spaces after ','
-    W504  # line break after binary operator
+    # continuation line over-indented for hanging indent
+    E126,
+    # missing whitespace around arithmetic operator
+    E226,
+    # multiple spaces after ','
+    E241,
+    # line break after binary operator
+    W504
 statistics = True
