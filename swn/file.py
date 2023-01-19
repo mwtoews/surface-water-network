@@ -153,12 +153,12 @@ def gdf_to_shapefile(gdf, shp_fname, **kwargs):
     for col, dtype in gdf.dtypes.items():
         if col == geom_name:
             continue
-        if dtype == object:
-            is_none = gdf[col].map(lambda x: x is None)
+        if dtype == bool:
+            gdf[col] = gdf[col].astype(int)
+        else:
+            is_none = gdf[col].map(lambda x: x is None).fillna(True)
             gdf[col] = gdf[col].astype(str)
             gdf.loc[is_none, col] = ""
-        elif dtype == bool:
-            gdf[col] = gdf[col].astype(int)
     # Rename columns for shapefile so they are 10 characters or less
     rename = {}
     for key, value in colname10.items():
