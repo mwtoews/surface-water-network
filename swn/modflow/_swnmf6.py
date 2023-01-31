@@ -6,6 +6,7 @@ __all__ = [
     "write_formatted_frame",
 ]
 
+import os
 from itertools import zip_longest
 
 import numpy as np
@@ -281,6 +282,71 @@ class SwnMf6(SwnModflowBase):
         super().__setstate__(state)
         self.tsvar = state["tsvar"]
 
+    def _init_package_df(self, *, style, defcols_names, auxiliary):
+        """Return an initial DataFrame of PACKAGEDATA or STRESS_PERIOD_DATA."""
+        if auxiliary is not None:
+            if isinstance(auxiliary, str):
+                auxiliary = [auxiliary]
+            defcols_names += auxiliary
+        dat = pd.DataFrame(self.reaches.copy())
+        dat["idomain"] = \
+            self.model.dis.idomain.array[dat["k"], dat["i"], dat["j"]]
+        cellid_none = dat["idomain"] < 1
+        if "mask" in dat.columns:
+            cellid_none |= dat["mask"]
+        kij_l = list("kij")
+        if style == "native":
+            # Convert from zero-based to one-based notation
+            dat[kij_l] += 1
+            # use kij unstead of cellid
+            idx = defcols_names.index("cellid")
+            defcols_names[idx:idx + 1] = kij_l
+            # convert kij to str, and store NONE in k, if needed
+            dat[kij_l] = dat[kij_l].astype(str)
+            if cellid_none.any():
+                dat.loc[cellid_none, "k"] = "NONE"
+                dat.loc[cellid_none, ["i", "j"]] = ""
+        elif style == "flopy":
+            # make cellid into tuple
+            dat["cellid"] = dat[kij_l].to_records(index=False).tolist()
+            if cellid_none.any():
+                dat.loc[cellid_none, "cellid"] = "NONE"
+            # Convert rno from one-based to zero-based notation
+            dat.index -= 1
+        else:
+            raise ValueError("'style' must be either 'native' or 'flopy'")
+        return dat
+
+    def _final_package_df(self, what, dat, *, defcols_names, boundname):
+        """Return a final DataFrame of PACKAGEDATA or STRESS_PERIOD_DATA."""
+        if boundname is None:
+            boundname = "boundname" in dat.columns
+        if boundname:
+            defcols_names.append("boundname")
+            dat["boundname"] = dat["boundname"].astype(str)
+            # Check and enforce 40 character limit
+            sel = dat.boundname.str.len() > 40
+            if sel.any():
+                self.logger.warning(
+                    "clipping %d boundname entries to 40 character limit",
+                    sel.sum())
+                dat.loc[sel, "boundname"] = \
+                    dat.loc[sel, "boundname"].str.slice(stop=40)
+        # checking missing columns
+        dat_columns = set(dat.columns)
+        missing = set(defcols_names).difference(dat_columns)
+        if missing:
+            missing_l = []
+            for name in defcols_names:
+                if name not in dat_columns:
+                    missing_l.append(name)
+            raise KeyError(
+                "missing {} {} dataset{}: {}"
+                .format(len(missing_l), what,
+                        "s" if len(missing_l) != 1 else "",
+                        ", ".join(sorted(missing_l))))
+        return dat.loc[:, defcols_names]
+
     def packagedata_frame(
             self, style: str, auxiliary: list = [], boundname=None):
         """Return DataFrame of PACKAGEDATA for MODFLOW 6 SFR.
@@ -354,39 +420,10 @@ class SwnMf6(SwnModflowBase):
         6    (0, 2, 1)  10.000000  10.0  0.001  1.0   1.0  1.0  0.024     1    1.0    0
         """  # noqa
         from flopy.mf6 import ModflowGwfsfr as Mf6Sfr
-        defcols_names = list(Mf6Sfr.packagedata.empty(self.model).dtype.names)
+        defcols_names = [dt[0] for dt in Mf6Sfr.packagedata.dtype(self.model)]
         defcols_names.remove("rno")  # this is the index
-        if auxiliary is not None:
-            if isinstance(auxiliary, str):
-                auxiliary = [auxiliary]
-            defcols_names += auxiliary
-        dat = pd.DataFrame(self.reaches.copy())
-        dat["idomain"] = \
-            self.model.dis.idomain.array[dat["k"], dat["i"], dat["j"]]
-        cellid_none = dat["idomain"] < 1
-        if "mask" in dat.columns:
-            cellid_none |= dat["mask"]
-        kij_l = list("kij")
-        if style == "native":
-            # Convert from zero-based to one-based notation
-            dat[kij_l] += 1
-            # use kij unstead of cellid
-            idx = defcols_names.index("cellid")
-            defcols_names[idx:idx + 1] = kij_l
-            # convert kij to str, and store NONE in k, if needed
-            dat[kij_l] = dat[kij_l].astype(str)
-            if cellid_none.any():
-                dat.loc[cellid_none, "k"] = "NONE"
-                dat.loc[cellid_none, ["i", "j"]] = ""
-        elif style == "flopy":
-            # make cellid into tuple
-            dat["cellid"] = dat[kij_l].to_records(index=False).tolist()
-            if cellid_none.any():
-                dat.loc[cellid_none, "cellid"] = "NONE"
-            # Convert rno from one-based to zero-based notation
-            dat.index -= 1
-        else:
-            raise ValueError("'style' must be either 'native' or 'flopy'")
+        dat = self._init_package_df(
+            style=style, defcols_names=defcols_names, auxiliary=auxiliary)
         if "rlen" not in dat.columns:
             dat.loc[:, "rlen"] = dat.geometry.length
         dat["ncon"] = (
@@ -404,31 +441,9 @@ class SwnMf6(SwnModflowBase):
             if style == "flopy":
                 ndv.index -= 1
             dat.loc[ndv.index, "ndv"] = ndv
-        if boundname is None:
-            boundname = "boundname" in dat.columns
-        if boundname:
-            defcols_names.append("boundname")
-            dat["boundname"] = dat["boundname"].astype(str)
-            # Check and enforce 40 character limit
-            sel = dat.boundname.str.len() > 40
-            if sel.any():
-                self.logger.warning(
-                    "clipping %d boundname entries to 40 character limit",
-                    sel.sum())
-                dat.loc[sel, "boundname"] = \
-                    dat.loc[sel, "boundname"].str.slice(stop=40)
-        # checking missing columns
-        reach_columns = set(dat.columns)
-        missing = set(defcols_names).difference(reach_columns)
-        if missing:
-            missing_l = []
-            for name in defcols_names:
-                if name not in reach_columns:
-                    missing_l.append(name)
-            raise KeyError(
-                "missing {} reach dataset(s): {}"
-                .format(len(missing_l), ", ".join(sorted(missing_l))))
-        return dat.loc[:, defcols_names]
+        return self._final_package_df(
+            "packagedata", dat,
+            defcols_names=defcols_names, boundname=boundname)
 
     def write_packagedata(
             self, fname: str, auxiliary: list = [], boundname=None):
@@ -672,6 +687,165 @@ class SwnMf6(SwnModflowBase):
         dat = self.diversions_frame("flopy")
         return [list(x) for x in dat.itertuples(index=False)]
 
+    def package_period_frame(
+            self, package: str, style: str, auxiliary: list = [],
+            boundname=None):
+        """Return DataFrame of PERIOD data for MODFLOW 6 packages.
+
+        This DataFrame is derived from the reaches DataFrame, and is
+        implemented using flopy.mf6 package's ``stress_period_data``.
+
+        Parameters
+        ----------
+        package : str
+            MODFLOW 6 package name, such as "drn" for DRAIN, or "GWT/SRC" for
+            Mass Source Loading.
+        style : str
+            If "native", all indicies (including kij) use one-based notation.
+            Also use k,i,j columns (as str) rather than cellid.
+            If "flopy", all indices (including rno) use zero-based notation.
+            Also use cellid as a tuple.
+        auxiliary : str, list, optional
+            String or list of auxiliary variable names. Default [].
+        boundname : bool, optional
+            Default None will determine if "boundname" column is added if
+            available in reaches.columns.
+
+        Returns
+        -------
+        DataFrame
+
+        See Also
+        --------
+        SwnMf6.write_package_period : Write native file.
+        SwnMf6.flopy_package_period : Dict of lists of lists for flopy.
+
+        Examples
+        --------
+        >>> import flopy
+        >>> import geopandas
+        >>> import swn
+        >>> lines = geopandas.GeoSeries.from_wkt([
+        ...    "LINESTRING (60 100, 60  80)",
+        ...    "LINESTRING (40 130, 60 100)",
+        ...    "LINESTRING (70 130, 60 100)"])
+        >>> lines.index += 100
+        >>> n = swn.SurfaceWaterNetwork.from_lines(lines)
+        >>> sim = flopy.mf6.MFSimulation()
+        >>> _ = flopy.mf6.ModflowTdis(sim, nper=1, time_units="days")
+        >>> gwf = flopy.mf6.ModflowGwf(sim)
+        >>> _ = flopy.mf6.ModflowGwfdis(
+        ...     gwf, nrow=3, ncol=2, delr=20.0, delc=20.0, top=10, botm=0,
+        ...     idomain=1, length_units="meters", xorigin=30.0, yorigin=70.0)
+        >>> nm = swn.SwnMf6.from_swn_flopy(n, gwf)
+        >>> nm.set_reach_data_from_array("elev", gwf.dis.top.array)
+        >>> nm.reaches["dlen"] = nm.reaches.length
+        >>> nm.reaches["cond"] = nm.reaches.dlen * 10.0
+        >>> nm.reaches["boundname"] = nm.reaches["segnum"]
+        >>> nm.package_period_frame("drn", "native", auxiliary="dlen")
+                 k  i  j  elev        cond       dlen boundname
+        per rno                                                
+        1   1    1  1  1  10.0  180.277564  18.027756       101
+            2    1  1  2  10.0   60.092521   6.009252       101
+            3    1  2  2  10.0  120.185043  12.018504       101
+            4    1  1  2  10.0  210.818511  21.081851       102
+            5    1  2  2  10.0  105.409255  10.540926       102
+            6    1  2  2  10.0  100.000000  10.000000       100
+            7    1  3  2  10.0  100.000000  10.000000       100
+        >>> nm.package_period_frame("drn","flopy", boundname=False)
+                    cellid  elev        cond
+        per rno                             
+        0   0    (0, 0, 0)  10.0  180.277564
+            1    (0, 0, 1)  10.0   60.092521
+            2    (0, 1, 1)  10.0  120.185043
+            3    (0, 0, 1)  10.0  210.818511
+            4    (0, 1, 1)  10.0  105.409255
+            5    (0, 1, 1)  10.0  100.000000
+            6    (0, 2, 1)  10.0  100.000000
+        """  # noqa
+        Mf6pak = get_flopy_mf6_package(package)
+        lst_tpl = Mf6pak.stress_period_data
+        defcols_names = [dt[0] for dt in lst_tpl.dtype(self.model)]
+        dat = self._init_package_df(
+            style=style, defcols_names=defcols_names, auxiliary=auxiliary)
+        dat = self._final_package_df(
+            "stress_period_data", dat,
+            defcols_names=defcols_names, boundname=boundname)
+        if self.model.simulation.tdis.nper.data != 1:
+            self.logger.warning(
+                "only preparing PERIOD data for the first stress period of %s",
+                self.model.simulation.tdis.nper.data)
+        dat["per"] = 1
+        if style == "flopy":
+            dat["per"] -= 1
+        return dat.reset_index().set_index(["per", "rno"])
+
+    def write_package_period(
+            self, package: str, fname, auxiliary: list = [],
+            boundname=None):
+        """
+        Write PERIOD file for MODFLOW 6 packages, to be used within OPEN/CLOSE.
+
+        Parameters
+        ----------
+        package : str
+            MODFLOW 6 package name, such as "drn" for DRAIN, or "GWT/SRC" for
+            Mass Source Loading.
+        fname : str or path-like
+            Output file name, with str formatting for stress period number
+            which starts numbering from 1. For example, "drn_sp{:02d}.txt" to
+            create "drn_sp01.txt" for the first stress period.
+        auxiliary : str, list, optional
+            String or list of auxiliary variable names. Default [].
+        boundname : bool, optional
+            Default None will determine if "boundname" column is added if
+            available in reaches.columns.
+
+        Returns
+        -------
+        None
+
+        See Also
+        --------
+        read_formatted_frame : Read formatted file as a pandas DataFrame.
+
+        """
+        spdf = self.package_period_frame(
+            package, "native", auxiliary=auxiliary, boundname=boundname)
+        if isinstance(fname, os.PathLike):
+            fname = os.fsdecode(fname)
+        for per, df in spdf.groupby("per"):
+            per_fname = fname.format(per)
+            self.logger.debug("writing period file %s", per_fname)
+            write_formatted_frame(df, per_fname, index=False)
+
+    def flopy_package_period(
+            self, package: str, auxiliary: list = [], boundname=None):
+        """Return dict of lists of lists for flopy's stress_period_data.
+
+        Parameters
+        ----------
+        package : str
+            MODFLOW 6 package name, such as "drn" for DRAIN, or "GWT/SRC" for
+            Mass Source Loading.
+        auxiliary : str, list, optional
+            String or list of auxiliary variable names. Default [].
+        boundname : bool, optional
+            Default None will determine if "boundname" column is added if
+            available in reaches.columns.
+
+        Returns
+        -------
+        dict
+
+        """
+        spdf = self.package_period_frame(
+            package, "flopy", auxiliary=auxiliary, boundname=boundname)
+        spd = {}
+        for per, df in spdf.groupby("per"):
+            spd[per] = [list(x) for x in df.itertuples(index=False)]
+        return spd
+
     _tsvar_meta = pd.DataFrame([
         ("status", "str"),
         ("manning", "ts"),
@@ -810,6 +984,11 @@ class SwnMf6(SwnModflowBase):
             if column exists.
         **kwargs : dict, optional
             Passed to flopy.mf6.ModflowGwfsfr.
+
+        Returns
+        -------
+        flopy.mf6.ModflowGwfsfr
+
         """
         import flopy
 
@@ -819,6 +998,7 @@ class SwnMf6(SwnModflowBase):
             boundnames = "boundname" in self.reaches.columns
         if boundnames:
             kwds["boundnames"] = True
+        kwds["nreaches"] = len(self.reaches)
         if "packagedata" not in kwds:
             kwds["packagedata"] = self.flopy_packagedata(
                 auxiliary=auxiliary, boundname=boundnames)
@@ -827,10 +1007,50 @@ class SwnMf6(SwnModflowBase):
         if self.diversions is not None and "diversions" not in kwds:
             kwds["diversions"] = self.flopy_diversions()
 
-        flopy.mf6.ModflowGwfsfr(
-            self.model,
-            nreaches=len(self.reaches),
-            **kwds)
+        return flopy.mf6.ModflowGwfsfr(self.model, **kwds)
+
+    def set_package_obj(
+            self, package: str, auxiliary=None, boundnames=None, **kwds):
+        """Set MODFLOW 6 package data to flopy model.
+
+        Parameters
+        ----------
+        package : str
+            MODFLOW 6 package name, such as "drn" for DRAIN, or "GWT/SRC" for
+            Mass Source Loading.
+        auxiliary : list, optional
+            List of auxiliary names, which must be columns in the reaches
+            frame.
+        boundnames : bool, optional
+            Sets the BOUNDAMES option, with names provided by a "boundname"
+            column of the reaches frame. Default None will set this True
+            if column exists.
+        **kwargs : dict, optional
+            Passed to flopy.mf6 package.
+
+        Returns
+        -------
+        flopy.mf6.mfpackage.MFPackage
+            Subclass instance.
+
+        """
+        if auxiliary is None and "auxmultname" in kwds:
+            auxiliary = kwds["auxmultname"]
+        if auxiliary is not None:
+            kwds["auxiliary"] = auxiliary
+        if boundnames is None:
+            boundnames = "boundname" in self.reaches.columns
+        if boundnames:
+            kwds["boundnames"] = True
+        if "stress_period_data" not in kwds:
+            kwds["stress_period_data"] = self.flopy_package_period(
+                package=package, auxiliary=auxiliary, boundname=boundnames)
+        if "maxbound" in kwds:
+            kwds["maxbound"] = len(self.reaches)
+
+        Mf6pak = get_flopy_mf6_package(package)
+        # self.logger.debug("%s called with kwds: %s", package, kwds)
+        return Mf6pak(self.model, **kwds)
 
     def _segbyseg_elevs(self, minslope=1e-4, fix_dis=True, minthick=0.5,
                         min_incise=0.2, max_str_z=None):
@@ -1662,6 +1882,38 @@ def _flopy_set3darray(flopyobj, array3d):
     flopyobj.set_data(data)
 
 
+def get_flopy_mf6_package(name: str):
+    """Returns a flopy.mf6 package.
+
+    Parameters
+    ----------
+    package : str
+        MODFLOW 6 package name, such as "drn" for DRAIN, or "GWT/SRC" for
+        Mass Source Loading.
+
+    Returns
+    -------
+    flopy.mf6.mfpackage.MFPackage
+        Subclass instance.
+    """
+    import flopy.mf6
+
+    if not isinstance(name, str):
+        raise ValueError(f"packge must be a str type; found {type(name)!r}")
+    try:
+        return getattr(flopy.mf6, name)
+    except AttributeError:
+        pass
+    # try (e.g.) "GWF-DRN" -> "Gwfdrn"
+    name = "".join(x for x in list(name) if x.isalpha())
+    try:
+        return getattr(flopy.mf6, f"Modflow{name.title()}")
+    except AttributeError:
+        pass
+    # try (e.g.) "DRN" -> "drn"
+    return getattr(flopy.mf6, f"ModflowGwf{name.lower()}")
+
+
 def read_formatted_frame(fname):
     r"""Write a data frame as a free formatted table.
 
@@ -1731,7 +1983,7 @@ def write_formatted_frame(df, fname, index=True, comment_header=True):
     ----------
     df : pandas.DataFrame
         DataFrame to write.
-    fname : Path, str or file-like object
+    fname : str, path-like or file-like object
         Path to write file.
     index : bool, default True
         Write row names (index).
