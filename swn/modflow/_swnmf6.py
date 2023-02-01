@@ -1345,20 +1345,35 @@ class SwnMf6(SwnModflowBase):
             # self.model.dis.botm.set_data(layerbots)
 
 
-    def _to_rno_elevs(
-            self, minslope=0.0001, minincise=0.2, minthick=0.5, buffer=0.5,
-            fix_dis=True):
-        """
-        Wes's hacky attempt to set reach elevations. Doesn't really ensure
-        anything, but the goal is:
+    def _fix_dis(self, buffer=0.5):
+            botm = self.model.dis.botm.get_data()
+            top = self.model.dis.top.get_data()
+            rdf = self.reaches.copy()
 
-            0. get a list of cells with to_rtp > rtp-minslope*(delr+delc)/2
-            1. drop rtp of downstream reach (to_rno) when higher than rtp
-               (of rno)
-            2. grab all offensive reaches downstream of rno
-            3. check and fix all layer bottoms to be above minthick+buffer
-            4. adjust top, up only, to accomodate minincision or rtp above
-               cell top
+            rdf['botm0'] = rdf[['i','j']].apply(lambda x: botm[0,x[0],x[1]], axis=1)
+            rdf['maxbot'] = rdf[['rtp', 'rbth']].apply(lambda x: x[0] - x[1] - buffer, axis=1)
+            rdf['bdz'] = rdf['maxbot'] - rdf['botm0']
+            rdf['rno'] = rdf.index
+            # need to get min bdz for each cell (unique 'ij')
+            rdf['ij'] = rdf[['i','j']].apply(lambda x: (x[0],x[1]), axis=1)
+            rdf = rdf.select_dtypes(include=[np.number, tuple]).groupby(['ij']).min()
+            rdf.set_index('rno', inplace=True)
+            # shift all layers in model column, TODO: enforce min layer thickness instead?
+            for r in rdf.index:
+                botm[:,rdf.loc[r, 'i'], rdf.loc[r, 'j']] = botm[:,rdf.loc[r, 'i'], rdf.loc[r, 'j']] + rdf.loc[r,'bdz']
+                top[rdf.loc[r, 'i'], rdf.loc[r, 'j']] = top[rdf.loc[r, 'i'], rdf.loc[r, 'j']] + rdf.loc[r, 'bdz']
+            # may do funny things to flopy external file reference?
+            self.model.dis.botm.set_data(botm)
+            self.model.dis.top.set_data(top)
+
+    def _to_rno_elevs(self, minslope=0.0001, minincise=0.2,
+                      minthick=0.5, buffer=0.5, fix_dis=True):
+        """
+        Attempt to set reach elevations, pandas approach:
+            0. ensure minimum incision
+            1. find minimum dz to next reach rtp-minslope*(delr+delc)/2
+            2. adjust rtp of receiving reaches that are too high (while loop)
+            3. optionally fix discretization in external method
 
         Parameters
         ----------
@@ -1368,11 +1383,11 @@ class SwnMf6(SwnModflowBase):
         minincise : float, default 0.2
             The minimum allowable incision of a reach below the model top.
         minthick : float, default 0.5
-            The minimum thickness of stream bed. Will try to ensure that this
-            is available below stream top before layer bottom.
+            The minimum thickness of stream bed. Ensure that this
+            is available below stream top before layer bottom or model will fail.
         buffer : float, default 0.5
             The minimum cell thickness between the bottom of stream bed
-            (rtp-minthick) and the bottom of the layer 1 cell
+            (rtp-minthick) and the bottom of the cell below
         fix_dis : bool, default True
             Move layer elevations down where it is not possible to honor
             minimum slope without going below layer 1 bottom.
@@ -1383,94 +1398,68 @@ class SwnMf6(SwnModflowBase):
 
         """
 
+        def get_to_rtp():
+            inet = rdf['to_rno'] != 0
+            trno = rdf.loc[inet, 'to_rno']
+            trno.drop_duplicates(inplace=True)
+            trtp = rdf.loc[trno.values, 'rtp']
+            rdf['rno'] = rdf.index
+            ndf = rdf[['rno','to_rno']].merge(trtp,left_on='to_rno',right_on='rno',how='outer')
+            ndf.index = ndf.rno
+            rdf['to_rtp'] = ndf['rtp']
+            rdf.loc[~inet, 'to_rtp'] = -9999
+
         # copy some data
         top = self.model.dis.top.array.copy()
-        botm = self.model.dis.botm.array.copy()
         delr = self.model.dis.delr.data.copy()
         delc = self.model.dis.delc.data.copy()
+
+        if 'rtp' not in self.reaches.columns:
+            self.set_reach_data_from_array('rtp', top)
+            self.reaches['rtp'] = self.reaches['rtp'] - minincise
         rdf = self.reaches.copy()
         icols = rdf.columns.to_list()
 
         # add some columns to rdf
-        rdf["ij"] = rdf.apply(lambda x: (int(x["i"]), int(x["j"])), axis=1)
-        # hopefully this sort of addresses local grid refinement?
-        rdf["mindz"] = minslope * \
+        # attempt to sort of addresses local grid refinement?
+        rdf.loc[:,"mindz"] = minslope * \
             (delr[rdf.loc[:, "j"]] + delc[rdf.loc[:, "i"]]) / 2.0
         if "rbth" not in rdf.columns:
             rdf["rbth"] = minthick
             icols.append("rbth")
-        if "rtp" not in rdf.columns:
-            rdf["rtp"] = np.nan
-            # add to list of columns to be returned
-            icols.append("rtp")
         if "incise" not in rdf.columns:
             rdf["incise"] = minincise
             icols.append("incise")
-        # reach specific so iterrows?
-        for idx, r in rdf.iterrows():
-            if np.isnan(r["rtp"]):
-                rdf.loc[idx, "rbth"] = np.max([r["rbth"], minthick])
-                rdf.loc[idx, "rtp"] = top[r["ij"]]-minincise
-        for idx, r in rdf.iterrows():
-            trno = int(r["to_rno"])
-            if trno != 0:
-                rdf.loc[idx, "to_rtp"] = rdf.loc[trno, "rtp"]
-        # start loop
+        rdf['rbth'].where(rdf['rbth'] > minthick, minthick, inplace=True)
+        # initial criteria
+        get_to_rtp()
+        #rdf['to_rtp'] = rdf['to_rno'].apply(lambda x: rdf.loc[x, 'rtp'] if x in rdf.index else -10)
+        rdf['mx_to_rtp'] = rdf['rtp'] - rdf['mindz']
+        sel = rdf['to_rtp'] > rdf['mx_to_rtp']
         loop = 0
-        cont = True
-        while cont:
-            bad_reaches = [i for i in rdf.index
-                           if rdf.loc[i, "to_rtp"] > rdf.loc[i, "rtp"] -
-                           rdf.loc[i, "mindz"]]
+        while sel.sum() > 0 and loop < 10000:
+            # this gives geodataframe
+            mx_rtp = rdf.loc[sel, ['to_rno','mx_to_rtp']].groupby('to_rno').min()
+            # so make it a series, exclude mx_rtp==0
+            mx_rtp = mx_rtp['mx_to_rtp']
+            mx_rtp.drop([_ for _ in mx_rtp.index if _ not in rdf.index], inplace=True)
+            # reset rtp values in rdf
+            rdf.loc[mx_rtp.index, 'rtp'] = mx_rtp.values
+            # report
+            self.logger.debug("%s changed in loop %s", sel.sum(), loop)
             loop += 1
-            chg = 0
-            for br in bad_reaches:
-                rno = br
-                trno = int(rdf.loc[br, "to_rno"])
-                chglist = []
-                if trno != 0:
-                    # count how many downstream reaches offend
-                    # keep track of changes in elev
-                    dz = rdf.loc[rno, "mindz"]
-                    check = rdf.loc[trno, "rtp"] > rdf.loc[rno, "rtp"] - dz
-                    while trno != 0 and check:
-                        # keep list of dz in case another inflowing stream is
-                        # even lower
-                        chglist.append(trno)
-                        nelev = rdf.loc[rno, "rtp"] - dz
-                        # set to_rtp and rtp
-                        rdf.loc[rno, "to_rtp"] = nelev
-                        rdf.loc[trno, "rtp"] = nelev
-                        # move downstream
-                        rno = trno
-                        trno = rdf.loc[rno, "to_rno"]
-                        dz = rdf.loc[rno, "mindz"]
-
-                    # now adjust layering if necessary
-                    if len(chglist) > 0 and fix_dis:
-                        self.logger.debug(
-                            "adjusting top for %s reaches", len(chglist))
-                        for r in chglist:
-                            # bump top elev up to rtp+incise if need be
-                            new_top = rdf.loc[r, "rtp"] + rdf.loc[r, "incise"]
-                            if top[rdf.loc[r, "ij"]] < new_top:
-                                top[rdf.loc[r, "ij"]] = new_top
-                            # bump bottoms down if needed
-                            maxbot = rdf.loc[r, "rtp"] - rdf.loc[r, "rbth"] - buffer
-                            if botm[0][rdf.loc[r, "ij"]] >= maxbot:
-                                botdz = botm[0][rdf.loc[r, "ij"]] - maxbot
-                                for b in range(botm.shape[0]):
-                                    botm[b][rdf.loc[r, "ij"]] = \
-                                        botm[b][rdf.loc[r, "ij"]] - botdz
-
-                chg += len(chglist)
-            if chg == 0:
-                cont = False
-            else:
-                self.logger.debug("%s changed in loop %s", chg, loop)
-        setattr(self, "reaches", rdf[icols + ["to_rtp", "mindz"]])
-        self.model.dis.botm = botm
-        self.model.dis.top = top
+            # prep for next
+            get_to_rtp()
+            rdf['mx_to_rtp'] = rdf['rtp'] - rdf['mindz']
+            sel = rdf['to_rtp'] > rdf['mx_to_rtp']
+        if loop >= 10000:
+            # maybe stronger warning, kill it?
+            self.logger.debug("to_rno_elev did not find final solution after %s loops", loop)
+        # copy here removes pd warning about setting value on copy
+        self.reaches.loc[:,icols] = rdf.loc[:, icols]
+        if fix_dis:
+            self._fix_dis(buffer)
+        self.add_model_topbot_to_reaches()        
 
     def fix_reach_elevs(
             self, minslope=1e-4, minincise=0.2, minthick=0.5, buffer=0.1,
