@@ -81,7 +81,7 @@ intersphinx_mapping = {
     "pandas": ("https://pandas.pydata.org/docs", None),
 }
 
-autosummary_generate = False
+autosummary_generate = True
 numpydoc_class_members_toctree = False
 
 # sphinx-issues
