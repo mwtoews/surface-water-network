@@ -11,9 +11,10 @@ from warnings import warn
 import geopandas
 import numpy as np
 import pandas as pd
+import shapely
 from shapely.geometry import LineString, Point
 
-from .compat import ignore_shapely_warnings_for_object_array
+from .compat import ignore_shapely_warnings_for_object_array, SHAPELY_GE_20
 from .spatial import bias_substring
 from .util import abbr_str
 
@@ -184,8 +185,9 @@ class SurfaceWaterNetwork:
 
         Examples
         --------
+        >>> import geopandas
         >>> import swn
-        >>> lines = swn.spatial.wkt_to_geoseries([
+        >>> lines = geopandas.GeoSeries.from_wkt([
         ...    "LINESTRING (60 100, 60  80)",
         ...    "LINESTRING (40 130, 60 100)",
         ...    "LINESTRING (70 130, 60 100)"])
@@ -427,8 +429,9 @@ class SurfaceWaterNetwork:
 
         Examples
         --------
+        >>> import geopandas
         >>> import swn
-        >>> lines = swn.spatial.wkt_to_geoseries([
+        >>> lines = geopandas.GeoSeries.from_wkt([
         ...    "LINESTRING (60 100, 60  80)",
         ...    "LINESTRING (40 130, 60 100)",
         ...    "LINESTRING (70 130, 60 100)"])
@@ -458,13 +461,14 @@ class SurfaceWaterNetwork:
 
         Examples
         --------
+        >>> import geopandas
         >>> import swn
-        >>> lines = swn.spatial.wkt_to_geoseries([
+        >>> lines = geopandas.GeoSeries.from_wkt([
         ...    "LINESTRING (60 100, 60  80)",
         ...    "LINESTRING (40 130, 60 100)",
         ...    "LINESTRING (70 130, 60 100)"])
         >>> lines.index += 100
-        >>> polygons = swn.spatial.wkt_to_geoseries([
+        >>> polygons = geopandas.GeoSeries.from_wkt([
         ...    "POLYGON ((35 100, 75 100, 75  80, 35  80, 35 100))",
         ...    "POLYGON ((35 135, 60 135, 60 100, 35 100, 35 135))",
         ...    "POLYGON ((60 135, 75 135, 75 100, 60 100, 60 135))"])
@@ -662,7 +666,7 @@ class SurfaceWaterNetwork:
     def outlets(self):
         """Return index of outlets.
 
-        Determined where ``n.segments.to_segnum == n.END_SEGNUM`
+        Determined where ``n.segments.to_segnum == n.END_SEGNUM``
         """
         return self.segments.index[
                 self.segments['to_segnum'] == self.END_SEGNUM]
@@ -950,14 +954,15 @@ class SurfaceWaterNetwork:
 
         Examples
         --------
+        >>> import geopandas
         >>> import swn
-        >>> lines = swn.spatial.wkt_to_geoseries([
+        >>> lines = geopandas.GeoSeries.from_wkt([
         ...    "LINESTRING (60 100, 60  80)",
         ...    "LINESTRING (40 130, 60 100)",
         ...    "LINESTRING (70 130, 60 100)"])
         >>> n = swn.SurfaceWaterNetwork.from_lines(lines)
         >>> lines.index += 101
-        >>> obs_gs = swn.spatial.wkt_to_geoseries([
+        >>> obs_gs = geopandas.GeoSeries.from_wkt([
         ...    "POINT (56 103)",
         ...    "LINESTRING (58 90, 62 90)",
         ...    "POLYGON ((60 107, 59 113, 61 113, 60 107))",
@@ -1181,11 +1186,20 @@ class SurfaceWaterNetwork:
             lambda f: self.segments.geometry[f.segnum].project(
                 f.geometry, normalized=True), axis=1)
         # Line between geometry and line segment
-        with ignore_shapely_warnings_for_object_array():
+        if SHAPELY_GE_20:
+            res["pt2"] = shapely.force_2d(res.loc[sel].apply(
+                lambda f: self.segments.geometry[f.segnum].interpolate(
+                        f.seg_ndist, normalized=True), axis=1))
             res["link"] = res.loc[sel].apply(
-                lambda f: LineString(
-                    [f.geometry, self.segments.geometry[f.segnum].interpolate(
-                        f.seg_ndist, normalized=True)]), axis=1)
+                lambda f: LineString([f.geometry, f.pt2]), axis=1)
+            res.drop(columns="pt2", inplace=True)
+        else:
+            with ignore_shapely_warnings_for_object_array():
+                res["link"] = res.loc[sel].apply(
+                    lambda f: LineString(
+                        [f.geometry,
+                         self.segments.geometry[f.segnum].interpolate(
+                             f.seg_ndist, normalized=True)]), axis=1)
         if (~sel).any():
             linestring_empty = wkt.loads("LINESTRING EMPTY")
             for idx in res[~sel].index:
@@ -1492,8 +1506,9 @@ class SurfaceWaterNetwork:
 
         Examples
         --------
+        >>> import geopandas
         >>> import swn
-        >>> lines = swn.spatial.wkt_to_geoseries([
+        >>> lines = geopandas.GeoSeries.from_wkt([
         ...    "LINESTRING (60 100, 60  80)",
         ...    "LINESTRING (40 130, 60 100)",
         ...    "LINESTRING (70 130, 60 100)"])
@@ -1554,6 +1569,7 @@ class SurfaceWaterNetwork:
         method : str, default "continuous"
             This option determines how ``value_out`` values should be
             determined, if not specified. Choose one of:
+
               - ``continuous`` (default): downstream value is evaluated to be
                 the same as the upstream value it connects to. This allows a
                 continuous network of values along the networks, such as
@@ -1572,8 +1588,9 @@ class SurfaceWaterNetwork:
 
         Examples
         --------
+        >>> import geopandas
         >>> import swn
-        >>> lines = swn.spatial.wkt_to_geoseries([
+        >>> lines = geopandas.GeoSeries.from_wkt([
         ...    "LINESTRING (60 100, 60  80)",
         ...    "LINESTRING (40 130, 60 100)",
         ...    "LINESTRING (70 130, 60 100)"])
@@ -1874,9 +1891,11 @@ class SurfaceWaterNetwork:
             if diversions_is_spatial:
                 diversion_lines = []
                 for item in self.diversions.itertuples():
+                    pt2 = div_seg_pt[item.Index]
+                    if SHAPELY_GE_20 and pt2.has_z:
+                        pt2 = shapely.force_2d(pt2)
                     diversion_lines.append(
-                        LineString([item.geometry.centroid,
-                                    div_seg_pt[item.Index]]))
+                        LineString([item.geometry.centroid, pt2]))
                 diversion_lines = geopandas.GeoSeries(diversion_lines)
                 diversion_lines.plot(
                     ax=ax, label='diversion lines',

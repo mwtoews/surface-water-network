@@ -12,7 +12,7 @@ from shapely.geometry import Point
 
 import swn
 from swn.file import gdf_to_shapefile
-from swn.spatial import force_2d, interp_2d_to_3d, wkt_to_geoseries
+from swn.spatial import force_2d, interp_2d_to_3d
 
 if __name__ != "__main__":
     from .conftest import datadir, matplotlib, plt
@@ -30,7 +30,7 @@ requires_mfnwt = pytest.mark.skipif(not mfnwt_exe, reason="requires mfnwt")
 requires_mf2005 = pytest.mark.skipif(not mf2005_exe, reason="requires mf2005")
 
 # same valid network used in test_basic
-n3d_lines = wkt_to_geoseries([
+n3d_lines = geopandas.GeoSeries.from_wkt([
     "LINESTRING Z (60 100 14, 60  80 12)",
     "LINESTRING Z (40 130 15, 60 100 14)",
     "LINESTRING Z (70 130 15, 60 100 14)",
@@ -444,7 +444,7 @@ def test_default_segment_data(has_z):
     np.testing.assert_array_almost_equal(sd.width2, [10.0, 10.0, 10.0])
 
     # auto determine width
-    n.catchments = wkt_to_geoseries([
+    n.catchments = geopandas.GeoSeries.from_wkt([
         "POLYGON ((35 100, 75 100, 75  80, 35  80, 35 100))",
         "POLYGON ((35 135, 60 135, 60 100, 35 100, 35 135))",
         "POLYGON ((60 135, 75 135, 75 100, 60 100, 60 135))",
@@ -1374,7 +1374,7 @@ def test_include_downstream_reach_outside_model(tmp_path):
     m.bas6.ibound = np.array([[1, 1], [1, 1], [1, 0]])
     gt = swn.modflow.geotransform_from_flopy(m)
     lines = interp_2d_to_3d(
-        wkt_to_geoseries([
+        geopandas.GeoSeries.from_wkt([
             "LINESTRING (60 89, 60 80)",
             "LINESTRING (40 130, 60 89)",
             "LINESTRING (70 130, 60 89)",

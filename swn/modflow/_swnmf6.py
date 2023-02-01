@@ -312,8 +312,9 @@ class SwnMf6(SwnModflowBase):
         Examples
         --------
         >>> import flopy
+        >>> import geopandas
         >>> import swn
-        >>> lines = swn.spatial.wkt_to_geoseries([
+        >>> lines = geopandas.GeoSeries.from_wkt([
         ...    "LINESTRING (60 100, 60  80)",
         ...    "LINESTRING (40 130, 60 100)",
         ...    "LINESTRING (70 130, 60 100)"])
@@ -574,16 +575,17 @@ class SwnMf6(SwnModflowBase):
         Examples
         --------
         >>> import flopy
+        >>> import geopandas
         >>> import swn
-        >>> lines = swn.spatial.wkt_to_geoseries([
+        >>> lines = geopandas.GeoSeries.from_wkt([
         ...    "LINESTRING (60 100, 60  80)",
         ...    "LINESTRING (40 130, 60 100)",
         ...    "LINESTRING (70 130, 60 100)"])
         >>> lines.index += 100
         >>> n = swn.SurfaceWaterNetwork.from_lines(lines)
-        >>> diversions = swn.spatial.wkt_to_geodataframe([
+        >>> diversions = geopandas.GeoSeries.from_wkt([
         ...    "POINT (58 100)", "POINT (62 100)",
-        ...    "POINT (59 95)", "POINT (61 92)"])
+        ...    "POINT (59 95)", "POINT (61 92)"]).to_frame("geometry")
         >>> diversions.index += 11
         >>> n.set_diversions(diversions)
         >>> sim = flopy.mf6.MFSimulation()
@@ -1569,8 +1571,9 @@ class SwnMf6(SwnModflowBase):
         Examples
         --------
         >>> import flopy
+        >>> import geopandas
         >>> import swn
-        >>> lines = swn.spatial.wkt_to_geoseries([
+        >>> lines = geopandas.GeoSeries.from_wkt([
         ...    "LINESTRING (60 100, 60  80)",
         ...    "LINESTRING (40 130, 60 100)",
         ...    "LINESTRING (70 130, 60 100)"])
