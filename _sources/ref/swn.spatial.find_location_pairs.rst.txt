@@ -1,0 +1,6 @@
+﻿swn.spatial.find\_location\_pairs
+=================================
+
+.. currentmodule:: swn.spatial
+
+.. autofunction:: find_location_pairs

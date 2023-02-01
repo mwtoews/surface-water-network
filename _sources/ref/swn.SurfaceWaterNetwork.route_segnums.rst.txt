@@ -1,0 +1,6 @@
+﻿swn.SurfaceWaterNetwork.route\_segnums
+======================================
+
+.. currentmodule:: swn
+
+.. automethod:: SurfaceWaterNetwork.route_segnums

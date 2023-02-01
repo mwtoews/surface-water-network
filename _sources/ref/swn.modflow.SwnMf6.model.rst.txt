@@ -1,0 +1,6 @@
+﻿swn.modflow.SwnMf6.model
+========================
+
+.. currentmodule:: swn.modflow
+
+.. autoproperty:: SwnMf6.model

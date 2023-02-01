@@ -1,0 +1,6 @@
+﻿swn.SurfaceWaterNetwork.segments
+================================
+
+.. currentmodule:: swn
+
+.. autoproperty:: SurfaceWaterNetwork.segments

@@ -1,0 +1,6 @@
+﻿swn.modflow.SwnModflow.diversions
+=================================
+
+.. currentmodule:: swn.modflow
+
+.. autoproperty:: SwnModflow.diversions

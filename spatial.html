@@ -42,8 +42,8 @@
     <script>DOCUMENTATION_OPTIONS.pagename = 'spatial';</script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="Change log" href="changelog.html" />
-    <link rel="prev" title="File reading/writing helpers" href="file.html" />
+    <link rel="next" title="swn.spatial.find_location_pairs" href="ref/swn.spatial.find_location_pairs.html" />
+    <link rel="prev" title="swn.file.gdf_to_shapefile" href="ref/swn.file.gdf_to_shapefile.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="docsearch:language" content="en">
   </head>
@@ -285,11 +285,94 @@
   </p>
   <div class="bd-toc-item navbar-nav">
     <ul class="current nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="swn.html">SurfaceWaterNetwork</a></li>
-<li class="toctree-l1"><a class="reference internal" href="swnmodflow.html">SwnModflow</a></li>
-<li class="toctree-l1"><a class="reference internal" href="swnmf6.html">SwnMf6</a></li>
-<li class="toctree-l1"><a class="reference internal" href="file.html">File reading/writing helpers</a></li>
-<li class="toctree-l1 current active"><a class="current reference internal" href="#">Spatial methods</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="swn.html">SurfaceWaterNetwork</a><input class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-1"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="ref/swn.SurfaceWaterNetwork.html">swn.SurfaceWaterNetwork</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ref/swn.SurfaceWaterNetwork.from_lines.html">swn.SurfaceWaterNetwork.from_lines</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ref/swn.SurfaceWaterNetwork.from_pickle.html">swn.SurfaceWaterNetwork.from_pickle</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ref/swn.SurfaceWaterNetwork.segments.html">swn.SurfaceWaterNetwork.segments</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ref/swn.SurfaceWaterNetwork.catchments.html">swn.SurfaceWaterNetwork.catchments</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ref/swn.SurfaceWaterNetwork.diversions.html">swn.SurfaceWaterNetwork.diversions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ref/swn.SurfaceWaterNetwork.has_z.html">swn.SurfaceWaterNetwork.has_z</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ref/swn.SurfaceWaterNetwork.headwater.html">swn.SurfaceWaterNetwork.headwater</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ref/swn.SurfaceWaterNetwork.outlets.html">swn.SurfaceWaterNetwork.outlets</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ref/swn.SurfaceWaterNetwork.to_segnums.html">swn.SurfaceWaterNetwork.to_segnums</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ref/swn.SurfaceWaterNetwork.from_segnums.html">swn.SurfaceWaterNetwork.from_segnums</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ref/swn.SurfaceWaterNetwork.set_diversions.html">swn.SurfaceWaterNetwork.set_diversions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ref/swn.SurfaceWaterNetwork.segments_series.html">swn.SurfaceWaterNetwork.segments_series</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ref/swn.SurfaceWaterNetwork.pair_segments_frame.html">swn.SurfaceWaterNetwork.pair_segments_frame</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ref/swn.SurfaceWaterNetwork.accumulate_values.html">swn.SurfaceWaterNetwork.accumulate_values</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ref/swn.SurfaceWaterNetwork.route_segnums.html">swn.SurfaceWaterNetwork.route_segnums</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ref/swn.SurfaceWaterNetwork.gather_segnums.html">swn.SurfaceWaterNetwork.gather_segnums</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ref/swn.SurfaceWaterNetwork.locate_geoms.html">swn.SurfaceWaterNetwork.locate_geoms</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ref/swn.SurfaceWaterNetwork.aggregate.html">swn.SurfaceWaterNetwork.aggregate</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ref/swn.SurfaceWaterNetwork.evaluate_upstream_length.html">swn.SurfaceWaterNetwork.evaluate_upstream_length</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ref/swn.SurfaceWaterNetwork.evaluate_upstream_area.html">swn.SurfaceWaterNetwork.evaluate_upstream_area</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ref/swn.SurfaceWaterNetwork.estimate_width.html">swn.SurfaceWaterNetwork.estimate_width</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ref/swn.SurfaceWaterNetwork.adjust_elevation_profile.html">swn.SurfaceWaterNetwork.adjust_elevation_profile</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ref/swn.SurfaceWaterNetwork.plot.html">swn.SurfaceWaterNetwork.plot</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ref/swn.SurfaceWaterNetwork.to_pickle.html">swn.SurfaceWaterNetwork.to_pickle</a></li>
+</ul>
+</li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="swnmodflow.html">SwnModflow</a><input class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-2"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="ref/swn.modflow.SwnModflow.html">swn.modflow.SwnModflow</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ref/swn.modflow.SwnModflow.from_swn_flopy.html">swn.modflow.SwnModflow.from_swn_flopy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ref/swn.modflow.SwnModflow.from_pickle.html">swn.modflow.SwnModflow.from_pickle</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ref/swn.modflow.SwnModflow.model.html">swn.modflow.SwnModflow.model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ref/swn.modflow.SwnModflow.segments.html">swn.modflow.SwnModflow.segments</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ref/swn.modflow.SwnModflow.diversions.html">swn.modflow.SwnModflow.diversions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ref/swn.modflow.SwnModflow.reaches.html">swn.modflow.SwnModflow.reaches</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ref/swn.modflow.SwnModflow.segment_data.html">swn.modflow.SwnModflow.segment_data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ref/swn.modflow.SwnModflow.segment_data_ts.html">swn.modflow.SwnModflow.segment_data_ts</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ref/swn.modflow.SwnModflow.set_reach_data_from_array.html">swn.modflow.SwnModflow.set_reach_data_from_array</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ref/swn.modflow.SwnModflow.set_reach_data_from_segments.html">swn.modflow.SwnModflow.set_reach_data_from_segments</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ref/swn.modflow.SwnModflow.set_reach_slope.html">swn.modflow.SwnModflow.set_reach_slope</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ref/swn.modflow.SwnModflow.new_segment_data.html">swn.modflow.SwnModflow.new_segment_data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ref/swn.modflow.SwnModflow.default_segment_data.html">swn.modflow.SwnModflow.default_segment_data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ref/swn.modflow.SwnModflow.set_segment_data_from_scalar.html">swn.modflow.SwnModflow.set_segment_data_from_scalar</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ref/swn.modflow.SwnModflow.set_segment_data_from_segments.html">swn.modflow.SwnModflow.set_segment_data_from_segments</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ref/swn.modflow.SwnModflow.set_segment_data_from_diversions.html">swn.modflow.SwnModflow.set_segment_data_from_diversions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ref/swn.modflow.SwnModflow.get_location_frame_reach_info.html">swn.modflow.SwnModflow.get_location_frame_reach_info</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ref/swn.modflow.SwnModflow.route_reaches.html">swn.modflow.SwnModflow.route_reaches</a></li>
+</ul>
+</li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="swnmf6.html">SwnMf6</a><input class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-3"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="ref/swn.modflow.SwnMf6.html">swn.modflow.SwnMf6</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ref/swn.modflow.SwnMf6.from_swn_flopy.html">swn.modflow.SwnMf6.from_swn_flopy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ref/swn.modflow.SwnMf6.from_pickle.html">swn.modflow.SwnMf6.from_pickle</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ref/swn.modflow.SwnMf6.model.html">swn.modflow.SwnMf6.model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ref/swn.modflow.SwnMf6.segments.html">swn.modflow.SwnMf6.segments</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ref/swn.modflow.SwnMf6.diversions.html">swn.modflow.SwnMf6.diversions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ref/swn.modflow.SwnMf6.reaches.html">swn.modflow.SwnMf6.reaches</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ref/swn.modflow.SwnMf6.set_reach_data_from_array.html">swn.modflow.SwnMf6.set_reach_data_from_array</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ref/swn.modflow.SwnMf6.set_reach_data_from_segments.html">swn.modflow.SwnMf6.set_reach_data_from_segments</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ref/swn.modflow.SwnMf6.set_reach_slope.html">swn.modflow.SwnMf6.set_reach_slope</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ref/swn.modflow.SwnMf6.set_sfr_obj.html">swn.modflow.SwnMf6.set_sfr_obj</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ref/swn.modflow.SwnMf6.default_packagedata.html">swn.modflow.SwnMf6.default_packagedata</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ref/swn.modflow.SwnMf6.packagedata_frame.html">swn.modflow.SwnMf6.packagedata_frame</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ref/swn.modflow.SwnMf6.write_packagedata.html">swn.modflow.SwnMf6.write_packagedata</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ref/swn.modflow.SwnMf6.flopy_packagedata.html">swn.modflow.SwnMf6.flopy_packagedata</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ref/swn.modflow.SwnMf6.connectiondata_series.html">swn.modflow.SwnMf6.connectiondata_series</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ref/swn.modflow.SwnMf6.write_connectiondata.html">swn.modflow.SwnMf6.write_connectiondata</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ref/swn.modflow.SwnMf6.flopy_connectiondata.html">swn.modflow.SwnMf6.flopy_connectiondata</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ref/swn.modflow.SwnMf6.diversions_frame.html">swn.modflow.SwnMf6.diversions_frame</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ref/swn.modflow.SwnMf6.write_diversions.html">swn.modflow.SwnMf6.write_diversions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ref/swn.modflow.SwnMf6.flopy_diversions.html">swn.modflow.SwnMf6.flopy_diversions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ref/swn.modflow.SwnMf6.get_location_frame_reach_info.html">swn.modflow.SwnMf6.get_location_frame_reach_info</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ref/swn.modflow.SwnMf6.route_reaches.html">swn.modflow.SwnMf6.route_reaches</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ref/swn.modflow.read_formatted_frame.html">swn.modflow.read_formatted_frame</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ref/swn.modflow.write_formatted_frame.html">swn.modflow.write_formatted_frame</a></li>
+</ul>
+</li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="file.html">File reading/writing helpers</a><input class="toctree-checkbox" id="toctree-checkbox-4" name="toctree-checkbox-4" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-4"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="ref/swn.file.topnet2ts.html">swn.file.topnet2ts</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ref/swn.file.gdf_to_shapefile.html">swn.file.gdf_to_shapefile</a></li>
+</ul>
+</li>
+<li class="toctree-l1 current active has-children"><a class="current reference internal" href="#">Spatial methods</a><input checked="" class="toctree-checkbox" id="toctree-checkbox-5" name="toctree-checkbox-5" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-5"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="ref/swn.spatial.find_location_pairs.html">swn.spatial.find_location_pairs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ref/swn.spatial.location_pair_geoms.html">swn.spatial.location_pair_geoms</a></li>
+</ul>
+</li>
 </ul>
 
   </div>
@@ -327,10 +410,10 @@
 <h2>Paired data methods<a class="headerlink" href="#paired-data-methods" title="Permalink to this heading">#</a></h2>
 <table class="autosummary longtable table autosummary">
 <tbody>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">find_location_pairs</span></code>(loc_df, n, *[, ...])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="ref/swn.spatial.find_location_pairs.html#swn.spatial.find_location_pairs" title="swn.spatial.find_location_pairs"><code class="xref py py-obj docutils literal notranslate"><span class="pre">find_location_pairs</span></code></a>(loc_df, n, *[, ...])</p></td>
 <td><p>Find pairs of locations in a surface water network that are connected.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">location_pair_geoms</span></code>(pairs, loc_df, n)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="ref/swn.spatial.location_pair_geoms.html#swn.spatial.location_pair_geoms" title="swn.spatial.location_pair_geoms"><code class="xref py py-obj docutils literal notranslate"><span class="pre">location_pair_geoms</span></code></a>(pairs, loc_df, n)</p></td>
 <td><p>Extract linestring geometry for location pairs, that follow segments.</p></td>
 </tr>
 </tbody>
@@ -346,17 +429,17 @@
             <footer class="bd-footer-article">
                 <!-- Previous / next buttons -->
 <div class='prev-next-area'>
-  <a class='left-prev' id="prev-link" href="file.html" title="previous page">
+  <a class='left-prev' id="prev-link" href="ref/swn.file.gdf_to_shapefile.html" title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
           <p class="prev-next-subtitle">previous</p>
-          <p class="prev-next-title">File reading/writing helpers</p>
+          <p class="prev-next-title">swn.file.gdf_to_shapefile</p>
       </div>
   </a>
-  <a class='right-next' id="next-link" href="changelog.html" title="next page">
+  <a class='right-next' id="next-link" href="ref/swn.spatial.find_location_pairs.html" title="next page">
   <div class="prev-next-info">
       <p class="prev-next-subtitle">next</p>
-      <p class="prev-next-title">Change log</p>
+      <p class="prev-next-title">swn.spatial.find_location_pairs</p>
   </div>
   <i class="fa-solid fa-angle-right"></i>
   </a>

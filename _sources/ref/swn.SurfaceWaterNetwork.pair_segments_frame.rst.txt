@@ -1,0 +1,6 @@
+﻿swn.SurfaceWaterNetwork.pair\_segments\_frame
+=============================================
+
+.. currentmodule:: swn
+
+.. automethod:: SurfaceWaterNetwork.pair_segments_frame

@@ -1,0 +1,6 @@
+﻿swn.SurfaceWaterNetwork.headwater
+=================================
+
+.. currentmodule:: swn
+
+.. autoproperty:: SurfaceWaterNetwork.headwater

@@ -1,0 +1,6 @@
+﻿swn.SurfaceWaterNetwork.evaluate\_upstream\_length
+==================================================
+
+.. currentmodule:: swn
+
+.. automethod:: SurfaceWaterNetwork.evaluate_upstream_length

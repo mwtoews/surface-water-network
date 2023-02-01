@@ -1,0 +1,6 @@
+﻿swn.modflow.SwnMf6.reaches
+==========================
+
+.. currentmodule:: swn.modflow
+
+.. autoproperty:: SwnMf6.reaches

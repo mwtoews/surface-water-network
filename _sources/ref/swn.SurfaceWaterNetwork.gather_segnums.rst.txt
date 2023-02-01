@@ -1,0 +1,6 @@
+﻿swn.SurfaceWaterNetwork.gather\_segnums
+=======================================
+
+.. currentmodule:: swn
+
+.. automethod:: SurfaceWaterNetwork.gather_segnums

@@ -1,0 +1,6 @@
+﻿swn.modflow.SwnModflow.from\_swn\_flopy
+=======================================
+
+.. currentmodule:: swn.modflow
+
+.. automethod:: SwnModflow.from_swn_flopy

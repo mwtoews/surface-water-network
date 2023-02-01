@@ -1,0 +1,6 @@
+﻿swn.SurfaceWaterNetwork.to\_segnums
+===================================
+
+.. currentmodule:: swn
+
+.. autoproperty:: SurfaceWaterNetwork.to_segnums

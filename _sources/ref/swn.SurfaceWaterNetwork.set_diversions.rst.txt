@@ -1,0 +1,6 @@
+﻿swn.SurfaceWaterNetwork.set\_diversions
+=======================================
+
+.. currentmodule:: swn
+
+.. automethod:: SurfaceWaterNetwork.set_diversions
