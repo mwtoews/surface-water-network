@@ -1,6 +1,0 @@
-﻿swn.modflow.SwnMf6.set\_reach\_data\_from\_array
-================================================
-
-.. currentmodule:: swn.modflow
-
-.. automethod:: SwnMf6.set_reach_data_from_array

@@ -1,6 +1,0 @@
-﻿swn.modflow.SwnMf6.connectiondata\_series
-=========================================
-
-.. currentmodule:: swn.modflow
-
-.. automethod:: SwnMf6.connectiondata_series

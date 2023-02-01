@@ -1,6 +1,0 @@
-﻿swn.modflow.write\_formatted\_frame
-===================================
-
-.. currentmodule:: swn.modflow
-
-.. autofunction:: write_formatted_frame

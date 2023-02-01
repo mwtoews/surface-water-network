@@ -1,6 +1,0 @@
-﻿swn.modflow.SwnModflow.segment\_data
-====================================
-
-.. currentmodule:: swn.modflow
-
-.. autoproperty:: SwnModflow.segment_data

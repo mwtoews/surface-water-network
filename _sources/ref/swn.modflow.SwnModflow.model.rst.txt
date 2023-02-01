@@ -1,6 +1,0 @@
-﻿swn.modflow.SwnModflow.model
-============================
-
-.. currentmodule:: swn.modflow
-
-.. autoproperty:: SwnModflow.model

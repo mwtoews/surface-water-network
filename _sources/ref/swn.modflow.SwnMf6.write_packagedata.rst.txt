@@ -1,6 +1,0 @@
-﻿swn.modflow.SwnMf6.write\_packagedata
-=====================================
-
-.. currentmodule:: swn.modflow
-
-.. automethod:: SwnMf6.write_packagedata

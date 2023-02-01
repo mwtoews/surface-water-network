@@ -1,6 +1,0 @@
-﻿swn.SurfaceWaterNetwork.aggregate
-=================================
-
-.. currentmodule:: swn
-
-.. automethod:: SurfaceWaterNetwork.aggregate

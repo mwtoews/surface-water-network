@@ -1,6 +1,0 @@
-﻿swn.modflow.SwnMf6.route\_reaches
-=================================
-
-.. currentmodule:: swn.modflow
-
-.. automethod:: SwnMf6.route_reaches

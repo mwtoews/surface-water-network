@@ -1,6 +1,0 @@
-﻿swn.modflow.SwnMf6.diversions\_frame
-====================================
-
-.. currentmodule:: swn.modflow
-
-.. automethod:: SwnMf6.diversions_frame

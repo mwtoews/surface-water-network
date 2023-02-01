@@ -1,6 +1,0 @@
-﻿swn.SurfaceWaterNetwork.locate\_geoms
-=====================================
-
-.. currentmodule:: swn
-
-.. automethod:: SurfaceWaterNetwork.locate_geoms

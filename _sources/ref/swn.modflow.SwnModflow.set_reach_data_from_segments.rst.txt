@@ -1,6 +1,0 @@
-﻿swn.modflow.SwnModflow.set\_reach\_data\_from\_segments
-=======================================================
-
-.. currentmodule:: swn.modflow
-
-.. automethod:: SwnModflow.set_reach_data_from_segments

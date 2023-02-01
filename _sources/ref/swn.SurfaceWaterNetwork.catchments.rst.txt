@@ -1,6 +1,0 @@
-﻿swn.SurfaceWaterNetwork.catchments
-==================================
-
-.. currentmodule:: swn
-
-.. autoproperty:: SurfaceWaterNetwork.catchments

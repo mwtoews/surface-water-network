@@ -1,6 +1,0 @@
-﻿swn.modflow.SwnMf6.get\_location\_frame\_reach\_info
-====================================================
-
-.. currentmodule:: swn.modflow
-
-.. automethod:: SwnMf6.get_location_frame_reach_info

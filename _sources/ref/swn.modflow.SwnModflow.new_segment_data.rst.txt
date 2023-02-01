@@ -1,6 +1,0 @@
-﻿swn.modflow.SwnModflow.new\_segment\_data
-=========================================
-
-.. currentmodule:: swn.modflow
-
-.. automethod:: SwnModflow.new_segment_data

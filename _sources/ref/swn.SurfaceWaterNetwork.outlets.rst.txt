@@ -1,6 +1,0 @@
-﻿swn.SurfaceWaterNetwork.outlets
-===============================
-
-.. currentmodule:: swn
-
-.. autoproperty:: SurfaceWaterNetwork.outlets

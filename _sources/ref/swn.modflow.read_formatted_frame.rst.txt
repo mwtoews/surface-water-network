@@ -1,6 +1,0 @@
-﻿swn.modflow.read\_formatted\_frame
-==================================
-
-.. currentmodule:: swn.modflow
-
-.. autofunction:: read_formatted_frame

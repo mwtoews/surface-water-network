@@ -1,6 +1,0 @@
-﻿swn.spatial.location\_pair\_geoms
-=================================
-
-.. currentmodule:: swn.spatial
-
-.. autofunction:: location_pair_geoms

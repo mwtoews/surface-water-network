@@ -1,6 +1,0 @@
-﻿swn.modflow.SwnModflow.reaches
-==============================
-
-.. currentmodule:: swn.modflow
-
-.. autoproperty:: SwnModflow.reaches

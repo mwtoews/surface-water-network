@@ -1,6 +1,0 @@
-﻿swn.modflow.SwnMf6.diversions
-=============================
-
-.. currentmodule:: swn.modflow
-
-.. autoproperty:: SwnMf6.diversions

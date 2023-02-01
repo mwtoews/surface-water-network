@@ -1,6 +1,0 @@
-﻿swn.modflow.SwnMf6.set\_sfr\_obj
-================================
-
-.. currentmodule:: swn.modflow
-
-.. automethod:: SwnMf6.set_sfr_obj

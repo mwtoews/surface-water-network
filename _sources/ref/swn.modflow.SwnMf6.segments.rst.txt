@@ -1,6 +1,0 @@
-﻿swn.modflow.SwnMf6.segments
-===========================
-
-.. currentmodule:: swn.modflow
-
-.. autoproperty:: SwnMf6.segments

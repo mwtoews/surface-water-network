@@ -1,6 +1,0 @@
-﻿swn.modflow.SwnMf6.flopy\_connectiondata
-========================================
-
-.. currentmodule:: swn.modflow
-
-.. automethod:: SwnMf6.flopy_connectiondata
