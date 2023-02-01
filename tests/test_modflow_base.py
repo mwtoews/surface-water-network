@@ -18,7 +18,7 @@ from shapely.geometry import Point
 
 import swn
 import swn.modflow
-from swn.spatial import force_2d, interp_2d_to_3d, wkt_to_geoseries
+from swn.spatial import force_2d, interp_2d_to_3d
 
 from .conftest import datadir, matplotlib, plt
 
@@ -29,7 +29,7 @@ except ImportError:
 
 
 # same valid network used in test_basic
-n3d_lines = wkt_to_geoseries([
+n3d_lines = geopandas.GeoSeries.from_wkt([
     "LINESTRING Z (60 100 14, 60  80 12)",
     "LINESTRING Z (40 130 15, 60 100 14)",
     "LINESTRING Z (70 130 15, 60 100 14)",
@@ -334,7 +334,7 @@ def test_geotransform_from_flopy():
 
 
 def test_reach_barely_outside_ibound():
-    n = swn.SurfaceWaterNetwork.from_lines(wkt_to_geoseries([
+    n = swn.SurfaceWaterNetwork.from_lines(geopandas.GeoSeries.from_wkt([
         "LINESTRING (15 125, 70 90, 120 120, 130 90, "
         "150 110, 180 90, 190 110, 290 80)"
     ]))
@@ -352,7 +352,7 @@ def test_reach_barely_outside_ibound():
     assert list(nm.reaches.ireach) == [1, 2, 3]
     np.testing.assert_array_almost_equal(
         nm.reaches.rchlen, [100.177734, 152.08736, 93.96276], 5)
-    expected_reaches_geom = wkt_to_geoseries([
+    expected_reaches_geom = geopandas.GeoSeries.from_wkt([
         "LINESTRING (15 125, 54.3 100, 70 90, 86.7 100, 100 108)",
         "LINESTRING (100 108, 120 120, 126.7 100, 130 90, 140 100, 150 110, "
         "165 100, 180 90, 185 100, 190 110, 200 107)",
@@ -369,7 +369,7 @@ def test_reach_barely_outside_ibound():
 
 
 def test_linemerge_reaches():
-    n = swn.SurfaceWaterNetwork.from_lines(wkt_to_geoseries([
+    n = swn.SurfaceWaterNetwork.from_lines(geopandas.GeoSeries.from_wkt([
         "LINESTRING (30 180, 80 170, 120 210, 140 210, 190 110, "
         "205 90, 240 60, 255 35)"
     ]))
@@ -385,7 +385,7 @@ def test_linemerge_reaches():
     np.testing.assert_array_almost_equal(
         nm.reaches.rchlen,
         [79.274, 14.142, 45.322, 115.206, 85.669], 3)
-    expected_reaches_geom = wkt_to_geoseries([
+    expected_reaches_geom = geopandas.GeoSeries.from_wkt([
         "LINESTRING (30 180, 80 170, 100 190)",
         "LINESTRING (100 190, 110 200)",
         "LINESTRING (110 200, 120 210, 140 210, 145 200)",
@@ -404,7 +404,7 @@ def test_linemerge_reaches():
 
 
 def test_linemerge_reaches_2():
-    n = swn.SurfaceWaterNetwork.from_lines(wkt_to_geoseries([
+    n = swn.SurfaceWaterNetwork.from_lines(geopandas.GeoSeries.from_wkt([
         "LINESTRING(103.48 235.46,103.48 179.46,95.48 171.46,95.48 163.46,"
         "103.48 155.46,103.48 139.46,119.48 123.46,199.48 123.46,"
         "207.48 115.46,215.48 115.46,223.48 107.46,239.48 107.46,247.48 99.46,"
@@ -430,7 +430,7 @@ def test_linemerge_reaches_2():
         plt.close()
 
 def test_linemerge_reaches_3():
-    lines = wkt_to_geoseries([
+    lines = geopandas.GeoSeries.from_wkt([
         "LINESTRING(-9 295,63 295,71 303,87 303,95 295,119 295,143 271,"
         "143 255,151 247,167 247,175 239,183 239,191 247,255 247,263 255,"
         "271 255,279 247,295 247,303 239,303 207,271 175,255 175,247 167,"
@@ -656,7 +656,7 @@ def test_lines_on_boundaries():
     _ = flopy.modflow.ModflowDis(
         m, nrow=3, ncol=3, delr=100, delc=100, xul=0, yul=300)
     _ = flopy.modflow.ModflowBas(m)
-    lines = wkt_to_geoseries([
+    lines = geopandas.GeoSeries.from_wkt([
         "LINESTRING (  0 320, 100 200)",
         "LINESTRING (100 200, 100 150, 150 100)",
         "LINESTRING (100 280, 100 200)",

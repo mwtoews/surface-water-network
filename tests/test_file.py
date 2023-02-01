@@ -7,18 +7,17 @@ import pytest
 from shapely.geometry import Point
 
 import swn
-from swn.spatial import wkt_to_geoseries
 
 from .conftest import datadir
 
 # same valid network used in test_basic
-n3d_lines = wkt_to_geoseries([
+n3d_lines = geopandas.GeoSeries.from_wkt([
     'LINESTRING Z (60 100 14, 60  80 12)',
     'LINESTRING Z (40 130 15, 60 100 14)',
     'LINESTRING Z (70 130 15, 60 100 14)',
 ])
 
-valid_polygons = wkt_to_geoseries([
+valid_polygons = geopandas.GeoSeries.from_wkt([
     'POLYGON ((35 100, 75 100, 75  80, 35  80, 35 100))',
     'POLYGON ((35 135, 60 135, 60 100, 35 100, 35 135))',
     'POLYGON ((60 135, 75 135, 75 100, 60 100, 60 135))',

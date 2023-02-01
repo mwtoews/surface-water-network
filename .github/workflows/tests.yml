@@ -25,12 +25,13 @@ jobs:
           cache: 'pip'
           cache-dependency-path: pyproject.toml
 
+      - name: Install Modflow executables
+        uses: modflowpy/install-modflow-action@v1
+
       - name: Install dependencies
         shell: bash
         run: |
           python -m pip install pip --upgrade --disable-pip-version-check
-          pip install requests
-          python ci/get-usgs-executables.py --bindir="$HOME/.local/bin"
           echo "$HOME/.local/bin" >> $GITHUB_PATH
           pip install -e .[lint,test]
 

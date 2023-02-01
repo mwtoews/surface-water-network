@@ -1095,7 +1095,7 @@ class SwnModflowBase:
                 f"unsupported subclass {self.__class__.__name__!r}")
         if expected_shape != array.shape:
             raise ValueError("'array' must have shape (nrow, ncol)")
-        self.reaches.loc[:, name] = array[self.reaches["i"], self.reaches["j"]]
+        self.reaches[name] = array[self.reaches["i"], self.reaches["j"]]
 
     def set_reach_slope(self, method: str = "auto", min_slope=1./1000):
         """Set slope for reaches.
@@ -1310,9 +1310,10 @@ class SwnModflowBase:
         Examples
         --------
         >>> import flopy
+        >>> import geopandas
         >>> import pandas as pd
         >>> import swn
-        >>> lines = swn.spatial.wkt_to_geoseries([
+        >>> lines = geopandas.GeoSeries.from_wkt([
         ...    "LINESTRING (60 100, 60  80)",
         ...    "LINESTRING (40 130, 60 100)",
         ...    "LINESTRING (70 130, 60 100)"])
@@ -1325,7 +1326,7 @@ class SwnModflowBase:
         ...     gwf, nrow=3, ncol=2, delr=20.0, delc=20.0, idomain=1,
         ...     length_units="meters", xorigin=30.0, yorigin=70.0)
         >>> nm = swn.SwnMf6.from_swn_flopy(n, gwf)
-        >>> obs_gs = swn.spatial.wkt_to_geoseries([
+        >>> obs_gs = geopandas.GeoSeries.from_wkt([
         ...    "POINT (56 103)",
         ...    "POINT (62 90)"])
         >>> obs_gs.index += 10

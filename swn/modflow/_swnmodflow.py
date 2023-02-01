@@ -88,8 +88,9 @@ class SwnModflow(SwnModflowBase):
         Examples
         --------
         >>> import flopy
+        >>> import geopandas
         >>> import swn
-        >>> lines = swn.spatial.wkt_to_geoseries([
+        >>> lines = geopandas.GeoSeries.from_wkt([
         ...    "LINESTRING (60 100, 60  80)",
         ...    "LINESTRING (40 130, 60 100)",
         ...    "LINESTRING (70 130, 60 100)"])
@@ -313,8 +314,9 @@ class SwnModflow(SwnModflowBase):
         Examples
         --------
         >>> import flopy
+        >>> import geopandas
         >>> import swn
-        >>> lines = swn.spatial.wkt_to_geoseries([
+        >>> lines = geopandas.GeoSeries.from_wkt([
         ...    "LINESTRING (60 100, 60  80)",
         ...    "LINESTRING (40 130, 60 100)",
         ...    "LINESTRING (70 130, 60 100)"])
@@ -418,8 +420,9 @@ class SwnModflow(SwnModflowBase):
         Examples
         --------
         >>> import flopy
+        >>> import geopandas
         >>> import swn
-        >>> lines = swn.spatial.wkt_to_geoseries([
+        >>> lines = geopandas.GeoSeries.from_wkt([
         ...    "LINESTRING (60 100, 60  80)",
         ...    "LINESTRING (40 130, 60 100)",
         ...    "LINESTRING (70 130, 60 100)"])
@@ -511,8 +514,9 @@ class SwnModflow(SwnModflowBase):
         Examples
         --------
         >>> import flopy
+        >>> import geopandas
         >>> import swn
-        >>> lines = swn.spatial.wkt_to_geoseries([
+        >>> lines = geopandas.GeoSeries.from_wkt([
         ...    "LINESTRING (60 100, 60  80)",
         ...    "LINESTRING (40 130, 60 100)",
         ...    "LINESTRING (70 130, 60 100)"])
@@ -576,14 +580,15 @@ class SwnModflow(SwnModflowBase):
         Examples
         --------
         >>> import flopy
+        >>> import geopandas
         >>> import swn
-        >>> lines = swn.spatial.wkt_to_geoseries([
+        >>> lines = geopandas.GeoSeries.from_wkt([
         ...    "LINESTRING (60 100, 60  80)",
         ...    "LINESTRING (40 130, 60 100)",
         ...    "LINESTRING (70 130, 60 100)"])
         >>> lines.index += 100
         >>> n = swn.SurfaceWaterNetwork.from_lines(lines)
-        >>> diversions = swn.spatial.wkt_to_geoseries([
+        >>> diversions = geopandas.GeoSeries.from_wkt([
         ...    "POINT (58 100)",
         ...    "POINT (58 100)"]).to_frame("geometry")
         >>> diversions.index += 10
@@ -753,8 +758,9 @@ class SwnModflow(SwnModflowBase):
         Examples
         --------
         >>> import flopy
+        >>> import geopandas
         >>> import swn
-        >>> lines = swn.spatial.wkt_to_geoseries([
+        >>> lines = geopandas.GeoSeries.from_wkt([
         ...    "LINESTRING Z (60 100 14, 60  80 12)",
         ...    "LINESTRING Z (40 130 15, 60 100 14)",
         ...    "LINESTRING Z (70 130 15, 60 100 14)"])
@@ -1220,7 +1226,7 @@ class SwnModflow(SwnModflowBase):
         self.segment_data["Zslope"] = \
             ((self.segment_data["elevdn"] - self.segment_data["elevup"]) /
              self.segment_data["seglen"])
-        segs = self.reaches.groupby("iseg")
+        segs = self.reaches.groupby("iseg", group_keys=False)
         self.reaches["seglen"] = segs.rchlen.cumsum()
         self.reaches = segs.apply(reach_elevs)
         return self.reaches
@@ -1581,8 +1587,9 @@ class SwnModflow(SwnModflowBase):
         Examples
         --------
         >>> import flopy
+        >>> import geopandas
         >>> import swn
-        >>> lines = swn.spatial.wkt_to_geoseries([
+        >>> lines = geopandas.GeoSeries.from_wkt([
         ...    "LINESTRING (60 100, 60  80)",
         ...    "LINESTRING (40 130, 60 100)",
         ...    "LINESTRING (70 130, 60 100)"])

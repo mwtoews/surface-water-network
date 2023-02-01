@@ -50,6 +50,7 @@ templates_path = ["_templates"]
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = []
 
+gettext_auto_build = False
 
 # -- Options for HTML output -------------------------------------------------
 
@@ -76,10 +77,12 @@ html_logo = "_static/swn_logo.svg"
 # -- Extension configurations ------------------------------------------------
 intersphinx_mapping = {
     "flopy": ("https://flopy.readthedocs.io/en/latest/", None),
-    "geopandas": ("https://geopandas.org/", None)
+    "geopandas": ("https://geopandas.org/", None),
+    "pandas": ("https://pandas.pydata.org/docs", None),
 }
 
-autosummary_generate = True
+autosummary_generate = False
+numpydoc_class_members_toctree = False
 
 # sphinx-issues
 issues_github_path = "mwtoews/surface-water-network"

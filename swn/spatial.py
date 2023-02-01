@@ -2,7 +2,6 @@
 
 __all__ = [
     "interp_2d_to_3d",
-    "wkt_to_dataframe", "wkt_to_geodataframe", "wkt_to_geoseries",
     "force_2d", "round_coords", "compare_crs", "get_crs",
     "bias_substring",
     "find_location_pairs", "location_pair_geoms",
@@ -14,7 +13,8 @@ import geopandas
 import numpy as np
 import pandas as pd
 import pyproj
-from shapely import wkt
+import shapely
+from shapely import wkb, wkt
 from shapely.geometry import Point
 
 try:
@@ -28,6 +28,7 @@ try:
 except ImportError:
     rtree = False
 
+from .compat import SHAPELY_GE_20
 from .util import is_location_frame
 
 
@@ -136,34 +137,53 @@ def interp_2d_to_3d(gs, grid, gt):
 
 
 def wkt_to_dataframe(wkt_list, geom_name='geometry'):
-    """Convert list of WKT strings to a DataFrame."""
+    """Convert list of WKT strings to a DataFrame.
+
+    .. deprecated:: 0.6
+        Use :meth:`geopandas.GeoSeries.from_wkt` with ``pandas.DataFrame``
+    """
+    warn("wkt_to_dataframe: Use geopandas.GeoSeries.from_wkt with "
+         "pandas.DataFrame instead",
+         DeprecationWarning, stacklevel=2)
     df = pd.DataFrame({'wkt': wkt_list})
     df[geom_name] = df['wkt'].apply(wkt.loads)
     return df.drop(columns="wkt")
 
 
 def wkt_to_geodataframe(wkt_list, geom_name='geometry'):
-    """Convert list of WKT strings to a GeoDataFrame."""
-    return geopandas.GeoDataFrame(
-            wkt_to_dataframe(wkt_list, geom_name), geometry=geom_name)
+    """Convert list of WKT strings to a GeoDataFrame.
+
+    .. deprecated:: 0.6
+        Use :meth:`geopandas.GeoSeries.from_wkt` with ``.to_frame("geometry")``
+    """
+    warn("wkt_to_geodataframe: Use geopandas.GeoSeries.from_wkt with "
+         '.to_frame("geometry") instead',
+         DeprecationWarning, stacklevel=2)
+    gdf = geopandas.GeoSeries.from_wkt(wkt_list).to_frame(geom_name)
+    return gdf.set_geometry(geom_name)
 
 
 def wkt_to_geoseries(wkt_list, geom_name=None):
-    """Convert list of WKT strings to a GeoSeries."""
-    geom = geopandas.GeoSeries([wkt.loads(x) for x in wkt_list])
-    if geom_name is not None:
-        geom.name = geom_name
-    return geom
+    """Convert list of WKT strings to a GeoSeries.
+
+    .. deprecated:: 0.6
+        Use :meth:`geopandas.GeoSeries.from_wkt`
+    """
+    warn("wkt_to_geoseries: use geopandas.GeoSeries.from_wkt instead",
+         DeprecationWarning, stacklevel=2)
+    return geopandas.GeoSeries.from_wkt(wkt_list, name=geom_name)
 
 
 def force_2d(gs):
     """Force any geometry GeoSeries as 2D geometries."""
-    return wkt_to_geoseries(gs.apply(wkt.dumps, output_dimension=2))
+    if SHAPELY_GE_20:
+        return gs.apply(shapely.force_2d)
+    return geopandas.GeoSeries.from_wkb(gs.apply(wkb.dumps, output_dimension=2))
 
 
 def round_coords(gs, rounding_precision=3):
     """Round coordinate precision of a GeoSeries."""
-    return wkt_to_geoseries(
+    return geopandas.GeoSeries.from_wkt(
             gs.apply(wkt.dumps, rounding_precision=rounding_precision))
 
 
@@ -238,6 +258,8 @@ def bias_substring(gs, downstream_bias, end_cut=1e-10):
         us = float(-downstream_bias)
     # move start/end points so they are not exactly at start/end
     args = tuple(np.clip([us, ds], end_cut, 1.0 - end_cut))
+    if SHAPELY_GE_20 and gs.has_z.any():
+        gs = shapely.force_2d(gs)
     return gs.apply(substring, args=args, normalized=True)
 
 
@@ -309,6 +331,7 @@ def find_location_pairs(loc_df, n, *, all_pairs=False, exclude_branches=False):
     Examples
     --------
     >>> import swn
+    >>> import geopandas
     >>> from shapely import wkt
     >>> lines = geopandas.GeoSeries(list(wkt.loads('''\
     ... MULTILINESTRING(
@@ -321,7 +344,7 @@ def find_location_pairs(loc_df, n, *, all_pairs=False, exclude_branches=False):
     ...     (770 100, 820  40))''').geoms))
     >>> lines.index += 100
     >>> n = swn.SurfaceWaterNetwork.from_lines(lines)
-    >>> obs_gs = swn.spatial.wkt_to_geoseries([
+    >>> obs_gs = geopandas.GeoSeries.from_wkt([
     ...    "POINT (370 400)",
     ...    "POINT (720 230)",
     ...    "POINT (780 70)",
@@ -446,7 +469,7 @@ def location_pair_geoms(pairs, loc_df, n):
     ...     (770 100, 820  40))''').geoms))
     >>> lines.index += 100
     >>> n = swn.SurfaceWaterNetwork.from_lines(lines)
-    >>> obs_gs = swn.spatial.wkt_to_geoseries([
+    >>> obs_gs = geopandas.GeoSeries.from_wkt([
     ...    "POINT (370 400)",
     ...    "POINT (720 230)",
     ...    "POINT (780 70)",
@@ -482,6 +505,7 @@ def location_pair_geoms(pairs, loc_df, n):
         raise ValueError(
             "loc_df has segnum values not found in surface water network")
 
+    seg_geom = force_2d(n.segments.geometry)
     geoms_d = {}
     for pair in pairs:
         upstream_idx, downstream_idx = pair
@@ -490,7 +514,7 @@ def location_pair_geoms(pairs, loc_df, n):
         if upstream.segnum == downstream.segnum:
             # pairs are in the same segnum
             geoms_d[pair] = substring(
-                n.segments.geometry[upstream.segnum],
+                seg_geom[upstream.segnum],
                 upstream.seg_ndist, downstream.seg_ndist,
                 normalized=True)
         else:
@@ -503,13 +527,13 @@ def location_pair_geoms(pairs, loc_df, n):
             assert segnums[-1] == downstream.segnum
             geoms = [
                 substring(
-                    n.segments.geometry[upstream.segnum],
+                    seg_geom[upstream.segnum],
                     upstream.seg_ndist, 1.0, normalized=True)
             ]
-            geoms.extend(list(n.segments.geometry[segnums[1:-1]]))
+            geoms.extend(list(seg_geom[segnums[1:-1]]))
             geoms.append(
                 substring(
-                    n.segments.geometry[downstream.segnum],
+                    seg_geom[downstream.segnum],
                     0.0, downstream.seg_ndist, normalized=True)
             )
             geom = unary_union(geoms)

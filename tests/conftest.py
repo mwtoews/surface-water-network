@@ -1,6 +1,8 @@
 """Common code for testing."""
+import re
 import sys
 from pathlib import Path
+from importlib import metadata
 
 import geopandas
 import pandas as pd
@@ -88,3 +90,47 @@ def coastal_flow_m(coastal_flow_ts):
     coastal_flow_m = pd.DataFrame(coastal_flow_ts.mean(0)).T
     # coastal_flow_m.index = pd.DatetimeIndex(["2000-01-01"])
     return coastal_flow_m
+
+
+def pytest_report_header(config):
+    """Header for pytest to show versions of packages."""
+    required = []
+    extra = {}
+    for item in metadata.requires("surface-water-network"):
+        pkg_name = re.findall(r"[a-z0-9_\-]+", item, re.IGNORECASE)[0]
+        if res := re.findall("extra == ['\"](.+)['\"]", item):
+            assert len(res) == 1, item
+            pkg_extra = res[0]
+            if pkg_extra not in extra:
+                extra[pkg_extra] = []
+            extra[pkg_extra].append(pkg_name)
+        else:
+            required.append(pkg_name)
+
+    processed = set()
+    lines = []
+    items = []
+    for name in required:
+        processed.add(name)
+        try:
+            version = metadata.version(name)
+            items.append(f"{name}-{version}")
+        except metadata.PackageNotFoundError:
+            items.append(f"{name} (not found)")
+    lines.append("required packages: " + ", ".join(items))
+    installed = []
+    not_found = []
+    for name in extra["extra"]:
+        if name in processed:
+            continue
+        processed.add(name)
+        try:
+            version = metadata.version(name)
+            installed.append(f"{name}-{version}")
+        except metadata.PackageNotFoundError:
+            not_found.append(name)
+    if installed:
+        lines.append("optional packages: " + ", ".join(installed))
+    if not_found:
+        lines.append("optional packages not found: " + ", ".join(not_found))
+    return "\n".join(lines)

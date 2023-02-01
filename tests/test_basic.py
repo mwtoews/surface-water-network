@@ -10,7 +10,7 @@ from shapely.geometry import LineString, Point
 
 import swn
 from swn.compat import ignore_shapely_warnings_for_object_array
-from swn.spatial import force_2d, round_coords, wkt_to_geoseries
+from swn.spatial import force_2d, round_coords
 
 from .conftest import matplotlib, plt
 
@@ -22,11 +22,11 @@ valid_lines_list = [
     'LINESTRING Z (70 130 15, 60 100 14)',
 ]
 
-valid_df = swn.spatial.wkt_to_dataframe(valid_lines_list)
+valid_lines = geopandas.GeoSeries.from_wkt(valid_lines_list)
 
-valid_lines = wkt_to_geoseries(valid_lines_list)
+valid_df = pd.DataFrame(valid_lines.values, columns=["geometry"])
 
-valid_polygons = wkt_to_geoseries([
+valid_polygons = geopandas.GeoSeries.from_wkt([
     'POLYGON ((35 100, 75 100, 75  80, 35  80, 35 100))',
     'POLYGON ((35 135, 60 135, 60 100, 35 100, 35 135))',
     'POLYGON ((60 135, 75 135, 75 100, 60 100, 60 135))',
@@ -57,7 +57,7 @@ def test_from_lines_errors():
 def test_init_geom_type():
     wkt_list = valid_lines_list[:]
     wkt_list[1] = 'MULTILINESTRING Z ((70 130 15, 60 100 14))'
-    lines = wkt_to_geoseries(wkt_list)
+    lines = geopandas.GeoSeries.from_wkt(wkt_list)
     with pytest.raises(ValueError, match='lines must all be LineString types'):
         swn.SurfaceWaterNetwork.from_lines(lines)
 
@@ -143,7 +143,7 @@ def test_init_2D_geom():
 
 def test_init_mismatch_3D():
     # Match in 2D, but not in Z dimension
-    lines = wkt_to_geoseries([
+    lines = geopandas.GeoSeries.from_wkt([
         'LINESTRING Z (70 130 15, 60 100 14)',
         'LINESTRING Z (60 100 14, 60  80 12)',
         'LINESTRING Z (40 130 15, 60 100 13)',
@@ -208,7 +208,7 @@ def test_init_reversed_lines():
 
 def test_init_all_converge():
     # Lines all converge to the same place
-    lines = wkt_to_geoseries([
+    lines = geopandas.GeoSeries.from_wkt([
         'LINESTRING Z (40 130 15, 60 100 15)',
         'LINESTRING Z (70 130 14, 60 100 14)',
         'LINESTRING Z (60  80 12, 60 100 14)',
@@ -249,7 +249,7 @@ def test_init_all_converge():
 
 def test_init_all_diverge():
     # Lines all diverge from the same place
-    lines = wkt_to_geoseries([
+    lines = geopandas.GeoSeries.from_wkt([
         'LINESTRING Z (60 100 15, 40 130 14)',
         'LINESTRING Z (60 100 16, 70 130 14)',
         'LINESTRING Z (60 100 15, 60  80 12)',
@@ -289,7 +289,7 @@ def test_init_all_diverge():
 
 
 def test_init_line_connects_to_middle():
-    lines = wkt_to_geoseries([
+    lines = geopandas.GeoSeries.from_wkt([
         'LINESTRING Z (40 130 15, 60 100 14, 60 80 12)',
         'LINESTRING Z (70 130 15, 60 100 14)',
     ])
@@ -416,7 +416,7 @@ def test_ne_lines(valid_n):
 
 
 def test_init_geoseries():
-    gs = wkt_to_geoseries(valid_lines_list, geom_name='foo')
+    gs = geopandas.GeoSeries.from_wkt(valid_lines_list, name="foo")
     n = swn.SurfaceWaterNetwork.from_lines(gs)
     assert len(n.warnings) == 0
     assert len(n.errors) == 0
@@ -429,7 +429,7 @@ def test_init_geoseries():
 
 
 def test_init_segments_loc():
-    lines = wkt_to_geoseries([
+    lines = geopandas.GeoSeries.from_wkt([
         "LINESTRING (60 100, 60  80)",
         "LINESTRING (40 130, 60 100)",
         "LINESTRING (70 130, 60 100)",
@@ -1086,14 +1086,14 @@ def test_fluss_n_gather_segnums_downstream(fluss_n):
 
 
 def test_locate_geoms_in_basic_swn(caplog):
-    ls = swn.spatial.wkt_to_geoseries([
+    ls = geopandas.GeoSeries.from_wkt([
         "LINESTRING (60 100, 60  80)",
         "LINESTRING (40 130, 60 100)",
         "LINESTRING (80 130, 60 100)",
     ])
     ls.index += 101
     n = swn.SurfaceWaterNetwork.from_lines(ls)
-    gs = swn.spatial.wkt_to_geoseries([
+    gs = geopandas.GeoSeries.from_wkt([
         "POINT (60 200)",
         "POINT (61 200)",
         "POINT (60 100)",
@@ -1379,17 +1379,19 @@ def test_adjust_elevation_profile_min_slope_series(valid_n):
 
 
 def test_adjust_elevation_profile_no_change():
-    lines = wkt_to_geoseries(['LINESTRING Z (0 0 8, 1 0 7, 2 0 6)'])
+    lines = geopandas.GeoSeries.from_wkt(
+        ['LINESTRING Z (0 0 8, 1 0 7, 2 0 6)'])
     n = swn.SurfaceWaterNetwork.from_lines(lines)
     n.adjust_elevation_profile()
     assert len(n.messages) == 0
     assert (lines == n.segments.geometry).all()
-    expected_profiles = wkt_to_geoseries(['LINESTRING (0 8, 1 7, 2 6)'])
+    expected_profiles = geopandas.GeoSeries.from_wkt(
+        ['LINESTRING (0 8, 1 7, 2 6)'])
     assert (n.profiles == expected_profiles).all()
 
 
 def test_adjust_elevation_profile_use_min_slope():
-    lines = wkt_to_geoseries(['LINESTRING Z (0 0 8, 1 0 9)'])
+    lines = geopandas.GeoSeries.from_wkt(['LINESTRING Z (0 0 8, 1 0 9)'])
     n = swn.SurfaceWaterNetwork.from_lines(lines)
     n.adjust_elevation_profile()
     n.profiles = round_coords(n.profiles)
@@ -1397,31 +1399,37 @@ def test_adjust_elevation_profile_use_min_slope():
     assert len(n.messages) == 1
     assert n.messages[0] == \
         'segment 0: adjusted 1 coordinate elevation by 1.001'
-    expected = wkt_to_geoseries(['LINESTRING Z (0 0 8, 1 0 7.999)'])
+    expected = geopandas.GeoSeries.from_wkt(
+        ['LINESTRING Z (0 0 8, 1 0 7.999)'])
     assert (expected == n.segments.geometry).all()
-    expected_profiles = wkt_to_geoseries(['LINESTRING (0 8, 1 7.999)'])
+    expected_profiles = geopandas.GeoSeries.from_wkt(
+        ['LINESTRING (0 8, 1 7.999)'])
     assert (n.profiles == expected_profiles).all()
 
-    lines = wkt_to_geoseries(['LINESTRING Z (0 0 8, 1 0 9, 2 0 6)'])
+    lines = geopandas.GeoSeries.from_wkt([
+        'LINESTRING Z (0 0 8, 1 0 9, 2 0 6)'])
     n = swn.SurfaceWaterNetwork.from_lines(lines)
     n.adjust_elevation_profile(0.1)
     assert len(n.messages) == 1
     assert n.messages[0] == \
         'segment 0: adjusted 1 coordinate elevation by 1.100'
-    expected = wkt_to_geoseries(['LINESTRING Z (0 0 8, 1 0 7.9, 2 0 6)'])
+    expected = geopandas.GeoSeries.from_wkt(
+        ['LINESTRING Z (0 0 8, 1 0 7.9, 2 0 6)'])
     assert (expected == n.segments.geometry).all()
-    expected_profiles = wkt_to_geoseries(['LINESTRING (0 8, 1 7.9, 2 6)'])
+    expected_profiles = geopandas.GeoSeries.from_wkt(
+        ['LINESTRING (0 8, 1 7.9, 2 6)'])
     assert (n.profiles == expected_profiles).all()
 
-    lines = wkt_to_geoseries(['LINESTRING Z (0 0 8, 1 0 5, 2 0 6, 3 0 5)'])
+    lines = geopandas.GeoSeries.from_wkt(
+        ['LINESTRING Z (0 0 8, 1 0 5, 2 0 6, 3 0 5)'])
     n = swn.SurfaceWaterNetwork.from_lines(lines)
     n.adjust_elevation_profile(0.2)
     assert len(n.messages) == 1
     assert n.messages[0] == \
         'segment 0: adjusted 2 coordinate elevations between 0.400 and 1.200'
-    expected = wkt_to_geoseries(
+    expected = geopandas.GeoSeries.from_wkt(
             ['LINESTRING Z (0 0 8, 1 0 5, 2 0 4.8, 3 0 4.6)'])
     assert (expected == n.segments.geometry).all()
-    expected_profiles = wkt_to_geoseries(
+    expected_profiles = geopandas.GeoSeries.from_wkt(
             ['LINESTRING (0 8, 1 5, 2 4.8, 3 4.6)'])
     assert (n.profiles == expected_profiles).all()

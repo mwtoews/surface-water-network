@@ -1,4 +1,5 @@
 import geopandas
+import geopandas.testing
 import numpy as np
 import pandas as pd
 import pytest
@@ -7,6 +8,12 @@ from shapely.geometry import Point
 
 import swn
 import swn.spatial as spatial
+
+valid_lines_list = [
+    'LINESTRING Z (60 100 14, 60  80 12)',
+    'LINESTRING Z (40 130 15, 60 100 14)',
+    'LINESTRING Z (70 130 15, 60 100 14)',
+]
 
 
 def test_get_sindex():
@@ -64,6 +71,84 @@ def test_interp_2d_to_3d():
             spatial.interp_2d_to_3d(geopandas.GeoSeries([Point(pt)]), grid, gt)
 
 
+def test_wkt_to_dataframe():
+    with pytest.deprecated_call():
+        df = spatial.wkt_to_dataframe(valid_lines_list)
+    assert df.shape == (3, 1)
+    assert dict(df.dtypes) == {"geometry": np.dtype("O")}
+    assert type(df) == pd.DataFrame
+    pd.testing.assert_index_equal(df.index, pd.RangeIndex(3))
+
+    with pytest.deprecated_call():
+        df = spatial.wkt_to_dataframe(valid_lines_list, "other")
+    assert df.shape == (3, 1)
+    assert dict(df.dtypes) == {"other": np.dtype("O")}
+    assert type(df) == pd.DataFrame
+    pd.testing.assert_index_equal(df.index, pd.RangeIndex(3))
+
+
+def test_wkt_to_geodataframe():
+    with pytest.deprecated_call():
+        gdf = spatial.wkt_to_geodataframe(valid_lines_list)
+    assert gdf.shape == (3, 1)
+    assert list(gdf.columns) == ["geometry"]
+    assert type(gdf) == geopandas.GeoDataFrame
+    pd.testing.assert_series_equal(gdf.is_valid, pd.Series([True] * 3))
+
+    with pytest.deprecated_call():
+        gdf = spatial.wkt_to_geodataframe(valid_lines_list, "other")
+    assert gdf.shape == (3, 1)
+    assert list(gdf.columns) == ["other"]
+    assert type(gdf) == geopandas.GeoDataFrame
+    pd.testing.assert_series_equal(gdf.is_valid, pd.Series([True] * 3))
+
+
+def test_wkt_to_geoseries():
+    with pytest.deprecated_call():
+        gs = spatial.wkt_to_geoseries(valid_lines_list)
+    assert gs.shape == (3,)
+    assert gs.name is None
+    assert type(gs) == geopandas.GeoSeries
+    pd.testing.assert_series_equal(gs.is_valid, pd.Series([True] * 3))
+
+    with pytest.deprecated_call():
+        gs = spatial.wkt_to_geoseries(valid_lines_list, "other")
+    assert gs.shape == (3,)
+    assert gs.name == "other"
+    assert type(gs) == geopandas.GeoSeries
+    pd.testing.assert_series_equal(gs.is_valid, pd.Series([True] * 3))
+
+
+def test_force_2d():
+    gs3d = geopandas.GeoSeries.from_wkt(valid_lines_list)
+    gs3d.index *= 2
+    assert gs3d.has_z.all()
+    gs2d = spatial.force_2d(gs3d)
+    assert (~gs2d.has_z).all()
+    pd.testing.assert_index_equal(gs3d.index, gs2d.index)
+    pd.testing.assert_series_equal(gs3d.length, gs2d.length)
+
+
+def test_round_coords():
+    gs = geopandas.GeoSeries.from_wkt(["POINT Z (1.111 2.222 3.333)"])
+    gs.index += 2
+    gs1 = spatial.round_coords(gs, 1)
+    gs3 = spatial.round_coords(gs, 3)
+    pd.testing.assert_index_equal(gs.index, gs1.index)
+    pd.testing.assert_index_equal(gs.index, gs3.index)
+    geopandas.testing.assert_geoseries_equal(
+        gs1,
+        geopandas.GeoSeries.from_wkt(["POINT Z (1.1 2.2 3.3)"], index=[2]))
+    geopandas.testing.assert_geoseries_equal(gs, gs3)
+
+
+def test_visible_wkt():
+    # TODO: find a better example
+    g1 = wkt.loads("POINT Z (1.1 2.2 3.3)")
+    g2 = spatial.visible_wkt(g1)
+    assert g1.wkt == g2.wkt
+
+
 def test_get_crs():
     assert spatial.get_crs(None) is None
     assert spatial.get_crs(2193) is not None
@@ -85,45 +170,45 @@ def test_compare_crs():
 
 
 def test_bias_substring():
-    line = spatial.wkt_to_geoseries(["LINESTRING (0 0, 10 0)"])
+    line = geopandas.GeoSeries.from_wkt(["LINESTRING (0 0, 10 0)"])
     pd.testing.assert_series_equal(
         spatial.bias_substring(line, 0, end_cut=0), line)
     pd.testing.assert_series_equal(
         spatial.bias_substring(line, -1, end_cut=0),
-        spatial.wkt_to_geoseries(["POINT (10 0)"]))
+        geopandas.GeoSeries.from_wkt(["POINT (10 0)"]))
     pd.testing.assert_series_equal(
         spatial.bias_substring(line, 1, end_cut=0),
-        spatial.wkt_to_geoseries(["POINT (0 0)"]))
+        geopandas.GeoSeries.from_wkt(["POINT (0 0)"]))
     pd.testing.assert_series_equal(
         spatial.bias_substring(line, 0.5, end_cut=0),
-        spatial.wkt_to_geoseries(["LINESTRING (0 0, 5 0)"]))
+        geopandas.GeoSeries.from_wkt(["LINESTRING (0 0, 5 0)"]))
     pd.testing.assert_series_equal(
         spatial.bias_substring(line, -0.2, end_cut=0),
-        spatial.wkt_to_geoseries(["LINESTRING (2 0, 10 0)"]))
+        geopandas.GeoSeries.from_wkt(["LINESTRING (2 0, 10 0)"]))
     pd.testing.assert_series_equal(
         spatial.bias_substring(line, 0, end_cut=0.1),
-        spatial.wkt_to_geoseries(["LINESTRING (1 0, 9 0)"]))
+        geopandas.GeoSeries.from_wkt(["LINESTRING (1 0, 9 0)"]))
     pd.testing.assert_series_equal(
         spatial.bias_substring(line, 0.5, end_cut=0.1),
-        spatial.wkt_to_geoseries(["LINESTRING (1 0, 5 0)"]))
+        geopandas.GeoSeries.from_wkt(["LINESTRING (1 0, 5 0)"]))
     pd.testing.assert_series_equal(
         spatial.bias_substring(line, -0.2, end_cut=0.1),
-        spatial.wkt_to_geoseries(["LINESTRING (2 0, 9 0)"]))
+        geopandas.GeoSeries.from_wkt(["LINESTRING (2 0, 9 0)"]))
     pd.testing.assert_series_equal(
         spatial.bias_substring(line, -1, end_cut=0.1),
-        spatial.wkt_to_geoseries(["POINT (9 0)"]))
+        geopandas.GeoSeries.from_wkt(["POINT (9 0)"]))
     pd.testing.assert_series_equal(
         spatial.bias_substring(line, 1, end_cut=0.1),
-        spatial.wkt_to_geoseries(["POINT (1 0)"]))
+        geopandas.GeoSeries.from_wkt(["POINT (1 0)"]))
     pd.testing.assert_series_equal(
         spatial.bias_substring(line, 0.2, end_cut=0.4),
-        spatial.wkt_to_geoseries(["LINESTRING (4 0, 6 0)"]))
+        geopandas.GeoSeries.from_wkt(["LINESTRING (4 0, 6 0)"]))
     pd.testing.assert_series_equal(
         spatial.bias_substring(line, -0.2, end_cut=0.4),
-        spatial.wkt_to_geoseries(["LINESTRING (4 0, 6 0)"]))
+        geopandas.GeoSeries.from_wkt(["LINESTRING (4 0, 6 0)"]))
     pd.testing.assert_series_equal(
         spatial.bias_substring(line, -0.2, end_cut=0.5),
-        spatial.wkt_to_geoseries(["POINT (5 0)"]))
+        geopandas.GeoSeries.from_wkt(["POINT (5 0)"]))
     # errors
     with pytest.raises(TypeError, match="xpected 'gs' as an instance of GeoS"):
         spatial.bias_substring(line.to_frame(), 0)
@@ -134,11 +219,11 @@ def test_bias_substring():
 
 
 def test_bias_substring_confluence():
-    lines = swn.spatial.wkt_to_geoseries([
+    lines = geopandas.GeoSeries.from_wkt([
         "LINESTRING (60 100, 60 80)",
         "LINESTRING (40 130, 60 100)",
         "LINESTRING (70 130, 60 100)"])
-    pts = swn.spatial.wkt_to_geoseries([
+    pts = geopandas.GeoSeries.from_wkt([
         "POINT (58 97)", "POINT (62 97)", "POINT (59 89)"])
 
     def nearest_pt_idx(lines):

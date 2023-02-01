@@ -195,7 +195,7 @@ class ModelPlot:
         if self.ax is None:
             return
         if cmap is None:
-            cmap = cm.get_cmap('viridis')
+            cmap = matplotlib.colormaps.get_cmap('viridis')
         if self.mprj is None:
             transform = self.ax.transData
         else:
@@ -238,7 +238,7 @@ class ModelPlot:
                 sns.color_palette('Set2', n).as_hex())
             norm = colors.BoundaryNorm(bounds, cmap.N)
         else:
-            cmap = cm.get_cmap(cmap_txt)
+            cmap = matplotlib.colormaps.get_cmap(cmap_txt)
             norm = MidpointNormalize(vmin=vmin, vmax=vmax, midpoint=0)
         self._add_plotlayer(x, cmap=cmap, norm=norm, zorder=zorder,
                             alpha=1, label=label, cbar=cbar)
@@ -269,7 +269,7 @@ class ModelPlot:
             col = col[0]
             vmin = lines[col].min()
             vmax = lines[col].max()
-            cmap = cm.get_cmap(cmap_txt)
+            cmap = matplotlib.colormaps.get_cmap(cmap_txt)
             norm = MidpointNormalize(vmin=vmin, vmax=vmax, midpoint=0)
             cb = True
         else:

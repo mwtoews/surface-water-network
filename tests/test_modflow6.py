@@ -13,7 +13,7 @@ from shapely.geometry import Point
 import swn
 import swn.modflow
 from swn.file import gdf_to_shapefile
-from swn.spatial import force_2d, interp_2d_to_3d, wkt_to_geoseries
+from swn.spatial import force_2d, interp_2d_to_3d
 
 from .conftest import datadir, matplotlib, plt
 
@@ -27,7 +27,7 @@ mf6_exe = which("mf6")
 requires_mf6 = pytest.mark.skipif(not mf6_exe, reason="requires mf6")
 
 # same valid network used in test_basic
-n3d_lines = wkt_to_geoseries([
+n3d_lines = geopandas.GeoSeries.from_wkt([
     "LINESTRING Z (60 100 14, 60  80 12)",
     "LINESTRING Z (40 130 15, 60 100 14)",
     "LINESTRING Z (70 130 15, 60 100 14)",
@@ -879,7 +879,7 @@ def test_include_downstream_reach_outside_model(tmp_path):
     m.dis.idomain.set_data([[1, 1], [1, 1], [1, 0]])
     gt = swn.modflow.geotransform_from_flopy(m)
     lines = interp_2d_to_3d(
-        wkt_to_geoseries([
+        geopandas.GeoSeries.from_wkt([
             "LINESTRING (60 89, 60 80)",
             "LINESTRING (40 130, 60 89)",
             "LINESTRING (70 130, 60 89)",
