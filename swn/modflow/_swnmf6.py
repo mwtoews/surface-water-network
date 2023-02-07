@@ -808,6 +808,54 @@ class SwnMf6(SwnModflowBase):
         See Also
         --------
         read_formatted_frame : Read formatted file as a pandas DataFrame.
+        SwnMf6.package_period_frame : Dataframe generator.
+        SwnMf6.flopy_package_period : Dict of lists of lists for flopy.
+
+        Examples
+        --------
+        >>> import flopy
+        >>> import geopandas
+        >>> import pandas as pd
+        >>> import swn
+        >>> from tempfile import TemporaryDirectory
+        >>> from pathlib import Path
+        >>> lines = geopandas.GeoSeries.from_wkt([
+        ...    "LINESTRING (60 100, 60  80)",
+        ...    "LINESTRING (40 130, 60 100)",
+        ...    "LINESTRING (70 130, 60 100)"])
+        >>> lines.index += 100
+        >>> n = swn.SurfaceWaterNetwork.from_lines(lines)
+        >>> tmp_dir_obj = TemporaryDirectory()
+        >>> dir = Path(tmp_dir_obj.name)
+        >>> sim = flopy.mf6.MFSimulation(sim_ws=str(dir))
+        >>> _ = flopy.mf6.ModflowTdis(sim, nper=1, time_units="days")
+        >>> gwf = flopy.mf6.ModflowGwf(sim)
+        >>> _ = flopy.mf6.ModflowGwfdis(
+        ...     gwf, nrow=3, ncol=2, delr=20.0, delc=20.0, top=10, botm=0,
+        ...     idomain=1, length_units="meters", xorigin=30.0, yorigin=70.0)
+        >>> nm = swn.SwnMf6.from_swn_flopy(n, gwf)
+        >>> nm.set_reach_data_from_array("elev", gwf.dis.top.array)
+        >>> nm.reaches["dlen"] = nm.reaches.length.round(3)
+        >>> nm.reaches["cond"] = 15.0
+        >>> nm.reaches["boundname"] = nm.reaches["segnum"]
+        >>> fname_tpl = dir / "model_drn_{:02d}.dat"
+        >>> fname_01 = dir / "model_drn_01.dat"
+        >>> nm.write_package_period("drn", fname_tpl, auxiliary="dlen")
+        >>> print(fname_01.read_text(), end="")
+        #k i j  elev  cond   dlen boundname
+        1  1 1  10.0  15.0 18.028 101
+        1  1 2  10.0  15.0  6.009 101
+        1  2 2  10.0  15.0 12.019 101
+        1  1 2  10.0  15.0 21.082 102
+        1  2 2  10.0  15.0 10.541 102
+        1  2 2  10.0  15.0 10.000 100
+        1  3 2  10.0  15.0 10.000 100
+        >>> drn = nm.set_package_obj(
+        ...    "drn", pname="swn_drn", auxmultname="dlen",
+        ...    stress_period_data={0: {"filename": fname_01.name}})
+        >>> sim.write_simulation(silent=True)
+        >>> success, buff = sim.run_simulation()  # doctest: +SKIP
+        >>> tmp_dir_obj.cleanup()
 
         """
         spdf = self.package_period_frame(
@@ -837,6 +885,45 @@ class SwnMf6(SwnModflowBase):
         Returns
         -------
         dict
+
+        See Also
+        --------
+        SwnMf6.package_period_frame : Dataframe generator.
+        SwnMf6.write_package_period : Write native file.
+
+        Examples
+        --------
+        >>> import flopy
+        >>> import geopandas
+        >>> import pandas as pd
+        >>> import swn
+        >>> lines = geopandas.GeoSeries.from_wkt([
+        ...    "LINESTRING (60 100, 60  80)",
+        ...    "LINESTRING (40 130, 60 100)",
+        ...    "LINESTRING (70 130, 60 100)"])
+        >>> lines.index += 100
+        >>> n = swn.SurfaceWaterNetwork.from_lines(lines)
+        >>> sim = flopy.mf6.MFSimulation()
+        >>> _ = flopy.mf6.ModflowTdis(sim, nper=1, time_units="days")
+        >>> gwf = flopy.mf6.ModflowGwf(sim)
+        >>> _ = flopy.mf6.ModflowGwfdis(
+        ...     gwf, nrow=3, ncol=2, delr=20.0, delc=20.0, top=10, botm=0,
+        ...     idomain=1, length_units="meters", xorigin=30.0, yorigin=70.0)
+        >>> nm = swn.SwnMf6.from_swn_flopy(n, gwf)
+        >>> nm.set_reach_data_from_array("elev", gwf.dis.top.array)
+        >>> nm.reaches["dlen"] = nm.reaches.length.round(3)
+        >>> nm.reaches["cond"] = 15.0
+        >>> nm.reaches["boundname"] = nm.reaches["segnum"]
+        >>> drn = nm.set_package_obj("drn", auxmultname="dlen")
+        >>> pd.DataFrame(drn.stress_period_data.data[0])
+              cellid  elev  cond    dlen boundname
+        0  (0, 0, 0)  10.0  15.0  18.028       101
+        1  (0, 0, 1)  10.0  15.0   6.009       101
+        2  (0, 1, 1)  10.0  15.0  12.019       101
+        3  (0, 0, 1)  10.0  15.0  21.082       102
+        4  (0, 1, 1)  10.0  15.0  10.541       102
+        5  (0, 1, 1)  10.0  15.0  10.000       100
+        6  (0, 2, 1)  10.0  15.0  10.000       100
 
         """
         spdf = self.package_period_frame(
@@ -1045,7 +1132,7 @@ class SwnMf6(SwnModflowBase):
         if "stress_period_data" not in kwds:
             kwds["stress_period_data"] = self.flopy_package_period(
                 package=package, auxiliary=auxiliary, boundname=boundnames)
-        if "maxbound" in kwds:
+        if "maxbound" not in kwds:
             kwds["maxbound"] = len(self.reaches)
 
         Mf6pak = get_flopy_mf6_package(package)
