@@ -1,0 +1,6 @@
+﻿swn.modflow.SwnMf6.package\_period\_frame
+=========================================
+
+.. currentmodule:: swn.modflow
+
+.. automethod:: SwnMf6.package_period_frame

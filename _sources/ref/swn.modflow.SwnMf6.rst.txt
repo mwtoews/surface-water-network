@@ -21,15 +21,18 @@
       ~SwnMf6.fix_reach_elevs
       ~SwnMf6.flopy_connectiondata
       ~SwnMf6.flopy_diversions
+      ~SwnMf6.flopy_package_period
       ~SwnMf6.flopy_packagedata
       ~SwnMf6.from_pickle
       ~SwnMf6.from_swn_flopy
       ~SwnMf6.get_location_frame_reach_info
+      ~SwnMf6.package_period_frame
       ~SwnMf6.packagedata_frame
       ~SwnMf6.plot
       ~SwnMf6.plot_profile
       ~SwnMf6.plot_reaches_vs_model
       ~SwnMf6.route_reaches
+      ~SwnMf6.set_package_obj
       ~SwnMf6.set_reach_data_from_array
       ~SwnMf6.set_reach_data_from_segments
       ~SwnMf6.set_reach_slope
@@ -38,6 +41,7 @@
       ~SwnMf6.to_pickle
       ~SwnMf6.write_connectiondata
       ~SwnMf6.write_diversions
+      ~SwnMf6.write_package_period
       ~SwnMf6.write_packagedata
    
    
