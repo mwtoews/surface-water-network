@@ -11,7 +11,6 @@ from shapely import wkt
 from shapely.geometry import Point
 
 import swn
-import swn.modflow
 from swn.file import gdf_to_shapefile
 from swn.spatial import force_2d, interp_2d_to_3d
 
@@ -210,10 +209,10 @@ def test_n3d_defaults(tmp_path, has_diversions):
             set(), set()]
         pd.testing.assert_frame_equal(
             nm.reaches[div_expected.columns], div_expected)
-    with pytest.raises(KeyError, match="missing 6 reach dataset"):
+    with pytest.raises(KeyError, match="missing 6 packagedata dataset"):
         nm.packagedata_frame("native")
     nm.set_reach_slope()
-    with pytest.raises(KeyError, match="missing 5 reach dataset"):
+    with pytest.raises(KeyError, match="missing 5 packagedata dataset"):
         nm.packagedata_frame("native")
     nm.default_packagedata(hyd_cond1=1e-4)
     nodiv_expected = pd.DataFrame({
@@ -1113,13 +1112,15 @@ def test_diversions(tmp_path):
     nm.write_diversions(tmp_path / "diversions.dat")
 
     # Extra checks with formatted frame read/write methods
+    check_dtype = np.dtype(int) != np.int32
     df = nm.packagedata_frame("native")
     for col in "kij":
         df[col] = df[col].astype(int)
     pd.testing.assert_frame_equal(
         df,
         swn.modflow.read_formatted_frame(
-            tmp_path / "packagedata.dat").set_index("rno")
+            tmp_path / "packagedata.dat").set_index("rno"),
+        check_dtype=check_dtype,
     )
     pd.testing.assert_frame_equal(
         nm.diversions_frame("native").reset_index(drop=True),
@@ -1327,3 +1328,228 @@ def test_read_write_formatted_frame(tmp_path):
     pd.testing.assert_frame_equal(
         df.reset_index(drop=True), df2,
         check_index_type=False, check_dtype=False)
+
+
+def test_get_flopy_mf6_package():
+    from swn.modflow._swnmf6 import get_flopy_mf6_package
+
+    assert get_flopy_mf6_package("drn") == flopy.mf6.ModflowGwfdrn
+    assert get_flopy_mf6_package("GWT/SRC") == flopy.mf6.ModflowGwtsrc
+    with pytest.raises(AttributeError):
+        get_flopy_mf6_package("no")
+
+
+def test_package_period_frame():
+    n = get_basic_swn()
+    sim, m = get_basic_modflow()
+    nm = swn.SwnMf6.from_swn_flopy(n, m)
+
+    with pytest.raises(
+            KeyError, match="missing 2 stress_period_data datasets: cond, el"):
+        nm.package_period_frame("drn", "native")
+
+    nm.set_reach_data_from_array("elev", m.dis.top.data - 1.0)
+    nm.reaches["rlen"] = (nm.reaches.length).round(2)
+    nm.reaches["cond"] = (nm.reaches.length * 10.0).round(2)
+
+    # default, without auxiliary or boundname
+    exp_native = pd.DataFrame(
+        {
+            "k": ["1"] * 7,
+            "i": ["1", "1", "2", "1", "2", "2", "3"],
+            "j": ["1", "2", "2", "2", "2", "2", "2"],
+            "elev": [14.0] * 7,
+            "cond": [180.28, 60.09, 120.19, 210.82, 105.41, 100.0, 100.0],
+        },
+        index=pd.MultiIndex.from_tuples(
+            [(1, rno + 1) for rno in range(7)], names=["per", "rno"])
+    )
+    exp_flopy = pd.DataFrame(
+        {
+            "cellid": [
+                (0, 0, 0), (0, 0, 1), (0, 1, 1), (0, 0, 1), (0, 1, 1),
+                (0, 1, 1), (0, 2, 1)],
+            "elev": [14.0] * 7,
+            "cond": [180.28, 60.09, 120.19, 210.82, 105.41, 100.0, 100.0],
+        },
+        index=pd.MultiIndex.from_tuples(
+            [(0, rno) for rno in range(7)], names=["per", "rno"])
+    )
+    pd.testing.assert_frame_equal(
+        nm.package_period_frame("drn", "native"),
+        exp_native)
+    pd.testing.assert_frame_equal(
+        nm.package_period_frame("drn", "flopy"),
+        exp_flopy)
+
+    # with auxiliary
+    pd.testing.assert_frame_equal(
+        nm.package_period_frame("drn", "native", auxiliary="rlen"),
+        exp_native.assign(rlen=[18.03, 6.01, 12.02, 21.08, 10.54, 10.0, 10.0]))
+    pd.testing.assert_frame_equal(
+        nm.package_period_frame("drn", "flopy", auxiliary="rlen"),
+        exp_flopy.assign(rlen=[18.03, 6.01, 12.02, 21.08, 10.54, 10.0, 10.0]))
+
+    # with boundname column, but boundname=False
+    nm.reaches["boundname"] = nm.reaches.segnum
+    pd.testing.assert_frame_equal(
+        nm.package_period_frame("drn", "native", boundname=False),
+        exp_native)
+    pd.testing.assert_frame_equal(
+        nm.package_period_frame("drn", "flopy", boundname=False),
+        exp_flopy)
+
+    # with boundname
+    pd.testing.assert_frame_equal(
+        nm.package_period_frame("drn", "native"),
+        exp_native.assign(boundname=["1", "1", "1", "2", "2", "0", "0"]))
+    pd.testing.assert_frame_equal(
+        nm.package_period_frame("drn", "flopy"),
+        exp_flopy.assign(boundname=["1", "1", "1", "2", "2", "0", "0"]))
+
+    # with boundname and auxiliary
+    assert list(nm.package_period_frame(
+        "drn", "native", auxiliary="rlen").columns) == \
+        ["k", "i", "j", "elev", "cond", "rlen", "boundname"]
+    assert list(nm.package_period_frame(
+        "drn", "flopy", auxiliary="rlen").columns) == \
+        ["cellid", "elev", "cond", "rlen", "boundname"]
+
+
+def test_write_package_period(tmp_path):
+    n = get_basic_swn()
+    sim, m = get_basic_modflow(tmp_path)
+    nm = swn.SwnMf6.from_swn_flopy(n, m)
+
+    nm.set_reach_data_from_array("elev", m.dis.top.data - 1.0)
+    nm.reaches["rlen"] = (nm.reaches.length).round(2)
+    nm.reaches["cond"] = (nm.reaches.length * 10.0).round(2)
+
+    fname_tpl = tmp_path / "drn_period_{:02d}.dat"
+    fname = tmp_path / "drn_period_01.dat"
+    assert not fname.exists()
+
+    # default, without auxiliary or boundname
+    nm.write_package_period("drn", fname_tpl)
+    file_l = fname.read_text().splitlines()
+    assert file_l[0].split() == ["#k", "i", "j", "elev", "cond"]
+    assert len(file_l) == 8
+
+    # with auxiliary
+    nm.write_package_period("drn", fname_tpl, auxiliary="rlen")
+    assert fname.read_text().splitlines()[0].split() == \
+        ["#k", "i", "j", "elev", "cond", "rlen"]
+
+    # with boundname column, but boundname=False
+    nm.reaches["boundname"] = nm.reaches.segnum
+    nm.write_package_period("drn", fname_tpl, boundname=False)
+    assert "boundname" not in fname.read_text().splitlines()[0]
+
+    # with boundname
+    nm.write_package_period("drn", fname_tpl)
+    assert fname.read_text().splitlines()[0].split() == \
+        ["#k", "i", "j", "elev", "cond", "boundname"]
+
+    # with boundname and auxiliary
+    nm.write_package_period("drn", fname_tpl, auxiliary="rlen")
+    assert fname.read_text().splitlines()[0].split() == \
+        ["#k", "i", "j", "elev", "cond", "rlen", "boundname"]
+
+    # Run model and read outputs
+    if mf6_exe:
+        # more precise cond without rounding
+        nm.reaches["cond"] = nm.reaches.length * 10.0
+        nm.write_package_period("drn", fname_tpl)
+        _ = nm.set_package_obj(
+            "drn", pname="swn_drn",
+            stress_period_data={0: {"filename": fname.name}})
+        sim.write_simulation()
+        success, buff = sim.run_simulation()
+        assert success
+        dl = read_budget(tmp_path / "model.cbc", "DRN")
+        assert "RLEN" not in dl.dtype.names
+        expected_q = np.array(
+            [-0.0639901, -0.0088755, -0.0236359, -0.0311373, -0.02073,
+             -0.0196662, -0.071965])
+        np.testing.assert_almost_equal(dl["q"], expected_q, decimal=7)
+
+        # use the handy "auxmultname" feature
+        nm.reaches["cond"] = 10.0
+        nm.write_package_period("drn", fname_tpl, auxiliary="rlen")
+        _ = nm.set_package_obj(
+            "drn", pname="swn_drn", auxmultname="rlen",
+            stress_period_data={0: {"filename": fname.name}})
+        sim.write_simulation()
+        success, buff = sim.run_simulation()
+        assert success
+        dl = read_budget(tmp_path / "model.cbc", "DRN")
+        assert "RLEN" in dl.dtype.names
+        np.testing.assert_almost_equal(dl["q"], expected_q, decimal=5)
+
+
+def test_flopy_package_period(tmp_path):
+    n = get_basic_swn()
+    sim, m = get_basic_modflow(tmp_path)
+    nm = swn.SwnMf6.from_swn_flopy(n, m)
+
+    nm.set_reach_data_from_array("elev", m.dis.top.data - 1.0)
+    nm.reaches["rlen"] = (nm.reaches.length).round(2)
+    nm.reaches["cond"] = (nm.reaches.length * 10.0).round(2)
+
+    def df2dic(df):
+        return {0: [list(x) for x in df.to_records(index=False)]}
+
+    # default, without auxiliary or boundname
+    exp_flopy = pd.DataFrame(
+        {
+            "cellid": [
+                (0, 0, 0), (0, 0, 1), (0, 1, 1), (0, 0, 1), (0, 1, 1),
+                (0, 1, 1), (0, 2, 1)],
+            "elev": [14.0] * 7,
+            "cond": [180.28, 60.09, 120.19, 210.82, 105.41, 100.0, 100.0],
+        },
+        index=pd.MultiIndex.from_tuples(
+            [(0, rno) for rno in range(7)], names=["per", "rno"])
+    )
+    assert nm.flopy_package_period("drn") == df2dic(exp_flopy)
+
+    # with auxiliary
+    assert nm.flopy_package_period("drn", auxiliary="rlen") == df2dic(
+        exp_flopy.assign(rlen=[18.03, 6.01, 12.02, 21.08, 10.54, 10.0, 10.0]))
+
+    # with boundname column, but boundname=False
+    nm.reaches["boundname"] = nm.reaches.segnum
+    assert nm.flopy_package_period("drn", boundname=False) == df2dic(exp_flopy)
+
+    # with boundname
+    assert nm.flopy_package_period("drn") == df2dic(
+        exp_flopy.assign(boundname=["1", "1", "1", "2", "2", "0", "0"]))
+
+    # with boundname and auxiliary
+    assert nm.flopy_package_period("drn", auxiliary="rlen")[0][0] == \
+        [(0, 0, 0), 14.0, 180.28, 18.03, "1"]
+
+    # Run model and read outputs
+    if mf6_exe:
+        # more precise cond without rounding
+        nm.reaches["cond"] = nm.reaches.length * 10.0
+        _ = nm.set_package_obj("drn", pname="swn_drn")
+        sim.write_simulation()
+        success, buff = sim.run_simulation()
+        assert success
+        dl = read_budget(tmp_path / "model.cbc", "DRN")
+        assert "RLEN" not in dl.dtype.names
+        expected_q = np.array(
+            [-0.0639901, -0.0088755, -0.0236359, -0.0311373, -0.02073,
+             -0.0196662, -0.071965])
+        np.testing.assert_almost_equal(dl["q"], expected_q, decimal=7)
+
+        # use the handy "auxmultname" feature
+        nm.reaches["cond"] = 10.0
+        _ = nm.set_package_obj("drn", pname="swn_drn", auxmultname="rlen")
+        sim.write_simulation()
+        success, buff = sim.run_simulation()
+        assert success
+        dl = read_budget(tmp_path / "model.cbc", "DRN")
+        assert "RLEN" in dl.dtype.names
+        np.testing.assert_almost_equal(dl["q"], expected_q, decimal=5)
