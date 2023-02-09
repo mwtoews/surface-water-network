@@ -67,5 +67,3 @@ Utilities
 
     SwnMf6.get_location_frame_reach_info
     SwnMf6.route_reaches
-    read_formatted_frame
-    write_formatted_frame
