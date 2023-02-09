@@ -1,0 +1,6 @@
+﻿swn.file.write\_formatted\_frame
+================================
+
+.. currentmodule:: swn.file
+
+.. autofunction:: write_formatted_frame

@@ -1,0 +1,6 @@
+﻿swn.file.read\_formatted\_frame
+===============================
+
+.. currentmodule:: swn.file
+
+.. autofunction:: read_formatted_frame
