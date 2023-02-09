@@ -1632,3 +1632,202 @@ def test_route_reaches():
     with pytest.raises(ConnectionError, match="reach networks are disjoint"):
         nm.route_reaches(1, 6, allow_indirect=True)
     # TODO: diversions?
+
+
+def test_get_flopy_modflow_package():
+    from swn.modflow._swnmodflow import get_flopy_modflow_package
+
+    assert get_flopy_modflow_package("drn") == flopy.modflow.ModflowDrn
+    with pytest.raises(AttributeError):
+        get_flopy_modflow_package("no")
+
+
+def test_package_period_frame():
+    n = get_basic_swn()
+    m = get_basic_modflow()
+    nm = swn.SwnModflow.from_swn_flopy(n, m)
+
+    with pytest.raises(
+            KeyError, match="2 reach series needed for ModflowDrn: elev, con"):
+        nm.package_period_frame("drn", "native")
+
+    nm.set_reach_data_from_array("elev", m.dis.top.array - 1.0)
+    nm.reaches["rlen"] = (nm.reaches.length).round(2)
+    nm.reaches["cond"] = (nm.reaches.length * 10.0).round(2)
+
+    # default, without auxiliary
+    exp_native = pd.DataFrame(
+        {
+            "k": [1] * 7,
+            "i": [1, 1, 2, 1, 2, 2, 3],
+            "j": [1, 2, 2, 2, 2, 2, 2],
+            "elev": np.array([14.0] * 7, np.float32),
+            "cond": [180.28, 60.09, 120.19, 210.82, 105.41, 100.0, 100.0],
+        },
+        index=pd.MultiIndex.from_tuples(
+            [(1, rid + 1) for rid in range(7)], names=["per", "reachID"])
+    )
+    exp_flopy = exp_native.copy()
+    exp_flopy[list("ijk")] -= 1
+    exp_flopy.index = pd.MultiIndex.from_tuples(
+        [(0, rid + 1) for rid in range(7)], names=["per", "reachID"])
+    pd.testing.assert_frame_equal(
+        nm.package_period_frame("drn", "native"),
+        exp_native)
+    pd.testing.assert_frame_equal(
+        nm.package_period_frame("drn", "flopy"),
+        exp_flopy)
+
+    # with auxiliary
+    rlen = [18.03, 6.01, 12.02, 21.08, 10.54, 10.0, 10.0]
+    exp_native["rlen"] = rlen
+    exp_flopy["rlen"] = rlen
+    pd.testing.assert_frame_equal(
+        nm.package_period_frame("drn", "native", auxiliary="rlen"),
+        exp_native)
+    pd.testing.assert_frame_equal(
+        nm.package_period_frame("drn", "flopy", auxiliary="rlen"),
+        exp_flopy)
+
+
+def test_write_package_period(tmp_path):
+    n = get_basic_swn()
+    m = get_basic_modflow(tmp_path)
+    nm = swn.SwnModflow.from_swn_flopy(n, m)
+
+    nm.set_reach_data_from_array("elev", m.dis.top.array - 1.0)
+    nm.reaches["rlen"] = (nm.reaches.length).round(2)
+    nm.reaches["cond"] = (nm.reaches.length * 10.0).round(2)
+
+    fname_tpl = tmp_path / "drn_period_{:02d}.dat"
+    fname = tmp_path / "drn_period_01.dat"
+    assert not fname.exists()
+
+    # default, without auxiliary
+    nm.write_package_period("drn", fname_tpl)
+    file_l = fname.read_text().splitlines()
+    assert file_l[0].split() == ["1", "1", "1", "14.0", "180.28"]
+    assert len(file_l) == 7
+
+    # with auxiliary
+    nm.write_package_period("drn", fname_tpl, auxiliary="rlen")
+    assert fname.read_text().splitlines()[0].split() == \
+        ["1", "1", "1", "14.0", "180.28", "18.03"]
+
+    # add dummy package, to be overwritten
+    _ = flopy.modflow.ModflowDrn(
+        m, stress_period_data={
+            0: flopy.modflow.ModflowDrn.get_empty(len(nm.reaches))})
+    m.write_input()
+    drn_fname = (tmp_path / "modflowtest.drn")
+    assert drn_fname.exists()
+
+    # Run model and read outputs
+    if mf2005_exe:
+        # more precise cond without rounding
+        nm.reaches["cond"] = nm.reaches.length * 10.0
+        nm.write_package_period("drn", fname_tpl)
+        drn_fname.write_text(dedent(f"""\
+            7 52
+            7 0
+            OPEN/CLOSE {fname.name}
+        """))
+        success, buff = m.run_model()
+        assert success
+        dl = read_budget(tmp_path / "modflowtest.cbc", "DRAINS")
+        expected_q = np.array(
+            [-0.06402918, -0.00885882, -0.02372583, -0.03096424, -0.02075164,
+             -0.01971569, -0.07200407], np.float32)
+        np.testing.assert_almost_equal(dl["q"], expected_q)
+        assert "RLEN" not in dl.dtype.names
+        assert "RLEN".ljust(16) not in dl.dtype.names
+
+        # with auxiliary
+        nm.write_package_period("drn", fname_tpl, auxiliary="rlen")
+        drn_fname.write_text(dedent(f"""\
+            7 52 AUX RLEN
+            7 0
+            OPEN/CLOSE {fname.name}
+        """))
+        success, buff = m.run_model()
+        assert success
+        dl = read_budget(tmp_path / "modflowtest.cbc", "DRAINS")
+        np.testing.assert_almost_equal(dl["q"], expected_q)
+        rlen_name = "RLEN"
+        if rlen_name not in dl.dtype.names:
+            rlen_name = "RLEN".ljust(16)
+        assert rlen_name in dl.dtype.names
+        np.testing.assert_almost_equal(
+            dl[rlen_name], nm.reaches["rlen"].astype(np.float32))
+
+
+def test_flopy_package_period(tmp_path):
+    n = get_basic_swn()
+    m = get_basic_modflow(tmp_path)
+    nm = swn.SwnModflow.from_swn_flopy(n, m)
+
+    nm.set_reach_data_from_array("elev", m.dis.top.array - 1.0)
+    nm.reaches["rlen"] = (nm.reaches.length).round(2)
+    nm.reaches["cond"] = (nm.reaches.length * 10.0).round(2)
+
+    # default, without auxiliary
+    exp_flopy = pd.DataFrame(
+        {
+            "k": [0] * 7,
+            "i": [0, 0, 1, 0, 1, 1, 2],
+            "j": [0, 1, 1, 1, 1, 1, 1],
+            "elev": np.array([14.0] * 7, np.float32),
+            "cond": np.array(
+                [180.28, 60.09, 120.19, 210.82, 105.41, 100.0, 100.0],
+                np.float32),
+        },
+        index=pd.MultiIndex.from_tuples(
+            [(1, rid + 1) for rid in range(7)], names=["per", "reachID"])
+    )
+    ret = nm.flopy_package_period("drn")
+    assert type(ret) == dict
+    assert list(ret.keys()) == [0]
+    np.testing.assert_array_equal(ret[0], exp_flopy.to_records(index=False))
+
+    # with auxiliary
+    ret = nm.flopy_package_period("drn", auxiliary="rlen")
+    assert type(ret) == dict
+    assert list(ret.keys()) == [0]
+    np.testing.assert_array_equal(
+        ret[0],
+        exp_flopy.assign(rlen=np.array(
+            [18.03, 6.01, 12.02, 21.08, 10.54, 10.0, 10.0], np.float32
+        )).to_records(index=False))
+
+    # Run model and read outputs
+    if mf2005_exe:
+        _ = nm.set_package_obj("drn", ipakcb=52)
+        m.write_input()
+        success, buff = m.run_model()
+        assert success
+        dl = read_budget(tmp_path / "modflowtest.cbc", "DRAINS")
+        expected_q = np.array(
+            [-0.06402918, -0.00886265, -0.02358327, -0.03124261, -0.02074423,
+             -0.01962166, -0.07200401], np.float32)
+        np.testing.assert_almost_equal(dl["q"], expected_q)
+        assert "RLEN" not in dl.dtype.names
+        assert "RLEN".ljust(16) not in dl.dtype.names
+
+        # with auxiliary
+        _ = nm.set_package_obj("drn", ipakcb=52, auxiliary="rlen")
+        m.write_input()
+        # edit file before running, due to flopy shortcomming
+        drn_fname = tmp_path / "modflowtest.drn"
+        txt = drn_fname.read_text().splitlines()
+        txt[1] += " AUX RLEN"
+        drn_fname.write_text("\n".join(txt))
+        success, buff = m.run_model()
+        assert success
+        dl = read_budget(tmp_path / "modflowtest.cbc", "DRAINS")
+        np.testing.assert_almost_equal(dl["q"], expected_q)
+        rlen_name = "RLEN"
+        if rlen_name not in dl.dtype.names:
+            rlen_name = "RLEN".ljust(16)
+        assert rlen_name in dl.dtype.names
+        np.testing.assert_almost_equal(
+            dl[rlen_name], nm.reaches["rlen"].astype(np.float32))
