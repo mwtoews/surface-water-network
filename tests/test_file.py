@@ -93,3 +93,87 @@ def test_pickle_file_methods(tmp_path):
     n1.to_pickle(tmp_path / "n2.pickle")
     n2 = swn.SurfaceWaterNetwork.from_pickle(tmp_path / "n2.pickle")
     assert n1 == n2
+
+
+def test_read_write_formatted_frame(tmp_path):
+    df = pd.DataFrame({
+        "value1": [-1e10, -1e-10, 0, 1e-10, 1, 1000],
+        "value2": [1, 10, 100, 1000, 10000, 100000],
+        "value3": ["first one", "two", "three", np.nan, "five", "six"],
+        }, index=[1, 12, 33, 40, 450, 6267])
+    df.index.name = "rno"
+
+    # test default write method
+    fname = tmp_path / "file.dat"
+    swn.file.write_formatted_frame(df, fname)
+    # check first line
+    with fname.open() as f:
+        header = f.readline()
+    assert header == "# rno        value1  value2  value3\n"
+
+    # test read method
+    df2 = swn.file.read_formatted_frame(fname).set_index("rno")
+    pd.testing.assert_frame_equal(df, df2)
+
+    # similar checks without comment char
+    swn.file.write_formatted_frame(df, fname, comment_header=False)
+    # check first line
+    with fname.open() as f:
+        header = f.readline()
+    assert header == "rno         value1  value2  value3\n"
+
+    # test read method
+    df2 = swn.file.read_formatted_frame(fname).set_index("rno")
+    pd.testing.assert_frame_equal(df, df2)
+
+    # without index
+    swn.file.write_formatted_frame(
+        df, fname, comment_header=True, index=False)
+    # check first line
+    with fname.open() as f:
+        header = f.readline()
+    assert header == "#      value1  value2 value3\n"
+
+    # test read method
+    df2 = swn.file.read_formatted_frame(fname)
+    pd.testing.assert_frame_equal(df.reset_index(drop=True), df2)
+
+    swn.file.write_formatted_frame(
+        df, fname, comment_header=False, index=False)
+    # check first line
+    with fname.open() as f:
+        header = f.readline()
+    assert header == "       value1  value2 value3\n"
+
+    # test read method
+    df2 = swn.file.read_formatted_frame(fname)
+    pd.testing.assert_frame_equal(df.reset_index(drop=True), df2)
+
+    # empty data frame
+    df = df.iloc[0:0]
+    swn.file.write_formatted_frame(df, fname)
+    assert fname.read_text() == "# rno value1 value2 value3\n"
+    df2 = swn.file.read_formatted_frame(fname).set_index("rno")
+    pd.testing.assert_frame_equal(
+        df, df2, check_index_type=False, check_dtype=False)
+
+    swn.file.write_formatted_frame(df, fname, index=False)
+    assert fname.read_text() == "# value1 value2 value3\n"
+    df2 = swn.file.read_formatted_frame(fname)
+    pd.testing.assert_frame_equal(
+        df.reset_index(drop=True), df2,
+        check_index_type=False, check_dtype=False)
+
+    swn.file.write_formatted_frame(df, fname, comment_header=False)
+    assert fname.read_text() == "rno value1 value2 value3\n"
+    df2 = swn.file.read_formatted_frame(fname).set_index("rno")
+    pd.testing.assert_frame_equal(
+        df, df2, check_index_type=False, check_dtype=False)
+
+    swn.file.write_formatted_frame(
+        df, fname, comment_header=False, index=False)
+    assert fname.read_text() == "value1 value2 value3\n"
+    df2 = swn.file.read_formatted_frame(fname)
+    pd.testing.assert_frame_equal(
+        df.reset_index(drop=True), df2,
+        check_index_type=False, check_dtype=False)
