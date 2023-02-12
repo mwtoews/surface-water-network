@@ -331,19 +331,14 @@ class SwnMf6(SwnModflowBase):
                     sel.sum())
                 dat.loc[sel, "boundname"] = \
                     dat.loc[sel, "boundname"].str.slice(stop=40)
-        # checking missing columns
-        dat_columns = set(dat.columns)
-        missing = set(defcols_names).difference(dat_columns)
+        # check missing columns
+        missing = []
+        for name in defcols_names:
+            if name not in dat.columns:
+                missing.append(name)
         if missing:
-            missing_l = []
-            for name in defcols_names:
-                if name not in dat_columns:
-                    missing_l.append(name)
-            raise KeyError(
-                "missing {} {} dataset{}: {}"
-                .format(len(missing_l), what,
-                        "s" if len(missing_l) != 1 else "",
-                        ", ".join(sorted(missing_l))))
+            missing_list = ", ".join(missing)
+            raise KeyError(f"missing {len(missing)} {what}: {missing_list}")
         return dat.loc[:, defcols_names]
 
     def packagedata_frame(
@@ -441,7 +436,7 @@ class SwnMf6(SwnModflowBase):
                 ndv.index -= 1
             dat.loc[ndv.index, "ndv"] = ndv
         return self._final_package_df(
-            "packagedata", dat,
+            "packagedata reaches series", dat,
             defcols_names=defcols_names, boundname=boundname)
 
     def write_packagedata(
@@ -768,7 +763,7 @@ class SwnMf6(SwnModflowBase):
         dat = self._init_package_df(
             style=style, defcols_names=defcols_names, auxiliary=auxiliary)
         dat = self._final_package_df(
-            "stress_period_data", dat,
+            f"{Mf6pak.__name__} reaches series", dat,
             defcols_names=defcols_names, boundname=boundname)
         if self.model.simulation.tdis.nper.data != 1:
             self.logger.warning(
@@ -1068,7 +1063,7 @@ class SwnMf6(SwnModflowBase):
             Sets the BOUNDAMES option, with names provided by a "boundname"
             column of the reaches frame. Default None will set this True
             if column exists.
-        **kwargs : dict, optional
+        **kwds : dict, optional
             Passed to flopy.mf6.ModflowGwfsfr.
 
         Returns
@@ -1111,7 +1106,7 @@ class SwnMf6(SwnModflowBase):
             Sets the BOUNDAMES option, with names provided by a "boundname"
             column of the reaches frame. Default None will set this True
             if column exists.
-        **kwargs : dict, optional
+        **kwds : dict, optional
             Passed to flopy.mf6 package.
 
         Returns
@@ -1980,7 +1975,7 @@ def get_flopy_mf6_package(name: str):
     Returns
     -------
     flopy.mf6.mfpackage.MFPackage
-        Subclass instance.
+        Subclass object.
     """
     import flopy.mf6
 

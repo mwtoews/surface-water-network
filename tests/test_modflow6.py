@@ -209,10 +209,10 @@ def test_n3d_defaults(tmp_path, has_diversions):
             set(), set()]
         pd.testing.assert_frame_equal(
             nm.reaches[div_expected.columns], div_expected)
-    with pytest.raises(KeyError, match="missing 6 packagedata dataset"):
+    with pytest.raises(KeyError, match="missing 6 packagedata reaches series"):
         nm.packagedata_frame("native")
     nm.set_reach_slope()
-    with pytest.raises(KeyError, match="missing 5 packagedata dataset"):
+    with pytest.raises(KeyError, match="missing 5 packagedata reaches series"):
         nm.packagedata_frame("native")
     nm.default_packagedata(hyd_cond1=1e-4)
     nodiv_expected = pd.DataFrame({
@@ -1261,7 +1261,7 @@ def test_package_period_frame():
     nm = swn.SwnMf6.from_swn_flopy(n, m)
 
     with pytest.raises(
-            KeyError, match="missing 2 stress_period_data datasets: cond, el"):
+            KeyError, match="missing 2 ModflowGwfdrn reaches series: elev, c"):
         nm.package_period_frame("drn", "native")
 
     nm.set_reach_data_from_array("elev", m.dis.top.data - 1.0)

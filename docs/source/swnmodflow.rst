@@ -46,6 +46,16 @@ Segment data generation
    SwnModflow.set_segment_data_from_segments
    SwnModflow.set_segment_data_from_diversions
 
+Other packages
+--------------
+.. autosummary::
+   :toctree: ref/
+
+    SwnModflow.set_package_obj
+    SwnModflow.package_period_frame
+    SwnModflow.write_package_period
+    SwnModflow.flopy_package_period
+
 Utilities
 ---------
 .. autosummary::
