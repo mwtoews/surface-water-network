@@ -6,7 +6,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
 
-    <title>swn.SurfaceWaterNetwork.has_z &#8212; Surface water network 2022 documentation</title>
+    <title>swn.modflow.SwnModflow.package_period_frame &#8212; Surface water network 2022 documentation</title>
   
   
   
@@ -39,11 +39,11 @@
     <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
     <script src="../_static/doctools.js"></script>
     <script src="../_static/sphinx_highlight.js"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'ref/swn.SurfaceWaterNetwork.has_z';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'ref/swn.modflow.SwnModflow.package_period_frame';</script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="swn.SurfaceWaterNetwork.headwater" href="swn.SurfaceWaterNetwork.headwater.html" />
-    <link rel="prev" title="swn.SurfaceWaterNetwork.diversions" href="swn.SurfaceWaterNetwork.diversions.html" />
+    <link rel="next" title="swn.modflow.SwnModflow.write_package_period" href="swn.modflow.SwnModflow.write_package_period.html" />
+    <link rel="prev" title="swn.modflow.SwnModflow.set_package_obj" href="swn.modflow.SwnModflow.set_package_obj.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="docsearch:language" content="en">
   </head>
@@ -285,14 +285,14 @@
   </p>
   <div class="bd-toc-item navbar-nav">
     <ul class="current nav bd-sidenav">
-<li class="toctree-l1 current active has-children"><a class="reference internal" href="../swn.html">SurfaceWaterNetwork</a><input checked="" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-1"><i class="fa-solid fa-chevron-down"></i></label><ul class="current">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../swn.html">SurfaceWaterNetwork</a><input class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-1"><i class="fa-solid fa-chevron-down"></i></label><ul>
 <li class="toctree-l2"><a class="reference internal" href="swn.SurfaceWaterNetwork.html">swn.SurfaceWaterNetwork</a></li>
 <li class="toctree-l2"><a class="reference internal" href="swn.SurfaceWaterNetwork.from_lines.html">swn.SurfaceWaterNetwork.from_lines</a></li>
 <li class="toctree-l2"><a class="reference internal" href="swn.SurfaceWaterNetwork.from_pickle.html">swn.SurfaceWaterNetwork.from_pickle</a></li>
 <li class="toctree-l2"><a class="reference internal" href="swn.SurfaceWaterNetwork.segments.html">swn.SurfaceWaterNetwork.segments</a></li>
 <li class="toctree-l2"><a class="reference internal" href="swn.SurfaceWaterNetwork.catchments.html">swn.SurfaceWaterNetwork.catchments</a></li>
 <li class="toctree-l2"><a class="reference internal" href="swn.SurfaceWaterNetwork.diversions.html">swn.SurfaceWaterNetwork.diversions</a></li>
-<li class="toctree-l2 current active"><a class="current reference internal" href="#">swn.SurfaceWaterNetwork.has_z</a></li>
+<li class="toctree-l2"><a class="reference internal" href="swn.SurfaceWaterNetwork.has_z.html">swn.SurfaceWaterNetwork.has_z</a></li>
 <li class="toctree-l2"><a class="reference internal" href="swn.SurfaceWaterNetwork.headwater.html">swn.SurfaceWaterNetwork.headwater</a></li>
 <li class="toctree-l2"><a class="reference internal" href="swn.SurfaceWaterNetwork.outlets.html">swn.SurfaceWaterNetwork.outlets</a></li>
 <li class="toctree-l2"><a class="reference internal" href="swn.SurfaceWaterNetwork.to_segnums.html">swn.SurfaceWaterNetwork.to_segnums</a></li>
@@ -313,7 +313,7 @@
 <li class="toctree-l2"><a class="reference internal" href="swn.SurfaceWaterNetwork.to_pickle.html">swn.SurfaceWaterNetwork.to_pickle</a></li>
 </ul>
 </li>
-<li class="toctree-l1 has-children"><a class="reference internal" href="../swnmodflow.html">SwnModflow</a><input class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-2"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="../swnmodflow.html">SwnModflow</a><input checked="" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-2"><i class="fa-solid fa-chevron-down"></i></label><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="swn.modflow.SwnModflow.html">swn.modflow.SwnModflow</a></li>
 <li class="toctree-l2"><a class="reference internal" href="swn.modflow.SwnModflow.from_swn_flopy.html">swn.modflow.SwnModflow.from_swn_flopy</a></li>
 <li class="toctree-l2"><a class="reference internal" href="swn.modflow.SwnModflow.from_pickle.html">swn.modflow.SwnModflow.from_pickle</a></li>
@@ -332,7 +332,7 @@
 <li class="toctree-l2"><a class="reference internal" href="swn.modflow.SwnModflow.set_segment_data_from_segments.html">swn.modflow.SwnModflow.set_segment_data_from_segments</a></li>
 <li class="toctree-l2"><a class="reference internal" href="swn.modflow.SwnModflow.set_segment_data_from_diversions.html">swn.modflow.SwnModflow.set_segment_data_from_diversions</a></li>
 <li class="toctree-l2"><a class="reference internal" href="swn.modflow.SwnModflow.set_package_obj.html">swn.modflow.SwnModflow.set_package_obj</a></li>
-<li class="toctree-l2"><a class="reference internal" href="swn.modflow.SwnModflow.package_period_frame.html">swn.modflow.SwnModflow.package_period_frame</a></li>
+<li class="toctree-l2 current active"><a class="current reference internal" href="#">swn.modflow.SwnModflow.package_period_frame</a></li>
 <li class="toctree-l2"><a class="reference internal" href="swn.modflow.SwnModflow.write_package_period.html">swn.modflow.SwnModflow.write_package_period</a></li>
 <li class="toctree-l2"><a class="reference internal" href="swn.modflow.SwnModflow.flopy_package_period.html">swn.modflow.SwnModflow.flopy_package_period</a></li>
 <li class="toctree-l2"><a class="reference internal" href="swn.modflow.SwnModflow.get_location_frame_reach_info.html">swn.modflow.SwnModflow.get_location_frame_reach_info</a></li>
@@ -412,12 +412,75 @@
             
             <article class="bd-article" role="main">
               
-  <section id="swn-surfacewaternetwork-has-z">
-<h1>swn.SurfaceWaterNetwork.has_z<a class="headerlink" href="#swn-surfacewaternetwork-has-z" title="Permalink to this heading">#</a></h1>
-<dl class="py property">
-<dt class="sig sig-object py" id="swn.SurfaceWaterNetwork.has_z">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">SurfaceWaterNetwork.</span></span><span class="sig-name descname"><span class="pre">has_z</span></span><a class="headerlink" href="#swn.SurfaceWaterNetwork.has_z" title="Permalink to this definition">#</a></dt>
-<dd><p>Return True if all segment lines have Z dimension.</p>
+  <section id="swn-modflow-swnmodflow-package-period-frame">
+<h1>swn.modflow.SwnModflow.package_period_frame<a class="headerlink" href="#swn-modflow-swnmodflow-package-period-frame" title="Permalink to this heading">#</a></h1>
+<dl class="py method">
+<dt class="sig sig-object py" id="swn.modflow.SwnModflow.package_period_frame">
+<span class="sig-prename descclassname"><span class="pre">SwnModflow.</span></span><span class="sig-name descname"><span class="pre">package_period_frame</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">package</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">style</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">auxiliary</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[]</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwds</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#swn.modflow.SwnModflow.package_period_frame" title="Permalink to this definition">#</a></dt>
+<dd><p>Return DataFrame of stress period data for MODFLOW packages.</p>
+<p>This DataFrame is derived from the reaches DataFrame, and is
+implemented using flopy.modflow package’s <code class="docutils literal notranslate"><span class="pre">stress_period_data</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>package</strong><span class="classifier">str</span></dt><dd><p>MODFLOW package name, such as “drn” for DRAIN.</p>
+</dd>
+<dt><strong>style</strong><span class="classifier">str</span></dt><dd><p>If “native”, all indicies (including kij) use one-based notation.
+Also use k,i,j columns (as str) rather than cellid.
+If “flopy”, all indices (including rno) use zero-based notation.
+Also use cellid as a tuple.</p>
+</dd>
+<dt><strong>auxiliary</strong><span class="classifier">str, list, optional</span></dt><dd><p>String or list of auxiliary variable names. Default [].</p>
+</dd>
+<dt><strong>**kwds</strong><span class="classifier">dict, optional</span></dt><dd><p>Keyword arguments used for <code class="docutils literal notranslate"><span class="pre">get_default_dtype</span></code>, if available.
+A common keyword is <code class="docutils literal notranslate"><span class="pre">structured=True</span></code>.</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><dl class="simple">
+<dt>DataFrame</dt><dd></dd>
+</dl>
+</dd>
+</dl>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<dl class="simple">
+<dt><a class="reference internal" href="swn.modflow.SwnModflow.flopy_package_period.html#swn.modflow.SwnModflow.flopy_package_period" title="swn.modflow.SwnModflow.flopy_package_period"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SwnModflow.flopy_package_period</span></code></a></dt><dd><p>Dict of lists of lists for flopy.</p>
+</dd>
+</dl>
+</div>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">flopy</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">geopandas</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">swn</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">lines</span> <span class="o">=</span> <span class="n">geopandas</span><span class="o">.</span><span class="n">GeoSeries</span><span class="o">.</span><span class="n">from_wkt</span><span class="p">([</span>
+<span class="gp">... </span>   <span class="s2">&quot;LINESTRING (60 100, 60  80)&quot;</span><span class="p">,</span>
+<span class="gp">... </span>   <span class="s2">&quot;LINESTRING (40 130, 60 100)&quot;</span><span class="p">,</span>
+<span class="gp">... </span>   <span class="s2">&quot;LINESTRING (70 130, 60 100)&quot;</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">lines</span><span class="o">.</span><span class="n">index</span> <span class="o">+=</span> <span class="mi">100</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">n</span> <span class="o">=</span> <span class="n">swn</span><span class="o">.</span><span class="n">SurfaceWaterNetwork</span><span class="o">.</span><span class="n">from_lines</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">m</span> <span class="o">=</span> <span class="n">flopy</span><span class="o">.</span><span class="n">modflow</span><span class="o">.</span><span class="n">Modflow</span><span class="p">(</span><span class="n">version</span><span class="o">=</span><span class="s2">&quot;mf2005&quot;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">_</span> <span class="o">=</span> <span class="n">flopy</span><span class="o">.</span><span class="n">modflow</span><span class="o">.</span><span class="n">ModflowDis</span><span class="p">(</span>
+<span class="gp">... </span>    <span class="n">m</span><span class="p">,</span> <span class="n">nrow</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">ncol</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">delr</span><span class="o">=</span><span class="mf">20.0</span><span class="p">,</span> <span class="n">delc</span><span class="o">=</span><span class="mf">20.0</span><span class="p">,</span> <span class="n">xul</span><span class="o">=</span><span class="mf">30.0</span><span class="p">,</span> <span class="n">yul</span><span class="o">=</span><span class="mf">130.0</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="n">top</span><span class="o">=</span><span class="mf">15.0</span><span class="p">,</span> <span class="n">botm</span><span class="o">=</span><span class="mf">10.0</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">_</span> <span class="o">=</span> <span class="n">flopy</span><span class="o">.</span><span class="n">modflow</span><span class="o">.</span><span class="n">ModflowBas</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">nm</span> <span class="o">=</span> <span class="n">swn</span><span class="o">.</span><span class="n">modflow</span><span class="o">.</span><span class="n">SwnModflow</span><span class="o">.</span><span class="n">from_swn_flopy</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">m</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">nm</span><span class="o">.</span><span class="n">set_reach_data_from_array</span><span class="p">(</span><span class="s2">&quot;elev&quot;</span><span class="p">,</span> <span class="n">m</span><span class="o">.</span><span class="n">dis</span><span class="o">.</span><span class="n">top</span><span class="o">.</span><span class="n">array</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">nm</span><span class="o">.</span><span class="n">reaches</span><span class="p">[</span><span class="s2">&quot;dlen&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">nm</span><span class="o">.</span><span class="n">reaches</span><span class="o">.</span><span class="n">length</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">nm</span><span class="o">.</span><span class="n">reaches</span><span class="p">[</span><span class="s2">&quot;cond&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">nm</span><span class="o">.</span><span class="n">reaches</span><span class="o">.</span><span class="n">dlen</span> <span class="o">*</span> <span class="mf">10.0</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">nm</span><span class="o">.</span><span class="n">package_period_frame</span><span class="p">(</span><span class="s2">&quot;drn&quot;</span><span class="p">,</span> <span class="s2">&quot;native&quot;</span><span class="p">,</span> <span class="n">auxiliary</span><span class="o">=</span><span class="s2">&quot;dlen&quot;</span><span class="p">)</span>
+<span class="go">             k  i  j  elev        cond       dlen</span>
+<span class="go">per reachID                                      </span>
+<span class="go">1   1        1  1  1  15.0  180.277564  18.027756</span>
+<span class="go">    2        1  1  2  15.0   60.092521   6.009252</span>
+<span class="go">    3        1  2  2  15.0  120.185043  12.018504</span>
+<span class="go">    4        1  1  2  15.0  210.818511  21.081851</span>
+<span class="go">    5        1  2  2  15.0  105.409255  10.540926</span>
+<span class="go">    6        1  2  2  15.0  100.000000  10.000000</span>
+<span class="go">    7        1  3  2  15.0  100.000000  10.000000</span>
+</pre></div>
+</div>
 </dd></dl>
 
 </section>
@@ -430,17 +493,17 @@
             <footer class="bd-footer-article">
                 <!-- Previous / next buttons -->
 <div class='prev-next-area'>
-  <a class='left-prev' id="prev-link" href="swn.SurfaceWaterNetwork.diversions.html" title="previous page">
+  <a class='left-prev' id="prev-link" href="swn.modflow.SwnModflow.set_package_obj.html" title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
           <p class="prev-next-subtitle">previous</p>
-          <p class="prev-next-title">swn.SurfaceWaterNetwork.diversions</p>
+          <p class="prev-next-title">swn.modflow.SwnModflow.set_package_obj</p>
       </div>
   </a>
-  <a class='right-next' id="next-link" href="swn.SurfaceWaterNetwork.headwater.html" title="next page">
+  <a class='right-next' id="next-link" href="swn.modflow.SwnModflow.write_package_period.html" title="next page">
   <div class="prev-next-info">
       <p class="prev-next-subtitle">next</p>
-      <p class="prev-next-title">swn.SurfaceWaterNetwork.headwater</p>
+      <p class="prev-next-title">swn.modflow.SwnModflow.write_package_period</p>
   </div>
   <i class="fa-solid fa-angle-right"></i>
   </a>
@@ -461,10 +524,10 @@
 <nav id="bd-toc-nav" class="page-toc">
     <ul class="visible nav section-nav flex-column">
  <li class="toc-h2 nav-item toc-entry">
-  <a class="reference internal nav-link" href="#swn.SurfaceWaterNetwork.has_z">
+  <a class="reference internal nav-link" href="#swn.modflow.SwnModflow.package_period_frame">
    <code class="docutils literal notranslate">
     <span class="pre">
-     SurfaceWaterNetwork.has_z
+     SwnModflow.package_period_frame()
     </span>
    </code>
   </a>
@@ -486,7 +549,7 @@
 <div class="toc-item">
   
 <div class="tocsection sourcelink">
-    <a href="../_sources/ref/swn.SurfaceWaterNetwork.has_z.rst.txt">
+    <a href="../_sources/ref/swn.modflow.SwnModflow.package_period_frame.rst.txt">
         <i class="fa-solid fa-file-lines"></i> Show Source
     </a>
 </div>

@@ -331,6 +331,10 @@
 <li class="toctree-l2"><a class="reference internal" href="swn.modflow.SwnModflow.set_segment_data_from_scalar.html">swn.modflow.SwnModflow.set_segment_data_from_scalar</a></li>
 <li class="toctree-l2"><a class="reference internal" href="swn.modflow.SwnModflow.set_segment_data_from_segments.html">swn.modflow.SwnModflow.set_segment_data_from_segments</a></li>
 <li class="toctree-l2"><a class="reference internal" href="swn.modflow.SwnModflow.set_segment_data_from_diversions.html">swn.modflow.SwnModflow.set_segment_data_from_diversions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="swn.modflow.SwnModflow.set_package_obj.html">swn.modflow.SwnModflow.set_package_obj</a></li>
+<li class="toctree-l2"><a class="reference internal" href="swn.modflow.SwnModflow.package_period_frame.html">swn.modflow.SwnModflow.package_period_frame</a></li>
+<li class="toctree-l2"><a class="reference internal" href="swn.modflow.SwnModflow.write_package_period.html">swn.modflow.SwnModflow.write_package_period</a></li>
+<li class="toctree-l2"><a class="reference internal" href="swn.modflow.SwnModflow.flopy_package_period.html">swn.modflow.SwnModflow.flopy_package_period</a></li>
 <li class="toctree-l2"><a class="reference internal" href="swn.modflow.SwnModflow.get_location_frame_reach_info.html">swn.modflow.SwnModflow.get_location_frame_reach_info</a></li>
 <li class="toctree-l2"><a class="reference internal" href="swn.modflow.SwnModflow.route_reaches.html">swn.modflow.SwnModflow.route_reaches</a></li>
 </ul>
@@ -451,132 +455,8 @@
 <tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">fix_segment_elevs</span></code>([min_incise, min_slope, ...])</p></td>
 <td><p>Provide wrapper function for calculating SFR segment elevations.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">flopy_reach_data</span></code>()</p></td>
-<td><p>Return numpy.recarray for flopy's ModflowSfr2 reach_data.</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">flopy_segment_data</span></code>()</p></td>
-<td><p>Return dict of numpy.recarray for flopy's ModflowSfr2 segment_data.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="swn.modflow.SwnModflow.from_pickle.html#swn.modflow.SwnModflow.from_pickle" title="swn.modflow.SwnModflow.from_pickle"><code class="xref py py-obj docutils literal notranslate"><span class="pre">from_pickle</span></code></a>(path[, swn, model])</p></td>
-<td><p>Read a pickled format from a file.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="swn.modflow.SwnModflow.from_swn_flopy.html#swn.modflow.SwnModflow.from_swn_flopy" title="swn.modflow.SwnModflow.from_swn_flopy"><code class="xref py py-obj docutils literal notranslate"><span class="pre">from_swn_flopy</span></code></a>(swn, model[, ibound_action, ...])</p></td>
-<td><p>Create a MODFLOW SFR structure from a surface water network.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="swn.modflow.SwnModflow.get_location_frame_reach_info.html#swn.modflow.SwnModflow.get_location_frame_reach_info" title="swn.modflow.SwnModflow.get_location_frame_reach_info"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_location_frame_reach_info</span></code></a>(loc_df[, ...])</p></td>
-<td><p>Get reach information to location data frame, matched by segnum.</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_outseg_elev</span></code>()</p></td>
-<td><p>Get the max elevup from all downstream segments for each segment.</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_seg_ijk</span></code>()</p></td>
-<td><p>Get the k,i,j location of upstream and downstream segments for each segment</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_segment_incision</span></code>()</p></td>
-<td><p>Calculate the upstream and downstream incision of the segment.</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_segment_length</span></code>()</p></td>
-<td><p>Get segment length from accumulated reach lengths.</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_top_elevs_at_segs</span></code>()</p></td>
-<td><p>Get topsurface elevations associated with segment up and dn elevations.</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">minslope_seg</span></code>(seg, *args)</p></td>
-<td><p>Force segment to have minimum slope (check for backward flowing segs).</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="swn.modflow.SwnModflow.new_segment_data.html#swn.modflow.SwnModflow.new_segment_data" title="swn.modflow.SwnModflow.new_segment_data"><code class="xref py py-obj docutils literal notranslate"><span class="pre">new_segment_data</span></code></a>()</p></td>
-<td><p>Generate empty segment data.</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">plot</span></code>([column, cmap, colorbar, ax])</p></td>
-<td><p>Show map of reaches with inflow segments in royalblue.</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">plot_profile</span></code>(segnum[, upstream, downstream, ax])</p></td>
-<td><p>Plot stream top profiles vs model grid top and bottom.</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">plot_reaches_above</span></code>([model, seg, dem, ...])</p></td>
-<td><p>Plot map of stream elevations relative to model surfaces.</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">plot_reaches_vs_model</span></code>(seg[, dem, ...])</p></td>
-<td><p>Plot map of stream elevations relative to model surfaces.</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">reconcile_reach_strtop</span></code>()</p></td>
-<td><p>Recalculate reach strtop elevations after moving segment elevations.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="swn.modflow.SwnModflow.route_reaches.html#swn.modflow.SwnModflow.route_reaches" title="swn.modflow.SwnModflow.route_reaches"><code class="xref py py-obj docutils literal notranslate"><span class="pre">route_reaches</span></code></a>(start, end, *[, allow_indirect])</p></td>
-<td><p>Return a list of reach identifiers that connect a pair of reaches.</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_forward_segs</span></code>([min_slope])</p></td>
-<td><p>Set minimum slope in forwards direction.</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_outseg_elev_for_seg</span></code>(seg)</p></td>
-<td><p>Set outseg elevation for segment.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="swn.modflow.SwnModflow.set_reach_data_from_array.html#swn.modflow.SwnModflow.set_reach_data_from_array" title="swn.modflow.SwnModflow.set_reach_data_from_array"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_reach_data_from_array</span></code></a>(name, array)</p></td>
-<td><p>Set reach data from an array that matches the model (nrow, ncol).</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="swn.modflow.SwnModflow.set_reach_data_from_segments.html#swn.modflow.SwnModflow.set_reach_data_from_segments" title="swn.modflow.SwnModflow.set_reach_data_from_segments"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_reach_data_from_segments</span></code></a>(name, value[, ...])</p></td>
-<td><p>Set reach data based on segment series (or scalar).</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="swn.modflow.SwnModflow.set_reach_slope.html#swn.modflow.SwnModflow.set_reach_slope" title="swn.modflow.SwnModflow.set_reach_slope"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_reach_slope</span></code></a>([method, min_slope])</p></td>
-<td><p>Set slope for reaches.</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_seg_minincise</span></code>([minincise, max_str_z])</p></td>
-<td><p>Set segment elevation to have the minimum incision from the top.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="swn.modflow.SwnModflow.set_segment_data_from_diversions.html#swn.modflow.SwnModflow.set_segment_data_from_diversions" title="swn.modflow.SwnModflow.set_segment_data_from_diversions"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_segment_data_from_diversions</span></code></a>(name, data)</p></td>
-<td><p>Set segment data from a series indexed by diversions.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="swn.modflow.SwnModflow.set_segment_data_from_scalar.html#swn.modflow.SwnModflow.set_segment_data_from_scalar" title="swn.modflow.SwnModflow.set_segment_data_from_scalar"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_segment_data_from_scalar</span></code></a>(name, data[, which])</p></td>
-<td><p>Set segment data from a scalar.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="swn.modflow.SwnModflow.set_segment_data_from_segments.html#swn.modflow.SwnModflow.set_segment_data_from_segments" title="swn.modflow.SwnModflow.set_segment_data_from_segments"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_segment_data_from_segments</span></code></a>(name, data)</p></td>
-<td><p>Set segment data from a series indexed by segments.</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_segment_data_inflow</span></code>(data)</p></td>
-<td><p>Set <a class="reference internal" href="swn.modflow.SwnModflow.segment_data.html#swn.modflow.SwnModflow.segment_data" title="swn.modflow.SwnModflow.segment_data"><code class="xref py py-attr docutils literal notranslate"><span class="pre">segment_data</span></code></a> inflow data upstream of the model.</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_sfr_obj</span></code>(**kwds)</p></td>
-<td><p>Set MODFLOW SFR package data to flopy model.</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_topbot_elevs_at_reaches</span></code>()</p></td>
-<td><p>Legacy method to add model top and bottom information to reaches.</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">to_pickle</span></code>(path[, protocol])</p></td>
-<td><p>Pickle (serialize) non-flopy object data to file.</p></td>
-</tr>
-</tbody>
-</table>
-<dl class="py method">
-<dt class="sig sig-object py" id="swn.modflow.SwnModflow.__init__">
-<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">logger</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#swn.modflow.SwnModflow.__init__" title="Permalink to this definition">#</a></dt>
-<dd><p>Initialise SwnModflow.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><dl class="simple">
-<dt><strong>logger</strong><span class="classifier">logging.Logger, optional</span></dt><dd><p>Logger to show messages.</p>
-</dd>
-</dl>
-</dd>
-</dl>
-</dd></dl>
-
-<p class="rubric">Methods</p>
-<table class="autosummary longtable table autosummary">
-<tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="#swn.modflow.SwnModflow.__init__" title="swn.modflow.SwnModflow.__init__"><code class="xref py py-obj docutils literal notranslate"><span class="pre">__init__</span></code></a>([logger])</p></td>
-<td><p>Initialise SwnModflow.</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">add_model_topbot_to_reaches</span></code>()</p></td>
-<td><p>Get top and bottom elevation of the model cell containing each reach.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="swn.modflow.SwnModflow.default_segment_data.html#swn.modflow.SwnModflow.default_segment_data" title="swn.modflow.SwnModflow.default_segment_data"><code class="xref py py-obj docutils literal notranslate"><span class="pre">default_segment_data</span></code></a>([hyd_cond1, ...])</p></td>
-<td><p>High-level function to set default segment_data for MODFLOW SFR.</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">fix_reach_elevs</span></code>([minslope, fix_dis, minthick])</p></td>
-<td><p>Fix reach elevations.</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">fix_segment_elevs</span></code>([min_incise, min_slope, ...])</p></td>
-<td><p>Provide wrapper function for calculating SFR segment elevations.</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="swn.modflow.SwnModflow.flopy_package_period.html#swn.modflow.SwnModflow.flopy_package_period" title="swn.modflow.SwnModflow.flopy_package_period"><code class="xref py py-obj docutils literal notranslate"><span class="pre">flopy_package_period</span></code></a>(package[, auxiliary])</p></td>
+<td><p>Return dict of lists of lists for flopy's stress_period_data.</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">flopy_reach_data</span></code>()</p></td>
 <td><p>Return numpy.recarray for flopy's ModflowSfr2 reach_data.</p></td>
@@ -614,29 +494,35 @@
 <tr class="row-odd"><td><p><a class="reference internal" href="swn.modflow.SwnModflow.new_segment_data.html#swn.modflow.SwnModflow.new_segment_data" title="swn.modflow.SwnModflow.new_segment_data"><code class="xref py py-obj docutils literal notranslate"><span class="pre">new_segment_data</span></code></a>()</p></td>
 <td><p>Generate empty segment data.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">plot</span></code>([column, cmap, colorbar, ax])</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="swn.modflow.SwnModflow.package_period_frame.html#swn.modflow.SwnModflow.package_period_frame" title="swn.modflow.SwnModflow.package_period_frame"><code class="xref py py-obj docutils literal notranslate"><span class="pre">package_period_frame</span></code></a>(package, style[, auxiliary])</p></td>
+<td><p>Return DataFrame of stress period data for MODFLOW packages.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">plot</span></code>([column, cmap, colorbar, ax])</p></td>
 <td><p>Show map of reaches with inflow segments in royalblue.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">plot_profile</span></code>(segnum[, upstream, downstream, ax])</p></td>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">plot_profile</span></code>(segnum[, upstream, downstream, ax])</p></td>
 <td><p>Plot stream top profiles vs model grid top and bottom.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">plot_reaches_above</span></code>([model, seg, dem, ...])</p></td>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">plot_reaches_above</span></code>([model, seg, dem, ...])</p></td>
 <td><p>Plot map of stream elevations relative to model surfaces.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">plot_reaches_vs_model</span></code>(seg[, dem, ...])</p></td>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">plot_reaches_vs_model</span></code>(seg[, dem, ...])</p></td>
 <td><p>Plot map of stream elevations relative to model surfaces.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">reconcile_reach_strtop</span></code>()</p></td>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">reconcile_reach_strtop</span></code>()</p></td>
 <td><p>Recalculate reach strtop elevations after moving segment elevations.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="swn.modflow.SwnModflow.route_reaches.html#swn.modflow.SwnModflow.route_reaches" title="swn.modflow.SwnModflow.route_reaches"><code class="xref py py-obj docutils literal notranslate"><span class="pre">route_reaches</span></code></a>(start, end, *[, allow_indirect])</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="swn.modflow.SwnModflow.route_reaches.html#swn.modflow.SwnModflow.route_reaches" title="swn.modflow.SwnModflow.route_reaches"><code class="xref py py-obj docutils literal notranslate"><span class="pre">route_reaches</span></code></a>(start, end, *[, allow_indirect])</p></td>
 <td><p>Return a list of reach identifiers that connect a pair of reaches.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_forward_segs</span></code>([min_slope])</p></td>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_forward_segs</span></code>([min_slope])</p></td>
 <td><p>Set minimum slope in forwards direction.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_outseg_elev_for_seg</span></code>(seg)</p></td>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_outseg_elev_for_seg</span></code>(seg)</p></td>
 <td><p>Set outseg elevation for segment.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="swn.modflow.SwnModflow.set_package_obj.html#swn.modflow.SwnModflow.set_package_obj" title="swn.modflow.SwnModflow.set_package_obj"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_package_obj</span></code></a>(package[, auxiliary])</p></td>
+<td><p>Set MODFLOW package data to flopy model.</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="swn.modflow.SwnModflow.set_reach_data_from_array.html#swn.modflow.SwnModflow.set_reach_data_from_array" title="swn.modflow.SwnModflow.set_reach_data_from_array"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_reach_data_from_array</span></code></a>(name, array)</p></td>
 <td><p>Set reach data from an array that matches the model (nrow, ncol).</p></td>
@@ -670,6 +556,148 @@
 </tr>
 <tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">to_pickle</span></code>(path[, protocol])</p></td>
 <td><p>Pickle (serialize) non-flopy object data to file.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="swn.modflow.SwnModflow.write_package_period.html#swn.modflow.SwnModflow.write_package_period" title="swn.modflow.SwnModflow.write_package_period"><code class="xref py py-obj docutils literal notranslate"><span class="pre">write_package_period</span></code></a>(package, fname[, auxiliary])</p></td>
+<td><p>Write PERIOD file for MODFLOW packages, to be used within OPEN/CLOSE.</p></td>
+</tr>
+</tbody>
+</table>
+<dl class="py method">
+<dt class="sig sig-object py" id="swn.modflow.SwnModflow.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">logger</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#swn.modflow.SwnModflow.__init__" title="Permalink to this definition">#</a></dt>
+<dd><p>Initialise SwnModflow.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>logger</strong><span class="classifier">logging.Logger, optional</span></dt><dd><p>Logger to show messages.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<p class="rubric">Methods</p>
+<table class="autosummary longtable table autosummary">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#swn.modflow.SwnModflow.__init__" title="swn.modflow.SwnModflow.__init__"><code class="xref py py-obj docutils literal notranslate"><span class="pre">__init__</span></code></a>([logger])</p></td>
+<td><p>Initialise SwnModflow.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">add_model_topbot_to_reaches</span></code>()</p></td>
+<td><p>Get top and bottom elevation of the model cell containing each reach.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="swn.modflow.SwnModflow.default_segment_data.html#swn.modflow.SwnModflow.default_segment_data" title="swn.modflow.SwnModflow.default_segment_data"><code class="xref py py-obj docutils literal notranslate"><span class="pre">default_segment_data</span></code></a>([hyd_cond1, ...])</p></td>
+<td><p>High-level function to set default segment_data for MODFLOW SFR.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">fix_reach_elevs</span></code>([minslope, fix_dis, minthick])</p></td>
+<td><p>Fix reach elevations.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">fix_segment_elevs</span></code>([min_incise, min_slope, ...])</p></td>
+<td><p>Provide wrapper function for calculating SFR segment elevations.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="swn.modflow.SwnModflow.flopy_package_period.html#swn.modflow.SwnModflow.flopy_package_period" title="swn.modflow.SwnModflow.flopy_package_period"><code class="xref py py-obj docutils literal notranslate"><span class="pre">flopy_package_period</span></code></a>(package[, auxiliary])</p></td>
+<td><p>Return dict of lists of lists for flopy's stress_period_data.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">flopy_reach_data</span></code>()</p></td>
+<td><p>Return numpy.recarray for flopy's ModflowSfr2 reach_data.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">flopy_segment_data</span></code>()</p></td>
+<td><p>Return dict of numpy.recarray for flopy's ModflowSfr2 segment_data.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="swn.modflow.SwnModflow.from_pickle.html#swn.modflow.SwnModflow.from_pickle" title="swn.modflow.SwnModflow.from_pickle"><code class="xref py py-obj docutils literal notranslate"><span class="pre">from_pickle</span></code></a>(path[, swn, model])</p></td>
+<td><p>Read a pickled format from a file.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="swn.modflow.SwnModflow.from_swn_flopy.html#swn.modflow.SwnModflow.from_swn_flopy" title="swn.modflow.SwnModflow.from_swn_flopy"><code class="xref py py-obj docutils literal notranslate"><span class="pre">from_swn_flopy</span></code></a>(swn, model[, ibound_action, ...])</p></td>
+<td><p>Create a MODFLOW SFR structure from a surface water network.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="swn.modflow.SwnModflow.get_location_frame_reach_info.html#swn.modflow.SwnModflow.get_location_frame_reach_info" title="swn.modflow.SwnModflow.get_location_frame_reach_info"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_location_frame_reach_info</span></code></a>(loc_df[, ...])</p></td>
+<td><p>Get reach information to location data frame, matched by segnum.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_outseg_elev</span></code>()</p></td>
+<td><p>Get the max elevup from all downstream segments for each segment.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_seg_ijk</span></code>()</p></td>
+<td><p>Get the k,i,j location of upstream and downstream segments for each segment</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_segment_incision</span></code>()</p></td>
+<td><p>Calculate the upstream and downstream incision of the segment.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_segment_length</span></code>()</p></td>
+<td><p>Get segment length from accumulated reach lengths.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_top_elevs_at_segs</span></code>()</p></td>
+<td><p>Get topsurface elevations associated with segment up and dn elevations.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">minslope_seg</span></code>(seg, *args)</p></td>
+<td><p>Force segment to have minimum slope (check for backward flowing segs).</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="swn.modflow.SwnModflow.new_segment_data.html#swn.modflow.SwnModflow.new_segment_data" title="swn.modflow.SwnModflow.new_segment_data"><code class="xref py py-obj docutils literal notranslate"><span class="pre">new_segment_data</span></code></a>()</p></td>
+<td><p>Generate empty segment data.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="swn.modflow.SwnModflow.package_period_frame.html#swn.modflow.SwnModflow.package_period_frame" title="swn.modflow.SwnModflow.package_period_frame"><code class="xref py py-obj docutils literal notranslate"><span class="pre">package_period_frame</span></code></a>(package, style[, auxiliary])</p></td>
+<td><p>Return DataFrame of stress period data for MODFLOW packages.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">plot</span></code>([column, cmap, colorbar, ax])</p></td>
+<td><p>Show map of reaches with inflow segments in royalblue.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">plot_profile</span></code>(segnum[, upstream, downstream, ax])</p></td>
+<td><p>Plot stream top profiles vs model grid top and bottom.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">plot_reaches_above</span></code>([model, seg, dem, ...])</p></td>
+<td><p>Plot map of stream elevations relative to model surfaces.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">plot_reaches_vs_model</span></code>(seg[, dem, ...])</p></td>
+<td><p>Plot map of stream elevations relative to model surfaces.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">reconcile_reach_strtop</span></code>()</p></td>
+<td><p>Recalculate reach strtop elevations after moving segment elevations.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="swn.modflow.SwnModflow.route_reaches.html#swn.modflow.SwnModflow.route_reaches" title="swn.modflow.SwnModflow.route_reaches"><code class="xref py py-obj docutils literal notranslate"><span class="pre">route_reaches</span></code></a>(start, end, *[, allow_indirect])</p></td>
+<td><p>Return a list of reach identifiers that connect a pair of reaches.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_forward_segs</span></code>([min_slope])</p></td>
+<td><p>Set minimum slope in forwards direction.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_outseg_elev_for_seg</span></code>(seg)</p></td>
+<td><p>Set outseg elevation for segment.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="swn.modflow.SwnModflow.set_package_obj.html#swn.modflow.SwnModflow.set_package_obj" title="swn.modflow.SwnModflow.set_package_obj"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_package_obj</span></code></a>(package[, auxiliary])</p></td>
+<td><p>Set MODFLOW package data to flopy model.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="swn.modflow.SwnModflow.set_reach_data_from_array.html#swn.modflow.SwnModflow.set_reach_data_from_array" title="swn.modflow.SwnModflow.set_reach_data_from_array"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_reach_data_from_array</span></code></a>(name, array)</p></td>
+<td><p>Set reach data from an array that matches the model (nrow, ncol).</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="swn.modflow.SwnModflow.set_reach_data_from_segments.html#swn.modflow.SwnModflow.set_reach_data_from_segments" title="swn.modflow.SwnModflow.set_reach_data_from_segments"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_reach_data_from_segments</span></code></a>(name, value[, ...])</p></td>
+<td><p>Set reach data based on segment series (or scalar).</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="swn.modflow.SwnModflow.set_reach_slope.html#swn.modflow.SwnModflow.set_reach_slope" title="swn.modflow.SwnModflow.set_reach_slope"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_reach_slope</span></code></a>([method, min_slope])</p></td>
+<td><p>Set slope for reaches.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_seg_minincise</span></code>([minincise, max_str_z])</p></td>
+<td><p>Set segment elevation to have the minimum incision from the top.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="swn.modflow.SwnModflow.set_segment_data_from_diversions.html#swn.modflow.SwnModflow.set_segment_data_from_diversions" title="swn.modflow.SwnModflow.set_segment_data_from_diversions"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_segment_data_from_diversions</span></code></a>(name, data)</p></td>
+<td><p>Set segment data from a series indexed by diversions.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="swn.modflow.SwnModflow.set_segment_data_from_scalar.html#swn.modflow.SwnModflow.set_segment_data_from_scalar" title="swn.modflow.SwnModflow.set_segment_data_from_scalar"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_segment_data_from_scalar</span></code></a>(name, data[, which])</p></td>
+<td><p>Set segment data from a scalar.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="swn.modflow.SwnModflow.set_segment_data_from_segments.html#swn.modflow.SwnModflow.set_segment_data_from_segments" title="swn.modflow.SwnModflow.set_segment_data_from_segments"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_segment_data_from_segments</span></code></a>(name, data)</p></td>
+<td><p>Set segment data from a series indexed by segments.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_segment_data_inflow</span></code>(data)</p></td>
+<td><p>Set <a class="reference internal" href="swn.modflow.SwnModflow.segment_data.html#swn.modflow.SwnModflow.segment_data" title="swn.modflow.SwnModflow.segment_data"><code class="xref py py-attr docutils literal notranslate"><span class="pre">segment_data</span></code></a> inflow data upstream of the model.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_sfr_obj</span></code>(**kwds)</p></td>
+<td><p>Set MODFLOW SFR package data to flopy model.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_topbot_elevs_at_reaches</span></code>()</p></td>
+<td><p>Legacy method to add model top and bottom information to reaches.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">to_pickle</span></code>(path[, protocol])</p></td>
+<td><p>Pickle (serialize) non-flopy object data to file.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="swn.modflow.SwnModflow.write_package_period.html#swn.modflow.SwnModflow.write_package_period" title="swn.modflow.SwnModflow.write_package_period"><code class="xref py py-obj docutils literal notranslate"><span class="pre">write_package_period</span></code></a>(package, fname[, auxiliary])</p></td>
+<td><p>Write PERIOD file for MODFLOW packages, to be used within OPEN/CLOSE.</p></td>
 </tr>
 </tbody>
 </table>

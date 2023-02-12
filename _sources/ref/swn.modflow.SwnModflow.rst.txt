@@ -18,6 +18,7 @@
       ~SwnModflow.default_segment_data
       ~SwnModflow.fix_reach_elevs
       ~SwnModflow.fix_segment_elevs
+      ~SwnModflow.flopy_package_period
       ~SwnModflow.flopy_reach_data
       ~SwnModflow.flopy_segment_data
       ~SwnModflow.from_pickle
@@ -30,6 +31,7 @@
       ~SwnModflow.get_top_elevs_at_segs
       ~SwnModflow.minslope_seg
       ~SwnModflow.new_segment_data
+      ~SwnModflow.package_period_frame
       ~SwnModflow.plot
       ~SwnModflow.plot_profile
       ~SwnModflow.plot_reaches_above
@@ -38,6 +40,7 @@
       ~SwnModflow.route_reaches
       ~SwnModflow.set_forward_segs
       ~SwnModflow.set_outseg_elev_for_seg
+      ~SwnModflow.set_package_obj
       ~SwnModflow.set_reach_data_from_array
       ~SwnModflow.set_reach_data_from_segments
       ~SwnModflow.set_reach_slope
@@ -49,6 +52,7 @@
       ~SwnModflow.set_sfr_obj
       ~SwnModflow.set_topbot_elevs_at_reaches
       ~SwnModflow.to_pickle
+      ~SwnModflow.write_package_period
    
    
 

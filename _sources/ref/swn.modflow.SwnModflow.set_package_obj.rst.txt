@@ -1,0 +1,6 @@
+﻿swn.modflow.SwnModflow.set\_package\_obj
+========================================
+
+.. currentmodule:: swn.modflow
+
+.. automethod:: SwnModflow.set_package_obj

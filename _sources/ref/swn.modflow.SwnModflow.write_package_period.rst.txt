@@ -1,0 +1,6 @@
+﻿swn.modflow.SwnModflow.write\_package\_period
+=============================================
+
+.. currentmodule:: swn.modflow
+
+.. automethod:: SwnModflow.write_package_period
