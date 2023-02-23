@@ -52,9 +52,11 @@ jobs:
       - name: Run tests with optional packages
         run: |
           pip install -e .[extra]
-          pip install pytest-xdist
-          pytest -v -n2
+          pytest -v -n2 --cov
 
       - name: Run doctest
         run: |
           pytest -v swn --doctest-modules
+
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v3
