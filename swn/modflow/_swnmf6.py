@@ -1345,23 +1345,25 @@ class SwnMf6(SwnModflowBase):
             # self.model.dis.botm.set_data(layerbots)
 
 
-    def _fix_dis(self, buffer=0.5):
+    def _fix_dis(self, buffer=0.5, move_top=True):
             botm = self.model.dis.botm.get_data()
             top = self.model.dis.top.get_data()
             rdf = self.reaches.copy()
 
             rdf['botm0'] = rdf[['i','j']].apply(lambda x: botm[0,x[0],x[1]], axis=1)
             rdf['maxbot'] = rdf[['rtp', 'rbth']].apply(lambda x: x[0] - x[1] - buffer, axis=1)
-            rdf['bdz'] = rdf['maxbot'] - rdf['botm0']
+            rdf['bdz'] = rdf['botm0'] - rdf['maxbot']
+            rdf['bdz'].clip(0, None)
             rdf['rno'] = rdf.index
             # need to get min bdz for each cell (unique 'ij')
             rdf['ij'] = rdf[['i','j']].apply(lambda x: (x[0],x[1]), axis=1)
-            rdf = rdf.select_dtypes(include=[np.number, tuple]).groupby(['ij']).min()
+            rdf = rdf.select_dtypes(include=[np.number, tuple]).groupby(['ij']).max()
             rdf.set_index('rno', inplace=True)
             # shift all layers in model column, TODO: enforce min layer thickness instead?
             for r in rdf.index:
-                botm[:,rdf.loc[r, 'i'], rdf.loc[r, 'j']] = botm[:,rdf.loc[r, 'i'], rdf.loc[r, 'j']] + rdf.loc[r,'bdz']
-                top[rdf.loc[r, 'i'], rdf.loc[r, 'j']] = top[rdf.loc[r, 'i'], rdf.loc[r, 'j']] + rdf.loc[r, 'bdz']
+                botm[:,rdf.loc[r, 'i'], rdf.loc[r, 'j']] = botm[:,rdf.loc[r, 'i'], rdf.loc[r, 'j']] - rdf.loc[r,'bdz']
+                if move_top:
+                    top[rdf.loc[r, 'i'], rdf.loc[r, 'j']] = top[rdf.loc[r, 'i'], rdf.loc[r, 'j']] - rdf.loc[r, 'bdz']
             # may do funny things to flopy external file reference?
             self.model.dis.botm.set_data(botm)
             self.model.dis.top.set_data(top)
@@ -1399,15 +1401,17 @@ class SwnMf6(SwnModflowBase):
         """
 
         def get_to_rtp():
-            inet = rdf['to_rno'] != 0
-            trno = rdf.loc[inet, 'to_rno']
+            intp = (rdf['to_rno'] != 0) & (rdf['to_rno'].isin(rdf.index))
+            trno = rdf.loc[intp, 'to_rno']
             trno.drop_duplicates(inplace=True)
-            trtp = rdf.loc[trno.values, 'rtp']
+            trtp = rdf.loc[trno.index, 'rtp']
             rdf['rno'] = rdf.index
             ndf = rdf[['rno','to_rno']].merge(trtp,left_on='to_rno',right_on='rno',how='outer')
-            ndf.index = ndf.rno
+            ndf.dropna(subset=['rno','to_rno'], inplace=True)
+            ndf[['rno','to_rno']] = ndf[['rno','to_rno']].astype(int)
+            ndf.set_index('rno', inplace=True, drop=True)
             rdf['to_rtp'] = ndf['rtp']
-            rdf.loc[~inet, 'to_rtp'] = -9999
+            rdf.loc[~intp, 'to_rtp'] = -9999
 
         # copy some data
         top = self.model.dis.top.array.copy()
