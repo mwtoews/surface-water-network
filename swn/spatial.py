@@ -15,7 +15,7 @@ import pandas as pd
 import pyproj
 import shapely
 from shapely import wkb, wkt
-from shapely.geometry import Point
+from shapely.geometry import Point, MultiLineString
 
 try:
     from geopandas.tools import sjoin
@@ -100,6 +100,9 @@ def interp_2d_to_3d(gs, grid, gt):
     ar = np.pad(grid, 1, 'symmetric')
 
     def geom2dto3d(geom):
+        if geom.geom_type == "MultiLineString":
+            # Recursive call
+            return MultiLineString([geom2dto3d(part) for part in geom.geoms])
         x, y = geom.xy
         x = np.array(x)
         y = np.array(y)
