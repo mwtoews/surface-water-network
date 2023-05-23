@@ -8,7 +8,8 @@ from shapely.geometry import Point
 
 import swn
 
-from .conftest import datadir
+from .conftest import PANDAS_MAJOR_VERSION, datadir
+
 
 # same valid network used in test_basic
 n3d_lines = geopandas.GeoSeries.from_wkt([
@@ -132,7 +133,11 @@ def test_read_write_formatted_frame(tmp_path):
     # check first line
     with fname.open() as f:
         header = f.readline()
-    assert header == "#      value1  value2 value3\n"
+    if PANDAS_MAJOR_VERSION >= 2:
+        expected = "#      value1  value2  value3\n"
+    else:
+        expected = "#      value1  value2 value3\n"
+    assert header == expected
 
     # test read method
     df2 = swn.file.read_formatted_frame(fname)
@@ -143,7 +148,7 @@ def test_read_write_formatted_frame(tmp_path):
     # check first line
     with fname.open() as f:
         header = f.readline()
-    assert header == "       value1  value2 value3\n"
+    assert header == expected.replace("#", " ")
 
     # test read method
     df2 = swn.file.read_formatted_frame(fname)

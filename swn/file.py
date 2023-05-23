@@ -223,12 +223,12 @@ def read_formatted_frame(fname):
             f = fname
         else:
             f = open(fname)
-        headers = f.readline().lstrip("#").strip().split()
+        names = f.readline().lstrip("#").strip().split()
         try:
-            df = pd.read_csv(f, sep=r"\s+", quotechar="'", header=None)
-            df.columns = headers
+            df = pd.read_csv(
+                f, sep=r"\s+", quotechar="'", header=None, names=names)
         except pd.errors.EmptyDataError:
-            df = pd.DataFrame(columns=headers)
+            df = pd.DataFrame(columns=names)
     finally:
         if not fname_is_filelike:
             f.close()
@@ -316,7 +316,7 @@ def write_formatted_frame(df, fname, index=True, comment_header=True):
                 df.index.name = "# " + df.index.name
         else:
             first = df.columns[0]
-            df.rename(columns={first: "#" + first}, inplace=True)
+            df.rename(columns={first: "#" + first[1:]}, inplace=True)
     formatters = {}
     # scan for str type columns
     for name in list(df.columns):
@@ -341,7 +341,7 @@ def write_formatted_frame(df, fname, index=True, comment_header=True):
         formatters[name] = f"{{:<{ljust}s}}".format
     # format the table to string
     out = df.to_string(header=True, index=index, formatters=formatters)
-    lines = out.split("\n")
+    lines = out.splitlines()
     if index:
         # combine the first two lines
         line = lines[1].rstrip()
@@ -349,13 +349,12 @@ def write_formatted_frame(df, fname, index=True, comment_header=True):
     elif comment_header:
         # Move '#' to start of line
         line = lines[0]
-        pos = line.index("#")
-        if pos > 0:
-            llist = list(line)
-            llist[pos] = " "
-            llist[0] = "#"
-            line = "".join(llist)
-            lines[0] = line
+        llist = list(line)
+        if not index:
+            llist[line.index("#")] = first[:1]
+        llist[0] = "#"
+        line = "".join(llist)
+        lines[0] = line
     try:
         if fname_is_filelike:
             f = fname

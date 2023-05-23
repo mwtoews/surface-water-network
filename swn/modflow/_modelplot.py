@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 
 from ..spatial import get_crs
 
@@ -315,10 +316,11 @@ def _profile_plot(
         sorted_df['csum'] = sorted_df[lentag].cumsum()
     if ax is None:
         fig, ax = plt.subplots(figsize=(8, 6))
-
-    sorted_df[[x] + cols].append(  # make sure we include end of final reach
-        sorted_df.iloc[[-1]][['csum']+cols].rename(
-            columns={'csum': x})).plot(x=x, ax=ax)
+    # make sure we include end of final reach
+    pd.concat([
+        sorted_df[[x] + cols],
+        sorted_df.iloc[[-1]][["csum"] + cols].rename(columns={"csum": x}),
+    ]).plot(x=x, ax=ax)
     # adding some window dressing
     end_seg = sorted_df.segnum.diff(-1) != 0
     start_seg = sorted_df.segnum.diff() != 0

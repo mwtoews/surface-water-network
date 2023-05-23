@@ -429,6 +429,7 @@ def test_linemerge_reaches_2():
         _ = nm.plot()
         plt.close()
 
+
 def test_linemerge_reaches_3():
     lines = geopandas.GeoSeries.from_wkt([
         "LINESTRING(-9 295,63 295,71 303,87 303,95 295,119 295,143 271,"
@@ -829,7 +830,7 @@ def test_transform_data_from_series():
     time_index = pd.DatetimeIndex(["2000-07-01", "2000-07-02"])
     mapping = pd.Series(
         [1, 2, 3], name="nseg",
-        index=pd.Index([1, 2, 0], int, name="segnum"))
+        index=pd.Index([1, 2, 0], name="segnum"))
 
     pd.testing.assert_series_equal(
         f(pd.Series(dtype=float), float, time_index),
@@ -882,7 +883,7 @@ def test_transform_data_from_frame():
     time_index = pd.DatetimeIndex(["2000-07-01", "2000-07-02"])
     mapping = pd.Series(
         [1, 2, 3], name="nseg",
-        index=pd.Index([1, 2, 0], int, name="segnum"))
+        index=pd.Index([1, 2, 0], name="segnum"))
 
     pd.testing.assert_frame_equal(
         f(pd.DataFrame(dtype=float, index=time_index), float, time_index),
