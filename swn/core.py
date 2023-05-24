@@ -1932,6 +1932,4 @@ class SurfaceWaterNetwork:
         --------
         to_pickle : Save file.
         """
-        with open(path, "rb") as f:
-            obj = pickle.load(f)
-        return obj
+        return pd.read_pickle(path)

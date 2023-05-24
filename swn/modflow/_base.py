@@ -117,8 +117,7 @@ class SwnModflowBase:
             Instance of a flopy MODFLOW model.
 
         """
-        with open(path, "rb") as f:
-            obj = pickle.load(f)
+        obj = pd.read_pickle(path)
         if swn is not None:
             obj.swn = swn
         if model is not None:

@@ -174,15 +174,16 @@ def gdf_to_shapefile(gdf, shp_fname, **kwargs):
 
 
 def read_formatted_frame(fname):
-    r"""Write a data frame as a free formatted table.
+    r"""Read a free formatted table to data frame.
+
+    Notes
+    -----
+    First line must be a header, which may start with '#'.
 
     Parameters
     ----------
     fname : Path, str or file-like object
         Path to read file.
-    comment_header : bool, default True
-        If True, first line starts with '#' to make it a comment, otherwise
-        it will be an uncommented header.
 
     Returns
     -------
@@ -223,12 +224,18 @@ def read_formatted_frame(fname):
             f = fname
         else:
             f = open(fname)
-        headers = f.readline().lstrip("#").strip().split()
+        names = f.readline().lstrip("#").strip().split()
         try:
-            df = pd.read_csv(f, sep=r"\s+", quotechar="'", header=None)
-            df.columns = headers
+            df = pd.read_csv(
+                f, sep=r"\s+", quotechar="'", header=None, names=names,
+                skip_blank_lines=False)
         except pd.errors.EmptyDataError:
-            df = pd.DataFrame(columns=headers)
+            if names:  # no rows
+                df = pd.DataFrame(columns=names)
+            else:  # no columns
+                f.seek(0)
+                nlines = len(f.readlines())
+                df = pd.DataFrame(index=pd.RangeIndex(nlines - 1))
     finally:
         if not fname_is_filelike:
             f.close()
@@ -290,11 +297,16 @@ def write_formatted_frame(df, fname, index=True, comment_header=True):
         raise TypeError("expected df to be a pandas.DataFrame")
     fname_is_filelike = hasattr(fname, "write")
 
-    if len(df) == 0:
+    df = df.copy()
+    if index and df.index.name is None:
+        # Enforce a default index name
+        df.index.name = "index"
+
+    if df.shape[0] == 0:
         # Special case with no rows
         line = "# " if comment_header else ""
         if index:
-            line += (df.index.name or "index") + " "
+            line += df.index.name + " "
         line += (" ".join(df.columns)) + "\n"
         try:
             if fname_is_filelike:
@@ -307,19 +319,27 @@ def write_formatted_frame(df, fname, index=True, comment_header=True):
                 f.close()
         return
 
-    df = df.copy()
+    elif df.shape[1] == 0:
+        # Special case with no columns, add column of whitespace
+        df.insert(0, " ", "")
+
+    first_shifted = False
     if comment_header:
+        # Check if first character on header is a space
+        out = df.iloc[:, 0:1].to_string(index=index, justify="right")
         if index:
-            if df.index.name is None:
-                df.index.name = "index"
-            elif not df.index.name.startswith("#"):
-                df.index.name = "# " + df.index.name
+            df.index.name = "# " + df.index.name
         else:
-            first = df.columns[0]
-            df.rename(columns={first: "#" + first}, inplace=True)
+            fmt_first = out.split("\n", 1)[0]
+            if fmt_first[0:1] != " ":
+                # Add space to first column name for comment char
+                first = df.columns[0]
+                df.rename(columns={first: " " + first}, inplace=True)
+                first_shifted = True
+    PANDAS_VERSION_1 = pd.__version__[0:2] == "1."
     formatters = {}
     # scan for str type columns
-    for name in list(df.columns):
+    for icol, name in enumerate(df.columns):
         # add single quotes around items with space chars
         try:
             sel = df[name].str.contains(" ").fillna(False)
@@ -334,28 +354,36 @@ def write_formatted_frame(df, fname, index=True, comment_header=True):
         if na.any():
             df.loc[na, name] = ""
         # left-justify column
-        ljust = max(df[name].str.len().max(), len(name))
-        if len(name) < ljust:
-            df.rename(columns={name: name.ljust(ljust)}, inplace=True)
-            name = name.ljust(ljust)
+        name_len = len(name)
+        if icol == 0 and first_shifted:
+            name_len -= 1
+        ljust = max(df[name].str.len().max(), name_len)
+        if name_len < ljust:
+            new_name = name.ljust(ljust)
+            df.rename(columns={name: new_name}, inplace=True)
+            name = new_name
+        elif icol > 0 and PANDAS_VERSION_1:
+            new_name = name.rjust(ljust + 1)
+            df.rename(columns={name: new_name}, inplace=True)
+            name = new_name
         formatters[name] = f"{{:<{ljust}s}}".format
     # format the table to string
-    out = df.to_string(header=True, index=index, formatters=formatters)
-    lines = out.split("\n")
+    out = df.to_string(
+        header=True, index=index, formatters=formatters, justify="right")
+    lines = out.splitlines()
     if index:
         # combine the first two lines
-        line = lines[1].rstrip()
-        lines[0] = line + lines.pop(0)[len(line):]
+        header = lines[1].rstrip()
+        lines[0] = header + lines.pop(0)[len(header):]
     elif comment_header:
-        # Move '#' to start of line
-        line = lines[0]
-        pos = line.index("#")
-        if pos > 0:
-            llist = list(line)
-            llist[pos] = " "
-            llist[0] = "#"
-            line = "".join(llist)
-            lines[0] = line
+        header = lines[0]
+        first_char = header[0:1]
+        # Add '#' to start of line
+        if first_char == " ":
+            header = "#" + header[1:]
+        elif first_char != "#":
+            header = "#" + header
+        lines[0] = header
     try:
         if fname_is_filelike:
             f = fname

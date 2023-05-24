@@ -189,7 +189,7 @@ def test_new_segment_data(has_diversions):
     if has_diversions:
         pd.testing.assert_index_equal(
             nm.segment_data.index,
-            pd.Index([1, 2, 3, 4, 5, 6, 7], int, name="nseg"))
+            pd.Index([1, 2, 3, 4, 5, 6, 7], name="nseg"))
         assert list(nm.segment_data.segnum) == [1, 2, 0, -1, -1, -1, -1]
         assert list(nm.segment_data.divid) == [0, 0, 0, 0, 1, 2, 3]
         assert list(nm.segment_data.outseg) == [3, 3, 0, 0, 0, 0, 0]
@@ -197,7 +197,7 @@ def test_new_segment_data(has_diversions):
     else:
         pd.testing.assert_index_equal(
             nm.segment_data.index,
-            pd.Index([1, 2, 3], int, name="nseg"))
+            pd.Index([1, 2, 3], name="nseg"))
         assert list(nm.segment_data.segnum) == [1, 2, 0]
         assert "divid" not in nm.segment_data.columns
         assert list(nm.segment_data.outseg) == [3, 3, 0]
@@ -381,7 +381,7 @@ def test_segment_data_property():
     nm.segment_data_ts = None
     assert nm.segment_data is None
     assert nm.segment_data_ts is None
-    sd = pd.DataFrame(index=pd.Index(np.arange(7) + 1))
+    sd = pd.DataFrame(index=pd.RangeIndex(7) + 1)
     nm.segment_data = sd
     assert nm.segment_data is sd
     assert nm.segment_data_ts is None

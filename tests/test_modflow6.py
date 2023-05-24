@@ -1112,15 +1112,13 @@ def test_diversions(tmp_path):
     nm.write_diversions(tmp_path / "diversions.dat")
 
     # Extra checks with formatted frame read/write methods
-    check_dtype = np.dtype(int) != np.int32
     df = nm.packagedata_frame("native")
     for col in "kij":
-        df[col] = df[col].astype(int)
+        df[col] = df[col].astype(np.int64)
     pd.testing.assert_frame_equal(
         df,
         swn.file.read_formatted_frame(
             tmp_path / "packagedata.dat").set_index("rno"),
-        check_dtype=check_dtype,
     )
     pd.testing.assert_frame_equal(
         nm.diversions_frame("native").reset_index(drop=True),
@@ -1345,16 +1343,17 @@ def test_write_package_period(tmp_path):
     fname = tmp_path / "drn_period_01.dat"
     assert not fname.exists()
 
+    expected = ["#k", "i", "j", "elev", "cond"]
+
     # default, without auxiliary or boundname
     nm.write_package_period("drn", fname_tpl)
-    file_l = fname.read_text().splitlines()
-    assert file_l[0].split() == ["#k", "i", "j", "elev", "cond"]
-    assert len(file_l) == 8
+    lines = fname.read_text().splitlines()
+    assert lines[0].split() == expected
+    assert len(lines) == 8
 
     # with auxiliary
     nm.write_package_period("drn", fname_tpl, auxiliary="rlen")
-    assert fname.read_text().splitlines()[0].split() == \
-        ["#k", "i", "j", "elev", "cond", "rlen"]
+    assert fname.read_text().splitlines()[0].split() == expected + ["rlen"]
 
     # with boundname column, but boundname=False
     nm.reaches["boundname"] = nm.reaches.segnum
@@ -1364,12 +1363,12 @@ def test_write_package_period(tmp_path):
     # with boundname
     nm.write_package_period("drn", fname_tpl)
     assert fname.read_text().splitlines()[0].split() == \
-        ["#k", "i", "j", "elev", "cond", "boundname"]
+        expected + ["boundname"]
 
     # with boundname and auxiliary
     nm.write_package_period("drn", fname_tpl, auxiliary="rlen")
     assert fname.read_text().splitlines()[0].split() == \
-        ["#k", "i", "j", "elev", "cond", "rlen", "boundname"]
+        expected + ["rlen", "boundname"]
 
     # Run model and read outputs
     if mf6_exe:

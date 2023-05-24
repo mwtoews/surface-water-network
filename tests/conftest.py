@@ -24,6 +24,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import swn  # noqa: E402
 from swn.compat import ignore_shapely_warnings_for_object_array
 
+
+PANDAS_MAJOR_VERSION = int(pd.__version__[0:pd.__version__.index(".")])
+
 datadir = Path("tests") / "data"
 
 

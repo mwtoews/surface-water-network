@@ -328,7 +328,7 @@ def test_to_segnums(valid_n):
     # check series in propery method
     pd.testing.assert_series_equal(
         valid_n.to_segnums,
-        pd.Series([0, 0], name="to_segnum", index=pd.Index([1, 2], int)))
+        pd.Series([0, 0], name="to_segnum", index=pd.Index([1, 2])))
     # check series in segments frame
     pd.testing.assert_series_equal(
         valid_n.segments["to_segnum"],
@@ -341,7 +341,7 @@ def test_to_segnums(valid_n):
     pd.testing.assert_series_equal(
         n.to_segnums,
         pd.Series([0, 0], name="to_segnum",
-                  index=pd.Index([1, 2], int, name="idx")))
+                  index=pd.Index([1, 2], name="idx")))
     pd.testing.assert_series_equal(
         n.segments["to_segnum"],
         pd.Series([-1, 0, 0], name="to_segnum",
@@ -365,7 +365,7 @@ def test_from_segnums(valid_n):
     pd.testing.assert_series_equal(
         n.from_segnums,
         pd.Series([{1, 2}], name="from_segnums",
-                  index=pd.Index([0], int, name="idx")))
+                  index=pd.Index([0], name="idx")))
     pd.testing.assert_series_equal(
         n.segments["from_segnums"],
         pd.Series([{1, 2}, set(), set()], name="from_segnums",

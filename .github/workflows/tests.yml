@@ -47,12 +47,12 @@ jobs:
 
       - name: Run tests with required packages
         run: |
-          pytest -v
+          pytest -v --cov
 
       - name: Run tests with optional packages
         run: |
           pip install -e .[extra]
-          pytest -v -n2 --cov
+          pytest -v -n2 --cov --cov-append
 
       - name: Run doctest
         run: |
@@ -60,3 +60,8 @@ jobs:
 
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v3
+
+      - name: Run tests with older packages
+        run: |
+          pip install "shapely<2.0" "pandas<2.0"
+          pytest -v -n2 --cov --cov-append
