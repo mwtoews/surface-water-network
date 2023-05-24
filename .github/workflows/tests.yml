@@ -58,10 +58,10 @@ jobs:
         run: |
           pytest -v swn --doctest-modules
 
-      - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@v3
-
       - name: Run tests with older packages
         run: |
           pip install "shapely<2.0" "pandas<2.0"
           pytest -v -n2 --cov --cov-append
+
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v3
