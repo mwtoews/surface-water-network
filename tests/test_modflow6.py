@@ -1347,9 +1347,9 @@ def test_write_package_period(tmp_path):
 
     # default, without auxiliary or boundname
     nm.write_package_period("drn", fname_tpl)
-    file_l = fname.read_text().splitlines()
-    assert file_l[0].split() == expected
-    assert len(file_l) == 8
+    lines = fname.read_text().splitlines()
+    assert lines[0].split() == expected
+    assert len(lines) == 8
 
     # with auxiliary
     nm.write_package_period("drn", fname_tpl, auxiliary="rlen")
