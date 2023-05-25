@@ -3,6 +3,32 @@ Change log
 
 .. currentmodule:: swn
 
+Version 0.6
+-----------
+
+:Date: 25 May 2023
+
+Breaking changes
+~~~~~~~~~~~~~~~~
+- Minimum requirements are Python 3.8, geopandas 0.9 (:pr:`58`, :pr:`69`)
+- Remove legacy ``modflow.MfSfrNetwork`` (:pr:`56`)
+
+New things
+~~~~~~~~~~
+- Add :py:meth:`swn.file.read_formatted_frame` and :py:meth:`~swn.file.write_formatted_frame` methods (:pr:`62`, :pr:`73`)
+- Add functionality to allow other MF6 packages to use reaches data with :py:meth:`modflow.SwnMf6.package_period_frame`, :py:meth:`~modflow.SwnMf6.write_package_period`, :py:meth:`~modflow.SwnMf6.flopy_package_period`, and :py:meth:`~modflow.SwnMf6.set_package_obj` (:pr:`72`)
+- Add functionality to allow other MODFLOW packages to use reaches data with :py:meth:`modflow.SwnModflow.package_period_frame`, :py:meth:`~modflow.SwnModflow.write_package_period`, :py:meth:`~modflow.SwnModflow.flopy_package_period`, and :py:meth:`~modflow.SwnModflow.set_package_obj` (:pr:`74`)
+
+Other changes
+~~~~~~~~~~~~~
+- Better ``from_swn_flopy`` performance (:pr:`57`)
+- Change :py:meth:`swn.spatial.find_location_pairs` adding ``all_pairs`` and ``exclude_branches`` parameters (:pr:`68`)
+
+Deprecations
+~~~~~~~~~~~~
+- :py:meth:`swn.spatial.get_sindex` (:pr:`58`)
+- :py:meth:`swn.spatial.wkt_to_dataframe`, :py:meth:`swn.spatial.wkt_to_geodataframe`, :py:meth:`swn.spatial.wkt_to_geoseries` (:pr:`70`)
+
 Version 0.5
 -----------
 
