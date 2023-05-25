@@ -62,8 +62,15 @@ def test_gdf_to_shapefile(tmp_path, coastal_swn):
     assert "from_segnums" in gdf.columns
     assert "from_seg" not in gdf.columns
     shp = geopandas.read_file(fname)
-    assert "from_segnums" not in shp.columns
-    assert "from_seg" in shp.columns
+    assert np.issubdtype(shp["nzsegment"].dtype, np.integer)
+    assert np.issubdtype(shp["from_seg"].dtype, np.object_)
+    assert np.issubdtype(shp["to_seg"].dtype, np.integer)
+    assert np.issubdtype(shp["upstr_len"].dtype, np.floating)
+    shp.set_index("nzsegment", inplace=True)
+    assert list(shp.columns) == \
+        ["to_seg", "from_seg", "cat_group", "num_to_out", "dst_to_out",
+         "sequence", "strm_order", "upstr_len", "geometry"]
+    assert gdf.shape == shp.shape
 
 
 def test_pickle_lines():

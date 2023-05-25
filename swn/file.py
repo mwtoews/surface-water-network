@@ -8,6 +8,7 @@ __all__ = [
 ]
 
 import geopandas
+import numpy as np
 import pandas as pd
 
 from .logger import get_logger, logging
@@ -134,6 +135,8 @@ def gdf_to_shapefile(gdf, shp_fname, **kwargs):
 
     This is a workaround to the to_file method, which cannot save
     GeoDataFrame objects with other data types, such as set.
+    It also has mappings between internal names and 10-character
+    versions required for shapefiles.
 
     Parameters
     ----------
@@ -154,23 +157,25 @@ def gdf_to_shapefile(gdf, shp_fname, **kwargs):
     gdf = gdf.copy()
     geom_name = gdf.geometry.name
 
+    # Rename columns for shapefile so they are 10 characters or less
+    rename = {}
     # Change data types, as necessary
     for col, dtype in gdf.dtypes.items():
         if col == geom_name:
             continue
         if dtype == bool:
             gdf[col] = gdf[col].astype(int)
+        elif np.issubdtype(dtype, np.number):
+            pass
         else:
             is_none = gdf[col].map(lambda x: x is None).fillna(True)
             gdf[col] = gdf[col].astype(str)
             gdf.loc[is_none, col] = ""
-    # Rename columns for shapefile so they are 10 characters or less
-    rename = {}
-    for key, value in colname10.items():
-        if key in gdf.columns:
-            rename[key] = value
-    gdf.rename(columns=rename).reset_index(drop=False)\
-        .to_file(str(shp_fname), **kwargs)
+        if col in colname10:
+            rename[col] = colname10[col]
+    if rename:
+        gdf.rename(columns=rename, inplace=True)
+    gdf.to_file(str(shp_fname), **kwargs)
 
 
 def read_formatted_frame(fname):
