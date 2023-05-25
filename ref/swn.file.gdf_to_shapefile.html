@@ -475,7 +475,9 @@ document.write(`
 <span class="sig-prename descclassname"><span class="pre">swn.file.</span></span><span class="sig-name descname"><span class="pre">gdf_to_shapefile</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">gdf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">shp_fname</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#swn.file.gdf_to_shapefile" title="Permalink to this definition">#</a></dt>
 <dd><p>Write any GeoDataFrame to a shapefile.</p>
 <p>This is a workaround to the to_file method, which cannot save
-GeoDataFrame objects with other data types, such as set.</p>
+GeoDataFrame objects with other data types, such as set.
+It also has mappings between internal names and 10-character
+versions required for shapefiles.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><dl class="simple">
