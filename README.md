@@ -30,6 +30,8 @@ Run `pytest -v` or `python3 -m pytest -v`
 
 For faster multi-core `pytest -v -n 2` (with `pytest-xdist`)
 
+To run doctests `pytest -v swn --doctest-modules`
+
 ## Examples
 
 ```python

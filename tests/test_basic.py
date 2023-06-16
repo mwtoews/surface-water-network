@@ -876,6 +876,7 @@ def test_remove_condition():
     n.segments['orig_upstream_length'] = n.segments['upstream_length']
     n.segments['orig_upstream_area'] = n.segments['upstream_area']
     n.segments['orig_width'] = n.segments['width']
+    n.segments['orig_stream_order'] = n.segments['stream_order']
     n.remove(n.segments['upstream_area'] <= 1000.0)
     assert len(n) == 1
     assert len(n.segments) == 1
@@ -904,6 +905,12 @@ def test_remove_condition():
         n.segments.at[0, 'orig_upstream_area'], 2200.0)
     np.testing.assert_almost_equal(
         n.segments.at[0, 'orig_width'], 1.4615, 4)
+    # Stays the same
+    pd.testing.assert_series_equal(
+        n.segments['stream_order'],
+        n.segments['orig_stream_order'],
+        check_names=False,
+    )
 
 
 def test_remove_segnums():

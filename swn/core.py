@@ -1434,7 +1434,53 @@ class SurfaceWaterNetwork:
         return accum
 
     def evaluate_upstream_length(self):
-        """Evaluate upstream length of segments, adds to segments."""
+        r"""Evaluate upstream length of segments, adds to segments.
+
+        Examples
+        --------
+        >>> import swn
+        >>> from shapely import wkt
+        >>> lines = geopandas.GeoSeries(list(wkt.loads('''\
+        ... MULTILINESTRING(
+        ...     (380 490, 370 420), (300 460, 370 420), (370 420, 420 330),
+        ...     (190 250, 280 270), (225 180, 280 270), (280 270, 420 330),
+        ...     (420 330, 584 250), (520 220, 584 250), (584 250, 710 160),
+        ...     (740 270, 710 160), (735 350, 740 270), (880 320, 740 270),
+        ...     (925 370, 880 320), (974 300, 880 320), (760 460, 735 350),
+        ...     (650 430, 735 350), (710 160, 770 100), (700  90, 770 100),
+        ...     (770 100, 820  40))''').geoms))
+        >>> lines.index += 100
+        >>> n = swn.SurfaceWaterNetwork.from_lines(lines)
+        >>> n.remove(n.segments.stream_order == 1)
+        >>> n.segments[["stream_order", "upstream_length"]]
+             stream_order  upstream_length
+        102             2       254.289557
+        105             2       349.986022
+        106             3       786.747495
+        108             3      1012.271738
+        109             3       735.737875
+        110             2       309.687415
+        111             2       312.032918
+        116             4      1832.862427
+        118             4      1981.675602
+        >>> n.evaluate_upstream_length()
+        >>> n.segments[["stream_order", "upstream_length"]]
+             stream_order  upstream_length
+        102             2       102.956301
+        105             2       152.315462
+        106             3       437.743679
+        108             3       592.585534
+        109             3       342.834328
+        110             2        80.156098
+        111             2       148.660687
+        116             4      1020.272675
+        118             4      1098.375172
+
+        See Also
+        --------
+        remove : Remove segments.
+
+        """
         self.logger.debug('evaluating upstream length')
         self.segments['upstream_length'] = \
             self.accumulate_values(self.segments.length)
@@ -1771,7 +1817,7 @@ class SurfaceWaterNetwork:
                 profiles, index=self.segments.index)
 
     def remove(self, condition=False, segnums=[]):
-        """Remove segments (and catchments).
+        r"""Remove segments (and catchments) in-place, preserving attributes.
 
         Parameters
         ----------
@@ -1785,6 +1831,39 @@ class SurfaceWaterNetwork:
         -------
         None
 
+        Examples
+        --------
+        >>> import swn
+        >>> from shapely import wkt
+        >>> lines = geopandas.GeoSeries(list(wkt.loads('''\
+        ... MULTILINESTRING(
+        ...     (380 490, 370 420), (300 460, 370 420), (370 420, 420 330),
+        ...     (190 250, 280 270), (225 180, 280 270), (280 270, 420 330),
+        ...     (420 330, 584 250), (520 220, 584 250), (584 250, 710 160),
+        ...     (740 270, 710 160), (735 350, 740 270), (880 320, 740 270),
+        ...     (925 370, 880 320), (974 300, 880 320), (760 460, 735 350),
+        ...     (650 430, 735 350), (710 160, 770 100), (700  90, 770 100),
+        ...     (770 100, 820  40))''').geoms))
+        >>> lines.index += 100
+        >>> n = swn.SurfaceWaterNetwork.from_lines(lines)
+        >>> n
+        <SurfaceWaterNetwork:
+          19 segments: [100, 101, ..., 117, 118]
+          10 headwater: [100, 101, ..., 115, 117]
+          1 outlets: [118]
+          no diversions />
+        >>> n.remove(n.segments.stream_order == 1)
+        >>> n
+        <SurfaceWaterNetwork:
+          9 segments: [102, 105, ..., 116, 118]
+          4 headwater: [102, 105, 110, 111]
+          1 outlets: [118]
+          no diversions />
+
+        See Also
+        --------
+        evaluate_upstream_length : Re-evaluate upstream length.
+        evaluate_upstream_area : Re-evaluate upstream catchment area.
         """
         condition = self.segments_series(condition, "condition").astype(bool)
         if condition.any():
