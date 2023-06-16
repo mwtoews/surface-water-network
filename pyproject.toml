@@ -66,11 +66,16 @@ test = [
 Documentation = "https://mwtoews.github.io/surface-water-network/"
 Source = "https://github.com/mwtoews/surface-water-network"
 
-[tool.setuptools.packages.find]
-include = [
-    "swn",
-    "swn.*",
+[tool.pytest.ini_options]
+minversion = "6.0"
+testpaths = ["tests"]
+filterwarnings = [
+    "ignore:.*distutils Version classes.*:DeprecationWarning",
+    "ignore:.*More than 20 figures have been opened.*:RuntimeWarning",
 ]
+
+[tool.setuptools.packages.find]
+include = ["swn", "swn.*"]
 
 [tool.setuptools_scm]
 write_to = "swn/_version.py"
