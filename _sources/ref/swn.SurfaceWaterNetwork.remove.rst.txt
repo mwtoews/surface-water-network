@@ -1,0 +1,6 @@
+﻿swn.SurfaceWaterNetwork.remove
+==============================
+
+.. currentmodule:: swn
+
+.. automethod:: SurfaceWaterNetwork.remove

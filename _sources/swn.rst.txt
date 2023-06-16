@@ -49,6 +49,7 @@ Methods
    SurfaceWaterNetwork.gather_segnums
    SurfaceWaterNetwork.locate_geoms
    SurfaceWaterNetwork.aggregate
+   SurfaceWaterNetwork.remove
    SurfaceWaterNetwork.evaluate_upstream_length
    SurfaceWaterNetwork.evaluate_upstream_area
    SurfaceWaterNetwork.estimate_width

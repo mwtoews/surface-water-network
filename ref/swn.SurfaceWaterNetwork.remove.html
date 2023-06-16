@@ -9,7 +9,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
 
-    <title>swn.modflow.SwnMf6.from_pickle &#8212; Surface water network 2022 documentation</title>
+    <title>swn.SurfaceWaterNetwork.remove &#8212; Surface water network 2022 documentation</title>
   
   
   
@@ -42,11 +42,11 @@
     <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
     <script src="../_static/doctools.js"></script>
     <script src="../_static/sphinx_highlight.js"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'ref/swn.modflow.SwnMf6.from_pickle';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'ref/swn.SurfaceWaterNetwork.remove';</script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="swn.modflow.SwnMf6.model" href="swn.modflow.SwnMf6.model.html" />
-    <link rel="prev" title="swn.modflow.SwnMf6.from_swn_flopy" href="swn.modflow.SwnMf6.from_swn_flopy.html" />
+    <link rel="next" title="swn.SurfaceWaterNetwork.evaluate_upstream_length" href="swn.SurfaceWaterNetwork.evaluate_upstream_length.html" />
+    <link rel="prev" title="swn.SurfaceWaterNetwork.aggregate" href="swn.SurfaceWaterNetwork.aggregate.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   </head>
@@ -312,7 +312,7 @@ document.write(`
      aria-label="Section Navigation">
   <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
   <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
-<li class="toctree-l1 has-children"><a class="reference internal" href="../swn.html">SurfaceWaterNetwork</a><input class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-1"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="../swn.html">SurfaceWaterNetwork</a><input checked="" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-1"><i class="fa-solid fa-chevron-down"></i></label><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="swn.SurfaceWaterNetwork.html">swn.SurfaceWaterNetwork</a></li>
 <li class="toctree-l2"><a class="reference internal" href="swn.SurfaceWaterNetwork.from_lines.html">swn.SurfaceWaterNetwork.from_lines</a></li>
 <li class="toctree-l2"><a class="reference internal" href="swn.SurfaceWaterNetwork.from_pickle.html">swn.SurfaceWaterNetwork.from_pickle</a></li>
@@ -332,7 +332,7 @@ document.write(`
 <li class="toctree-l2"><a class="reference internal" href="swn.SurfaceWaterNetwork.gather_segnums.html">swn.SurfaceWaterNetwork.gather_segnums</a></li>
 <li class="toctree-l2"><a class="reference internal" href="swn.SurfaceWaterNetwork.locate_geoms.html">swn.SurfaceWaterNetwork.locate_geoms</a></li>
 <li class="toctree-l2"><a class="reference internal" href="swn.SurfaceWaterNetwork.aggregate.html">swn.SurfaceWaterNetwork.aggregate</a></li>
-<li class="toctree-l2"><a class="reference internal" href="swn.SurfaceWaterNetwork.remove.html">swn.SurfaceWaterNetwork.remove</a></li>
+<li class="toctree-l2 current active"><a class="current reference internal" href="#">swn.SurfaceWaterNetwork.remove</a></li>
 <li class="toctree-l2"><a class="reference internal" href="swn.SurfaceWaterNetwork.evaluate_upstream_length.html">swn.SurfaceWaterNetwork.evaluate_upstream_length</a></li>
 <li class="toctree-l2"><a class="reference internal" href="swn.SurfaceWaterNetwork.evaluate_upstream_area.html">swn.SurfaceWaterNetwork.evaluate_upstream_area</a></li>
 <li class="toctree-l2"><a class="reference internal" href="swn.SurfaceWaterNetwork.estimate_width.html">swn.SurfaceWaterNetwork.estimate_width</a></li>
@@ -367,10 +367,10 @@ document.write(`
 <li class="toctree-l2"><a class="reference internal" href="swn.modflow.SwnModflow.route_reaches.html">swn.modflow.SwnModflow.route_reaches</a></li>
 </ul>
 </li>
-<li class="toctree-l1 current active has-children"><a class="reference internal" href="../swnmf6.html">SwnMf6</a><input checked="" class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-3"><i class="fa-solid fa-chevron-down"></i></label><ul class="current">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../swnmf6.html">SwnMf6</a><input class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-3"><i class="fa-solid fa-chevron-down"></i></label><ul>
 <li class="toctree-l2"><a class="reference internal" href="swn.modflow.SwnMf6.html">swn.modflow.SwnMf6</a></li>
 <li class="toctree-l2"><a class="reference internal" href="swn.modflow.SwnMf6.from_swn_flopy.html">swn.modflow.SwnMf6.from_swn_flopy</a></li>
-<li class="toctree-l2 current active"><a class="current reference internal" href="#">swn.modflow.SwnMf6.from_pickle</a></li>
+<li class="toctree-l2"><a class="reference internal" href="swn.modflow.SwnMf6.from_pickle.html">swn.modflow.SwnMf6.from_pickle</a></li>
 <li class="toctree-l2"><a class="reference internal" href="swn.modflow.SwnMf6.model.html">swn.modflow.SwnMf6.model</a></li>
 <li class="toctree-l2"><a class="reference internal" href="swn.modflow.SwnMf6.segments.html">swn.modflow.SwnMf6.segments</a></li>
 <li class="toctree-l2"><a class="reference internal" href="swn.modflow.SwnMf6.diversions.html">swn.modflow.SwnMf6.diversions</a></li>
@@ -450,9 +450,9 @@ document.write(`
     <li class="breadcrumb-item"><a href="../reference.html" class="nav-link">Module reference</a></li>
     
     
-    <li class="breadcrumb-item"><a href="../swnmf6.html" class="nav-link">SwnMf6</a></li>
+    <li class="breadcrumb-item"><a href="../swn.html" class="nav-link">SurfaceWaterNetwork</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page">swn.modflow.SwnMf6.from_pickle</li>
+    <li class="breadcrumb-item active" aria-current="page">swn.SurfaceWaterNetwork.remove</li>
   </ul>
 </nav>
 </div>
@@ -469,24 +469,66 @@ document.write(`
 <div id="searchbox"></div>
                 <article class="bd-article" role="main">
                   
-  <section id="swn-modflow-swnmf6-from-pickle">
-<h1>swn.modflow.SwnMf6.from_pickle<a class="headerlink" href="#swn-modflow-swnmf6-from-pickle" title="Permalink to this heading">#</a></h1>
+  <section id="swn-surfacewaternetwork-remove">
+<h1>swn.SurfaceWaterNetwork.remove<a class="headerlink" href="#swn-surfacewaternetwork-remove" title="Permalink to this heading">#</a></h1>
 <dl class="py method">
-<dt class="sig sig-object py" id="swn.modflow.SwnMf6.from_pickle">
-<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">SwnMf6.</span></span><span class="sig-name descname"><span class="pre">from_pickle</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">swn</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">model</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#swn.modflow.SwnMf6.from_pickle" title="Permalink to this definition">#</a></dt>
-<dd><p>Read a pickled format from a file.</p>
+<dt class="sig sig-object py" id="swn.SurfaceWaterNetwork.remove">
+<span class="sig-prename descclassname"><span class="pre">SurfaceWaterNetwork.</span></span><span class="sig-name descname"><span class="pre">remove</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">condition</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">segnums</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[]</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#swn.SurfaceWaterNetwork.remove" title="Permalink to this definition">#</a></dt>
+<dd><p>Remove segments (and catchments) in-place, preserving attributes.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><dl class="simple">
-<dt><strong>path</strong><span class="classifier">str</span></dt><dd><p>File path where the pickled object will be stored.</p>
+<dt><strong>condition</strong><span class="classifier">bool or pandas.Series</span></dt><dd><p>Series of bool for each segment index, where True is to remove.
+Combined with ‘segnums’. Defaut False (keep all).</p>
 </dd>
-<dt><strong>swn</strong><span class="classifier">swn.SurfaceWaterNetwork, optional</span></dt><dd><p>Instance of a SurfaceWaterNetwork.</p>
+<dt><strong>segnums</strong><span class="classifier">list</span></dt><dd><p>List of segnums to remove. Combined with ‘condition’. Default [].</p>
 </dd>
-<dt><strong>model</strong><span class="classifier">flopy.modflow.Modflow or flopy.mf6.ModflowGwf, optional</span></dt><dd><p>Instance of a flopy MODFLOW model.</p>
+</dl>
 </dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><dl class="simple">
+<dt>None</dt><dd></dd>
 </dl>
 </dd>
 </dl>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<dl class="simple">
+<dt><a class="reference internal" href="swn.SurfaceWaterNetwork.evaluate_upstream_length.html#swn.SurfaceWaterNetwork.evaluate_upstream_length" title="swn.SurfaceWaterNetwork.evaluate_upstream_length"><code class="xref py py-obj docutils literal notranslate"><span class="pre">evaluate_upstream_length</span></code></a></dt><dd><p>Re-evaluate upstream length.</p>
+</dd>
+<dt><a class="reference internal" href="swn.SurfaceWaterNetwork.evaluate_upstream_area.html#swn.SurfaceWaterNetwork.evaluate_upstream_area" title="swn.SurfaceWaterNetwork.evaluate_upstream_area"><code class="xref py py-obj docutils literal notranslate"><span class="pre">evaluate_upstream_area</span></code></a></dt><dd><p>Re-evaluate upstream catchment area.</p>
+</dd>
+</dl>
+</div>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">swn</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">shapely</span> <span class="kn">import</span> <span class="n">wkt</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">lines</span> <span class="o">=</span> <span class="n">geopandas</span><span class="o">.</span><span class="n">GeoSeries</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">wkt</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="s1">&#39;&#39;&#39;</span><span class="se">\</span>
+<span class="gp">... </span><span class="s1">MULTILINESTRING(</span>
+<span class="gp">... </span><span class="s1">    (380 490, 370 420), (300 460, 370 420), (370 420, 420 330),</span>
+<span class="gp">... </span><span class="s1">    (190 250, 280 270), (225 180, 280 270), (280 270, 420 330),</span>
+<span class="gp">... </span><span class="s1">    (420 330, 584 250), (520 220, 584 250), (584 250, 710 160),</span>
+<span class="gp">... </span><span class="s1">    (740 270, 710 160), (735 350, 740 270), (880 320, 740 270),</span>
+<span class="gp">... </span><span class="s1">    (925 370, 880 320), (974 300, 880 320), (760 460, 735 350),</span>
+<span class="gp">... </span><span class="s1">    (650 430, 735 350), (710 160, 770 100), (700  90, 770 100),</span>
+<span class="gp">... </span><span class="s1">    (770 100, 820  40))&#39;&#39;&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">geoms</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">lines</span><span class="o">.</span><span class="n">index</span> <span class="o">+=</span> <span class="mi">100</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">n</span> <span class="o">=</span> <span class="n">swn</span><span class="o">.</span><span class="n">SurfaceWaterNetwork</span><span class="o">.</span><span class="n">from_lines</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">n</span>
+<span class="go">&lt;SurfaceWaterNetwork:</span>
+<span class="go">  19 segments: [100, 101, ..., 117, 118]</span>
+<span class="go">  10 headwater: [100, 101, ..., 115, 117]</span>
+<span class="go">  1 outlets: [118]</span>
+<span class="go">  no diversions /&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">n</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">n</span><span class="o">.</span><span class="n">segments</span><span class="o">.</span><span class="n">stream_order</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">n</span>
+<span class="go">&lt;SurfaceWaterNetwork:</span>
+<span class="go">  9 segments: [102, 105, ..., 116, 118]</span>
+<span class="go">  4 headwater: [102, 105, 110, 111]</span>
+<span class="go">  1 outlets: [118]</span>
+<span class="go">  no diversions /&gt;</span>
+</pre></div>
+</div>
 </dd></dl>
 
 </section>
@@ -503,20 +545,20 @@ document.write(`
     <div class="footer-article-item"><!-- Previous / next buttons -->
 <div class="prev-next-area">
     <a class="left-prev"
-       href="swn.modflow.SwnMf6.from_swn_flopy.html"
+       href="swn.SurfaceWaterNetwork.aggregate.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">swn.modflow.SwnMf6.from_swn_flopy</p>
+        <p class="prev-next-title">swn.SurfaceWaterNetwork.aggregate</p>
       </div>
     </a>
     <a class="right-next"
-       href="swn.modflow.SwnMf6.model.html"
+       href="swn.SurfaceWaterNetwork.evaluate_upstream_length.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">swn.modflow.SwnMf6.model</p>
+        <p class="prev-next-title">swn.SurfaceWaterNetwork.evaluate_upstream_length</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -538,13 +580,13 @@ document.write(`
   </div>
   <nav class="bd-toc-nav page-toc">
     <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#swn.modflow.SwnMf6.from_pickle"><code class="docutils literal notranslate"><span class="pre">SwnMf6.from_pickle()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#swn.SurfaceWaterNetwork.remove"><code class="docutils literal notranslate"><span class="pre">SurfaceWaterNetwork.remove()</span></code></a></li>
 </ul>
   </nav></div>
 
   <div class="sidebar-secondary-item">
   <div class="tocsection sourcelink">
-    <a href="../_sources/ref/swn.modflow.SwnMf6.from_pickle.rst.txt">
+    <a href="../_sources/ref/swn.SurfaceWaterNetwork.remove.rst.txt">
       <i class="fa-solid fa-file-lines"></i> Show Source
     </a>
   </div>

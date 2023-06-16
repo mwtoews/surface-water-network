@@ -332,6 +332,7 @@ document.write(`
 <li class="toctree-l2"><a class="reference internal" href="swn.SurfaceWaterNetwork.gather_segnums.html">swn.SurfaceWaterNetwork.gather_segnums</a></li>
 <li class="toctree-l2"><a class="reference internal" href="swn.SurfaceWaterNetwork.locate_geoms.html">swn.SurfaceWaterNetwork.locate_geoms</a></li>
 <li class="toctree-l2"><a class="reference internal" href="swn.SurfaceWaterNetwork.aggregate.html">swn.SurfaceWaterNetwork.aggregate</a></li>
+<li class="toctree-l2"><a class="reference internal" href="swn.SurfaceWaterNetwork.remove.html">swn.SurfaceWaterNetwork.remove</a></li>
 <li class="toctree-l2"><a class="reference internal" href="swn.SurfaceWaterNetwork.evaluate_upstream_length.html">swn.SurfaceWaterNetwork.evaluate_upstream_length</a></li>
 <li class="toctree-l2"><a class="reference internal" href="swn.SurfaceWaterNetwork.evaluate_upstream_area.html">swn.SurfaceWaterNetwork.evaluate_upstream_area</a></li>
 <li class="toctree-l2"><a class="reference internal" href="swn.SurfaceWaterNetwork.estimate_width.html">swn.SurfaceWaterNetwork.estimate_width</a></li>
@@ -531,8 +532,8 @@ usually 0. This number is not part of segments.index.</p>
 <tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">query</span></code>([upstream, downstream, barrier, ...])</p></td>
 <td><p>Return segnums upstream (inclusive) and downstream (exclusive).</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">remove</span></code>([condition, segnums])</p></td>
-<td><p>Remove segments (and catchments).</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.remove.html#swn.SurfaceWaterNetwork.remove" title="swn.SurfaceWaterNetwork.remove"><code class="xref py py-obj docutils literal notranslate"><span class="pre">remove</span></code></a>([condition, segnums])</p></td>
+<td><p>Remove segments (and catchments) in-place, preserving attributes.</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.route_segnums.html#swn.SurfaceWaterNetwork.route_segnums" title="swn.SurfaceWaterNetwork.route_segnums"><code class="xref py py-obj docutils literal notranslate"><span class="pre">route_segnums</span></code></a>(start, end, *[, allow_indirect])</p></td>
 <td><p>Return a list of segnums that connect a pair of segnums.</p></td>
@@ -613,8 +614,8 @@ segment number or ID.</p>
 <tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">query</span></code>([upstream, downstream, barrier, ...])</p></td>
 <td><p>Return segnums upstream (inclusive) and downstream (exclusive).</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">remove</span></code>([condition, segnums])</p></td>
-<td><p>Remove segments (and catchments).</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.remove.html#swn.SurfaceWaterNetwork.remove" title="swn.SurfaceWaterNetwork.remove"><code class="xref py py-obj docutils literal notranslate"><span class="pre">remove</span></code></a>([condition, segnums])</p></td>
+<td><p>Remove segments (and catchments) in-place, preserving attributes.</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.route_segnums.html#swn.SurfaceWaterNetwork.route_segnums" title="swn.SurfaceWaterNetwork.route_segnums"><code class="xref py py-obj docutils literal notranslate"><span class="pre">route_segnums</span></code></a>(start, end, *[, allow_indirect])</p></td>
 <td><p>Return a list of segnums that connect a pair of segnums.</p></td>

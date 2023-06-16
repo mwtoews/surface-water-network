@@ -46,7 +46,7 @@
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="swn.SurfaceWaterNetwork.evaluate_upstream_area" href="swn.SurfaceWaterNetwork.evaluate_upstream_area.html" />
-    <link rel="prev" title="swn.SurfaceWaterNetwork.aggregate" href="swn.SurfaceWaterNetwork.aggregate.html" />
+    <link rel="prev" title="swn.SurfaceWaterNetwork.remove" href="swn.SurfaceWaterNetwork.remove.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   </head>
@@ -332,6 +332,7 @@ document.write(`
 <li class="toctree-l2"><a class="reference internal" href="swn.SurfaceWaterNetwork.gather_segnums.html">swn.SurfaceWaterNetwork.gather_segnums</a></li>
 <li class="toctree-l2"><a class="reference internal" href="swn.SurfaceWaterNetwork.locate_geoms.html">swn.SurfaceWaterNetwork.locate_geoms</a></li>
 <li class="toctree-l2"><a class="reference internal" href="swn.SurfaceWaterNetwork.aggregate.html">swn.SurfaceWaterNetwork.aggregate</a></li>
+<li class="toctree-l2"><a class="reference internal" href="swn.SurfaceWaterNetwork.remove.html">swn.SurfaceWaterNetwork.remove</a></li>
 <li class="toctree-l2 current active"><a class="current reference internal" href="#">swn.SurfaceWaterNetwork.evaluate_upstream_length</a></li>
 <li class="toctree-l2"><a class="reference internal" href="swn.SurfaceWaterNetwork.evaluate_upstream_area.html">swn.SurfaceWaterNetwork.evaluate_upstream_area</a></li>
 <li class="toctree-l2"><a class="reference internal" href="swn.SurfaceWaterNetwork.estimate_width.html">swn.SurfaceWaterNetwork.estimate_width</a></li>
@@ -474,6 +475,53 @@ document.write(`
 <dt class="sig sig-object py" id="swn.SurfaceWaterNetwork.evaluate_upstream_length">
 <span class="sig-prename descclassname"><span class="pre">SurfaceWaterNetwork.</span></span><span class="sig-name descname"><span class="pre">evaluate_upstream_length</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#swn.SurfaceWaterNetwork.evaluate_upstream_length" title="Permalink to this definition">#</a></dt>
 <dd><p>Evaluate upstream length of segments, adds to segments.</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<dl class="simple">
+<dt><a class="reference internal" href="swn.SurfaceWaterNetwork.remove.html#swn.SurfaceWaterNetwork.remove" title="swn.SurfaceWaterNetwork.remove"><code class="xref py py-obj docutils literal notranslate"><span class="pre">remove</span></code></a></dt><dd><p>Remove segments.</p>
+</dd>
+</dl>
+</div>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">swn</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">shapely</span> <span class="kn">import</span> <span class="n">wkt</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">lines</span> <span class="o">=</span> <span class="n">geopandas</span><span class="o">.</span><span class="n">GeoSeries</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">wkt</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="s1">&#39;&#39;&#39;</span><span class="se">\</span>
+<span class="gp">... </span><span class="s1">MULTILINESTRING(</span>
+<span class="gp">... </span><span class="s1">    (380 490, 370 420), (300 460, 370 420), (370 420, 420 330),</span>
+<span class="gp">... </span><span class="s1">    (190 250, 280 270), (225 180, 280 270), (280 270, 420 330),</span>
+<span class="gp">... </span><span class="s1">    (420 330, 584 250), (520 220, 584 250), (584 250, 710 160),</span>
+<span class="gp">... </span><span class="s1">    (740 270, 710 160), (735 350, 740 270), (880 320, 740 270),</span>
+<span class="gp">... </span><span class="s1">    (925 370, 880 320), (974 300, 880 320), (760 460, 735 350),</span>
+<span class="gp">... </span><span class="s1">    (650 430, 735 350), (710 160, 770 100), (700  90, 770 100),</span>
+<span class="gp">... </span><span class="s1">    (770 100, 820  40))&#39;&#39;&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">geoms</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">lines</span><span class="o">.</span><span class="n">index</span> <span class="o">+=</span> <span class="mi">100</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">n</span> <span class="o">=</span> <span class="n">swn</span><span class="o">.</span><span class="n">SurfaceWaterNetwork</span><span class="o">.</span><span class="n">from_lines</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">n</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">n</span><span class="o">.</span><span class="n">segments</span><span class="o">.</span><span class="n">stream_order</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">n</span><span class="o">.</span><span class="n">segments</span><span class="p">[[</span><span class="s2">&quot;stream_order&quot;</span><span class="p">,</span> <span class="s2">&quot;upstream_length&quot;</span><span class="p">]]</span>
+<span class="go">     stream_order  upstream_length</span>
+<span class="go">102             2       254.289557</span>
+<span class="go">105             2       349.986022</span>
+<span class="go">106             3       786.747495</span>
+<span class="go">108             3      1012.271738</span>
+<span class="go">109             3       735.737875</span>
+<span class="go">110             2       309.687415</span>
+<span class="go">111             2       312.032918</span>
+<span class="go">116             4      1832.862427</span>
+<span class="go">118             4      1981.675602</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">n</span><span class="o">.</span><span class="n">evaluate_upstream_length</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">n</span><span class="o">.</span><span class="n">segments</span><span class="p">[[</span><span class="s2">&quot;stream_order&quot;</span><span class="p">,</span> <span class="s2">&quot;upstream_length&quot;</span><span class="p">]]</span>
+<span class="go">     stream_order  upstream_length</span>
+<span class="go">102             2       102.956301</span>
+<span class="go">105             2       152.315462</span>
+<span class="go">106             3       437.743679</span>
+<span class="go">108             3       592.585534</span>
+<span class="go">109             3       342.834328</span>
+<span class="go">110             2        80.156098</span>
+<span class="go">111             2       148.660687</span>
+<span class="go">116             4      1020.272675</span>
+<span class="go">118             4      1098.375172</span>
+</pre></div>
+</div>
 </dd></dl>
 
 </section>
@@ -490,12 +538,12 @@ document.write(`
     <div class="footer-article-item"><!-- Previous / next buttons -->
 <div class="prev-next-area">
     <a class="left-prev"
-       href="swn.SurfaceWaterNetwork.aggregate.html"
+       href="swn.SurfaceWaterNetwork.remove.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">swn.SurfaceWaterNetwork.aggregate</p>
+        <p class="prev-next-title">swn.SurfaceWaterNetwork.remove</p>
       </div>
     </a>
     <a class="right-next"
