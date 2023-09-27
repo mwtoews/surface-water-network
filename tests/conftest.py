@@ -25,7 +25,7 @@ import swn  # noqa: E402
 from swn.compat import ignore_shapely_warnings_for_object_array
 
 
-PANDAS_MAJOR_VERSION = int(pd.__version__[0:pd.__version__.index(".")])
+PANDAS_VESRSION_TUPLE = tuple(int(x) for x in re.findall(r"\d+", pd.__version__))
 
 datadir = Path("tests") / "data"
 

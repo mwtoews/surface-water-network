@@ -840,14 +840,14 @@ class SwnMf6(SwnModflowBase):
         >>> fname_01 = dir / "model_drn_01.dat"
         >>> nm.write_package_period("drn", fname_tpl, auxiliary="dlen")
         >>> print(fname_01.read_text(), end="")
-        #k  i  j  elev  cond   dlen  boundname
-         1  1  1  10.0  15.0 18.028  101
-         1  1  2  10.0  15.0  6.009  101
-         1  2  2  10.0  15.0 12.019  101
-         1  1  2  10.0  15.0 21.082  102
-         1  2  2  10.0  15.0 10.541  102
-         1  2  2  10.0  15.0 10.000  100
-         1  3  2  10.0  15.0 10.000  100
+        #k i j  elev  cond   dlen boundname
+         1 1 1  10.0  15.0 18.028 101
+         1 1 2  10.0  15.0  6.009 101
+         1 2 2  10.0  15.0 12.019 101
+         1 1 2  10.0  15.0 21.082 102
+         1 2 2  10.0  15.0 10.541 102
+         1 2 2  10.0  15.0 10.000 100
+         1 3 2  10.0  15.0 10.000 100
         >>> drn = nm.set_package_obj(
         ...    "drn", pname="swn_drn", auxmultname="dlen",
         ...    stress_period_data={0: {"filename": fname_01.name}})

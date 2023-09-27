@@ -9,7 +9,7 @@ from shapely.geometry import Point
 
 import swn
 
-from .conftest import PANDAS_MAJOR_VERSION, datadir
+from .conftest import PANDAS_VESRSION_TUPLE, datadir
 
 
 # same valid network used in test_basic
@@ -150,7 +150,7 @@ def test_read_write_formatted_frame(tmp_path):
     lines = fname.read_text().splitlines()
     assert len(lines) == 7
     # check first line, space between object columns differ between versions!
-    if PANDAS_MAJOR_VERSION >= 2:
+    if (2, 0, 0) <= PANDAS_VESRSION_TUPLE <= (2, 0, 2):
         expected = "#      value1  value2  value3"
     else:
         expected = "#      value1  value2 value3"
