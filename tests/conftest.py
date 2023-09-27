@@ -1,8 +1,8 @@
 """Common code for testing."""
 import re
 import sys
-from pathlib import Path
 from importlib import metadata
+from pathlib import Path
 
 import geopandas
 import pandas as pd
@@ -20,10 +20,9 @@ if matplotlib and sys.platform == "darwin":
 
 
 # Import this local package for tests
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+#  sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import swn  # noqa: E402
 from swn.compat import ignore_shapely_warnings_for_object_array
-
 
 PANDAS_VESRSION_TUPLE = tuple(int(x) for x in re.findall(r"\d+", pd.__version__))
 

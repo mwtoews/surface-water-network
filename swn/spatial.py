@@ -15,7 +15,7 @@ import pandas as pd
 import pyproj
 import shapely
 from shapely import wkb, wkt
-from shapely.geometry import Point, MultiLineString
+from shapely.geometry import MultiLineString, Point
 
 try:
     from geopandas.tools import sjoin
@@ -30,7 +30,6 @@ except ImportError:
 
 from .compat import SHAPELY_GE_20
 from .util import is_location_frame
-
 
 # default threshold size of geometries when Rtree index is built
 rtree_threshold = 100

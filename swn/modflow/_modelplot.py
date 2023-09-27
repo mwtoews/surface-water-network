@@ -291,7 +291,7 @@ class ModelPlot:
             cax = self.divider.append_axes("right", size="5%",
                                            axes_class=plt.Axes,
                                            **divider_props)
-            cbar1 = self.fig.colorbar(sm, cax=cax)
+            self.fig.colorbar(sm, cax=cax)
         # divider_props, props = vtop._get_cbar_props()
         # cax = vtop.divider.append_axes("right", size="5%",
         #                                axes_class=plt.Axes,

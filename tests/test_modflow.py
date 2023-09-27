@@ -1785,13 +1785,13 @@ def test_flopy_package_period(tmp_path):
             [(1, rid + 1) for rid in range(7)], names=["per", "reachID"])
     )
     ret = nm.flopy_package_period("drn")
-    assert type(ret) == dict
+    assert isinstance(ret, dict)
     assert list(ret.keys()) == [0]
     np.testing.assert_array_equal(ret[0], exp_flopy.to_records(index=False))
 
     # with auxiliary
     ret = nm.flopy_package_period("drn", auxiliary="rlen")
-    assert type(ret) == dict
+    assert isinstance(ret, dict)
     assert list(ret.keys()) == [0]
     np.testing.assert_array_equal(
         ret[0],

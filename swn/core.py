@@ -14,7 +14,7 @@ import pandas as pd
 import shapely
 from shapely.geometry import LineString, Point
 
-from .compat import ignore_shapely_warnings_for_object_array, SHAPELY_GE_20
+from .compat import SHAPELY_GE_20, ignore_shapely_warnings_for_object_array
 from .spatial import bias_substring
 from .util import abbr_str
 

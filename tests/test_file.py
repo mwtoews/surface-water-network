@@ -11,7 +11,6 @@ import swn
 
 from .conftest import PANDAS_VESRSION_TUPLE, datadir
 
-
 # same valid network used in test_basic
 n3d_lines = geopandas.GeoSeries.from_wkt([
     'LINESTRING Z (60 100 14, 60  80 12)',
