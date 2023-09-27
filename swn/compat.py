@@ -26,7 +26,6 @@ if shapely_warning is not None and not SHAPELY_GE_20:
 
     @contextlib.contextmanager
     def ignore_shapely_warnings_for_object_array():
-
         with warnings.catch_warnings():
             warnings.filterwarnings(
                 "ignore",
@@ -43,7 +42,6 @@ if shapely_warning is not None and not SHAPELY_GE_20:
                 )
             yield
 
-
 elif SHAPELY_LT_18 and NUMPY_GE_121:
 
     @contextlib.contextmanager
@@ -55,7 +53,6 @@ elif SHAPELY_LT_18 and NUMPY_GE_121:
                 DeprecationWarning,
             )
             yield
-
 
 else:
 

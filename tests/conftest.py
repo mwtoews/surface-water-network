@@ -75,7 +75,8 @@ def coastal_swn(coastal_lines_gdf):
 @pytest.fixture(scope="module")
 def coastal_swn_w_poly(coastal_lines_gdf, coastal_polygons_gdf):
     return swn.SurfaceWaterNetwork.from_lines(
-        coastal_lines_gdf.geometry, coastal_polygons_gdf.geometry)
+        coastal_lines_gdf.geometry, coastal_polygons_gdf.geometry
+    )
 
 
 @pytest.fixture(scope="session", autouse=True)

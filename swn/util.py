@@ -16,15 +16,15 @@ def abbr_str(lst, limit=15):
     else:
         raise TypeError(type(lst))
     if len(lst) <= limit:
-        res = ', '.join(str(x) for x in lst)
+        res = ", ".join(str(x) for x in lst)
     else:
         left = limit // 2
         right = left
         if left + right != limit:
             left += 1
-        res = ', '.join(
-            [str(x) for x in lst[:left]] + ['...'] +
-            [str(x) for x in lst[-right:]])
+        res = ", ".join(
+            [str(x) for x in lst[:left]] + ["..."] + [str(x) for x in lst[-right:]]
+        )
     if is_set:
         return f"{{{res}}}"
     else:
@@ -68,12 +68,12 @@ def is_location_frame(loc_df, geom_required=True):
     loc_df_columns = loc_df.columns
     if "segnum" not in loc_df_columns:
         raise ValueError(
-            "loc_df must have 'segnum' column; "
-            "was it created by n.locate_geoms?")
+            "loc_df must have 'segnum' column; was it created by n.locate_geoms?"
+        )
     elif "seg_ndist" not in loc_df_columns:
         raise ValueError(
-            "loc_df must have 'seg_ndist' column; "
-            "was it created by n.locate_geoms?")
+            "loc_df must have 'seg_ndist' column; was it created by n.locate_geoms?"
+        )
     if geom_required:
         if not (loc_df[non_empty].geom_type == "LineString").all():
             raise ValueError("geometry expected to be LineString")

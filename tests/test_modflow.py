@@ -30,11 +30,13 @@ requires_mfnwt = pytest.mark.skipif(not mfnwt_exe, reason="requires mfnwt")
 requires_mf2005 = pytest.mark.skipif(not mf2005_exe, reason="requires mf2005")
 
 # same valid network used in test_basic
-n3d_lines = geopandas.GeoSeries.from_wkt([
-    "LINESTRING Z (60 100 14, 60  80 12)",
-    "LINESTRING Z (40 130 15, 60 100 14)",
-    "LINESTRING Z (70 130 15, 60 100 14)",
-])
+n3d_lines = geopandas.GeoSeries.from_wkt(
+    [
+        "LINESTRING Z (60 100 14, 60  80 12)",
+        "LINESTRING Z (40 130 15, 60 100 14)",
+        "LINESTRING Z (70 130 15, 60 100 14)",
+    ]
+)
 
 
 def get_basic_swn(has_z: bool = True, has_diversions: bool = False):
@@ -43,37 +45,48 @@ def get_basic_swn(has_z: bool = True, has_diversions: bool = False):
     else:
         n = swn.SurfaceWaterNetwork.from_lines(force_2d(n3d_lines))
     if has_diversions:
-        diversions = geopandas.GeoDataFrame(geometry=[
-            Point(58, 100), Point(62, 100), Point(61, 89), Point(59, 89)])
+        diversions = geopandas.GeoDataFrame(
+            geometry=[Point(58, 100), Point(62, 100), Point(61, 89), Point(59, 89)]
+        )
         n.set_diversions(diversions=diversions)
     return n
 
 
 def get_basic_modflow(
-        outdir=".", with_top: bool = False, nper: int = 1,
-        hk=1e-2, rech=1e-4):
+    outdir=".", with_top: bool = False, nper: int = 1, hk=1e-2, rech=1e-4
+):
     """Returns a basic Flopy MODFLOW model"""
     if with_top:
-        top = np.array([
-            [16.0, 15.0],
-            [15.0, 15.0],
-            [14.0, 14.0],
-        ])
+        top = np.array(
+            [
+                [16.0, 15.0],
+                [15.0, 15.0],
+                [14.0, 14.0],
+            ]
+        )
     else:
         top = 15.0
-    m = flopy.modflow.Modflow(
-        version="mf2005", exe_name=mf2005_exe, model_ws=outdir)
+    m = flopy.modflow.Modflow(version="mf2005", exe_name=mf2005_exe, model_ws=outdir)
     flopy.modflow.ModflowDis(
-        m, nlay=1, nrow=3, ncol=2, nper=nper,
-        delr=20.0, delc=20.0, top=top, botm=10.0,
-        xul=30.0, yul=130.0)
+        m,
+        nlay=1,
+        nrow=3,
+        ncol=2,
+        nper=nper,
+        delr=20.0,
+        delc=20.0,
+        top=top,
+        botm=10.0,
+        xul=30.0,
+        yul=130.0,
+    )
     _ = flopy.modflow.ModflowBas(m, strt=top, stoper=5.0)
     _ = flopy.modflow.ModflowSip(m)
     _ = flopy.modflow.ModflowLpf(m, ipakcb=52, laytyp=0, hk=hk)
     _ = flopy.modflow.ModflowRch(m, ipakcb=52, rech=rech)
     _ = flopy.modflow.ModflowOc(
-        m, stress_period_data={
-            (0, 0): ["print head", "save head", "save budget"]})
+        m, stress_period_data={(0, 0): ["print head", "save head", "save budget"]}
+    )
     return m
 
 
@@ -102,6 +115,7 @@ def read_budget(bud_fname, text, reaches=None, colname=None):
         res = b.get_data(text=text)
         if len(res) != 1:
             from warnings import warn
+
             warn(f"get_data(text={text!r}) returned more than one array")
         data = res[0]
     if reaches is not None:
@@ -148,11 +162,10 @@ def test_from_swn_flopy_errors():
     n = get_basic_swn()
     m = flopy.modflow.Modflow(version="mf2005", exe_name=mf2005_exe)
     _ = flopy.modflow.ModflowDis(
-        m, nlay=1, nrow=3, ncol=2, nper=4, delr=20.0, delc=20.0)
+        m, nlay=1, nrow=3, ncol=2, nper=4, delr=20.0, delc=20.0
+    )
 
-    with pytest.raises(
-            ValueError,
-            match="swn must be a SurfaceWaterNetwork object"):
+    with pytest.raises(ValueError, match="swn must be a SurfaceWaterNetwork object"):
         swn.SwnModflow.from_swn_flopy(object(), m)
 
     _ = flopy.modflow.ModflowBas(m)
@@ -166,8 +179,8 @@ def test_from_swn_flopy_errors():
 
     n.segments.crs = None
     with pytest.raises(
-            ValueError,
-            match="modelgrid extent does not cover segments extent"):
+        ValueError, match="modelgrid extent does not cover segments extent"
+    ):
         swn.SwnModflow.from_swn_flopy(n, m)
 
     m.modelgrid.set_coord_info(xoff=30.0, yoff=70.0)
@@ -188,16 +201,16 @@ def test_new_segment_data(has_diversions):
     assert (nm.segment_data.icalc == 0).all()
     if has_diversions:
         pd.testing.assert_index_equal(
-            nm.segment_data.index,
-            pd.Index([1, 2, 3, 4, 5, 6, 7], name="nseg"))
+            nm.segment_data.index, pd.Index([1, 2, 3, 4, 5, 6, 7], name="nseg")
+        )
         assert list(nm.segment_data.segnum) == [1, 2, 0, -1, -1, -1, -1]
         assert list(nm.segment_data.divid) == [0, 0, 0, 0, 1, 2, 3]
         assert list(nm.segment_data.outseg) == [3, 3, 0, 0, 0, 0, 0]
         assert list(nm.segment_data.iupseg) == [0, 0, 0, 1, 2, 3, 3]
     else:
         pd.testing.assert_index_equal(
-            nm.segment_data.index,
-            pd.Index([1, 2, 3], name="nseg"))
+            nm.segment_data.index, pd.Index([1, 2, 3], name="nseg")
+        )
         assert list(nm.segment_data.segnum) == [1, 2, 0]
         assert "divid" not in nm.segment_data.columns
         assert list(nm.segment_data.outseg) == [3, 3, 0]
@@ -229,13 +242,16 @@ def test_n3d_defaults(tmp_path):
     assert list(m.sfr.reach_data.ireach) == [1, 2, 3, 1, 2, 1, 2]
     np.testing.assert_array_almost_equal(
         m.sfr.reach_data.rchlen,
-        [18.027756, 6.009252, 12.018504, 21.081851, 10.540926, 10.0, 10.0])
+        [18.027756, 6.009252, 12.018504, 21.081851, 10.540926, 10.0, 10.0],
+    )
     np.testing.assert_array_almost_equal(
         m.sfr.reach_data.strtop,
-        [14.75, 14.416667, 14.16666667, 14.66666667, 14.16666667, 13.5, 12.5])
+        [14.75, 14.416667, 14.16666667, 14.66666667, 14.16666667, 13.5, 12.5],
+    )
     np.testing.assert_array_almost_equal(
         m.sfr.reach_data.slope,
-        [0.027735, 0.027735, 0.027735, 0.031622775, 0.031622775, 0.1, 0.1])
+        [0.027735, 0.027735, 0.027735, 0.031622775, 0.031622775, 0.1, 0.1],
+    )
     np.testing.assert_array_equal(m.sfr.reach_data.strthick, [1.0] * 7)
     np.testing.assert_array_equal(m.sfr.reach_data.strhc1, [1.0] * 7)
     # Data set 6
@@ -257,15 +273,16 @@ def test_n3d_defaults(tmp_path):
     np.testing.assert_array_almost_equal(sd.width1, [10.0, 10.0, 10.0])
     np.testing.assert_array_almost_equal(sd.hcond2, [1.0, 1.0, 1.0])
     np.testing.assert_array_almost_equal(sd.thickm2, [1.0, 1.0, 1.0])
-    np.testing.assert_array_almost_equal(
-        sd.elevdn, [14.16666667, 14.16666667, 12.5])
+    np.testing.assert_array_almost_equal(sd.elevdn, [14.16666667, 14.16666667, 12.5])
     np.testing.assert_array_almost_equal(sd.width2, [10.0, 10.0, 10.0])
-    assert repr(nm) == dedent("""\
+    assert repr(nm) == dedent(
+        """\
         <SwnModflow: flopy mf2005 'modflowtest'
           7 in reaches (reachID): [1, 2, ..., 6, 7]
           3 in segment_data (nseg): [1, 2, 3]
             3 from segments: [1, 2, 0]
-          1 stress period with perlen: [1.0] />""")
+          1 stress period with perlen: [1.0] />"""
+    )
     if matplotlib:
         _ = nm.plot()
         plt.close()
@@ -275,10 +292,12 @@ def test_n3d_defaults(tmp_path):
     success, buff = m.run_model()
     assert success
     heads = read_head(tmp_path / "modflowtest.hds")
-    sl = read_budget(tmp_path / "modflowtest.cbc",
-                     "STREAM LEAKAGE", nm.reaches, "sfrleakage")
-    sf = read_budget(tmp_path / "modflowtest.sfr.bin",
-                     "STREAMFLOW OUT", nm.reaches, "sfr_Q")
+    sl = read_budget(
+        tmp_path / "modflowtest.cbc", "STREAM LEAKAGE", nm.reaches, "sfrleakage"
+    )
+    sf = read_budget(
+        tmp_path / "modflowtest.sfr.bin", "STREAMFLOW OUT", nm.reaches, "sfr_Q"
+    )
     # Write some files
     nm.grid_cells.to_file(tmp_path / "grid_cells.shp")
     gdf_to_shapefile(nm.reaches, tmp_path / "reaches.shp")
@@ -287,24 +306,35 @@ def test_n3d_defaults(tmp_path):
     assert heads.shape == (1, 3, 2)
     np.testing.assert_array_almost_equal(
         heads,
-        np.array([[
-                [14.604243, 14.409589],
-                [14.172486, 13.251323],
-                [13.861891, 12.751296]]], np.float32))
+        np.array(
+            [
+                [
+                    [14.604243, 14.409589],
+                    [14.172486, 13.251323],
+                    [13.861891, 12.751296],
+                ]
+            ],
+            np.float32,
+        ),
+    )
     np.testing.assert_array_almost_equal(
         sl["q"],
-        np.array([-0.00859839, 0.00420513, 0.00439326, 0.0, 0.0,
-                  -0.12359641, -0.12052996], np.float32))
+        np.array(
+            [-0.00859839, 0.00420513, 0.00439326, 0.0, 0.0, -0.12359641, -0.12052996],
+            np.float32,
+        ),
+    )
     np.testing.assert_array_almost_equal(
         sf["q"],
-        np.array([0.00859839, 0.00439326, 0.0, 0.0, 0.0,
-                  0.12359641, 0.24412636], np.float32))
+        np.array(
+            [0.00859839, 0.00439326, 0.0, 0.0, 0.0, 0.12359641, 0.24412636], np.float32
+        ),
+    )
 
 
 def test_model_property():
     nm = swn.SwnModflow()
-    with pytest.raises(
-            ValueError, match="model must be a flopy Modflow object"):
+    with pytest.raises(ValueError, match="model must be a flopy Modflow object"):
         nm.model = 0
 
     m = flopy.modflow.Modflow()
@@ -312,8 +342,18 @@ def test_model_property():
         nm.model = m
 
     _ = flopy.modflow.ModflowDis(
-        m, nlay=1, nrow=3, ncol=2, delr=20.0, delc=20.0, top=15.0, botm=10.0,
-        xul=30.0, yul=130.0, start_datetime="2001-02-03")
+        m,
+        nlay=1,
+        nrow=3,
+        ncol=2,
+        delr=20.0,
+        delc=20.0,
+        top=15.0,
+        botm=10.0,
+        xul=30.0,
+        yul=130.0,
+        start_datetime="2001-02-03",
+    )
 
     with pytest.raises(ValueError, match="BAS6 package required"):
         nm.model = m
@@ -327,8 +367,8 @@ def test_model_property():
     nm.model = m
 
     pd.testing.assert_index_equal(
-        nm.time_index,
-        pd.DatetimeIndex(["2001-02-03"], dtype="datetime64[ns]"))
+        nm.time_index, pd.DatetimeIndex(["2001-02-03"], dtype="datetime64[ns]")
+    )
     assert nm.grid_cells.shape == (6, 2)
 
     # Swap model with same and with another
@@ -336,8 +376,16 @@ def test_model_property():
     nm.model = m
 
     dis_args = {
-        "nper": 1, "nlay": 1, "nrow": 3, "ncol": 2, "delr": 20.0, "delc": 20.0,
-        "xul": 30.0, "yul": 130.0, "start_datetime": "2001-03-02"}
+        "nper": 1,
+        "nlay": 1,
+        "nrow": 3,
+        "ncol": 2,
+        "delr": 20.0,
+        "delc": 20.0,
+        "xul": 30.0,
+        "yul": 130.0,
+        "start_datetime": "2001-03-02",
+    }
     m = flopy.modflow.Modflow()
     _ = flopy.modflow.ModflowDis(m, **dis_args)
     _ = flopy.modflow.ModflowBas(m)
@@ -345,8 +393,14 @@ def test_model_property():
     nm.model = m
 
     dis_args_replace = {
-        "nper": 2, "nrow": 4, "ncol": 3, "delr": 30.0, "delc": 40.0,
-        "xul": 20.0, "yul": 120.0}
+        "nper": 2,
+        "nrow": 4,
+        "ncol": 3,
+        "delr": 30.0,
+        "delc": 40.0,
+        "xul": 20.0,
+        "yul": 120.0,
+    }
     for vn, vr in dis_args_replace.items():
         # print(f"{vn}: {vr}")
         dis_args_use = dis_args.copy()
@@ -405,8 +459,7 @@ def test_segment_data_property():
         nm.segment_data_ts = {"data": []}
 
 
-@pytest.mark.parametrize(
-    "has_z", [False, True], ids=["n2d", "n3d"])
+@pytest.mark.parametrize("has_z", [False, True], ids=["n2d", "n3d"])
 def test_default_segment_data(has_z):
     n = get_basic_swn(has_z=has_z)
     m = get_basic_modflow()
@@ -444,18 +497,22 @@ def test_default_segment_data(has_z):
     np.testing.assert_array_almost_equal(sd.width2, [10.0, 10.0, 10.0])
 
     # auto determine width
-    n.catchments = geopandas.GeoSeries.from_wkt([
-        "POLYGON ((35 100, 75 100, 75  80, 35  80, 35 100))",
-        "POLYGON ((35 135, 60 135, 60 100, 35 100, 35 135))",
-        "POLYGON ((60 135, 75 135, 75 100, 60 100, 60 135))",
-    ])
+    n.catchments = geopandas.GeoSeries.from_wkt(
+        [
+            "POLYGON ((35 100, 75 100, 75  80, 35  80, 35 100))",
+            "POLYGON ((35 135, 60 135, 60 100, 35 100, 35 135))",
+            "POLYGON ((60 135, 75 135, 75 100, 60 100, 60 135))",
+        ]
+    )
     nm = swn.SwnModflow.from_swn_flopy(n, m)
     nm.default_segment_data()
     sd = nm.segment_data
     np.testing.assert_array_almost_equal(
-        sd.width1, [1.4456947376374667, 1.439700753532406, 1.4615011177787172])
+        sd.width1, [1.4456947376374667, 1.439700753532406, 1.4615011177787172]
+    )
     np.testing.assert_array_almost_equal(
-        sd.width2, [1.4456947376374667, 1.439700753532406, 1.4615011177787172])
+        sd.width2, [1.4456947376374667, 1.439700753532406, 1.4615011177787172]
+    )
 
 
 def test_set_segment_data_from_scalar():
@@ -523,28 +580,24 @@ def test_set_segment_data_from_segments():
     assert list(nm.segment_data.flow) == [4.0, 3.3, 1.1, 0.0, 0.0, 0.0, 0.0]
     nm.set_segment_data_from_segments("width1", n.segments.width)
     np.testing.assert_array_almost_equal(
-        nm.segment_data.width1,
-        [1.766139, 1.721995, 2.292183, 0.0, 0.0, 0.0, 0.0])
+        nm.segment_data.width1, [1.766139, 1.721995, 2.292183, 0.0, 0.0, 0.0, 0.0]
+    )
 
     # frame
     assert "runoff" not in nm.segment_data_ts
-    nm.set_segment_data_from_segments(
-        "runoff",
-        pd.DataFrame(index=nm.time_index))
+    nm.set_segment_data_from_segments("runoff", pd.DataFrame(index=nm.time_index))
     assert "runoff" not in nm.segment_data_ts
     nm.set_segment_data_from_segments(
-        "runoff",
-        pd.DataFrame({0: [1.1, 2.2]}, index=nm.time_index))
+        "runoff", pd.DataFrame({0: [1.1, 2.2]}, index=nm.time_index)
+    )
     assert list(nm.segment_data.runoff) == [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
     pd.testing.assert_frame_equal(
-        nm.segment_data_ts["runoff"],
-        pd.DataFrame({3: [1.1, 2.2]}, index=nm.time_index))
-    nm.set_segment_data_from_segments(
-        "runoff",
-        pd.DataFrame(index=nm.time_index))
+        nm.segment_data_ts["runoff"], pd.DataFrame({3: [1.1, 2.2]}, index=nm.time_index)
+    )
+    nm.set_segment_data_from_segments("runoff", pd.DataFrame(index=nm.time_index))
     pd.testing.assert_frame_equal(
-        nm.segment_data_ts["runoff"],
-        pd.DataFrame({3: [1.1, 2.2]}, index=nm.time_index))
+        nm.segment_data_ts["runoff"], pd.DataFrame({3: [1.1, 2.2]}, index=nm.time_index)
+    )
 
     # check that segment_data_ts item is not dropped by this method
     nm.set_segment_data_from_segments("runoff", {0: 0.1})
@@ -568,20 +621,15 @@ def test_set_segment_data_from_diversions():
 
     # scalar -- most other tests are in test_set_segment_data_from_scalar
     nm.set_segment_data_from_diversions("abstraction", 2.2)
-    assert list(nm.segment_data.abstraction) == \
-        [0.0, 0.0, 0.0, 2.2, 2.2, 2.2, 2.2]
+    assert list(nm.segment_data.abstraction) == [0.0, 0.0, 0.0, 2.2, 2.2, 2.2, 2.2]
 
     # dict
-    nm.set_segment_data_from_diversions(
-        "abstraction", {0: 0.1, 2: 1.2, 1: 2.3})
-    assert list(nm.segment_data.abstraction) == \
-        [0.0, 0.0, 0.0, 0.1, 2.3, 1.2, 2.2]
+    nm.set_segment_data_from_diversions("abstraction", {0: 0.1, 2: 1.2, 1: 2.3})
+    assert list(nm.segment_data.abstraction) == [0.0, 0.0, 0.0, 0.1, 2.3, 1.2, 2.2]
     nm.set_segment_data_from_diversions("abstraction", {})
-    assert list(nm.segment_data.abstraction) == \
-        [0.0, 0.0, 0.0, 0.1, 2.3, 1.2, 2.2]
+    assert list(nm.segment_data.abstraction) == [0.0, 0.0, 0.0, 0.1, 2.3, 1.2, 2.2]
     nm.set_segment_data_from_diversions("abstraction", {0: 4.0})
-    assert list(nm.segment_data.abstraction) == \
-        [0.0, 0.0, 0.0, 4.0, 2.3, 1.2, 2.2]
+    assert list(nm.segment_data.abstraction) == [0.0, 0.0, 0.0, 4.0, 2.3, 1.2, 2.2]
 
     # errors
     with pytest.raises(KeyError, match="dict has a disjoint divid set"):
@@ -593,44 +641,39 @@ def test_set_segment_data_from_diversions():
 
     # series
     nm.set_segment_data_from_scalar("abstraction", 0.0)
-    nm.set_segment_data_from_diversions(
-        "abstraction", pd.Series([1.1, 2.2, 3.3, 4.4]))
-    assert list(nm.segment_data.abstraction) == \
-        [0.0, 0.0, 0.0, 1.1, 2.2, 3.3, 4.4]
-    nm.set_segment_data_from_diversions(
-        "abstraction", pd.Series([], dtype=float))
-    assert list(nm.segment_data.abstraction) == \
-        [0.0, 0.0, 0.0, 1.1, 2.2, 3.3, 4.4]
-    nm.set_segment_data_from_diversions(
-        "abstraction", pd.Series([4.0], index=[1]))
-    assert list(nm.segment_data.abstraction) == \
-        [0.0, 0.0, 0.0, 1.1, 4.0, 3.3, 4.4]
-    nm.set_segment_data_from_diversions(
-        "abstraction", n.diversions.dist_to_seg)
+    nm.set_segment_data_from_diversions("abstraction", pd.Series([1.1, 2.2, 3.3, 4.4]))
+    assert list(nm.segment_data.abstraction) == [0.0, 0.0, 0.0, 1.1, 2.2, 3.3, 4.4]
+    nm.set_segment_data_from_diversions("abstraction", pd.Series([], dtype=float))
+    assert list(nm.segment_data.abstraction) == [0.0, 0.0, 0.0, 1.1, 2.2, 3.3, 4.4]
+    nm.set_segment_data_from_diversions("abstraction", pd.Series([4.0], index=[1]))
+    assert list(nm.segment_data.abstraction) == [0.0, 0.0, 0.0, 1.1, 4.0, 3.3, 4.4]
+    nm.set_segment_data_from_diversions("abstraction", n.diversions.dist_to_seg)
     np.testing.assert_array_almost_equal(
-        nm.segment_data.abstraction,
-        [0.0, 0.0, 0.0, 1.664101, 1.897367, 1.0, 1.0])
+        nm.segment_data.abstraction, [0.0, 0.0, 0.0, 1.664101, 1.897367, 1.0, 1.0]
+    )
 
     # frame
     nm.set_segment_data_from_scalar("abstraction", 0.0)
     assert "abstraction" not in nm.segment_data_ts
     nm.set_segment_data_from_diversions(
-        "abstraction",
-        pd.DataFrame(index=nm.time_index))
+        "abstraction", pd.DataFrame(index=nm.time_index)
+    )
     assert "abstraction" not in nm.segment_data_ts
     nm.set_segment_data_from_diversions(
-        "abstraction",
-        pd.DataFrame({0: [1.1, 2.2]}, index=nm.time_index))
+        "abstraction", pd.DataFrame({0: [1.1, 2.2]}, index=nm.time_index)
+    )
     assert list(nm.segment_data.abstraction) == [0.0] * 7
     pd.testing.assert_frame_equal(
         nm.segment_data_ts["abstraction"],
-        pd.DataFrame({4: [1.1, 2.2]}, index=nm.time_index))
+        pd.DataFrame({4: [1.1, 2.2]}, index=nm.time_index),
+    )
     nm.set_segment_data_from_diversions(
-        "abstraction",
-        pd.DataFrame(index=nm.time_index))
+        "abstraction", pd.DataFrame(index=nm.time_index)
+    )
     pd.testing.assert_frame_equal(
         nm.segment_data_ts["abstraction"],
-        pd.DataFrame({4: [1.1, 2.2]}, index=nm.time_index))
+        pd.DataFrame({4: [1.1, 2.2]}, index=nm.time_index),
+    )
 
     # check that segment_data_ts item is not dropped by this method
     nm.set_segment_data_from_diversions("abstraction", {0: 0.1})
@@ -645,11 +688,13 @@ def test_set_segment_data_from_diversions():
 
 @pytest.mark.parametrize(
     "nper,inflow,expected",
-    [(1, {3: 9.6, 4: 9.7}, {1: 19.3}),
-     (1, {}, {}),
-     (2, {3: 9.6, 4: 9.7}, {1: 19.3}),
-     (2, {}, {}),
-     ])
+    [
+        (1, {3: 9.6, 4: 9.7}, {1: 19.3}),
+        (1, {}, {}),
+        (2, {3: 9.6, 4: 9.7}, {1: 19.3}),
+        (2, {}, {}),
+    ],
+)
 def test_set_segment_data_inflow(nper, inflow, expected):
     n = get_basic_swn()
     n.segments.at[1, "from_segnums"] = {3, 4}
@@ -669,15 +714,12 @@ def test_set_segment_data_inflow(nper, inflow, expected):
     expected = pd.Series(expected, dtype=float)
     if hasattr(nm.segment_data_ts, "inflow"):
         pd.testing.assert_frame_equal(
-            nm.segment_data["inflow"],
-            pd.DataFrame(expected, index=nm.time_index))
+            nm.segment_data["inflow"], pd.DataFrame(expected, index=nm.time_index)
+        )
     else:
-        expected_series = pd.Series(
-            0.0, index=nm.segment_data.index, name="inflow")
+        expected_series = pd.Series(0.0, index=nm.segment_data.index, name="inflow")
         expected_series.update(expected)
-        pd.testing.assert_series_equal(
-            nm.segment_data["inflow"],
-            expected_series)
+        pd.testing.assert_series_equal(nm.segment_data["inflow"], expected_series)
 
     if matplotlib:
         _ = nm.plot()
@@ -704,13 +746,15 @@ def test_n3d_vars(tmp_path):
     # Data set 2
     np.testing.assert_array_almost_equal(
         m.sfr.reach_data.rchlen,
-        [18.027756, 6.009252, 12.018504, 21.081851, 10.540926, 10.0, 10.0])
+        [18.027756, 6.009252, 12.018504, 21.081851, 10.540926, 10.0, 10.0],
+    )
     np.testing.assert_array_almost_equal(
         m.sfr.reach_data.strtop,
-        [14.75, 14.416667, 14.166667, 14.666667, 14.166667, 13.5, 12.5])
+        [14.75, 14.416667, 14.166667, 14.666667, 14.166667, 13.5, 12.5],
+    )
     np.testing.assert_array_almost_equal(
-        m.sfr.reach_data.slope,
-        [0.03, 0.03, 0.03, 0.031622775, 0.031622775, 0.1, 0.1])
+        m.sfr.reach_data.slope, [0.03, 0.03, 0.03, 0.031622775, 0.031622775, 0.1, 0.1]
+    )
     np.testing.assert_array_equal(m.sfr.reach_data.strthick, [2.0] * 7)
     np.testing.assert_array_equal(m.sfr.reach_data.strhc1, [2.0] * 7)
     # Data set 6
@@ -723,7 +767,8 @@ def test_n3d_vars(tmp_path):
     np.testing.assert_array_equal(sd.iprior, [0, 0, 0])
     # note that "inflow" gets added to nseg 1 flow
     np.testing.assert_array_equal(
-        nm.segment_data.inflow_segnums, [{3, 4}, set(), set()])
+        nm.segment_data.inflow_segnums, [{3, 4}, set(), set()]
+    )
     np.testing.assert_array_almost_equal(sd.flow, [18.4 + 9.6 + 9.7, 0.0, 0.0])
     np.testing.assert_array_almost_equal(sd.runoff, [5.0, 0.0, 0.0])
     np.testing.assert_array_almost_equal(sd.etsw, [0.02, 0.03, 0.01])
@@ -735,12 +780,14 @@ def test_n3d_vars(tmp_path):
     np.testing.assert_array_almost_equal(sd.hcond2, [2.0, 2.0, 2.0])
     np.testing.assert_array_almost_equal(sd.thickm2, [2.0, 2.0, 2.0])
     np.testing.assert_array_almost_equal(sd.width2, [10.0, 10.0, 10.0])
-    assert repr(nm) == dedent("""\
+    assert repr(nm) == dedent(
+        """\
         <SwnModflow: flopy mf2005 'modflowtest'
           7 in reaches (reachID): [1, 2, ..., 6, 7]
           3 in segment_data (nseg): [1, 2, 3]
             3 from segments: [1, 2, 0]
-          1 stress period with perlen: [1.0] />""")
+          1 stress period with perlen: [1.0] />"""
+    )
     if matplotlib:
         _ = nm.plot()
         plt.close()
@@ -750,10 +797,12 @@ def test_n3d_vars(tmp_path):
     success, buff = m.run_model()
     assert success
     heads = read_head(tmp_path / "modflowtest.hds")
-    sl = read_budget(tmp_path / "modflowtest.cbc",
-                     "STREAM LEAKAGE", nm.reaches, "sfrleakage")
-    sf = read_budget(tmp_path / "modflowtest.sfr.bin",
-                     "STREAMFLOW OUT", nm.reaches, "sfr_Q")
+    sl = read_budget(
+        tmp_path / "modflowtest.cbc", "STREAM LEAKAGE", nm.reaches, "sfrleakage"
+    )
+    sf = read_budget(
+        tmp_path / "modflowtest.sfr.bin", "STREAMFLOW OUT", nm.reaches, "sfr_Q"
+    )
     # Write some files
     nm.grid_cells.to_file(tmp_path / "grid_cells.shp")
     gdf_to_shapefile(nm.reaches, tmp_path / "reaches.shp")
@@ -762,18 +811,39 @@ def test_n3d_vars(tmp_path):
     assert heads.shape == (1, 3, 2)
     np.testing.assert_array_almost_equal(
         heads,
-        np.array([[
-                [14.620145, 14.489456],
-                [14.494376, 13.962832],
-                [14.100152, 12.905928]]], np.float32))
+        np.array(
+            [
+                [
+                    [14.620145, 14.489456],
+                    [14.494376, 13.962832],
+                    [14.100152, 12.905928],
+                ]
+            ],
+            np.float32,
+        ),
+    )
     np.testing.assert_array_almost_equal(
         sl["q"],
-        np.array([-2.717792, -4.734348, 36.266556, 2.713955, 30.687397,
-                  -70.960304, -15.255642], np.float32))
+        np.array(
+            [
+                -2.717792,
+                -4.734348,
+                36.266556,
+                2.713955,
+                30.687397,
+                -70.960304,
+                -15.255642,
+            ],
+            np.float32,
+        ),
+    )
     np.testing.assert_array_almost_equal(
         sf["q"],
-        np.array([39.31224, 43.67807, 6.67448, 370.4348, 526.3218,
-                  602.95654, 617.21216], np.float32))
+        np.array(
+            [39.31224, 43.67807, 6.67448, 370.4348, 526.3218, 602.95654, 617.21216],
+            np.float32,
+        ),
+    )
 
 
 @requires_mf2005
@@ -790,25 +860,28 @@ def test_n2d_defaults(tmp_path):
     # Data set 2
     np.testing.assert_array_almost_equal(
         m.sfr.reach_data.rchlen,
-        [18.027756, 6.009252, 12.018504, 21.081851, 10.540926, 10.0, 10.0])
+        [18.027756, 6.009252, 12.018504, 21.081851, 10.540926, 10.0, 10.0],
+    )
     np.testing.assert_array_equal(
-        m.sfr.reach_data.strtop,
-        [16.0, 15.0, 15.0, 15.0, 15.0, 15.0, 14.0])
+        m.sfr.reach_data.strtop, [16.0, 15.0, 15.0, 15.0, 15.0, 15.0, 14.0]
+    )
     np.testing.assert_array_almost_equal(
-        m.sfr.reach_data.slope,
-        [0.070710681, 0.05, 0.025, 0.05, 0.025, 0.025, 0.05])
+        m.sfr.reach_data.slope, [0.070710681, 0.05, 0.025, 0.05, 0.025, 0.025, 0.05]
+    )
     sd = m.sfr.segment_data[0]
     assert list(sd.nseg) == [1, 2, 3]
     assert list(sd.icalc) == [1, 1, 1]
     assert list(sd.outseg) == [3, 3, 0]
     assert list(sd.iupseg) == [0, 0, 0]
     # See test_n3d_defaults for other checks
-    assert repr(nm) == dedent("""\
+    assert repr(nm) == dedent(
+        """\
         <SwnModflow: flopy mf2005 'modflowtest'
           7 in reaches (reachID): [1, 2, ..., 6, 7]
           3 in segment_data (nseg): [1, 2, 3]
             3 from segments: [1, 2, 0]
-          1 stress period with perlen: [1.0] />""")
+          1 stress period with perlen: [1.0] />"""
+    )
     if matplotlib:
         _ = nm.plot()
         plt.close()
@@ -836,13 +909,14 @@ def test_n2d_min_slope(tmp_path):
     # Data set 2
     np.testing.assert_array_almost_equal(
         m.sfr.reach_data.rchlen,
-        [18.027756, 6.009252, 12.018504, 21.081851, 10.540926, 10.0, 10.0])
+        [18.027756, 6.009252, 12.018504, 21.081851, 10.540926, 10.0, 10.0],
+    )
     np.testing.assert_array_equal(
-        m.sfr.reach_data.strtop,
-        [16.0, 15.0, 15.0, 15.0, 15.0, 15.0, 14.0])
+        m.sfr.reach_data.strtop, [16.0, 15.0, 15.0, 15.0, 15.0, 15.0, 14.0]
+    )
     np.testing.assert_array_almost_equal(
-        m.sfr.reach_data.slope,
-        [0.070710681, 0.05, 0.03, 0.05, 0.03, 0.03, 0.05])
+        m.sfr.reach_data.slope, [0.070710681, 0.05, 0.03, 0.05, 0.03, 0.03, 0.05]
+    )
     sd = m.sfr.segment_data[0]
     assert list(sd.nseg) == [1, 2, 3]
     assert list(sd.icalc) == [1, 1, 1]
@@ -872,30 +946,24 @@ def test_set_elevations(tmp_path):
     if matplotlib:
         nm.plot_reaches_vs_model("all", plot_bottom=True)
         for seg in nm.reaches.segnum.unique():
-            nm.plot_profile(
-                seg, upstream=True, downstream=True
-            )
+            nm.plot_profile(seg, upstream=True, downstream=True)
     # Make sure segment ends are sensible relative to model elevations
     # Also ensure segments flow downstream
     # and downstream segments are below upstream segments
-    _ = nm.fix_segment_elevs(min_incise=0.2, min_slope=1.e-4)
+    _ = nm.fix_segment_elevs(min_incise=0.2, min_slope=1.0e-4)
     # pass segment elevation back to update reach elevations
     _ = nm.reconcile_reach_strtop()
     if matplotlib:
         nm.plot_reaches_vs_model("all", plot_bottom=True)
         nm.plot_reaches_vs_model(1)
         for seg in nm.reaches.segnum.unique():
-            nm.plot_profile(
-                seg, upstream=True, downstream=True
-            )
+            nm.plot_profile(seg, upstream=True, downstream=True)
     _ = nm.add_model_topbot_to_reaches()
     nm.fix_reach_elevs()
     if matplotlib:
         nm.plot_reaches_vs_model("all", plot_bottom=True)
         for seg in nm.reaches.segnum.unique():
-            nm.plot_profile(
-                seg, upstream=True, downstream=True
-            )
+            nm.plot_profile(seg, upstream=True, downstream=True)
     nm.set_sfr_obj(ipakcb=52, istcb2=-53)
     # Data set 1c
     assert abs(m.sfr.nstrm) == 7
@@ -903,14 +971,15 @@ def test_set_elevations(tmp_path):
     # Data set 2
     np.testing.assert_array_almost_equal(
         m.sfr.reach_data.rchlen,
-        [18.027756, 6.009252, 12.018504, 21.081851, 10.540926, 10.0, 10.0])
+        [18.027756, 6.009252, 12.018504, 21.081851, 10.540926, 10.0, 10.0],
+    )
     # TODO testy testy
     # np.testing.assert_array_equal(
     #     m.sfr.reach_data.strtop,
     #     [16.0, 15.0, 15.0, 15.0, 15.0, 15.0, 14.0])
     np.testing.assert_array_almost_equal(
-        m.sfr.reach_data.slope,
-        [0.070710681, 0.05, 0.025, 0.05, 0.025, 0.025, 0.05])
+        m.sfr.reach_data.slope, [0.070710681, 0.05, 0.025, 0.05, 0.025, 0.025, 0.05]
+    )
     sd = m.sfr.segment_data[0]
     assert list(sd.nseg) == [1, 2, 3]
     assert list(sd.icalc) == [1, 1, 1]
@@ -923,10 +992,12 @@ def test_set_elevations(tmp_path):
     success, buff = m.run_model()
     assert success
     heads = read_head(tmp_path / "modflowtest.hds")
-    sl = read_budget(tmp_path / "modflowtest.cbc",
-                     "STREAM LEAKAGE", nm.reaches, "sfrleakage")
-    sf = read_budget(tmp_path / "modflowtest.sfr.bin",
-                     "STREAMFLOW OUT", nm.reaches, "sfr_Q")
+    sl = read_budget(
+        tmp_path / "modflowtest.cbc", "STREAM LEAKAGE", nm.reaches, "sfrleakage"
+    )
+    sf = read_budget(
+        tmp_path / "modflowtest.sfr.bin", "STREAMFLOW OUT", nm.reaches, "sfr_Q"
+    )
     # Write some files
     nm.grid_cells.to_file(tmp_path / "grid_cells.shp")
     gdf_to_shapefile(nm.reaches, tmp_path / "reaches.shp")
@@ -935,18 +1006,27 @@ def test_set_elevations(tmp_path):
     assert heads.shape == (1, 3, 2)
     np.testing.assert_array_almost_equal(
         heads,
-        np.array([[
-                [15.4999275, 14.832507],
-                [15.434015, 14.678202],
-                [15.303412, 14.1582985]]], np.float32))
+        np.array(
+            [
+                [
+                    [15.4999275, 14.832507],
+                    [15.434015, 14.678202],
+                    [15.303412, 14.1582985],
+                ]
+            ],
+            np.float32,
+        ),
+    )
     np.testing.assert_array_almost_equal(
         sl["q"],
-        np.array([0.0, 0.0, 0.0, -6.8689923, 6.8689923,
-                  -13.108882, -10.891137], np.float32))
+        np.array(
+            [0.0, 0.0, 0.0, -6.8689923, 6.8689923, -13.108882, -10.891137], np.float32
+        ),
+    )
     np.testing.assert_array_almost_equal(
         sf["q"],
-        np.array([0.0, 0.0, 0.0, 6.8689923, 0.0,
-                  13.108882, 24.00002], np.float32))
+        np.array([0.0, 0.0, 0.0, 6.8689923, 0.0, 13.108882, 24.00002], np.float32),
+    )
 
 
 def check_number_sum_hex(a, n, h):
@@ -959,8 +1039,8 @@ def check_number_sum_hex(a, n, h):
 @requires_mfnwt
 def test_coastal(tmp_path, coastal_lines_gdf, coastal_flow_m):
     m = flopy.modflow.Modflow.load(
-        "h.nam", version="mfnwt", exe_name=mfnwt_exe, model_ws=datadir,
-        check=False)
+        "h.nam", version="mfnwt", exe_name=mfnwt_exe, model_ws=datadir, check=False
+    )
     m.model_ws = str(tmp_path)
     # this model works without SFR
     m.write_input()
@@ -984,22 +1064,18 @@ def test_coastal(tmp_path, coastal_lines_gdf, coastal_flow_m):
     assert len(nm.segments) == 304
     assert nm.segments["in_model"].sum() == 184
     # Check remaining reaches added that are inside model domain
-    reach_geom = nm.reaches.loc[
-        nm.reaches["segnum"] == 3047735, "geometry"].iloc[0]
+    reach_geom = nm.reaches.loc[nm.reaches["segnum"] == 3047735, "geometry"].iloc[0]
     np.testing.assert_almost_equal(reach_geom.length, 980.5448069140768)
     # These should be split between two cells
-    reach_geoms = nm.reaches.loc[
-        nm.reaches["segnum"] == 3047750, "geometry"]
+    reach_geoms = nm.reaches.loc[nm.reaches["segnum"] == 3047750, "geometry"]
     assert len(reach_geoms) == 2
     np.testing.assert_almost_equal(reach_geoms.iloc[0].length, 204.90164560019)
     np.testing.assert_almost_equal(reach_geoms.iloc[1].length, 789.59872070638)
     # This reach should not be extended, the remainder is too far away
-    reach_geom = nm.reaches.loc[
-        nm.reaches["segnum"] == 3047762, "geometry"].iloc[0]
+    reach_geom = nm.reaches.loc[nm.reaches["segnum"] == 3047762, "geometry"].iloc[0]
     np.testing.assert_almost_equal(reach_geom.length, 261.4644731621629)
     # This reach should not be extended, the remainder is too long
-    reach_geom = nm.reaches.loc[
-        nm.reaches["segnum"] == 3047926, "geometry"].iloc[0]
+    reach_geom = nm.reaches.loc[nm.reaches["segnum"] == 3047926, "geometry"].iloc[0]
     np.testing.assert_almost_equal(reach_geom.length, 237.72893664132727)
     # Data set 1c
     assert abs(m.sfr.nstrm) == 297
@@ -1068,14 +1144,15 @@ def test_coastal(tmp_path, coastal_lines_gdf, coastal_flow_m):
     # check_number_sum_hex(
     #    sd.width2, 1840, "5749f425818b3b18e395b2a432520a4e")
     # Check other packages
-    check_number_sum_hex(
-        m.bas6.ibound.array, 509, "c4135a084b2593e0b69c148136a3ad6d")
-    assert repr(nm) == dedent("""\
+    check_number_sum_hex(m.bas6.ibound.array, 509, "c4135a084b2593e0b69c148136a3ad6d")
+    assert repr(nm) == dedent(
+        """\
     <SwnModflow: flopy mfnwt 'h'
       297 in reaches (reachID): [1, 2, ..., 296, 297]
       185 in segment_data (nseg): [1, 2, ..., 184, 185]
         185 from segments (nzsegment) (61% used): [3049818, 3049819, ..., 3046952, 3046736]
-      1 stress period with perlen: [1.0] />""")  # noqa
+      1 stress period with perlen: [1.0] />"""  # noqa
+    )
     if matplotlib:
         _ = nm.plot()
         plt.close()
@@ -1097,8 +1174,8 @@ def test_coastal_elevations(coastal_swn, coastal_flow_m, tmp_path):
                 plt.close()
 
     m = flopy.modflow.Modflow.load(
-        "h.nam", version="mfnwt", exe_name=mfnwt_exe, model_ws=datadir,
-        check=False)
+        "h.nam", version="mfnwt", exe_name=mfnwt_exe, model_ws=datadir, check=False
+    )
     m.model_ws = str(tmp_path)
     nm = swn.SwnModflow.from_swn_flopy(coastal_swn, m)
     nm.default_segment_data()
@@ -1109,8 +1186,7 @@ def test_coastal_elevations(coastal_swn, coastal_flow_m, tmp_path):
     _ = nm.get_seg_ijk()
     tops = nm.get_top_elevs_at_segs().top_up
     max_str_z = tops.describe()["75%"]
-    _ = nm.fix_segment_elevs(min_incise=0.2, min_slope=1.e-4,
-                             max_str_z=max_str_z)
+    _ = nm.fix_segment_elevs(min_incise=0.2, min_slope=1.0e-4, max_str_z=max_str_z)
     _ = nm.reconcile_reach_strtop()
     _make_plot_sequence()
 
@@ -1135,29 +1211,27 @@ def test_coastal_reduced(coastal_lines_gdf, coastal_flow_m, tmp_path):
     # Modify swn object
     n.remove(
         condition=n.segments["stream_order"] == 1,
-        segnums=n.gather_segnums(upstream=3047927))
+        segnums=n.gather_segnums(upstream=3047927),
+    )
     assert len(n) == 130
     # Load a MODFLOW model
     m = flopy.modflow.Modflow.load(
-        "h.nam", version="mfnwt", exe_name=mfnwt_exe, model_ws=datadir,
-        check=False)
+        "h.nam", version="mfnwt", exe_name=mfnwt_exe, model_ws=datadir, check=False
+    )
     nm = swn.SwnModflow.from_swn_flopy(n, m)
     nm.default_segment_data()
     nm.set_segment_data_inflow(coastal_flow_m)  # no inflow should result
     np.testing.assert_equal(nm.segment_data.inflow, np.zeros(94))
     # These should be split between two cells
-    reach_geoms = nm.reaches.loc[
-        nm.reaches["segnum"] == 3047750, "geometry"]
+    reach_geoms = nm.reaches.loc[nm.reaches["segnum"] == 3047750, "geometry"]
     assert len(reach_geoms) == 2
     np.testing.assert_almost_equal(reach_geoms.iloc[0].length, 204.90164560019)
     np.testing.assert_almost_equal(reach_geoms.iloc[1].length, 789.59872070638)
     # This reach should not be extended, the remainder is too far away
-    reach_geom = nm.reaches.loc[
-        nm.reaches["segnum"] == 3047762, "geometry"].iloc[0]
+    reach_geom = nm.reaches.loc[nm.reaches["segnum"] == 3047762, "geometry"].iloc[0]
     np.testing.assert_almost_equal(reach_geom.length, 261.4644731621629)
     # This reach should not be extended, the remainder is too long
-    reach_geom = nm.reaches.loc[
-        nm.reaches["segnum"] == 3047926, "geometry"].iloc[0]
+    reach_geom = nm.reaches.loc[nm.reaches["segnum"] == 3047926, "geometry"].iloc[0]
     np.testing.assert_almost_equal(reach_geom.length, 237.72893664132727)
     nm.set_sfr_obj()
     # Data set 1c
@@ -1225,12 +1299,14 @@ def test_coastal_reduced(coastal_lines_gdf, coastal_flow_m, tmp_path):
     #    sd.thickm2, 184, "1e57e4eaa6f22ada05f4d8cd719e7876")
     # check_number_sum_hex(
     #    sd.width2, 1840, "5749f425818b3b18e395b2a432520a4e")
-    assert repr(nm) == dedent("""\
+    assert repr(nm) == dedent(
+        """\
     <SwnModflow: flopy mfnwt 'h'
       154 in reaches (reachID): [1, 2, ..., 153, 154]
       94 in segment_data (nseg): [1, 2, ..., 93, 94]
         94 from segments (nzsegment) (72% used): [3049802, 3049683, ..., 3046952, 3046736]
-      1 stress period with perlen: [1.0] />""")  # noqa
+      1 stress period with perlen: [1.0] />"""  # noqa
+    )
     if matplotlib:
         _ = nm.plot()
         plt.close()
@@ -1253,16 +1329,15 @@ def test_coastal_reduced(coastal_lines_gdf, coastal_flow_m, tmp_path):
 @requires_mfnwt
 def test_coastal_ibound_modify(coastal_swn, coastal_flow_m, tmp_path):
     m = flopy.modflow.Modflow.load(
-        "h.nam", version="mfnwt", exe_name=mfnwt_exe, model_ws=datadir,
-        check=False)
+        "h.nam", version="mfnwt", exe_name=mfnwt_exe, model_ws=datadir, check=False
+    )
     nm = swn.SwnModflow.from_swn_flopy(coastal_swn, m, ibound_action="modify")
     nm.default_segment_data()
     nm.set_segment_data_inflow(coastal_flow_m)
     assert len(nm.segments) == 304
     assert nm.segments["in_model"].sum() == 304
     # Check a remaining reach added that is outside model domain
-    reach_geom = nm.reaches.loc[
-        nm.reaches["segnum"] == 3048565, "geometry"].iloc[0]
+    reach_geom = nm.reaches.loc[nm.reaches["segnum"] == 3048565, "geometry"].iloc[0]
     np.testing.assert_almost_equal(reach_geom.length, 647.316024023105)
     expected_geom = wkt.loads(
         "LINESTRING Z (1819072.5 5869685.1 4, 1819000 5869684.9 5.7, "
@@ -1270,7 +1345,8 @@ def test_coastal_ibound_modify(coastal_swn, coastal_flow_m, tmp_path):
         "1818907.5 5869654.8 4, 1818877.6 5869624.7 5, 1818787.5 5869624.5 6, "
         "1818757.6 5869594.5 5.1, 1818697.6 5869594.4 5.7, "
         "1818667.6 5869564.3 6.2, 1818607.6 5869564.2 4.7, "
-        "1818577.6 5869534.1 5.6, 1818487.6 5869534 6.2)")
+        "1818577.6 5869534.1 5.6, 1818487.6 5869534 6.2)"
+    )
     reach_geom.equals_exact(expected_geom, 0)
     nm.set_sfr_obj()
     # Data set 1c
@@ -1338,14 +1414,15 @@ def test_coastal_ibound_modify(coastal_swn, coastal_flow_m, tmp_path):
     # check_number_sum_hex(
     #     sd.width2, 3040, "65f2c05e33613b359676244036d86689")
     # Check other packages
-    check_number_sum_hex(
-        m.bas6.ibound.array, 572, "d353560128577b37f730562d2f89c025")
-    assert repr(nm) == dedent("""\
+    check_number_sum_hex(m.bas6.ibound.array, 572, "d353560128577b37f730562d2f89c025")
+    assert repr(nm) == dedent(
+        """\
         <SwnModflow: flopy mfnwt 'h'
           478 in reaches (reachID): [1, 2, ..., 477, 478]
           304 in segment_data (nseg): [1, 2, ..., 303, 304]
             304 from segments (nzsegment): [3050413, 3050418, ..., 3046952, 3046736]
-          1 stress period with perlen: [1.0] />""")  # noqa
+          1 stress period with perlen: [1.0] />"""
+    )  # noqa
     if matplotlib:
         _ = nm.plot()
         plt.close()
@@ -1374,11 +1451,16 @@ def test_include_downstream_reach_outside_model(tmp_path):
     m.bas6.ibound = np.array([[1, 1], [1, 1], [1, 0]])
     gt = swn.modflow.geotransform_from_flopy(m)
     lines = interp_2d_to_3d(
-        geopandas.GeoSeries.from_wkt([
-            "LINESTRING (60 89, 60 80)",
-            "LINESTRING (40 130, 60 89)",
-            "LINESTRING (70 130, 60 89)",
-        ]), m.dis.top.array, gt)
+        geopandas.GeoSeries.from_wkt(
+            [
+                "LINESTRING (60 89, 60 80)",
+                "LINESTRING (40 130, 60 89)",
+                "LINESTRING (70 130, 60 89)",
+            ]
+        ),
+        m.dis.top.array,
+        gt,
+    )
     n = swn.SurfaceWaterNetwork.from_lines(lines)
     nm = swn.SwnModflow.from_swn_flopy(n, m)
     nm.default_segment_data(hyd_cond1=0.0)
@@ -1396,14 +1478,14 @@ def test_include_downstream_reach_outside_model(tmp_path):
     np.testing.assert_array_equal(m.sfr.reach_data.iseg, [1, 1, 2, 2, 3])
     np.testing.assert_array_equal(m.sfr.reach_data.ireach, [1, 2, 1, 2, 1])
     np.testing.assert_array_almost_equal(
-        m.sfr.reach_data.rchlen,
-        [22.53083, 23.087149, 20.58629, 21.615604, 9.0])
+        m.sfr.reach_data.rchlen, [22.53083, 23.087149, 20.58629, 21.615604, 9.0]
+    )
     np.testing.assert_array_almost_equal(
-        m.sfr.reach_data.strtop,
-        [15.4927845, 14.849314, 14.865853, 14.548374, 14.225])
+        m.sfr.reach_data.strtop, [15.4927845, 14.849314, 14.865853, 14.548374, 14.225]
+    )
     np.testing.assert_array_almost_equal(
-        m.sfr.reach_data.slope,
-        [0.033977833, 0.033977833, 0.01303259, 0.01303259, 0.05])
+        m.sfr.reach_data.slope, [0.033977833, 0.033977833, 0.01303259, 0.01303259, 0.05]
+    )
     np.testing.assert_array_equal(m.sfr.reach_data.outreach, [2, 5, 4, 5, 0])
     sd = m.sfr.segment_data[0]
     np.testing.assert_array_equal(sd.nseg, [1, 2, 3])
@@ -1440,8 +1522,9 @@ def test_diversions(tmp_path):
     lsz = interp_2d_to_3d(n3d_lines, m.dis.top.array, gt)
     n = swn.SurfaceWaterNetwork.from_lines(lsz)
     n.adjust_elevation_profile()
-    diversions = geopandas.GeoDataFrame(geometry=[
-        Point(58, 100), Point(62, 100), Point(61, 89), Point(59, 89)])
+    diversions = geopandas.GeoDataFrame(
+        geometry=[Point(58, 100), Point(62, 100), Point(61, 89), Point(59, 89)]
+    )
     n.set_diversions(diversions=diversions)
 
     nm = swn.SwnModflow.from_swn_flopy(n, m)
@@ -1456,29 +1539,67 @@ def test_diversions(tmp_path):
     # Data set 2
     np.testing.assert_array_almost_equal(
         m.sfr.reach_data.rchlen,
-        [18.027756, 6.009252, 12.018504, 21.081852, 10.540926, 10.0, 10.0,
-         1.0, 1.0, 1.0, 1.0])
+        [
+            18.027756,
+            6.009252,
+            12.018504,
+            21.081852,
+            10.540926,
+            10.0,
+            10.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+        ],
+    )
     np.testing.assert_array_almost_equal(
         m.sfr.reach_data.strtop,
-        [15.742094, 15.39822, 15.140314, 14.989459, 14.973648, 14.726283,
-         14.242094, 15.0, 15.0, 14.0, 14.0])
+        [
+            15.742094,
+            15.39822,
+            15.140314,
+            14.989459,
+            14.973648,
+            14.726283,
+            14.242094,
+            15.0,
+            15.0,
+            14.0,
+            14.0,
+        ],
+    )
     np.testing.assert_array_almost_equal(
         m.sfr.reach_data.slope,
-        [0.02861207, 0.02861207, 0.02861207, 0.001, 0.001, 0.04841886,
-         0.04841886, 0.001, 0.001, 0.001, 0.001])
+        [
+            0.02861207,
+            0.02861207,
+            0.02861207,
+            0.001,
+            0.001,
+            0.04841886,
+            0.04841886,
+            0.001,
+            0.001,
+            0.001,
+            0.001,
+        ],
+    )
     sd = m.sfr.segment_data[0]
     np.testing.assert_array_equal(sd.nseg, [1, 2, 3, 4, 5, 6, 7])
-    np.testing.assert_array_equal(sd.icalc,  [1, 1, 1, 0, 0, 0, 0])
-    np.testing.assert_array_equal(sd.outseg,  [3, 3, 0, 0, 0, 0, 0])
-    np.testing.assert_array_equal(sd.iupseg,  [0, 0, 0, 1, 2, 3, 3])
-    np.testing.assert_array_equal(sd.iprior,  [0, 0, 0, 0, 0, 0, 0])
-    assert repr(nm) == dedent("""\
+    np.testing.assert_array_equal(sd.icalc, [1, 1, 1, 0, 0, 0, 0])
+    np.testing.assert_array_equal(sd.outseg, [3, 3, 0, 0, 0, 0, 0])
+    np.testing.assert_array_equal(sd.iupseg, [0, 0, 0, 1, 2, 3, 3])
+    np.testing.assert_array_equal(sd.iprior, [0, 0, 0, 0, 0, 0, 0])
+    assert repr(nm) == dedent(
+        """\
         <SwnModflow: flopy mf2005 'modflowtest'
           11 in reaches (reachID): [1, 2, ..., 10, 11]
           7 in segment_data (nseg): [1, 2, ..., 6, 7]
             3 from segments: [1, 2, 0]
             4 from diversions: [0, 1, 2, 3]
-          1 stress period with perlen: [1.0] />""")
+          1 stress period with perlen: [1.0] />"""
+    )
     if matplotlib:
         _ = nm.plot()
         plt.close()
@@ -1494,8 +1615,7 @@ def test_diversions(tmp_path):
     sfl = read_sfl(sfl_fname, nm.reaches)
     # Write some files
     nm.grid_cells.to_file(tmp_path / "grid_cells.shp")
-    gdf_to_shapefile(nm.reaches[~nm.reaches.diversion],
-                     tmp_path / "reaches.shp")
+    gdf_to_shapefile(nm.reaches[~nm.reaches.diversion], tmp_path / "reaches.shp")
     gdf_to_shapefile(nm.segments, tmp_path / "segments.shp")
     # Check results
     assert (sl["q"] == 0.0).all()
@@ -1508,22 +1628,22 @@ def test_diversions(tmp_path):
     # Don't check stage, depth or gradient
     np.testing.assert_array_almost_equal(
         nm.reaches["width"],
-        [10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 0.0, 0.0, 0.0, 0.0])
+        [10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 0.0, 0.0, 0.0, 0.0],
+    )
     assert (nm.reaches["Cond"] == 0.0).all()
 
     # Route some flow from headwater segments
     nm.set_segment_data_from_segments("flow", {1: 2, 2: 3})
     m.sfr.segment_data = nm.flopy_segment_data()
     np.testing.assert_array_almost_equal(
-        m.sfr.segment_data[0]["flow"],
-        [2.0, 3.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+        m.sfr.segment_data[0]["flow"], [2.0, 3.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    )
     m.sfr.write_file()
     success, buff = m.run_model()
     assert success
     sl = read_budget(cbc_fname, "STREAM LEAKAGE", nm.reaches, "sfrleakage")
     sfl = read_sfl(sfl_fname, nm.reaches)
-    expected_flow = np.array(
-        [2.0, 2.0, 2.0, 3.0, 3.0, 5.0, 5.0, 0.0, 0.0, 0.0, 0.0])
+    expected_flow = np.array([2.0, 2.0, 2.0, 3.0, 3.0, 5.0, 5.0, 0.0, 0.0, 0.0, 0.0])
     assert (sl["q"] == 0.0).all()
     np.testing.assert_almost_equal(sfl["Qin"], expected_flow)
     assert (sfl["Qaquifer"] == 0.0).all()
@@ -1536,15 +1656,14 @@ def test_diversions(tmp_path):
     nm.set_segment_data_from_diversions("abstraction", {0: 1.1})
     m.sfr.segment_data = nm.flopy_segment_data()
     np.testing.assert_array_almost_equal(
-        m.sfr.segment_data[0]["flow"],
-        [2.0, 3.0, 0.0, 1.1, 0.0, 0.0, 0.0])
+        m.sfr.segment_data[0]["flow"], [2.0, 3.0, 0.0, 1.1, 0.0, 0.0, 0.0]
+    )
     m.sfr.write_file()
     success, buff = m.run_model()
     assert success
     sl = read_budget(cbc_fname, "STREAM LEAKAGE", nm.reaches, "sfrleakage")
     sfl = read_sfl(sfl_fname, nm.reaches)
-    expected_flow = np.array(
-        [2.0, 2.0, 2.0, 3.0, 3.0, 3.9, 3.9, 1.1, 0.0, 0.0, 0.0])
+    expected_flow = np.array([2.0, 2.0, 2.0, 3.0, 3.0, 3.9, 3.9, 1.1, 0.0, 0.0, 0.0])
     assert (sl["q"] == 0.0).all()
     np.testing.assert_almost_equal(sfl["Qin"], expected_flow)
     assert (sfl["Qaquifer"] == 0.0).all()
@@ -1557,15 +1676,14 @@ def test_diversions(tmp_path):
     nm.set_segment_data_from_diversions("abstraction", {1: 3.3})
     m.sfr.segment_data = nm.flopy_segment_data()
     np.testing.assert_array_almost_equal(
-        m.sfr.segment_data[0]["flow"],
-        [2.0, 3.0, 0.0, 1.1, 3.3, 0.0, 0.0])
+        m.sfr.segment_data[0]["flow"], [2.0, 3.0, 0.0, 1.1, 3.3, 0.0, 0.0]
+    )
     m.sfr.write_file()
     success, buff = m.run_model()
     assert success
     sl = read_budget(cbc_fname, "STREAM LEAKAGE", nm.reaches, "sfrleakage")
     sfl = read_sfl(sfl_fname, nm.reaches)
-    expected_flow = np.array(
-        [2.0, 2.0, 2.0, 3.0, 3.0, 0.9, 0.9, 1.1, 3.0, 0.0, 0.0])
+    expected_flow = np.array([2.0, 2.0, 2.0, 3.0, 3.0, 0.9, 0.9, 1.1, 3.0, 0.0, 0.0])
     assert (sl["q"] == 0.0).all()
     np.testing.assert_almost_equal(sfl["Qin"], expected_flow)
     assert (sfl["Qaquifer"] == 0.0).all()
@@ -1595,8 +1713,9 @@ def test_pickle(tmp_path):
     nm2.model = m
     assert nm1 == nm2
     # use to_pickle / from_pickle methods
-    diversions = geopandas.GeoDataFrame(geometry=[
-        Point(58, 100), Point(62, 100), Point(61, 89), Point(59, 89)])
+    diversions = geopandas.GeoDataFrame(
+        geometry=[Point(58, 100), Point(62, 100), Point(61, 89), Point(59, 89)]
+    )
     n.set_diversions(diversions=diversions)
     nm3 = swn.SwnModflow.from_swn_flopy(n, m)
     nm3.default_segment_data(hyd_cond1=0.0)
@@ -1648,7 +1767,8 @@ def test_package_period_frame():
     nm = swn.SwnModflow.from_swn_flopy(n, m)
 
     with pytest.raises(
-            KeyError, match="2 reach series needed for ModflowDrn: elev, con"):
+        KeyError, match="2 reach series needed for ModflowDrn: elev, con"
+    ):
         nm.package_period_frame("drn", "native")
 
     nm.set_reach_data_from_array("elev", m.dis.top.array - 1.0)
@@ -1665,29 +1785,27 @@ def test_package_period_frame():
             "cond": [180.28, 60.09, 120.19, 210.82, 105.41, 100.0, 100.0],
         },
         index=pd.MultiIndex.from_tuples(
-            [(1, rid + 1) for rid in range(7)], names=["per", "reachID"])
+            [(1, rid + 1) for rid in range(7)], names=["per", "reachID"]
+        ),
     )
     exp_flopy = exp_native.copy()
     exp_flopy[list("ijk")] -= 1
     exp_flopy.index = pd.MultiIndex.from_tuples(
-        [(0, rid + 1) for rid in range(7)], names=["per", "reachID"])
-    pd.testing.assert_frame_equal(
-        nm.package_period_frame("drn", "native"),
-        exp_native)
-    pd.testing.assert_frame_equal(
-        nm.package_period_frame("drn", "flopy"),
-        exp_flopy)
+        [(0, rid + 1) for rid in range(7)], names=["per", "reachID"]
+    )
+    pd.testing.assert_frame_equal(nm.package_period_frame("drn", "native"), exp_native)
+    pd.testing.assert_frame_equal(nm.package_period_frame("drn", "flopy"), exp_flopy)
 
     # with auxiliary
     rlen = [18.03, 6.01, 12.02, 21.08, 10.54, 10.0, 10.0]
     exp_native["rlen"] = rlen
     exp_flopy["rlen"] = rlen
     pd.testing.assert_frame_equal(
-        nm.package_period_frame("drn", "native", auxiliary="rlen"),
-        exp_native)
+        nm.package_period_frame("drn", "native", auxiliary="rlen"), exp_native
+    )
     pd.testing.assert_frame_equal(
-        nm.package_period_frame("drn", "flopy", auxiliary="rlen"),
-        exp_flopy)
+        nm.package_period_frame("drn", "flopy", auxiliary="rlen"), exp_flopy
+    )
 
 
 def test_write_package_period(tmp_path):
@@ -1711,15 +1829,16 @@ def test_write_package_period(tmp_path):
 
     # with auxiliary
     nm.write_package_period("drn", fname_tpl, auxiliary="rlen")
-    assert fname.read_text().splitlines()[0].split() == \
+    assert fname.read_text().splitlines()[0].split() == (
         ["1", "1", "1", "14.0", "180.28", "18.03"]
+    )
 
     # add dummy package, to be overwritten
     _ = flopy.modflow.ModflowDrn(
-        m, stress_period_data={
-            0: flopy.modflow.ModflowDrn.get_empty(len(nm.reaches))})
+        m, stress_period_data={0: flopy.modflow.ModflowDrn.get_empty(len(nm.reaches))}
+    )
     m.write_input()
-    drn_fname = (tmp_path / "modflowtest.drn")
+    drn_fname = tmp_path / "modflowtest.drn"
     assert drn_fname.exists()
 
     # Run model and read outputs
@@ -1727,28 +1846,45 @@ def test_write_package_period(tmp_path):
         # more precise cond without rounding
         nm.reaches["cond"] = nm.reaches.length * 10.0
         nm.write_package_period("drn", fname_tpl)
-        drn_fname.write_text(dedent(f"""\
-            7 52
-            7 0
-            OPEN/CLOSE {fname.name}
-        """))
+        drn_fname.write_text(
+            dedent(
+                f"""\
+                7 52
+                7 0
+                OPEN/CLOSE {fname.name}
+        """
+            )
+        )
         success, buff = m.run_model()
         assert success
         dl = read_budget(tmp_path / "modflowtest.cbc", "DRAINS")
         expected_q = np.array(
-            [-0.06402918, -0.00885882, -0.02372583, -0.03096424, -0.02075164,
-             -0.01971569, -0.07200407], np.float32)
+            [
+                -0.06402918,
+                -0.00885882,
+                -0.02372583,
+                -0.03096424,
+                -0.02075164,
+                -0.01971569,
+                -0.07200407,
+            ],
+            np.float32,
+        )
         np.testing.assert_almost_equal(dl["q"], expected_q)
         assert "RLEN" not in dl.dtype.names
         assert "RLEN".ljust(16) not in dl.dtype.names
 
         # with auxiliary
         nm.write_package_period("drn", fname_tpl, auxiliary="rlen")
-        drn_fname.write_text(dedent(f"""\
-            7 52 AUX RLEN
-            7 0
-            OPEN/CLOSE {fname.name}
-        """))
+        drn_fname.write_text(
+            dedent(
+                f"""\
+                7 52 AUX RLEN
+                7 0
+                OPEN/CLOSE {fname.name}
+        """
+            )
+        )
         success, buff = m.run_model()
         assert success
         dl = read_budget(tmp_path / "modflowtest.cbc", "DRAINS")
@@ -1758,7 +1894,8 @@ def test_write_package_period(tmp_path):
             rlen_name = "RLEN".ljust(16)
         assert rlen_name in dl.dtype.names
         np.testing.assert_almost_equal(
-            dl[rlen_name], nm.reaches["rlen"].astype(np.float32))
+            dl[rlen_name], nm.reaches["rlen"].astype(np.float32)
+        )
 
 
 def test_flopy_package_period(tmp_path):
@@ -1778,11 +1915,12 @@ def test_flopy_package_period(tmp_path):
             "j": [0, 1, 1, 1, 1, 1, 1],
             "elev": np.array([14.0] * 7, np.float32),
             "cond": np.array(
-                [180.28, 60.09, 120.19, 210.82, 105.41, 100.0, 100.0],
-                np.float32),
+                [180.28, 60.09, 120.19, 210.82, 105.41, 100.0, 100.0], np.float32
+            ),
         },
         index=pd.MultiIndex.from_tuples(
-            [(1, rid + 1) for rid in range(7)], names=["per", "reachID"])
+            [(1, rid + 1) for rid in range(7)], names=["per", "reachID"]
+        ),
     )
     ret = nm.flopy_package_period("drn")
     assert isinstance(ret, dict)
@@ -1795,9 +1933,10 @@ def test_flopy_package_period(tmp_path):
     assert list(ret.keys()) == [0]
     np.testing.assert_array_equal(
         ret[0],
-        exp_flopy.assign(rlen=np.array(
-            [18.03, 6.01, 12.02, 21.08, 10.54, 10.0, 10.0], np.float32
-        )).to_records(index=False))
+        exp_flopy.assign(
+            rlen=np.array([18.03, 6.01, 12.02, 21.08, 10.54, 10.0, 10.0], np.float32)
+        ).to_records(index=False),
+    )
 
     # Run model and read outputs
     if mf2005_exe:
@@ -1807,8 +1946,17 @@ def test_flopy_package_period(tmp_path):
         assert success
         dl = read_budget(tmp_path / "modflowtest.cbc", "DRAINS")
         expected_q = np.array(
-            [-0.06402918, -0.00886265, -0.02358327, -0.03124261, -0.02074423,
-             -0.01962166, -0.07200401], np.float32)
+            [
+                -0.06402918,
+                -0.00886265,
+                -0.02358327,
+                -0.03124261,
+                -0.02074423,
+                -0.01962166,
+                -0.07200401,
+            ],
+            np.float32,
+        )
         np.testing.assert_almost_equal(dl["q"], expected_q)
         assert "RLEN" not in dl.dtype.names
         assert "RLEN".ljust(16) not in dl.dtype.names
@@ -1830,4 +1978,5 @@ def test_flopy_package_period(tmp_path):
             rlen_name = "RLEN".ljust(16)
         assert rlen_name in dl.dtype.names
         np.testing.assert_almost_equal(
-            dl[rlen_name], nm.reaches["rlen"].astype(np.float32))
+            dl[rlen_name], nm.reaches["rlen"].astype(np.float32)
+        )

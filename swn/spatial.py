@@ -2,9 +2,13 @@
 
 __all__ = [
     "interp_2d_to_3d",
-    "force_2d", "round_coords", "compare_crs", "get_crs",
+    "force_2d",
+    "round_coords",
+    "compare_crs",
+    "get_crs",
     "bias_substring",
-    "find_location_pairs", "location_pair_geoms",
+    "find_location_pairs",
+    "location_pair_geoms",
 ]
 
 from warnings import warn
@@ -43,16 +47,17 @@ def get_sindex(gdf):
     """
     warn("get_sindex is no longer used", DeprecationWarning, stacklevel=2)
     sindex = None
-    if (hasattr(gdf, '_rtree_sindex')):
-        return getattr(gdf, '_rtree_sindex')
-    if (isinstance(gdf, geopandas.GeoDataFrame) and
-            hasattr(gdf.geometry, 'sindex')):
+    if hasattr(gdf, "_rtree_sindex"):
+        return getattr(gdf, "_rtree_sindex")
+    if isinstance(gdf, geopandas.GeoDataFrame) and hasattr(gdf.geometry, "sindex"):
         sindex = gdf.geometry.sindex
-    elif isinstance(gdf, geopandas.GeoSeries) and hasattr(gdf, 'sindex'):
+    elif isinstance(gdf, geopandas.GeoSeries) and hasattr(gdf, "sindex"):
         sindex = gdf.sindex
     if sindex is not None:
-        if (hasattr(sindex, "nearest") and
-                sindex.__class__.__name__ != "PyGEOSSTRTreeIndex"):
+        if (
+            hasattr(sindex, "nearest")
+            and sindex.__class__.__name__ != "PyGEOSSTRTreeIndex"
+        ):
             # probably rtree.index.Index
             return sindex
         else:
@@ -66,7 +71,7 @@ def get_sindex(gdf):
         for idx, item in enumerate(gdf.bounds.itertuples()):
             sindex.add(idx, item[1:])
         # cache the index for later
-        setattr(gdf, '_rtree_sindex', sindex)
+        setattr(gdf, "_rtree_sindex", sindex)
     return sindex
 
 
@@ -96,7 +101,7 @@ def interp_2d_to_3d(gs, grid, gt):
     hy = gt[5] / 2.0
     div = gt[1] * gt[5]
     ny, nx = grid.shape
-    ar = np.pad(grid, 1, 'symmetric')
+    ar = np.pad(grid, 1, "symmetric")
 
     def geom2dto3d(geom):
         if geom.geom_type == "MultiLineString":
@@ -107,10 +112,13 @@ def interp_2d_to_3d(gs, grid, gt):
         y = np.array(y)
         # Determine outside points
         outside = (
-            (x < gt[0]) | (x > (gt[0] + nx * gt[1])) |
-            (y > gt[3]) | (y < (gt[3] + ny * gt[5])))
+            (x < gt[0])
+            | (x > (gt[0] + nx * gt[1]))
+            | (y > gt[3])
+            | (y < (gt[3] + ny * gt[5]))
+        )
         if outside.any():
-            raise ValueError(f'{outside.sum()} coordinates are outside grid')
+            raise ValueError(f"{outside.sum()} coordinates are outside grid")
         # Use half raster cell widths for cell center values
         fx = (x - (gt[0] + hx)) / gt[1]
         fy = (y - (gt[3] + hy)) / gt[5]
@@ -129,38 +137,46 @@ def interp_2d_to_3d(gs, grid, gt):
         iy1 += 1
         iy2 += 1
         # Use the differences to weigh the four raster values
-        z = (ar[iy1, ix1] * dx2 * dy2 / div +
-             ar[iy1, ix2] * dx1 * dy2 / div +
-             ar[iy2, ix1] * dx2 * dy1 / div +
-             ar[iy2, ix2] * dx1 * dy1 / div)
+        z = (
+            ar[iy1, ix1] * dx2 * dy2 / div
+            + ar[iy1, ix2] * dx1 * dy2 / div
+            + ar[iy2, ix1] * dx2 * dy1 / div
+            + ar[iy2, ix2] * dx1 * dy1 / div
+        )
         return type(geom)(zip(x, y, z))
 
     return gs.apply(geom2dto3d)
 
 
-def wkt_to_dataframe(wkt_list, geom_name='geometry'):
+def wkt_to_dataframe(wkt_list, geom_name="geometry"):
     """Convert list of WKT strings to a DataFrame.
 
     .. deprecated:: 0.6
         Use :meth:`geopandas.GeoSeries.from_wkt` with ``pandas.DataFrame``
     """
-    warn("wkt_to_dataframe: Use geopandas.GeoSeries.from_wkt with "
-         "pandas.DataFrame instead",
-         DeprecationWarning, stacklevel=2)
-    df = pd.DataFrame({'wkt': wkt_list})
-    df[geom_name] = df['wkt'].apply(wkt.loads)
+    warn(
+        "wkt_to_dataframe: Use geopandas.GeoSeries.from_wkt with "
+        "pandas.DataFrame instead",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    df = pd.DataFrame({"wkt": wkt_list})
+    df[geom_name] = df["wkt"].apply(wkt.loads)
     return df.drop(columns="wkt")
 
 
-def wkt_to_geodataframe(wkt_list, geom_name='geometry'):
+def wkt_to_geodataframe(wkt_list, geom_name="geometry"):
     """Convert list of WKT strings to a GeoDataFrame.
 
     .. deprecated:: 0.6
         Use :meth:`geopandas.GeoSeries.from_wkt` with ``.to_frame("geometry")``
     """
-    warn("wkt_to_geodataframe: Use geopandas.GeoSeries.from_wkt with "
-         '.to_frame("geometry") instead',
-         DeprecationWarning, stacklevel=2)
+    warn(
+        "wkt_to_geodataframe: Use geopandas.GeoSeries.from_wkt with "
+        '.to_frame("geometry") instead',
+        DeprecationWarning,
+        stacklevel=2,
+    )
     gdf = geopandas.GeoSeries.from_wkt(wkt_list).to_frame(geom_name)
     return gdf.set_geometry(geom_name)
 
@@ -171,8 +187,11 @@ def wkt_to_geoseries(wkt_list, geom_name=None):
     .. deprecated:: 0.6
         Use :meth:`geopandas.GeoSeries.from_wkt`
     """
-    warn("wkt_to_geoseries: use geopandas.GeoSeries.from_wkt instead",
-         DeprecationWarning, stacklevel=2)
+    warn(
+        "wkt_to_geoseries: use geopandas.GeoSeries.from_wkt instead",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     return geopandas.GeoSeries.from_wkt(wkt_list, name=geom_name)
 
 
@@ -186,7 +205,8 @@ def force_2d(gs):
 def round_coords(gs, rounding_precision=3):
     """Round coordinate precision of a GeoSeries."""
     return geopandas.GeoSeries.from_wkt(
-            gs.apply(wkt.dumps, rounding_precision=rounding_precision))
+        gs.apply(wkt.dumps, rounding_precision=rounding_precision)
+    )
 
 
 def visible_wkt(geom):
@@ -301,8 +321,7 @@ def find_segnum_in_swn(n, geom):
     res = n.locate_geoms(geom)
     res["is_within_catchment"] = res.method == "catchment"
     res.rename(columns={"dist_to_seg": "dist_to_segnum"}, inplace=True)
-    return pd.DataFrame(
-        res[["segnum", "dist_to_segnum", "is_within_catchment"]])
+    return pd.DataFrame(res[["segnum", "dist_to_segnum", "is_within_catchment"]])
 
 
 def find_location_pairs(loc_df, n, *, all_pairs=False, exclude_branches=False):
@@ -376,8 +395,7 @@ def find_location_pairs(loc_df, n, *, all_pairs=False, exclude_branches=False):
     is_location_frame(loc_df, geom_required=False)
     segnum_is_in_index = loc_df.segnum.isin(n.segments.index)
     if not segnum_is_in_index.all():
-        raise ValueError(
-            "loc_df has segnum values not found in surface water network")
+        raise ValueError("loc_df has segnum values not found in surface water network")
 
     to_segnums = dict(n.to_segnums)
     if exclude_branches:
@@ -400,8 +418,7 @@ def find_location_pairs(loc_df, n, *, all_pairs=False, exclude_branches=False):
             while True:
                 if cur_segnum in to_segnums:
                     next_segnum = to_segnums[cur_segnum]
-                    if (exclude_branches and
-                            len(from_segnums.get(next_segnum, [])) > 1):
+                    if exclude_branches and len(from_segnums.get(next_segnum, [])) > 1:
                         break  # stop searching due to branch
                     sel = loc_df["segnum"] == next_segnum
                     for ds_idx in sel[sel].index:
@@ -421,12 +438,15 @@ def find_location_pairs(loc_df, n, *, all_pairs=False, exclude_branches=False):
                 while True:
                     if cur_segnum in to_segnums:
                         next_segnum = to_segnums[cur_segnum]
-                        if (exclude_branches and
-                                len(from_segnums.get(next_segnum, [])) > 1):
+                        if (
+                            exclude_branches
+                            and len(from_segnums.get(next_segnum, [])) > 1
+                        ):
                             break  # no pair due to branch
                         if next_segnum in loc_segnum_s:
-                            ds_idx = loc_df.segnum[
-                                loc_df.segnum == next_segnum].index[0]
+                            ds_idx = loc_df.segnum[loc_df.segnum == next_segnum].index[
+                                0
+                            ]
                             break  # found pair
                     else:
                         break  # no pair due to no downstream location
@@ -504,8 +524,7 @@ def location_pair_geoms(pairs, loc_df, n):
     is_location_frame(loc_df, geom_required=False)
     segnum_is_in_index = loc_df.segnum.isin(n.segments.index)
     if not segnum_is_in_index.all():
-        raise ValueError(
-            "loc_df has segnum values not found in surface water network")
+        raise ValueError("loc_df has segnum values not found in surface water network")
 
     seg_geom = force_2d(n.segments.geometry)
     geoms_d = {}
@@ -517,8 +536,10 @@ def location_pair_geoms(pairs, loc_df, n):
             # pairs are in the same segnum
             geoms_d[pair] = substring(
                 seg_geom[upstream.segnum],
-                upstream.seg_ndist, downstream.seg_ndist,
-                normalized=True)
+                upstream.seg_ndist,
+                downstream.seg_ndist,
+                normalized=True,
+            )
         else:
             try:
                 segnums = n.route_segnums(upstream.segnum, downstream.segnum)
@@ -529,14 +550,17 @@ def location_pair_geoms(pairs, loc_df, n):
             assert segnums[-1] == downstream.segnum
             geoms = [
                 substring(
-                    seg_geom[upstream.segnum],
-                    upstream.seg_ndist, 1.0, normalized=True)
+                    seg_geom[upstream.segnum], upstream.seg_ndist, 1.0, normalized=True
+                )
             ]
             geoms.extend(list(seg_geom[segnums[1:-1]]))
             geoms.append(
                 substring(
                     seg_geom[downstream.segnum],
-                    0.0, downstream.seg_ndist, normalized=True)
+                    0.0,
+                    downstream.seg_ndist,
+                    normalized=True,
+                )
             )
             geom = unary_union(geoms)
             if geom.geom_type != "LineString":

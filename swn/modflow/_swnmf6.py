@@ -60,8 +60,13 @@ class SwnMf6(SwnModflowBase):
 
     @classmethod
     def from_swn_flopy(
-            cls, swn, model, idomain_action="freeze",
-            reach_include_fraction=0.2, diversion_downstream_bias=0.0):
+        cls,
+        swn,
+        model,
+        idomain_action="freeze",
+        reach_include_fraction=0.2,
+        diversion_downstream_bias=0.0,
+    ):
         """Create a MODFLOW 6 SFR structure from a surface water network.
 
         Parameters
@@ -93,8 +98,11 @@ class SwnMf6(SwnModflowBase):
             raise ValueError("idomain_action must be one of freeze or modify")
 
         obj = super().from_swn_flopy(
-            swn=swn, model=model, domain_action=idomain_action,
-            reach_include_fraction=reach_include_fraction)
+            swn=swn,
+            model=model,
+            domain_action=idomain_action,
+            reach_include_fraction=reach_include_fraction,
+        )
 
         # Evaluate connections, assume only converging network
         to_segnums_d = swn.to_segnums.to_dict()
@@ -123,8 +131,7 @@ class SwnMf6(SwnModflowBase):
 
         obj.reaches["to_rno"] = -1
         if has_diversions:
-            segnum_iter = obj.reaches.loc[
-                ~obj.reaches.diversion, "segnum"].items()
+            segnum_iter = obj.reaches.loc[~obj.reaches.diversion, "segnum"].items()
         else:
             segnum_iter = obj.reaches["segnum"].items()
         rno, segnum = next(segnum_iter)
@@ -150,41 +157,47 @@ class SwnMf6(SwnModflowBase):
             diversions_in_model = obj.diversions[div_sel]
             r_df = obj.get_location_frame_reach_info(
                 diversions_in_model.rename(columns={"from_segnum": "segnum"})[
-                    ["segnum", "seg_ndist"]],
+                    ["segnum", "seg_ndist"]
+                ],
                 downstream_bias=diversion_downstream_bias,
-                geom_loc_df=getattr(diversions_in_model, "geometry", None))
+                geom_loc_df=getattr(diversions_in_model, "geometry", None),
+            )
             obj.diversions["rno"] = 0  # valid from 1
             obj.diversions.loc[r_df.index, "rno"] = r_df.rno
             # evaluate idv, which is betwen 1 and ndv
             obj.diversions["idv"] = 0
             obj.diversions.loc[div_sel, "idv"] = 1
-            rno_counts = obj.diversions[div_sel].groupby(
-                "rno").count()["in_model"]
+            rno_counts = obj.diversions[div_sel].groupby("rno").count()["in_model"]
             for rno, count in rno_counts[rno_counts > 1].items():
-                obj.diversions.loc[obj.diversions["rno"] == rno, "idv"] = \
-                    obj.diversions.idv[obj.diversions["rno"] == rno].cumsum()
+                obj.diversions.loc[
+                    obj.diversions["rno"] == rno, "idv"
+                ] = obj.diversions.idv[obj.diversions["rno"] == rno].cumsum()
             # cross-reference iconr to rno used as a reach
-            diversion_reaches = obj.reaches.loc[
-                obj.reaches.diversion].reset_index().set_index("divid")
+            diversion_reaches = (
+                obj.reaches.loc[obj.reaches.diversion].reset_index().set_index("divid")
+            )
             obj.diversions["iconr"] = diversion_reaches["rno"]
             # Also put data into reaches frame
             obj.reaches["div_from_rno"] = 0
-            rdiv = obj.diversions.loc[div_sel, ["rno", "iconr"]].rename(
-                columns={"rno": "from_rno", "iconr": "rno"}
-                ).reset_index().set_index("rno")
+            rdiv = (
+                obj.diversions.loc[div_sel, ["rno", "iconr"]]
+                .rename(columns={"rno": "from_rno", "iconr": "rno"})
+                .reset_index()
+                .set_index("rno")
+            )
             obj.reaches.loc[rdiv.index, "div_from_rno"] = rdiv["from_rno"]
-            obj.reaches["div_to_rnos"] = \
-                [set() for _ in range(len(obj.reaches))]
-            to_rnos = obj.reaches.loc[
-                obj.reaches["div_from_rno"] > 0, "div_from_rno"]
+            obj.reaches["div_to_rnos"] = [set() for _ in range(len(obj.reaches))]
+            to_rnos = obj.reaches.loc[obj.reaches["div_from_rno"] > 0, "div_from_rno"]
             for k, v in to_rnos.items():
                 obj.reaches.at[v, "div_to_rnos"].add(k)
 
             # Workaround potential MODFLOW6 bug where diversions cannot attach
             # to outlet reach, so add another reach
             sel = (
-                (obj.reaches["to_rno"] == 0) & (~obj.reaches["diversion"]) &
-                (obj.reaches["div_to_rnos"].apply(len) > 0))
+                (obj.reaches["to_rno"] == 0)
+                & (~obj.reaches["diversion"])
+                & (obj.reaches["div_to_rnos"].apply(len) > 0)
+            )
             if sel.any() and "mask" not in obj.reaches.columns:
                 obj.reaches["mask"] = False
                 if swn.has_z:
@@ -197,14 +210,16 @@ class SwnMf6(SwnModflowBase):
                 obj.reaches.loc[rno, "to_rno"] = new_rno
                 # Use as template for new reach
                 reach_d = obj.reaches.loc[rno].to_dict()
-                reach_d.update({
-                    "geometry": empty_geom,
-                    "mask": True,
-                    "ireach": reach_d["ireach"] + 1,
-                    "to_rno": 0,
-                    "from_rnos": {rno},
-                    "div_to_rnos": set(),
-                })
+                reach_d.update(
+                    {
+                        "geometry": empty_geom,
+                        "mask": True,
+                        "ireach": reach_d["ireach"] + 1,
+                        "to_rno": 0,
+                        "from_rnos": {rno},
+                        "div_to_rnos": set(),
+                    }
+                )
                 with ignore_shapely_warnings_for_object_array():
                     obj.reaches.loc[new_rno] = reach_d
 
@@ -226,27 +241,30 @@ class SwnMf6(SwnModflowBase):
             nper = tdis.nper.data
             model_info = f"flopy {self.model.version} {self.model.name!r}"
             sp_info = "{} stress period{} with perlen: {} {}".format(
-                nper, "" if nper == 1 else "s",
+                nper,
+                "" if nper == 1 else "s",
                 abbr_str(list(tdis.perioddata.array["perlen"]), 4),
-                tdis.time_units.data)
+                tdis.time_units.data,
+            )
         s = f"<{self.__class__.__name__}: {model_info}\n"
         reaches = self.reaches
         if reaches is not None:
             s += "  {} in reaches ({}): {}\n".format(
-                len(reaches), reaches.index.name,
-                abbr_str(list(reaches.index), 4))
+                len(reaches), reaches.index.name, abbr_str(list(reaches.index), 4)
+            )
         diversions = self.diversions
         if diversions is not None:
             diversions_in_model = self.diversions[self.diversions["in_model"]]
             s += "  {} in diversions (iconr): {}\n".format(
-                len(diversions_in_model),
-                abbr_str(list(diversions_in_model.iconr), 4))
+                len(diversions_in_model), abbr_str(list(diversions_in_model.iconr), 4)
+            )
         s += f"  {sp_info} />"
         return s
 
     def __eq__(self, other):
         """Return true if objects are equal."""
         import flopy
+
         try:
             for (ak, av), (bk, bv) in zip_longest(iter(self), iter(other)):
                 if ak != bk:
@@ -288,8 +306,7 @@ class SwnMf6(SwnModflowBase):
                 auxiliary = [auxiliary]
             defcols_names += auxiliary
         dat = pd.DataFrame(self.reaches.copy())
-        dat["idomain"] = \
-            self.model.dis.idomain.array[dat["k"], dat["i"], dat["j"]]
+        dat["idomain"] = self.model.dis.idomain.array[dat["k"], dat["i"], dat["j"]]
         cellid_none = dat["idomain"] < 1
         if "mask" in dat.columns:
             cellid_none |= dat["mask"]
@@ -299,7 +316,7 @@ class SwnMf6(SwnModflowBase):
             dat[kij_l] += 1
             # use kij unstead of cellid
             idx = defcols_names.index("cellid")
-            defcols_names[idx:idx + 1] = kij_l
+            defcols_names[idx : idx + 1] = kij_l
             # convert kij to str, and store NONE in k, if needed
             dat[kij_l] = dat[kij_l].astype(str)
             if cellid_none.any():
@@ -323,18 +340,16 @@ class SwnMf6(SwnModflowBase):
         if boundname:
             defcols_names.append("boundname")
             if (na := dat["boundname"].isna()).any():
-                dat.loc[~na, "boundname"] = \
-                    dat.loc[~na, "boundname"].astype(str)
+                dat.loc[~na, "boundname"] = dat.loc[~na, "boundname"].astype(str)
             else:
                 dat["boundname"] = dat["boundname"].astype(str)
             # Check and enforce 40 character limit
             sel = dat.boundname.str.len() > 40
             if sel.any():
                 self.logger.warning(
-                    "clipping %d boundname entries to 40 character limit",
-                    sel.sum())
-                dat.loc[sel, "boundname"] = \
-                    dat.loc[sel, "boundname"].str.slice(stop=40)
+                    "clipping %d boundname entries to 40 character limit", sel.sum()
+                )
+                dat.loc[sel, "boundname"] = dat.loc[sel, "boundname"].str.slice(stop=40)
         # check missing columns
         missing = []
         for name in defcols_names:
@@ -345,8 +360,7 @@ class SwnMf6(SwnModflowBase):
             raise KeyError(f"missing {len(missing)} {what}: {missing_list}")
         return dat.loc[:, defcols_names]
 
-    def packagedata_frame(
-            self, style: str, auxiliary: list = [], boundname=None):
+    def packagedata_frame(self, style: str, auxiliary: list = [], boundname=None):
         """Return DataFrame of PACKAGEDATA for MODFLOW 6 SFR.
 
         This DataFrame is derived from the reaches DataFrame.
@@ -396,7 +410,7 @@ class SwnMf6(SwnModflowBase):
         >>> nm.reaches["aux1"] = 2.0 + nm.reaches.index / 10.0
         >>> nm.packagedata_frame("native", auxiliary="aux1")
              k  i  j       rlen  rwid   rgrd  ...    man  ncon  ustrf  ndv  aux1  boundname
-        rno                                   ...                                          
+        rno                                   ...
         1    1  1  1  18.027756  10.0  0.001  ...  0.024     1    0.0    0   2.1        101
         2    1  1  2   6.009252  10.0  0.001  ...  0.024     2    1.0    0   2.2        101
         3    1  2  2  12.018504  10.0  0.001  ...  0.024     2    1.0    0   2.3        101
@@ -408,7 +422,7 @@ class SwnMf6(SwnModflowBase):
         [7 rows x 15 columns]
         >>> nm.packagedata_frame("flopy", boundname=False)
                 cellid       rlen  rwid   rgrd  rtp  rbth  rhk    man  ncon  ustrf  ndv
-        rno                                                                            
+        rno
         0    (0, 0, 0)  18.027756  10.0  0.001  1.0   1.0  1.0  0.024     1    0.0    0
         1    (0, 0, 1)   6.009252  10.0  0.001  1.0   1.0  1.0  0.024     2    1.0    0
         2    (0, 1, 1)  12.018504  10.0  0.001  1.0   1.0  1.0  0.024     2    1.0    0
@@ -418,33 +432,37 @@ class SwnMf6(SwnModflowBase):
         6    (0, 2, 1)  10.000000  10.0  0.001  1.0   1.0  1.0  0.024     1    1.0    0
         """  # noqa
         from flopy.mf6 import ModflowGwfsfr as Mf6Sfr
+
         defcols_names = [dt[0] for dt in Mf6Sfr.packagedata.dtype(self.model)]
         defcols_names.remove("rno")  # this is the index
         dat = self._init_package_df(
-            style=style, defcols_names=defcols_names, auxiliary=auxiliary)
+            style=style, defcols_names=defcols_names, auxiliary=auxiliary
+        )
         if "rlen" not in dat.columns:
             dat.loc[:, "rlen"] = dat.geometry.length
-        dat["ncon"] = (
-            dat["from_rnos"].apply(len) +
-            (dat["to_rno"] > 0).astype(int)
-        )
+        dat["ncon"] = dat["from_rnos"].apply(len) + (dat["to_rno"] > 0).astype(int)
         dat["ndv"] = 0
         if self.diversions is not None:
-            dat["ncon"] += (
-                dat["div_to_rnos"].apply(len) +
-                (dat["div_from_rno"] > 0).astype(int)
+            dat["ncon"] += dat["div_to_rnos"].apply(len) + (
+                dat["div_from_rno"] > 0
+            ).astype(int)
+            ndv = (
+                self.diversions[self.diversions["in_model"]]
+                .groupby("rno")
+                .count()
+                .in_model
             )
-            ndv = self.diversions[
-                self.diversions["in_model"]].groupby("rno").count().in_model
             if style == "flopy":
                 ndv.index -= 1
             dat.loc[ndv.index, "ndv"] = ndv
         return self._final_package_df(
-            "packagedata reaches series", dat,
-            defcols_names=defcols_names, boundname=boundname)
+            "packagedata reaches series",
+            dat,
+            defcols_names=defcols_names,
+            boundname=boundname,
+        )
 
-    def write_packagedata(
-            self, fname: str, auxiliary: list = [], boundname=None):
+    def write_packagedata(self, fname: str, auxiliary: list = [], boundname=None):
         """
         Write PACKAGEDATA file for MODFLOW 6 SFR.
 
@@ -467,8 +485,7 @@ class SwnMf6(SwnModflowBase):
         swn.file.read_formatted_frame : Read formatted file as a DataFrame.
 
         """
-        pn = self.packagedata_frame(
-            "native", auxiliary=auxiliary, boundname=boundname)
+        pn = self.packagedata_frame("native", auxiliary=auxiliary, boundname=boundname)
         write_formatted_frame(pn, fname)
 
     def flopy_packagedata(self, auxiliary: list = [], boundname=None):
@@ -487,8 +504,7 @@ class SwnMf6(SwnModflowBase):
         list
 
         """
-        df = self.packagedata_frame(
-            "flopy", auxiliary=auxiliary, boundname=boundname)
+        df = self.packagedata_frame("flopy", auxiliary=auxiliary, boundname=boundname)
         return [list(x) for x in df.itertuples()]
 
     def connectiondata_series(self, style: str):
@@ -500,6 +516,7 @@ class SwnMf6(SwnModflowBase):
             If "native", all indicies (including kij) use one-based notation.
             If "flopy", all indices (including rno) use zero-based notation.
         """
+
         def nonzerolst(x, neg=False):
             if neg:
                 return [-x] if x > 0 else []
@@ -508,17 +525,17 @@ class SwnMf6(SwnModflowBase):
 
         if self.diversions is not None:
             res = (
-                self.reaches["from_rnos"].apply(sorted) +
-                self.reaches["div_from_rno"].apply(nonzerolst, neg=False) +
-                self.reaches["to_rno"].apply(nonzerolst, neg=True) +
-                self.reaches["div_to_rnos"].apply(sorted).apply(
-                    lambda x: [-i for i in x])
+                self.reaches["from_rnos"].apply(sorted)
+                + self.reaches["div_from_rno"].apply(nonzerolst, neg=False)
+                + self.reaches["to_rno"].apply(nonzerolst, neg=True)
+                + self.reaches["div_to_rnos"]
+                .apply(sorted)
+                .apply(lambda x: [-i for i in x])
             )
         else:
-            res = (
-                self.reaches["from_rnos"].apply(sorted) +
-                self.reaches["to_rno"].apply(nonzerolst, neg=True)
-            )
+            res = self.reaches["from_rnos"].apply(sorted) + self.reaches[
+                "to_rno"
+            ].apply(nonzerolst, neg=True)
 
         if style == "native":
             # keep one-based notation, but convert list to str
@@ -622,6 +639,7 @@ class SwnMf6(SwnModflowBase):
         14    5    1     10   upto
         """  # noqa
         from flopy.mf6 import ModflowGwfsfr as Mf6Sfr
+
         defcols_dtype = Mf6Sfr.diversions.empty(self.model).dtype
         if self.diversions is None:
             self.logger.warning("diversions not set")
@@ -640,8 +658,10 @@ class SwnMf6(SwnModflowBase):
                 if name not in div_columns:
                     missing_l.append(name)
             raise KeyError(
-                "missing {} diversions dataset(s): {}"
-                .format(len(missing_l), ", ".join(sorted(missing_l))))
+                "missing {} diversions dataset(s): {}".format(
+                    len(missing_l), ", ".join(sorted(missing_l))
+                )
+            )
         if style == "native":
             pass
         elif style == "flopy":
@@ -686,8 +706,8 @@ class SwnMf6(SwnModflowBase):
         return [list(x) for x in dat.itertuples(index=False)]
 
     def package_period_frame(
-            self, package: str, style: str, auxiliary: list = [],
-            boundname=None):
+        self, package: str, style: str, auxiliary: list = [], boundname=None
+    ):
         """Return DataFrame of PERIOD data for MODFLOW 6 packages.
 
         This DataFrame is derived from the reaches DataFrame, and is
@@ -742,7 +762,7 @@ class SwnMf6(SwnModflowBase):
         >>> nm.reaches["boundname"] = nm.reaches["segnum"]
         >>> nm.package_period_frame("drn", "native", auxiliary="dlen")
                  k  i  j  elev        cond       dlen boundname
-        per rno                                                
+        per rno
         1   1    1  1  1  10.0  180.277564  18.027756       101
             2    1  1  2  10.0   60.092521   6.009252       101
             3    1  2  2  10.0  120.185043  12.018504       101
@@ -752,7 +772,7 @@ class SwnMf6(SwnModflowBase):
             7    1  3  2  10.0  100.000000  10.000000       100
         >>> nm.package_period_frame("drn","flopy", boundname=False)
                     cellid  elev        cond
-        per rno                             
+        per rno
         0   0    (0, 0, 0)  10.0  180.277564
             1    (0, 0, 1)  10.0   60.092521
             2    (0, 1, 1)  10.0  120.185043
@@ -765,22 +785,27 @@ class SwnMf6(SwnModflowBase):
         lst_tpl = Mf6pak.stress_period_data
         defcols_names = [dt[0] for dt in lst_tpl.dtype(self.model)]
         dat = self._init_package_df(
-            style=style, defcols_names=defcols_names, auxiliary=auxiliary)
+            style=style, defcols_names=defcols_names, auxiliary=auxiliary
+        )
         dat = self._final_package_df(
-            f"{Mf6pak.__name__} reaches series", dat,
-            defcols_names=defcols_names, boundname=boundname)
+            f"{Mf6pak.__name__} reaches series",
+            dat,
+            defcols_names=defcols_names,
+            boundname=boundname,
+        )
         if self.model.simulation.tdis.nper.data != 1:
             self.logger.warning(
                 "only preparing PERIOD data for the first stress period of %s",
-                self.model.simulation.tdis.nper.data)
+                self.model.simulation.tdis.nper.data,
+            )
         dat["per"] = 1
         if style == "flopy":
             dat["per"] -= 1
         return dat.reset_index().set_index(["per", "rno"])
 
     def write_package_period(
-            self, package: str, fname, auxiliary: list = [],
-            boundname=None):
+        self, package: str, fname, auxiliary: list = [], boundname=None
+    ):
         """
         Write PERIOD file for MODFLOW 6 packages, to be used within OPEN/CLOSE.
 
@@ -857,7 +882,8 @@ class SwnMf6(SwnModflowBase):
 
         """
         spdf = self.package_period_frame(
-            package, "native", auxiliary=auxiliary, boundname=boundname)
+            package, "native", auxiliary=auxiliary, boundname=boundname
+        )
         if isinstance(fname, os.PathLike):
             fname = os.fsdecode(fname)
         for per, df in spdf.groupby("per"):
@@ -865,8 +891,7 @@ class SwnMf6(SwnModflowBase):
             self.logger.debug("writing period file %s", per_fname)
             write_formatted_frame(df, per_fname, index=False)
 
-    def flopy_package_period(
-            self, package: str, auxiliary: list = [], boundname=None):
+    def flopy_package_period(self, package: str, auxiliary: list = [], boundname=None):
         """Return dict of lists of lists for flopy's stress_period_data.
 
         Parameters
@@ -925,25 +950,29 @@ class SwnMf6(SwnModflowBase):
 
         """
         spdf = self.package_period_frame(
-            package, "flopy", auxiliary=auxiliary, boundname=boundname)
+            package, "flopy", auxiliary=auxiliary, boundname=boundname
+        )
         spd = {}
         for per, df in spdf.groupby("per"):
             spd[per] = [list(x) for x in df.itertuples(index=False)]
         return spd
 
-    _tsvar_meta = pd.DataFrame([
-        ("status", "str"),
-        ("manning", "ts"),
-        ("stage", "ts"),
-        ("inflow", "ts"),
-        ("rainfall", "ts"),
-        ("evaporation", "ts"),
-        ("runoff", "ts"),
-        ("divflow", "ts"),
-        ("upstream_fraction", "float"),
-        ("auxname", "str"),
-        ("auxval", "ts"),
-    ], columns=["name", "type"]).set_index("name")
+    _tsvar_meta = pd.DataFrame(
+        [
+            ("status", "str"),
+            ("manning", "ts"),
+            ("stage", "ts"),
+            ("inflow", "ts"),
+            ("rainfall", "ts"),
+            ("evaporation", "ts"),
+            ("runoff", "ts"),
+            ("divflow", "ts"),
+            ("upstream_fraction", "float"),
+            ("auxname", "str"),
+            ("auxval", "ts"),
+        ],
+        columns=["name", "type"],
+    ).set_index("name")
 
     def _check_tsvar_name(self, name: str):
         """Helper method to check name used for set_tsvar_* methods."""
@@ -977,9 +1006,15 @@ class SwnMf6(SwnModflowBase):
             raise NotImplementedError("only 'start' is currently implemented")
 
     def default_packagedata(
-            self, hyd_cond1=1., hyd_cond_out=None,
-            thickness1=1., thickness_out=None, width1=None, width_out=None,
-            roughch=0.024):
+        self,
+        hyd_cond1=1.0,
+        hyd_cond_out=None,
+        thickness1=1.0,
+        thickness_out=None,
+        width1=None,
+        width_out=None,
+        roughch=0.024,
+    ):
         """High-level function to set MODFLOW 6 SFR PACKAGEDATA defaults.
 
         Parameters
@@ -1026,15 +1061,14 @@ class SwnMf6(SwnModflowBase):
                 width1 = 10.0
                 action = "not found in segments frame; using default %s"
                 action_args = (width1,)
-            self.logger.info(
-                f"default_packagedata: 'rwd' {action}", *action_args)
-        self.set_reach_data_from_segments(
-            "rwid", width1, width_out, method="constant")
+            self.logger.info(f"default_packagedata: 'rwd' {action}", *action_args)
+        self.set_reach_data_from_segments("rwid", width1, width_out, method="constant")
 
         if "rgrd" not in self.reaches.columns:
             self.logger.info(
                 "default_packagedata: 'rgrd' not yet evaluated, setting with "
-                "set_reach_slope()")
+                "set_reach_slope()"
+            )
             self.set_reach_slope()
 
         # TODO: add a similar method for rtp? set_reaches_top()?
@@ -1086,7 +1120,8 @@ class SwnMf6(SwnModflowBase):
         kwds["nreaches"] = len(self.reaches)
         if "packagedata" not in kwds:
             kwds["packagedata"] = self.flopy_packagedata(
-                auxiliary=auxiliary, boundname=boundnames)
+                auxiliary=auxiliary, boundname=boundnames
+            )
         if "connectiondata" not in kwds:
             kwds["connectiondata"] = self.flopy_connectiondata()
         if self.diversions is not None and "diversions" not in kwds:
@@ -1094,8 +1129,7 @@ class SwnMf6(SwnModflowBase):
 
         return flopy.mf6.ModflowGwfsfr(self.model, **kwds)
 
-    def set_package_obj(
-            self, package: str, auxiliary=None, boundnames=None, **kwds):
+    def set_package_obj(self, package: str, auxiliary=None, boundnames=None, **kwds):
         """Set MODFLOW 6 package data to flopy model.
 
         Parameters
@@ -1129,7 +1163,8 @@ class SwnMf6(SwnModflowBase):
             kwds["boundnames"] = True
         if "stress_period_data" not in kwds:
             kwds["stress_period_data"] = self.flopy_package_period(
-                package=package, auxiliary=auxiliary, boundname=boundnames)
+                package=package, auxiliary=auxiliary, boundname=boundnames
+            )
         if "maxbound" not in kwds:
             kwds["maxbound"] = len(self.reaches)
 
@@ -1137,8 +1172,9 @@ class SwnMf6(SwnModflowBase):
         # self.logger.debug("%s called with kwds: %s", package, kwds)
         return Mf6pak(self.model, **kwds)
 
-    def _segbyseg_elevs(self, minslope=1e-4, fix_dis=True, minthick=0.5,
-                        min_incise=0.2, max_str_z=None):
+    def _segbyseg_elevs(
+        self, minslope=1e-4, fix_dis=True, minthick=0.5, min_incise=0.2, max_str_z=None
+    ):
         """
         Fix reach elevations but by using segment definition and setting sane
         segment elevations first.
@@ -1162,10 +1198,20 @@ class SwnMf6(SwnModflowBase):
                 new_elev = rbed_elev - buffer
                 self.logger.debug(
                     "seg %s reach %s @ %s is below layer 1 bottom @ %s",
-                    seg, r.ireach, rbed_elev, r.bot)
-                self.logger.debug((
-                    "dropping layer 1 bottom to %s to accommodate stream "
-                    "@ i = %s, j = %s", new_elev, r.i, r.j))
+                    seg,
+                    r.ireach,
+                    rbed_elev,
+                    r.bot,
+                )
+                self.logger.debug(
+                    (
+                        "dropping layer 1 bottom to %s to accommodate stream "
+                        "@ i = %s, j = %s",
+                        new_elev,
+                        r.i,
+                        r.j,
+                    )
+                )
                 botms[0, r.i, r.j] = new_elev
             return botms
 
@@ -1174,9 +1220,8 @@ class SwnMf6(SwnModflowBase):
         # 1. Segments flow downstream
         # 2. Downstream segments are below upstream segments
         self.fix_segment_elevs(
-            min_incise=min_incise,
-            min_slope=minslope,
-            max_str_z=max_str_z)
+            min_incise=min_incise, min_slope=minslope, max_str_z=max_str_z
+        )
         self.reconcile_reach_strtop()
         buffer = 1.0  # 1 m (buffer to leave at the base of layer 1 -
         # also helps with precision issues)
@@ -1189,16 +1234,18 @@ class SwnMf6(SwnModflowBase):
         reach_ij = tuple(self.reaches[["i", "j"]].values.T)
         self.logger.info(
             "%s segments with reaches above model top",
-            self.reaches[reachsel]["iseg"].unique().shape[0])
+            self.reaches[reachsel]["iseg"].unique().shape[0],
+        )
         # get segments with reaches above the top surface
-        segsabove = self.reaches[reachsel].groupby(
-            "iseg").size().sort_values(ascending=False)
+        segsabove = (
+            self.reaches[reachsel].groupby("iseg").size().sort_values(ascending=False)
+        )
         # get incision gradient from segment elevups and elevdns
         # ("diff_up" and "diff_dn" are the incisions of the top and
         # bottom reaches from the segment data)
-        self.segment_data["incgrad"] = \
-            ((self.segment_data["diff_up"] - self.segment_data["diff_dn"]) /
-             self.segment_data["seglen"])
+        self.segment_data["incgrad"] = (
+            self.segment_data["diff_up"] - self.segment_data["diff_dn"]
+        ) / self.segment_data["seglen"]
         # copy of layer 1 bottom (for updating to fit in stream reaches)
         layerbots = self.model.dis.botm.array.copy()
         # loop over each segment
@@ -1214,12 +1261,14 @@ class SwnMf6(SwnModflowBase):
                     layerbots = _check_reach_v_laybot(reach, layerbots, buffer)
                 # apparent optimised incision based
                 # on the incision gradient for the segment
-                self.reaches.loc[rsel, "strtop_incopt"] = \
-                    self.reaches.loc[rsel, "top"].subtract(
-                        self.segment_data.loc[segsel, "diff_up"].values[0]) + \
-                    (self.reaches.loc[rsel, "cmids"].subtract(
-                        self.reaches.loc[rsel, "cmids"].values[0]) *
-                     self.segment_data.loc[segsel, "incgrad"].values[0])
+                self.reaches.loc[rsel, "strtop_incopt"] = self.reaches.loc[
+                    rsel, "top"
+                ].subtract(self.segment_data.loc[segsel, "diff_up"].values[0]) + (
+                    self.reaches.loc[rsel, "cmids"].subtract(
+                        self.reaches.loc[rsel, "cmids"].values[0]
+                    )
+                    * self.segment_data.loc[segsel, "incgrad"].values[0]
+                )
                 # falls apart when the top elevation is not monotonically
                 # decreasing down the segment (/always!)
 
@@ -1239,11 +1288,13 @@ class SwnMf6(SwnModflowBase):
                     # strtop that would result from minimum slope
                     # from upstream reach
                     strtop_withminslope = upreach_strtop - (
-                            (reach.cmids - upreach_cmid) * minslope)
+                        (reach.cmids - upreach_cmid) * minslope
+                    )
                     # strtop that would result from minimum slope
                     # from bottom reach
                     strtop_min2bot = botreach_strtop + (
-                            (seglen - reach.cmids) * minslope)
+                        (seglen - reach.cmids) * minslope
+                    )
                     # check "optimum incision" is below upstream elevation
                     # and above the minimum slope to the bottom reach
                     if reach.strtop_incopt < strtop_min2bot:
@@ -1252,12 +1303,12 @@ class SwnMf6(SwnModflowBase):
                         self.logger.debug(
                             "seg %s reach %s, incopt is \\/ below minimum "
                             "slope from bottom reach elevation",
-                            seg, reach.ireach)
-                        self.logger.debug(
-                            "setting elevation to minslope from bottom")
+                            seg,
+                            reach.ireach,
+                        )
+                        self.logger.debug("setting elevation to minslope from bottom")
                         # set to minimum slope from outreach
-                        self.reaches.at[
-                            reach.Index, "strtop"] = strtop_min2bot
+                        self.reaches.at[reach.Index, "strtop"] = strtop_min2bot
                         # update upreach for next iteration
                         upreach_strtop = strtop_min2bot
                     elif reach.strtop_incopt > strtop_withminslope:
@@ -1265,12 +1316,12 @@ class SwnMf6(SwnModflowBase):
                         # too shallow a slope from upstream
                         self.logger.debug(
                             "seg %s reach %s, incopt /\\ above upstream",
-                            seg, reach.ireach)
-                        self.logger.debug(
-                            "setting elevation to minslope from upstream")
+                            seg,
+                            reach.ireach,
+                        )
+                        self.logger.debug("setting elevation to minslope from upstream")
                         # set to minimum slope from upstream reach
-                        self.reaches.at[
-                            reach.Index, "strtop"] = strtop_withminslope
+                        self.reaches.at[reach.Index, "strtop"] = strtop_withminslope
                         # update upreach for next iteration
                         upreach_strtop = strtop_withminslope
                     else:
@@ -1278,64 +1329,73 @@ class SwnMf6(SwnModflowBase):
                         self.logger.debug(
                             "seg %s reach %s, incopt is -- below upstream "
                             "reach and above the bottom reach",
-                            seg, reach.ireach)
+                            seg,
+                            reach.ireach,
+                        )
                         # CHECK FIRST:
                         # if optimium incision would place it
                         # below the bottom of layer 1
-                        if reach.strtop_incopt - reach.strthick < \
-                                reach.bot + buffer:
+                        if reach.strtop_incopt - reach.strthick < reach.bot + buffer:
                             # opt - stream thickness lower than layer 1 bottom
                             # (with a buffer)
                             self.logger.debug(
                                 "seg %s reach %s, incopt - bot is x\\/ "
-                                "below layer 1 bottom", seg, reach.ireach)
-                            if reach.bot + reach.strthick + buffer > \
-                                    strtop_withminslope:
+                                "below layer 1 bottom",
+                                seg,
+                                reach.ireach,
+                            )
+                            if (
+                                reach.bot + reach.strthick + buffer
+                                > strtop_withminslope
+                            ):
                                 # if layer bottom would put reach above
                                 # upstream reach we can only set to
                                 # minimum slope from upstream
                                 self.logger.debug(
-                                    "setting elevation to minslope "
-                                    "from upstream")
-                                self.reaches.at[reach.Index, "strtop"] = \
-                                    strtop_withminslope
+                                    "setting elevation to minslope from upstream"
+                                )
+                                self.reaches.at[
+                                    reach.Index, "strtop"
+                                ] = strtop_withminslope
                                 upreach_strtop = strtop_withminslope
                             else:
                                 # otherwise we can move reach so that it
                                 # fits into layer 1
                                 new_elev = reach.bot + reach.strthick + buffer
                                 self.logger.debug(
-                                    "setting elevation to %s, above "
-                                    "layer 1 bottom", new_elev)
+                                    "setting elevation to %s, above layer 1 bottom",
+                                    new_elev,
+                                )
                                 # set reach top so that it is above layer 1
                                 # bottom with a buffer
                                 # (allowing for bed thickness)
-                                self.reaches.at[reach.Index, "strtop"] = \
+                                self.reaches.at[reach.Index, "strtop"] = (
                                     reach.bot + buffer + reach.strthick
+                                )
                                 upreach_strtop = new_elev
                         else:
                             # strtop ok to set to "optimum incision"
                             # set to "optimum incision"
                             self.logger.debug("setting elevation to incopt")
-                            self.reaches.at[
-                                reach.Index, "strtop"] = reach.strtop_incopt
+                            self.reaches.at[reach.Index, "strtop"] = reach.strtop_incopt
                             upreach_strtop = reach.strtop_incopt
                     # check if new stream top is above layer 1 with a buffer
                     # (allowing for bed thickness)
                     reachbed_elev = upreach_strtop - reach.strthick
-                    layerbots = _check_reach_v_laybot(reach, layerbots, buffer,
-                                                      reachbed_elev)
+                    layerbots = _check_reach_v_laybot(
+                        reach, layerbots, buffer, reachbed_elev
+                    )
                     upreach_cmid = reach.cmids
                     # upreach_slope=reach.slope
             else:
                 # For segments that do not have reaches above top
                 # check if reaches are below layer 1
-                self.logger.debug(
-                    "seg %s is always downstream and below the top", seg)
+                self.logger.debug("seg %s is always downstream and below the top", seg)
                 for reach in self.reaches[rsel].itertuples():
                     reachbed_elev = reach.strtop - reach.strthick
-                    layerbots = _check_reach_v_laybot(reach, layerbots, buffer,
-                                                      reachbed_elev)
+                    layerbots = _check_reach_v_laybot(
+                        reach, layerbots, buffer, reachbed_elev
+                    )
             # OH CRAP need to update dis bottoms in reach df!
             # self.reaches["top"] = layerbots[
             #     tuple(self.reaches[["i", "j"]].values.T)]
@@ -1343,19 +1403,24 @@ class SwnMf6(SwnModflowBase):
         if fix_dis:
             # fix dis for incised reaches
             for k in range(self.model.dis.nlay - 1):
-                laythick = layerbots[k] - layerbots[
-                    k + 1]  # first one is layer 1 bottom - layer 2 bottom
+                laythick = (
+                    layerbots[k] - layerbots[k + 1]
+                )  # first one is layer 1 bottom - layer 2 bottom
                 self.logger.debug("checking layer %s thicknesses", k + 2)
                 thincells = laythick < minthick
-                self.logger.debug(
-                    "%s cells less than %s", thincells.sum(), minthick)
+                self.logger.debug("%s cells less than %s", thincells.sum(), minthick)
                 laythick[thincells] = minthick
                 layerbots[k + 1] = layerbots[k] - laythick
             self.model.dis.botm.set_data(layerbots)
 
     def _reachbyreach_elevs(
-            self, minslope=1e-4, minincise=0.2, minthick=0.5, fix_dis=True,
-            direction="downstream"):
+        self,
+        minslope=1e-4,
+        minincise=0.2,
+        minthick=0.5,
+        fix_dis=True,
+        direction="downstream",
+    ):
         """
         Fix reach elevations by just working from headwater to outlet
         (ignoring segment divisions).
@@ -1395,6 +1460,7 @@ class SwnMf6(SwnModflowBase):
         -------
 
         """
+
         def _check_reach_v_laybot(r, botms, buffer=1.0, rbed_elev=None):
             if rbed_elev is None:
                 rbed_elev = r.rtp - r.rbth
@@ -1405,15 +1471,19 @@ class SwnMf6(SwnModflowBase):
                 new_elev = rbed_elev - buffer
                 name = getattr(r, "Index", None) or getattr(r, "name")
                 self.logger.debug(
-                    "reach %s @ %s is below layer 1 bottom @ %s",
-                    name, rbed_elev, r.bot)
+                    "reach %s @ %s is below layer 1 bottom @ %s", name, rbed_elev, r.bot
+                )
                 self.logger.debug(
                     "dropping layer 1 bottom to %s to accommodate stream "
-                    "@ i = %s, j = %s", new_elev, r.i, r.j)
+                    "@ i = %s, j = %s",
+                    new_elev,
+                    r.i,
+                    r.j,
+                )
                 botms[0, r.i, r.j] = new_elev
             return botms
 
-        if direction == 'upstream':
+        if direction == "upstream":
             ustrm = True
         else:
             ustrm = False
@@ -1446,14 +1516,14 @@ class SwnMf6(SwnModflowBase):
             # get profile of reaches from this headwater
             dsegs = self._swn.gather_segnums(downstream=hdrch.segnum)
             segs = [hdrch.segnum] + dsegs
-            reaches = self.reaches.loc[
-                self.reaches.segnum.isin(segs)].sort_index()
+            reaches = self.reaches.loc[self.reaches.segnum.isin(segs)].sort_index()
             # get outflow reach for this profile
             # maybe can't rely on it being the last one
             # the sort_index() should order (assuming rno increases downstream)
             # so last should be to_rno == 0
-            assert reaches.iloc[-1].to_rno == 0, ("reach numbers possibly not "
-                                                  "increasing downstream")
+            assert (
+                reaches.iloc[-1].to_rno == 0
+            ), "reach numbers possibly not increasing downstream"
             outflow = reaches.iloc[-1]
             # check if outflow above model top
             if outflow.rtp > outflow.top - minincise:
@@ -1465,8 +1535,7 @@ class SwnMf6(SwnModflowBase):
             inc_dn = outflow.top - botreach_rtp
             # total profile length
             totlen = reaches.rlen.sum()
-            reaches['mid_dist'] = \
-                reaches['rlen'].cumsum() - reaches['rlen'] / 2.0
+            reaches["mid_dist"] = reaches["rlen"].cumsum() - reaches["rlen"] / 2.0
             if ustrm:  # switch order
                 reaches = reaches.sort_index(ascending=False)
                 prevreach_top = botreach_rtp
@@ -1479,15 +1548,13 @@ class SwnMf6(SwnModflowBase):
             # get incision gradient from headwater and outflow incision
             # ("inc_up" and "inc_dn" are the incisions of the top and
             # bottom reaches) # TODO is this stil meaningfull?
-            incgrad = ((inc_up - inc_dn) / totlen)
+            incgrad = (inc_up - inc_dn) / totlen
             # apparent optimised incision based
             # on the incision gradient for the segment
-            reaches["strtop_incopt"] = (
-                    (reaches.top - inc_up) +
-                    ((reaches.mid_dist - prevreach_mid) * incgrad)
+            reaches["strtop_incopt"] = (reaches.top - inc_up) + (
+                (reaches.mid_dist - prevreach_mid) * incgrad
             )
-            layerbots = _check_reach_v_laybot(
-                reaches.iloc[0], layerbots, buffer)
+            layerbots = _check_reach_v_laybot(reaches.iloc[0], layerbots, buffer)
             # loop over current profile from second to penultimate
             # (dont want to move endpoints)
             # TODO maybe more flexibility on bottom reach incision
@@ -1496,34 +1563,37 @@ class SwnMf6(SwnModflowBase):
                 # from upstream reach
                 rtp = reach.rtp
                 strtop_withminslope = prevreach_top - (
-                        (reach.mid_dist - prevreach_mid) * minslope)
+                    (reach.mid_dist - prevreach_mid) * minslope
+                )
                 if rtp > reach.top - minincise:
                     # current reach rtp is above the model top
                     self.logger.debug(
-                        "reach %s, rtp is: /\\ above model top", reach.Index)
+                        "reach %s, rtp is: /\\ above model top", reach.Index
+                    )
                     minslope_cond = (
                         reach.strtop_incopt < strtop_withminslope
-                        if ustrm else
-                        reach.strtop_incopt > strtop_withminslope
+                        if ustrm
+                        else reach.strtop_incopt > strtop_withminslope
                     )
                     if minslope_cond:
                         # incision according to incision gradient would be
                         # above upstream/below downstream or give too shallow
                         # a slope from previous:
                         self.logger.debug(
-                            "reach %s, incopt is: %s", reach.Index,
-                            "\\/ below downstream" if ustrm
-                            else "/\\ above upstream")
-                        self.logger.debug(
-                            "setting elevation to minslope from previous")
+                            "reach %s, incopt is: %s",
+                            reach.Index,
+                            "\\/ below downstream" if ustrm else "/\\ above upstream",
+                        )
+                        self.logger.debug("setting elevation to minslope from previous")
                         # set to minimum slope from previous reach
-                        self.reaches.at[reach.Index, "rtp"] = \
-                            strtop_withminslope
+                        self.reaches.at[reach.Index, "rtp"] = strtop_withminslope
                     else:
                         # rtp might be ok to set to "optimum incision"
                         self.logger.debug(
-                            "reach %s, incopt is: %s", reach.Index,
-                            "above downstream" if ustrm else "below upstream")
+                            "reach %s, incopt is: %s",
+                            reach.Index,
+                            "above downstream" if ustrm else "below upstream",
+                        )
                         # CHECK FIRST:
                         # if optimium incision would place it
                         # below the bottom of layer 1
@@ -1531,31 +1601,34 @@ class SwnMf6(SwnModflowBase):
                             # opt - stream thickness lower than layer 1 bottom
                             # (with a buffer)
                             self.logger.debug(
-                                "reach %s, incopt is: x\\/ "
-                                "below layer 1 bottom", reach.Index)
+                                "reach %s, incopt is: x\\/ below layer 1 bottom",
+                                reach.Index,
+                            )
                             new_elev = reach.bot + reach.rbth + buffer
                             minslope_cond = (
                                 new_elev < strtop_withminslope
-                                if ustrm else
-                                new_elev > strtop_withminslope
+                                if ustrm
+                                else new_elev > strtop_withminslope
                             )
                             if minslope_cond:
                                 # if layer bottom would put reach above
                                 # upstream reach/below downstream reach we
                                 # can only set to minimum slope from previous
                                 self.logger.debug(
-                                    "setting elevation to minslope "
-                                    "from previous")
+                                    "setting elevation to minslope from previous"
+                                )
                                 self.reaches.at[
-                                    reach.Index, "rtp"] = strtop_withminslope
+                                    reach.Index, "rtp"
+                                ] = strtop_withminslope
                                 # this may still leave us below the
                                 # bottom of layer
                             else:
                                 # otherwise we can move reach so that it
                                 # fits into layer 1
                                 self.logger.debug(
-                                    "setting elevation to %s, "
-                                    "above layer 1 bottom", new_elev)
+                                    "setting elevation to %s, above layer 1 bottom",
+                                    new_elev,
+                                )
                                 # set reach top so that it is above layer 1
                                 # bottom with a buffer
                                 # (allowing for bed thickness)
@@ -1564,43 +1637,42 @@ class SwnMf6(SwnModflowBase):
                             # strtop ok to set to "optimum incision"
                             # set to "optimum incision"
                             self.logger.debug("setting elevation to incopt")
-                            self.reaches.at[
-                                reach.Index, "rtp"] = reach.strtop_incopt
+                            self.reaches.at[reach.Index, "rtp"] = reach.strtop_incopt
                 else:
-                    self.logger.debug(
-                        "reach %s, rtp is: below model top", reach.Index)
+                    self.logger.debug("reach %s, rtp is: below model top", reach.Index)
                     minslope_cond = (
                         rtp < strtop_withminslope
-                        if ustrm else
-                        rtp > strtop_withminslope
+                        if ustrm
+                        else rtp > strtop_withminslope
                     )
                     if (rtp - reach.rbth) < reach.bot + buffer:
                         # rtp is below the bottom of layer 1
                         self.logger.debug(
-                            "reach %s, rtp is: x\\/ below layer 1 bottom",
-                            reach.Index)
+                            "reach %s, rtp is: x\\/ below layer 1 bottom", reach.Index
+                        )
                         new_elev = reach.bot + reach.rbth + buffer
                         minslope_cond = (
                             new_elev < strtop_withminslope
-                            if ustrm else
-                            new_elev > strtop_withminslope
+                            if ustrm
+                            else new_elev > strtop_withminslope
                         )
                         if minslope_cond:
                             # if layer bottom would put reach above
                             # upstream reach we can only set to
                             # minimum slope from upstream
                             self.logger.debug(
-                                "setting elevation to minslope from upstream")
-                            self.reaches.at[
-                                reach.Index, "rtp"] = strtop_withminslope
+                                "setting elevation to minslope from upstream"
+                            )
+                            self.reaches.at[reach.Index, "rtp"] = strtop_withminslope
                             # this may still leave us below the
                             # bottom of layer
                         else:
                             # otherwise we can move reach so that it
                             # fits into layer 1
                             self.logger.debug(
-                                "setting elevation to %s, "
-                                "above layer 1 bottom", new_elev)
+                                "setting elevation to %s, above layer 1 bottom",
+                                new_elev,
+                            )
                             # set reach top so that it is above layer 1
                             # bottom with a buffer
                             # (allowing for bed thickness)
@@ -1612,41 +1684,39 @@ class SwnMf6(SwnModflowBase):
                         # below top but above/below minslope from
                         # upstream/downstream
                         self.logger.debug(
-                            "reach %s, rtp is: /\\ above upstream",
-                            reach.Index)
-                        self.logger.debug(
-                            "setting elevation to minslope from upstream")
+                            "reach %s, rtp is: /\\ above upstream", reach.Index
+                        )
+                        self.logger.debug("setting elevation to minslope from upstream")
                         # set to minimum slope from previous reach
-                        self.reaches.at[reach.Index, "rtp"] = \
-                            strtop_withminslope
+                        self.reaches.at[reach.Index, "rtp"] = strtop_withminslope
                     # else it is above above bottom, below top and downstream
                 # update upreach for next iteration
                 prevreach_top = self.reaches.at[reach.Index, "rtp"]
                 # check if new stream top is above layer 1 with a buffer
                 # (allowing for bed thickness)
                 reachbed_elev = prevreach_top - reach.rbth
-                layerbots = _check_reach_v_laybot(reach, layerbots, buffer,
-                                                  reachbed_elev)
+                layerbots = _check_reach_v_laybot(
+                    reach, layerbots, buffer, reachbed_elev
+                )
                 prevreach_mid = reach.mid_dist
                 # upreach_slope=reach.slope
             self.reaches["bot"] = layerbots[0][reach_ij]
         if fix_dis:
             # fix dis for incised reaches
             for k in range(self.model.dis.nlay.data - 1):
-                laythick = layerbots[k] - layerbots[
-                    k + 1]  # first one is layer 1 bottom - layer 2 bottom
+                laythick = (
+                    layerbots[k] - layerbots[k + 1]
+                )  # first one is layer 1 bottom - layer 2 bottom
                 self.logger.debug("checking layer %s thicknesses", k + 2)
                 thincells = laythick < minthick
-                self.logger.debug(
-                    "%s cells less than %s", thincells.sum(), minthick)
+                self.logger.debug("%s cells less than %s", thincells.sum(), minthick)
                 laythick[thincells] = minthick
                 layerbots[k + 1] = layerbots[k] - laythick
             self.model.dis.botm.set_data(layerbots)
 
-
     def _to_rno_elevs(
-            self, minslope=0.0001, minincise=0.2, minthick=0.5, buffer=0.5,
-            fix_dis=True):
+        self, minslope=0.0001, minincise=0.2, minthick=0.5, buffer=0.5, fix_dis=True
+    ):
         """
         Wes's hacky attempt to set reach elevations. Doesn't really ensure
         anything, but the goal is:
@@ -1693,8 +1763,7 @@ class SwnMf6(SwnModflowBase):
         # add some columns to rdf
         rdf["ij"] = rdf.apply(lambda x: (int(x["i"]), int(x["j"])), axis=1)
         # hopefully this sort of addresses local grid refinement?
-        rdf["mindz"] = minslope * \
-            (delr[rdf.loc[:, "j"]] + delc[rdf.loc[:, "i"]]) / 2.0
+        rdf["mindz"] = minslope * (delr[rdf.loc[:, "j"]] + delc[rdf.loc[:, "i"]]) / 2.0
         if "rbth" not in rdf.columns:
             rdf["rbth"] = minthick
             icols.append("rbth")
@@ -1709,7 +1778,7 @@ class SwnMf6(SwnModflowBase):
         for idx, r in rdf.iterrows():
             if np.isnan(r["rtp"]):
                 rdf.loc[idx, "rbth"] = np.max([r["rbth"], minthick])
-                rdf.loc[idx, "rtp"] = top[r["ij"]]-minincise
+                rdf.loc[idx, "rtp"] = top[r["ij"]] - minincise
         for idx, r in rdf.iterrows():
             trno = int(r["to_rno"])
             if trno != 0:
@@ -1718,9 +1787,11 @@ class SwnMf6(SwnModflowBase):
         loop = 0
         cont = True
         while cont:
-            bad_reaches = [i for i in rdf.index
-                           if rdf.loc[i, "to_rtp"] > rdf.loc[i, "rtp"] -
-                           rdf.loc[i, "mindz"]]
+            bad_reaches = [
+                i
+                for i in rdf.index
+                if rdf.loc[i, "to_rtp"] > rdf.loc[i, "rtp"] - rdf.loc[i, "mindz"]
+            ]
             loop += 1
             chg = 0
             for br in bad_reaches:
@@ -1747,8 +1818,7 @@ class SwnMf6(SwnModflowBase):
 
                     # now adjust layering if necessary
                     if len(chglist) > 0 and fix_dis:
-                        self.logger.debug(
-                            "adjusting top for %s reaches", len(chglist))
+                        self.logger.debug("adjusting top for %s reaches", len(chglist))
                         for r in chglist:
                             # bump top elev up to rtp+incise if need be
                             new_top = rdf.loc[r, "rtp"] + rdf.loc[r, "incise"]
@@ -1759,8 +1829,9 @@ class SwnMf6(SwnModflowBase):
                             if botm[0][rdf.loc[r, "ij"]] >= maxbot:
                                 botdz = botm[0][rdf.loc[r, "ij"]] - maxbot
                                 for b in range(botm.shape[0]):
-                                    botm[b][rdf.loc[r, "ij"]] = \
+                                    botm[b][rdf.loc[r, "ij"]] = (
                                         botm[b][rdf.loc[r, "ij"]] - botdz
+                                    )
 
                 chg += len(chglist)
             if chg == 0:
@@ -1772,9 +1843,16 @@ class SwnMf6(SwnModflowBase):
         self.model.dis.top = top
 
     def fix_reach_elevs(
-            self, minslope=1e-4, minincise=0.2, minthick=0.5, buffer=0.1,
-            fix_dis=True, direction="downstream", segbyseg=False,
-            to_rno_elevs=False):
+        self,
+        minslope=1e-4,
+        minincise=0.2,
+        minthick=0.5,
+        buffer=0.1,
+        fix_dis=True,
+        direction="downstream",
+        segbyseg=False,
+        to_rno_elevs=False,
+    ):
         """Fix reach elevations.
 
         Notes
@@ -1835,13 +1913,12 @@ class SwnMf6(SwnModflowBase):
         elif to_rno_elevs:
             self._to_rno_elevs(minslope, minincise, minthick, buffer, fix_dis)
         else:
-            if direction == 'both':
-                direction = ['upstream', 'downstream']
+            if direction == "both":
+                direction = ["upstream", "downstream"]
             else:
                 direction = [direction]
             for d in direction:
-                self._reachbyreach_elevs(
-                    minslope, minincise, minthick, fix_dis, d)
+                self._reachbyreach_elevs(minslope, minincise, minthick, fix_dis, d)
         return
 
     def route_reaches(self, start, end, *, allow_indirect=False):
@@ -1887,7 +1964,7 @@ class SwnMf6(SwnModflowBase):
         >>> nm = swn.SwnMf6.from_swn_flopy(n, gwf)
         >>> nm.reaches[["iseg", "ireach", "to_rno", "from_rnos", "segnum"]]
              iseg  ireach  to_rno from_rnos  segnum
-        rno                                        
+        rno
         1       1       1       2        {}     101
         2       1       2       3       {1}     101
         3       1       3       6       {2}     101
@@ -1899,7 +1976,7 @@ class SwnMf6(SwnModflowBase):
         [1, 2, 3, 6, 7]
         >>> nm.reaches.loc[nm.route_reaches(1, 7), ["i", "j", "rlen"]]
              i  j       rlen
-        rno                 
+        rno
         1    0  0  18.027756
         2    0  1   6.009252
         3    1  1  12.018504
@@ -1922,7 +1999,7 @@ class SwnMf6(SwnModflowBase):
         con1 = list(go_downstream(start))
         try:
             # start is upstream, end is downstream
-            return con1[:(con1.index(end) + 1)]
+            return con1[: (con1.index(end) + 1)]
         except ValueError:
             pass
         con2 = list(go_downstream(end))
