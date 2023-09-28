@@ -52,10 +52,6 @@ extra = [
     "matplotlib",
     "netcdf4",
 ]
-lint = [
-    "cffconvert",
-    "flake8",
-]
 test = [
     "pytest >=3.3",
     "pytest-cov",
