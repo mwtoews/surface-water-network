@@ -18,30 +18,32 @@ def sfr_rec_to_df(sfr):
     # multi index
     reform = {(i, j): d[i][j] for i in d.keys() for j in d[i].dtype.names}
     segdatadf = pd.DataFrame.from_dict(reform)
-    segdatadf.columns.names = ['kper', 'col']
+    segdatadf.columns.names = ["kper", "col"]
     reachdatadf = pd.DataFrame.from_records(sfr.reach_data)
     return segdatadf, reachdatadf
 
 
-def sfr_dfs_to_rec(model, segdatadf, reachdatadf, set_outreaches=False,
-                   get_slopes=True, minslope=None):
+def sfr_dfs_to_rec(
+    model, segdatadf, reachdatadf, set_outreaches=False, get_slopes=True, minslope=None
+):
     """Convert sfr ds6 and ds2 to model sfr rec.
 
     Function to convert sfr ds6 (seg data) and ds2 (reach data) to model.sfr
     rec arrays option to update slopes from reachdata dataframes
     """
     if get_slopes:
-        print('Getting slopes')
+        print("Getting slopes")
         if minslope is None:
             minslope = 1.0e-4
-            print(f'using default minslope of {minslope}')
+            print(f"using default minslope of {minslope}")
         else:
-            print(f'using specified minslope of {minslope}')
+            print(f"using specified minslope of {minslope}")
     # segs ds6
     # multiindex
     g = segdatadf.groupby(level=0, axis=1)  # group multi index df by kper
     model.sfr.segment_data = g.apply(
-        lambda k: k.xs(k.name, axis=1).to_records(index=False)).to_dict()
+        lambda k: k.xs(k.name, axis=1).to_records(index=False)
+    ).to_dict()
     # # reaches ds2
     model.sfr.reach_data = reachdatadf.to_records(index=False)
     if set_outreaches:
@@ -60,16 +62,16 @@ def geotransform_from_flopy(m):
     try:
         import flopy
     except ImportError:
-        raise ImportError('this method requires flopy')
+        raise ImportError("this method requires flopy")
     if not isinstance(m, (flopy.mbase.BaseModel, flopy.mf6.MFModel)):
         raise TypeError("'m' must be a flopy model")
     mg = m.modelgrid
     if mg.angrot != 0.0:
-        raise NotImplementedError('rotated grids not supported')
+        raise NotImplementedError("rotated grids not supported")
     if mg.delr.min() != mg.delr.max():
-        raise ValueError('delr not uniform')
+        raise ValueError("delr not uniform")
     if mg.delc.min() != mg.delc.max():
-        raise ValueError('delc not uniform')
+        raise ValueError("delc not uniform")
     a = mg.delr[0]
     b = 0.0
     c = mg.xoffset
@@ -81,7 +83,8 @@ def geotransform_from_flopy(m):
 
 
 def transform_data_to_series_or_frame(
-        data, dtype, time_index, mapping=None, ignore=None):
+    data, dtype, time_index, mapping=None, ignore=None
+):
     """Check and transform "data" to a Series or time-varying DataFrame.
 
     Parameters
@@ -123,28 +126,27 @@ def transform_data_to_series_or_frame(
             keys_s = set(keys)
         else:
             try:
-                new_index = getattr(keys, keys_name)\
-                    .astype(mapping.index.dtype)
+                new_index = getattr(keys, keys_name).astype(mapping.index.dtype)
                 setattr(keys, keys_name, new_index)
             except (ValueError, TypeError):
                 raise ValueError(
-                      f"cannot cast {keys_name}.dtype to "
-                      f"{mapping.index.dtype}")
+                    f"cannot cast {keys_name}.dtype to {mapping.index.dtype}"
+                )
             keys_s = set(new_index.values)
         idxname = mapping.index.name
         index_s = set(mapping.index)
         if has_ignore:
             index_s.update(ignore)
         if keys_s.isdisjoint(index_s):
-            raise KeyError(
-                f"{which} has a disjoint {idxname} set")
+            raise KeyError(f"{which} has a disjoint {idxname} set")
         diff_s = keys_s.difference(index_s)
         if diff_s:
             ldiff = len(diff_s)
             raise KeyError(
-                "{} has {} key{} not found in {}: {}"
-                .format(which, ldiff, "" if ldiff == 1 else "s",
-                        idxname, abbr_str(diff_s)))
+                "{} has {} key{} not found in {}: {}".format(
+                    which, ldiff, "" if ldiff == 1 else "s", idxname, abbr_str(diff_s)
+                )
+            )
         return
 
     def return_series(data):
@@ -190,8 +192,7 @@ def transform_data_to_series_or_frame(
             if min(val_lens) != max(val_lens):
                 raise ValueError("inconsistent lengths found in dict series")
             elif max(val_lens) != len(time_index):
-                raise ValueError(
-                    "length of dict series does not match time index")
+                raise ValueError("length of dict series does not match time index")
             return return_frame(pd.DataFrame(data, index=time_index))
         return return_series(data)
     elif isinstance(data, pd.Series):
@@ -212,8 +213,7 @@ def transform_data_to_series_or_frame(
             # if this is a default index, just substitute time_index in
             data.index = time_index
         else:
-            raise ValueError(
-                "frame index should be a DatetimeIndex or a RangeIndex")
+            raise ValueError("frame index should be a DatetimeIndex or a RangeIndex")
         if len(data.columns) == 0:
             return pd.DataFrame(dtype=dtype, index=time_index)
         if has_mapping:
@@ -228,8 +228,9 @@ def invert_series(series):
     assert series_name, series_name
     index_name = series.index.name
     assert index_name, index_name
-    return series.reset_index().\
-        set_index(series_name, verify_integrity=True)[index_name]
+    return series.reset_index().set_index(series_name, verify_integrity=True)[
+        index_name
+    ]
 
 
 def tile_series_as_frame(series, index):

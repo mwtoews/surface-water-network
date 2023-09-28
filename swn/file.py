@@ -14,8 +14,7 @@ import pandas as pd
 from .logger import get_logger, logging
 
 
-def topnet2ts(nc_path, varname, *,
-              mult=None, run=None, log_level=logging.INFO):
+def topnet2ts(nc_path, varname, *, mult=None, run=None, log_level=logging.INFO):
     """Read TopNet data from a netCDF file into a pandas.DataFrame timeseries.
 
     User may need to multiply DataFrame to convert units.
@@ -45,7 +44,7 @@ def topnet2ts(nc_path, varname, *,
     try:
         from netCDF4 import Dataset
     except ImportError:
-        raise ImportError('function requires netCDF4')
+        raise ImportError("function requires netCDF4")
     try:
         from cftime import num2pydate as n2d
     except ImportError:
@@ -56,8 +55,7 @@ def topnet2ts(nc_path, varname, *,
         nc.set_auto_mask(False)
         varnames = list(nc.variables.keys())
         if varname not in varnames:
-            raise KeyError(
-                f"{varname!r} not found in dataset; use one of {varnames}")
+            raise KeyError(f"{varname!r} not found in dataset; use one of {varnames}")
         var = nc.variables[varname]
         logger.info("variable %r:\n%s", varname, var)
         # Evaluate dimensions
@@ -74,8 +72,10 @@ def topnet2ts(nc_path, varname, *,
                 if run is None:
                     if size > 1:
                         logger.warning(
-                            "no run specified; taking %s index 0 from dim "
-                            "size %s", var.dimensions[2], var.shape[2])
+                            "no run specified; taking %s index 0 from dim " "size %s",
+                            var.dimensions[2],
+                            var.shape[2],
+                        )
                     run = 0
                 varslice.append(run)
             elif size == 1:
@@ -232,8 +232,13 @@ def read_formatted_frame(fname):
         names = f.readline().lstrip("#").strip().split()
         try:
             df = pd.read_csv(
-                f, sep=r"\s+", quotechar="'", header=None, names=names,
-                skip_blank_lines=False)
+                f,
+                sep=r"\s+",
+                quotechar="'",
+                header=None,
+                names=names,
+                skip_blank_lines=False,
+            )
         except pd.errors.EmptyDataError:
             if names:  # no rows
                 df = pd.DataFrame(columns=names)
@@ -279,7 +284,7 @@ def write_formatted_frame(df, fname, index=True, comment_header=True):
     >>> df.index.name = "rno"
     >>> print(df)
                 value1  value2     value3
-    rno                                  
+    rno
     1    -1.000000e+10       1  first one
     12   -1.000000e-10      10        two
     33    0.000000e+00     100      three
@@ -373,13 +378,12 @@ def write_formatted_frame(df, fname, index=True, comment_header=True):
             name = new_name
         formatters[name] = f"{{:<{ljust}s}}".format
     # format the table to string
-    out = df.to_string(
-        header=True, index=index, formatters=formatters, justify="right")
+    out = df.to_string(header=True, index=index, formatters=formatters, justify="right")
     lines = out.splitlines()
     if index:
         # combine the first two lines
         header = lines[1].rstrip()
-        lines[0] = header + lines.pop(0)[len(header):]
+        lines[0] = header + lines.pop(0)[len(header) :]
     elif comment_header:
         header = lines[0]
         first_char = header[0:1]

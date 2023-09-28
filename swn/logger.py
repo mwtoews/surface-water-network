@@ -11,9 +11,10 @@ if _module_logger_name not in [_.name for _ in module_logger.handlers]:
         module_logger.addHandler(logging.root.handlers[0])
     else:
         import sys
+
         formatter = logging.Formatter(
-            '%(asctime)s.%(msecs)03d:%(levelname)s:%(name)s:%(message)s',
-            '%H:%M:%S')
+            "%(asctime)s.%(msecs)03d:%(levelname)s:%(name)s:%(message)s", "%H:%M:%S"
+        )
         handler = logging.StreamHandler(stream=sys.stdout)
         handler.name = _module_logger_name
         handler.setFormatter(formatter)

@@ -14,7 +14,7 @@ import pandas as pd
 import shapely
 from shapely.geometry import LineString, Point
 
-from .compat import ignore_shapely_warnings_for_object_array, SHAPELY_GE_20
+from .compat import SHAPELY_GE_20, ignore_shapely_warnings_for_object_array
 from .spatial import bias_substring
 from .util import abbr_str
 
@@ -53,28 +53,28 @@ class SurfaceWaterNetwork:
 
         """
         from .logger import get_logger, logging
+
         if logger is None:
             self.logger = get_logger(self.__class__.__name__)
         elif isinstance(logger, logging.Logger):
             self.logger = logger
         else:
-            raise ValueError(
-                f"expected 'logger' to be Logger; found {type(logger)!r}")
-        self.logger.info('creating new %s object', self.__class__.__name__)
+            raise ValueError(f"expected 'logger' to be Logger; found {type(logger)!r}")
+        self.logger.info("creating new %s object", self.__class__.__name__)
         if not isinstance(segments, geopandas.GeoDataFrame):
             raise ValueError(
-                f'segments must be a GeoDataFrame; found {type(segments)!r}')
+                f"segments must be a GeoDataFrame; found {type(segments)!r}"
+            )
         self._segments = segments
         self.END_SEGNUM = END_SEGNUM
         if self.END_SEGNUM in self.segments.index:
-            self.logger.error(
-                "END_SEGNUM %r found in segments.index", self.END_SEGNUM)
+            self.logger.error("END_SEGNUM %r found in segments.index", self.END_SEGNUM)
         notin = ~self.to_segnums.isin(self.segments.index)
         if notin.any():
             self._segments = self._segments.copy()
             self.logger.warning(
-                "correcting %d to_segnum not found in segments.index",
-                notin.sum())
+                "correcting %d to_segnum not found in segments.index", notin.sum()
+            )
             self.segments.loc[notin, "to_segnum"] = self.END_SEGNUM
         # all other properties added afterwards
 
@@ -86,31 +86,34 @@ class SurfaceWaterNetwork:
         """Return string representation of surface water network."""
         modifiers = []
         if self.has_z:
-            modifiers.append('Z coordinates')
+            modifiers.append("Z coordinates")
         if self.catchments is not None:
-            modifiers.append('catchment polygons')
+            modifiers.append("catchment polygons")
         if modifiers:
             with_modifiers = f" with {modifiers[0]}"
             if len(modifiers) == 2:
                 with_modifiers += f" and {modifiers[1]}"
         else:
-            with_modifiers = ''
+            with_modifiers = ""
         segments = list(self.segments.index)
         hw_l = list(self.headwater)
         out_l = list(self.outlets)
         diversions = self.diversions
         if diversions is None:
-            diversions_line = 'no diversions'
+            diversions_line = "no diversions"
         else:
             div_l = list(diversions.index)
-            diversions_line = '{} diversions (as {}): {}'.format(
-                len(div_l), diversions.__class__.__name__, abbr_str(div_l, 4))
-        return dedent(f'''\
+            diversions_line = "{} diversions (as {}): {}".format(
+                len(div_l), diversions.__class__.__name__, abbr_str(div_l, 4)
+            )
+        return dedent(
+            f"""\
             <{self.__class__.__name__}:{with_modifiers}
               {len(segments)} segments: {abbr_str(segments, 4)}
               {len(hw_l)} headwater: {abbr_str(hw_l, 4)}
               {len(out_l)} outlets: {abbr_str(out_l, 4)}
-              {diversions_line} />''')
+              {diversions_line} />"""
+        )
 
     def __eq__(self, other):
         """Return true if objects are equal."""
@@ -154,8 +157,11 @@ class SurfaceWaterNetwork:
         elif "class" not in state:
             raise KeyError("state does not have 'class' key")
         elif state["class"] != self.__class__.__name__:
-            raise ValueError("expected state class {!r}; found {!r}"
-                             .format(state["class"], self.__class__.__name__))
+            raise ValueError(
+                "expected state class {!r}; found {!r}".format(
+                    state["class"], self.__class__.__name__
+                )
+            )
         self.__init__(state["segments"], state["END_SEGNUM"])
         catchments = state["catchments"]
         if catchments is not None:
@@ -202,25 +208,26 @@ class SurfaceWaterNetwork:
 
         """
         if not isinstance(lines, geopandas.GeoSeries):
-            raise ValueError('lines must be a GeoSeries')
+            raise ValueError("lines must be a GeoSeries")
         elif len(lines) == 0:
-            raise ValueError('one or more lines are required')
-        elif not (lines.geom_type == 'LineString').all():
-            raise ValueError('lines must all be LineString types')
+            raise ValueError("one or more lines are required")
+        elif not (lines.geom_type == "LineString").all():
+            raise ValueError("lines must all be LineString types")
         # Create a new GeoDataFrame with a copy of line's geometry
         segments = geopandas.GeoDataFrame(geometry=lines)
         if not (polygons is None or isinstance(polygons, geopandas.GeoSeries)):
-            raise ValueError('polygons must be a GeoSeries or None')
+            raise ValueError("polygons must be a GeoSeries or None")
         if polygons is not None:
-            if (len(polygons.index) != len(lines.index) or
-                    not (polygons.index == lines.index).all()):
-                raise ValueError(
-                    'polygons.index is different than lines.index')
+            if (
+                len(polygons.index) != len(lines.index)
+                or not (polygons.index == lines.index).all()
+            ):
+                raise ValueError("polygons.index is different than lines.index")
         if segments.index.min() > 0:
             END_SEGNUM = 0
         else:
             END_SEGNUM = segments.index.min() - 1
-        segments['to_segnum'] = END_SEGNUM
+        segments["to_segnum"] = END_SEGNUM
         obj = cls(segments=segments, END_SEGNUM=END_SEGNUM)
         del segments, END_SEGNUM  # dereference local copies
         obj.errors = []
@@ -234,8 +241,10 @@ class SurfaceWaterNetwork:
         # This is the main component of the algorithm
         jxn = pd.DataFrame(
             geopandas.sjoin(end_df, start_df, "inner", "intersects")
-            .drop(columns="end").reset_index()
-            .rename(columns={segidxname: "end", "index_right": "start"}))
+            .drop(columns="end")
+            .reset_index()
+            .rename(columns={segidxname: "end", "index_right": "start"})
+        )
         # Group end points to start points, list should only have 1 item
         to_segnum_l = jxn.groupby("end")["start"].agg(list)
         to_segnum = to_segnum_l.apply(lambda x: x[0])
@@ -246,8 +255,11 @@ class SurfaceWaterNetwork:
         # A few checks
         sel = to_segnum_l.apply(len) > 1
         for segnum1, to_segnums in to_segnum_l.loc[sel].items():
-            m = ('segment %s has more than one downstream segments: %s',
-                 segnum1, str(to_segnums))
+            m = (
+                "segment %s has more than one downstream segments: %s",
+                segnum1,
+                str(to_segnums),
+            )
             obj.logger.error(*m)
             obj.errors.append(m[0] % m[1:])
         if obj.has_z:
@@ -255,58 +267,83 @@ class SurfaceWaterNetwork:
             jxn["start_z"] = start_pts.loc[jxn.start].z.values
             jxn["end_z"] = end_pts.loc[jxn.end].z.values
             for r in jxn.query("start_z != end_z").itertuples():
-                m = ('end of segment %s matches start of segment %s in '
-                     '2D, but not in Z dimension', r.end, r.start)
+                m = (
+                    "end of segment %s matches start of segment %s in "
+                    "2D, but not in Z dimension",
+                    r.end,
+                    r.start,
+                )
                 obj.logger.warning(*m)
                 obj.warnings.append(m[0] % m[1:])
 
         obj.logger.debug(
-            'checking %d headwater segments and %d outlet segments',
-            len(headwater), len(outlets))
+            "checking %d headwater segments and %d outlet segments",
+            len(headwater),
+            len(outlets),
+        )
         # Find outlets that join to a single coodinate
         multi_outlets = set()
         out_pts = end_pts.loc[outlets].to_frame("out").set_geometry("out")
         jout = pd.DataFrame(
-            geopandas.sjoin(out_pts, out_pts, "inner").reset_index()
-            .rename(columns={segidxname: "out1", "index_right": "out2"}))\
-            .query("out1 != out2")
+            geopandas.sjoin(out_pts, out_pts, "inner")
+            .reset_index()
+            .rename(columns={segidxname: "out1", "index_right": "out2"})
+        ).query("out1 != out2")
         if jout.size > 0:
             # Just evaluate 2D tuple to find segnums with same location
-            outsets = jout.assign(xy=jout.out.map(lambda g: (g.x, g.y)))\
-                .drop(columns="out").groupby("xy").agg(set)
+            outsets = (
+                jout.assign(xy=jout.out.map(lambda g: (g.x, g.y)))
+                .drop(columns="out")
+                .groupby("xy")
+                .agg(set)
+            )
             for r in outsets.itertuples():
                 v = r.out1
-                m = ("ending coordinate %s matches end segment%s: %s",
-                     r.Index, "s" if len(v) != 1 else "", v)
+                m = (
+                    "ending coordinate %s matches end segment%s: %s",
+                    r.Index,
+                    "s" if len(v) != 1 else "",
+                    v,
+                )
                 obj.logger.warning(*m)
                 obj.warnings.append(m[0] % m[1:])
                 multi_outlets |= v
         # Find outlets that join to middle of other segments
         joutseg = pd.DataFrame(
             geopandas.sjoin(out_pts, obj.segments[["geometry"]], "inner")
-            .drop(columns="out").reset_index()
-            .rename(columns={segidxname: "out", "index_right": "segnum"}))
+            .drop(columns="out")
+            .reset_index()
+            .rename(columns={segidxname: "out", "index_right": "segnum"})
+        )
         for r in joutseg.query("out != segnum").itertuples():
             if r.out in multi_outlets:
                 continue
-            m = ('segment %s connects to the middle of segment %s',
-                 r.out, r.segnum)
+            m = ("segment %s connects to the middle of segment %s", r.out, r.segnum)
             obj.logger.error(*m)
             obj.errors.append(m[0] % m[1:])
         # Find headwater that join to a single coodinate
         hw_pts = start_pts.loc[headwater].to_frame("hw").set_geometry("hw")
         jhw = pd.DataFrame(
-            geopandas.sjoin(hw_pts, start_df, "inner").reset_index()
-            .rename(columns={segidxname: "hw1", "index_right": "start"}))\
-            .query("hw1 != start")
+            geopandas.sjoin(hw_pts, start_df, "inner")
+            .reset_index()
+            .rename(columns={segidxname: "hw1", "index_right": "start"})
+        ).query("hw1 != start")
         obj.jhw = jhw
         if jhw.size > 0:
-            hwsets = jhw.assign(xy=jhw.hw.map(lambda g: (g.x, g.y)))\
-                .drop(columns="hw").groupby("xy").agg(set)
+            hwsets = (
+                jhw.assign(xy=jhw.hw.map(lambda g: (g.x, g.y)))
+                .drop(columns="hw")
+                .groupby("xy")
+                .agg(set)
+            )
             for r in hwsets.itertuples():
                 v = r.start
-                m = ("starting coordinate %s matches start segment%s: %s",
-                     r.Index, "s" if len(v) != 1 else "", v)
+                m = (
+                    "starting coordinate %s matches start segment%s: %s",
+                    r.Index,
+                    "s" if len(v) != 1 else "",
+                    v,
+                )
                 obj.logger.warning(*m)
                 obj.errors.append(m[0] % m[1:])
 
@@ -315,21 +352,23 @@ class SurfaceWaterNetwork:
         obj.segments["from_segnums"] = from_segnums
         sel = obj.segments.from_segnums.isna()
         if sel.any():
-            obj.segments.loc[sel, "from_segnums"] = \
-                [set() for _ in range(sel.sum())]
-        obj.logger.debug('evaluating segments upstream from %d outlet%s',
-                         len(outlets), 's' if len(outlets) != 1 else '')
-        obj.segments['cat_group'] = obj.END_SEGNUM
-        obj.segments['num_to_outlet'] = 0
-        obj.segments['dist_to_outlet'] = 0.0
+            obj.segments.loc[sel, "from_segnums"] = [set() for _ in range(sel.sum())]
+        obj.logger.debug(
+            "evaluating segments upstream from %d outlet%s",
+            len(outlets),
+            "s" if len(outlets) != 1 else "",
+        )
+        obj.segments["cat_group"] = obj.END_SEGNUM
+        obj.segments["num_to_outlet"] = 0
+        obj.segments["dist_to_outlet"] = 0.0
 
         # Recursive function that accumulates information upstream
         def recurse_upstream(segnum, cat_group, num, dist):
-            obj.segments.at[segnum, 'cat_group'] = cat_group
+            obj.segments.at[segnum, "cat_group"] = cat_group
             num += 1
-            obj.segments.at[segnum, 'num_to_outlet'] = num
+            obj.segments.at[segnum, "num_to_outlet"] = num
             dist += obj.segments.geometry[segnum].length
-            obj.segments.at[segnum, 'dist_to_outlet'] = dist
+            obj.segments.at[segnum, "dist_to_outlet"] = dist
             # Branch to zero or more upstream segments
             for from_segnum in from_segnums.get(segnum, []):
                 recurse_upstream(from_segnum, cat_group, num, dist)
@@ -337,46 +376,51 @@ class SurfaceWaterNetwork:
         for segnum in obj.segments.loc[outlets].index:
             recurse_upstream(segnum, segnum, 0, 0.0)
 
-        obj.logger.debug('evaluating downstream sequence')
-        obj.segments['sequence'] = 0
-        obj.segments['stream_order'] = 0
+        obj.logger.debug("evaluating downstream sequence")
+        obj.segments["sequence"] = 0
+        obj.segments["stream_order"] = 0
         # obj.segments['numiter'] = 0  # should be same as stream_order
         # Sort headwater segments from the furthest from outlet to closest
-        search_order = ['num_to_outlet', 'dist_to_outlet']
-        furthest_upstream = obj.segments.loc[headwater]\
-            .sort_values(search_order, ascending=False).index
+        search_order = ["num_to_outlet", "dist_to_outlet"]
+        furthest_upstream = (
+            obj.segments.loc[headwater].sort_values(search_order, ascending=False).index
+        )
         sequence = pd.Series(
-            np.arange(len(furthest_upstream)) + 1, index=furthest_upstream)
-        obj.segments.loc[sequence.index, 'sequence'] = sequence
-        obj.segments.loc[sequence.index, 'stream_order'] = 1
+            np.arange(len(furthest_upstream)) + 1, index=furthest_upstream
+        )
+        obj.segments.loc[sequence.index, "sequence"] = sequence
+        obj.segments.loc[sequence.index, "stream_order"] = 1
         completed = set(headwater)
         sequence = int(sequence.max())
-        for numiter in range(1, obj.segments['num_to_outlet'].max() + 1):
+        for numiter in range(1, obj.segments["num_to_outlet"].max() + 1):
             # Gather segments downstream from completed upstream set
             downstream = set(
-                obj.segments.loc[sorted(completed), 'to_segnum'])\
-                .difference(completed.union([obj.END_SEGNUM]))
+                obj.segments.loc[sorted(completed), "to_segnum"]
+            ).difference(completed.union([obj.END_SEGNUM]))
             # Sort them to evaluate the furthest first
-            downstream_sorted = obj.segments.loc[sorted(downstream)]\
-                .sort_values(search_order, ascending=False).index
+            downstream_sorted = (
+                obj.segments.loc[sorted(downstream)]
+                .sort_values(search_order, ascending=False)
+                .index
+            )
             for segnum in downstream_sorted:
                 if from_segnums[segnum].issubset(completed):
                     sequence += 1
-                    obj.segments.at[segnum, 'sequence'] = sequence
+                    obj.segments.at[segnum, "sequence"] = sequence
                     # self.segments.at[segnum, 'numiter'] = numiter
                     # See Strahler stream order definition
                     up_ord = list(
-                        obj.segments.loc[
-                            list(from_segnums[segnum]), 'stream_order'])
+                        obj.segments.loc[list(from_segnums[segnum]), "stream_order"]
+                    )
                     max_ord = max(up_ord)
                     if up_ord.count(max_ord) > 1:
-                        obj.segments.at[segnum, 'stream_order'] = max_ord + 1
+                        obj.segments.at[segnum, "stream_order"] = max_ord + 1
                     else:
-                        obj.segments.at[segnum, 'stream_order'] = max_ord
+                        obj.segments.at[segnum, "stream_order"] = max_ord
                     completed.add(segnum)
-            if obj.segments['sequence'].min() > 0:
+            if obj.segments["sequence"].min() > 0:
                 break
-        obj.logger.debug('sequence evaluated with %d iterations', numiter)
+        obj.logger.debug("sequence evaluated with %d iterations", numiter)
         # Don't do this: self.segments.sort_values('sequence', inplace=True)
         obj.evaluate_upstream_length()
         if polygons is not None:
@@ -448,7 +492,7 @@ class SurfaceWaterNetwork:
         101        100           {}        100              2         1             1
         102        100           {}        100              2         2             1
         """  # noqa
-        return getattr(self, '_segments')
+        return getattr(self, "_segments")
 
     @property
     def catchments(self):
@@ -487,23 +531,24 @@ class SurfaceWaterNetwork:
         102        100           {}          525.0  1.439701
 
         """
-        return getattr(self, '_catchments', None)
+        return getattr(self, "_catchments", None)
 
     @catchments.setter
     def catchments(self, value):
         if value is None:
-            if hasattr(self, '_catchments'):
-                delattr(self, '_catchments')
+            if hasattr(self, "_catchments"):
+                delattr(self, "_catchments")
             return
         elif not isinstance(value, geopandas.GeoSeries):
             raise ValueError(
-                "catchments must be a GeoSeries or None; "
-                f"found {type(value)!r}")
+                f"catchments must be a GeoSeries or None; found {type(value)!r}"
+            )
         segments_index = self.segments.index
-        if (len(value.index) != len(segments_index) or
-                not (value.index == segments_index).all()):
-            raise ValueError(
-                'catchments.index is different than for segments')
+        if (
+            len(value.index) != len(segments_index)
+            or not (value.index == segments_index).all()
+        ):
+            raise ValueError("catchments.index is different than for segments")
         # TODO: check extent overlaps
         setting_new = self.catchments is None
         self._catchments = value
@@ -537,15 +582,15 @@ class SurfaceWaterNetwork:
         dist_to_seg : float
             Distance to segment line described by ``from_segnum``.
         """
-        return getattr(self, '_diversions', None)
+        return getattr(self, "_diversions", None)
 
     @diversions.setter
     def diversions(self, value):
         raise AttributeError("use 'set_diversions()' method")
 
     def set_diversions(
-            self, diversions, *, override={}, min_stream_order=None,
-            downstream_bias=0.0):
+        self, diversions, *, override={}, min_stream_order=None, downstream_bias=0.0
+    ):
         """Set surface water diversion locations.
 
         This method checks or assigns a segment number to divert surface water
@@ -585,21 +630,21 @@ class SurfaceWaterNetwork:
         if diversions is None:
             self.logger.debug("removing diversions")
             self._diversions = None
-            if 'diversions' in self.segments:
-                self.segments.drop('diversions', axis=1, inplace=True)
+            if "diversions" in self.segments:
+                self.segments.drop("diversions", axis=1, inplace=True)
             return
 
         if not isinstance(diversions, (geopandas.GeoDataFrame, pd.DataFrame)):
-            raise ValueError('a [Geo]DataFrame is expected')
+            raise ValueError("a [Geo]DataFrame is expected")
 
         diversions = diversions.copy()
         is_spatial = (
-            isinstance(diversions, geopandas.GeoDataFrame) and
-            "geometry" in diversions.columns)
+            isinstance(diversions, geopandas.GeoDataFrame)
+            and "geometry" in diversions.columns
+        )
 
         if "from_segnum" in diversions.columns:
-            self.logger.debug(
-                "checking existing 'from_segnum' column for diversions")
+            self.logger.debug("checking existing 'from_segnum' column for diversions")
             # diversions["method"] = "from_segnum"
             sn = set(self.segments.index)
             dn = set(diversions.from_segnum)
@@ -607,14 +652,18 @@ class SurfaceWaterNetwork:
                 diff = dn.difference(sn)
                 raise ValueError(
                     f"{len(diff)} 'from_segnum' are not found in "
-                    f"segments.index: {abbr_str(diff)}")
+                    f"segments.index: {abbr_str(diff)}"
+                )
             if is_spatial:
                 diversions["seg_ndist"] = diversions.apply(
                     lambda f: self.segments.geometry[f.from_segnum].project(
-                        f.geometry, normalized=True), axis=1)
+                        f.geometry, normalized=True
+                    ),
+                    axis=1,
+                )
                 diversions["dist_to_seg"] = diversions.distance(
-                    self.segments.geometry[diversions.from_segnum],
-                    align=False)
+                    self.segments.geometry[diversions.from_segnum], align=False
+                )
             else:
                 if "seg_ndist" not in diversions.columns:
                     # assume diversion at downstream end of segment
@@ -623,10 +672,13 @@ class SurfaceWaterNetwork:
                     diversions.drop(columns="dist_to_seg", inplace=True)
         elif is_spatial:
             self.logger.debug(
-                'assigning columns for diversions based on spatial distances')
+                "assigning columns for diversions based on spatial distances"
+            )
             loc_df = self.locate_geoms(
-                diversions.geometry, min_stream_order=min_stream_order,
-                downstream_bias=downstream_bias)
+                diversions.geometry,
+                min_stream_order=min_stream_order,
+                downstream_bias=downstream_bias,
+            )
             diversions["method"] = loc_df.method
             diversions["from_segnum"] = self.END_SEGNUM
             diversions["from_segnum"] = loc_df.segnum
@@ -635,21 +687,22 @@ class SurfaceWaterNetwork:
         else:
             raise ValueError(
                 "'diversions' does not appear to be spatial or have a "
-                "'from_segnum' column")
+                "'from_segnum' column"
+            )
 
         # Set object for property
         self._diversions = diversions
 
         # Update segments column to mirror this information
-        self.segments['diversions'] = None
-        for segnum in self._diversions['from_segnum'].unique():
-            sel = self._diversions['from_segnum'] == segnum
-            self.segments.at[segnum, 'diversions'] = \
-                set(self._diversions.loc[sel].index)
+        self.segments["diversions"] = None
+        for segnum in self._diversions["from_segnum"].unique():
+            sel = self._diversions["from_segnum"] == segnum
+            self.segments.at[segnum, "diversions"] = set(
+                self._diversions.loc[sel].index
+            )
         sel = self.segments.diversions.isna()
         if sel.any():
-            self.segments.loc[sel, "diversions"] = \
-                [set() for _ in range(sel.sum())]
+            self.segments.loc[sel, "diversions"] = [set() for _ in range(sel.sum())]
 
     @property
     def has_z(self):
@@ -660,7 +713,8 @@ class SurfaceWaterNetwork:
     def headwater(self):
         """Return index of headwater segments."""
         return self.segments.index[
-                ~self.segments.index.isin(self.segments['to_segnum'])]
+            ~self.segments.index.isin(self.segments["to_segnum"])
+        ]
 
     @property
     def outlets(self):
@@ -668,8 +722,7 @@ class SurfaceWaterNetwork:
 
         Determined where ``n.segments.to_segnum == n.END_SEGNUM``
         """
-        return self.segments.index[
-                self.segments['to_segnum'] == self.END_SEGNUM]
+        return self.segments.index[self.segments["to_segnum"] == self.END_SEGNUM]
 
     @property
     def to_segnums(self):
@@ -678,13 +731,19 @@ class SurfaceWaterNetwork:
         Determined from ``n.segments.to_segnum``.
         """
         return self.segments.loc[
-            self.segments['to_segnum'] != self.END_SEGNUM, 'to_segnum']
+            self.segments["to_segnum"] != self.END_SEGNUM, "to_segnum"
+        ]
 
     @property
     def from_segnums(self):
         """Return partial Series of a set of segnums to connect upstream."""
-        series = self.to_segnums.to_frame(0).reset_index()\
-            .groupby(0).aggregate(set).iloc[:, 0]
+        series = (
+            self.to_segnums.to_frame(0)
+            .reset_index()
+            .groupby(0)
+            .aggregate(set)
+            .iloc[:, 0]
+        )
         series.index.name = self.segments.index.name
         series.name = "from_segnums"
         return series
@@ -756,7 +815,7 @@ class SurfaceWaterNetwork:
         con1 = list(go_downstream(start))
         try:
             # start is upstream, end is downstream
-            return con1[:(con1.index(end) + 1)]
+            return con1[: (con1.index(end) + 1)]
         except ValueError:
             pass
         con2 = list(go_downstream(end))
@@ -787,8 +846,7 @@ class SurfaceWaterNetwork:
                 idx2 = con2.index(segnum)
         return con1[:idx1] + list(reversed(con2[:idx2]))
 
-    def query(self, upstream=[], downstream=[], barrier=[],
-              gather_upstream=False):
+    def query(self, upstream=[], downstream=[], barrier=[], gather_upstream=False):
         """Return segnums upstream (inclusive) and downstream (exclusive).
 
         .. deprecated:: 0.5
@@ -796,12 +854,15 @@ class SurfaceWaterNetwork:
         """
         warn("Use gather_segnums", DeprecationWarning, stacklevel=2)
         return self.gather_segnums(
-            upstream=upstream, downstream=downstream, barrier=barrier,
-            gather_upstream=gather_upstream)
+            upstream=upstream,
+            downstream=downstream,
+            barrier=barrier,
+            gather_upstream=gather_upstream,
+        )
 
     def gather_segnums(
-            self, *, upstream=[], downstream=[], barrier=[],
-            gather_upstream=False):
+        self, *, upstream=[], downstream=[], barrier=[], gather_upstream=False
+    ):
         r"""Return segnums upstream (inclusive) and downstream (exclusive).
 
         Parameters
@@ -856,12 +917,12 @@ class SurfaceWaterNetwork:
                     raise IndexError(
                         f"{len(diff)} {name} "
                         f"segment{'' if len(diff) == 1 else 's'} "
-                        f"not found in segments.index: {abbr_str(diff)}")
+                        f"not found in segments.index: {abbr_str(diff)}"
+                    )
                 return var
             else:
                 if var not in segments_index:
-                    raise IndexError(
-                        f'{name} segnum {var} not found in segments.index')
+                    raise IndexError(f"{name} segnum {var} not found in segments.index")
                 return [var]
 
         def go_upstream(segnum):
@@ -876,7 +937,7 @@ class SurfaceWaterNetwork:
 
         to_segnums = dict(self.to_segnums)
         from_segnums = self.from_segnums
-        for barrier in check_and_return_list(barrier, 'barrier'):
+        for barrier in check_and_return_list(barrier, "barrier"):
             try:
                 del from_segnums[barrier]
             except KeyError:  # this is a tributary, remove value
@@ -884,10 +945,10 @@ class SurfaceWaterNetwork:
             del to_segnums[barrier]
 
         segnums = []
-        for segnum in check_and_return_list(upstream, 'upstream'):
+        for segnum in check_and_return_list(upstream, "upstream"):
             upsegnums = list(go_upstream(segnum))
             segnums += upsegnums  # segnum inclusive
-        for segnum in check_and_return_list(downstream, 'downstream'):
+        for segnum in check_and_return_list(downstream, "downstream"):
             downsegnums = list(go_downstream(segnum))
             segnums += downsegnums[1:]  # segnum exclusive
             if gather_upstream:
@@ -899,8 +960,8 @@ class SurfaceWaterNetwork:
         return segnums
 
     def locate_geoms(
-            self, geom, *, override={}, min_stream_order=None,
-            downstream_bias=0.0):
+        self, geom, *, override={}, min_stream_order=None, downstream_bias=0.0
+    ):
         """Return GeoDataFrame of data associated in finding geometies.
 
         Parameters
@@ -984,12 +1045,14 @@ class SurfaceWaterNetwork:
             raise ValueError("downstream_bias must be between -1 and 1")
 
         # Make sure CRS is the same as segments (if defined)
-        geom_crs = getattr(geom, 'crs', None)
-        segments_crs = getattr(self.segments, 'crs', None)
+        geom_crs = getattr(geom, "crs", None)
+        segments_crs = getattr(self.segments, "crs", None)
         if geom_crs != segments_crs:
             self.logger.warning(
-                'CRS for geoseries and segments are different: '
-                '%s vs. %s', geom_crs, segments_crs)
+                "CRS for geoseries and segments are different: %s vs. %s",
+                geom_crs,
+                segments_crs,
+            )
 
         # initialise return data frame
         res = geopandas.GeoDataFrame(geometry=geom)
@@ -1005,21 +1068,24 @@ class SurfaceWaterNetwork:
             if missing_geom_idx_s:
                 self.logger.warning(
                     "%d override keys don't match point geom.index: %s",
-                    len(missing_geom_idx_s), sorted(missing_geom_idx_s))
+                    len(missing_geom_idx_s),
+                    sorted(missing_geom_idx_s),
+                )
                 for k in missing_geom_idx_s:
                     del override[k]
             override_values_s = set(override.values())
             if None in override_values_s:
                 override.update(
-                    {k: self.END_SEGNUM for k, v in override.items()
-                     if v is None})
+                    {k: self.END_SEGNUM for k, v in override.items() if v is None}
+                )
                 override_values_s.remove(None)
-            missng_segnum_idx_s = override_values_s.difference(
-                self.segments.index)
+            missng_segnum_idx_s = override_values_s.difference(self.segments.index)
             if missng_segnum_idx_s:
                 self.logger.warning(
                     "%d override values don't match segments.index: %s",
-                    len(missng_segnum_idx_s), sorted(missng_segnum_idx_s))
+                    len(missng_segnum_idx_s),
+                    sorted(missng_segnum_idx_s),
+                )
                 for k, v in override.copy().items():
                     if v in missng_segnum_idx_s:
                         del override[k]
@@ -1034,13 +1100,14 @@ class SurfaceWaterNetwork:
 
         # Look at geoms in catchments
         if self.catchments is not None:
-            sel = (res.method == "")
+            sel = res.method == ""
             if sel.any():
                 catchments_df = self.catchments.to_frame("geometry")
                 if catchments_df.crs is None and self.segments.crs is not None:
                     catchments_df.crs = self.segments.crs
-                match_s = geopandas.sjoin(
-                    res[sel], catchments_df, "inner")["index_right"]
+                match_s = geopandas.sjoin(res[sel], catchments_df, "inner")[
+                    "index_right"
+                ]
                 match_s.name = "segnum"
                 match_s.index.name = "gidx"
                 match = match_s.reset_index()
@@ -1049,20 +1116,25 @@ class SurfaceWaterNetwork:
 
                     def find_downstream_in_min_stream_order(segnum):
                         while True:
-                            if self.segments.stream_order.at[segnum] >= \
-                                    min_stream_order:
+                            if (
+                                self.segments.stream_order.at[segnum]
+                                >= min_stream_order
+                            ):
                                 return segnum
                             elif segnum in to_segnums:
                                 segnum = to_segnums[segnum]
                             else:  # nothing found with stream order criteria
                                 return segnum
 
-                    match["stream_order"] = \
-                        self.segments.stream_order[match.segnum].values
-                    match["down_segnum"] = \
-                        match.segnum.apply(find_downstream_in_min_stream_order)
-                    match["down_stream_order"] = \
-                        self.segments.stream_order[match.down_segnum].values
+                    match["stream_order"] = self.segments.stream_order[
+                        match.segnum
+                    ].values
+                    match["down_segnum"] = match.segnum.apply(
+                        find_downstream_in_min_stream_order
+                    )
+                    match["down_stream_order"] = self.segments.stream_order[
+                        match.down_segnum
+                    ].values
 
                 # geom may cover more than one catchment
                 duplicated = match.gidx.duplicated(keep=False)
@@ -1070,21 +1142,27 @@ class SurfaceWaterNetwork:
                     dupes = match[duplicated]
                     for gidx, ca in dupes.groupby("gidx"):
                         # sort catchment with highest area of intersection
-                        ca["area"] = catchments_df.loc[ca.segnum].intersection(
-                            geom.loc[gidx]).area.values
+                        ca["area"] = (
+                            catchments_df.loc[ca.segnum]
+                            .intersection(geom.loc[gidx])
+                            .area.values
+                        )
                         ca.sort_values("area", ascending=False, inplace=True)
                         if min_stream_order is not None:
-                            sel_stream_order = \
-                                (ca.stream_order >= min_stream_order)
+                            sel_stream_order = ca.stream_order >= min_stream_order
                             if sel_stream_order.sum() == 0:
                                 # all minor; take highest stream order
                                 ca.sort_values(
-                                    ["stream_order", "down_stream_order",
-                                     "area"], ascending=False, inplace=True)
+                                    ["stream_order", "down_stream_order", "area"],
+                                    ascending=False,
+                                    inplace=True,
+                                )
                                 match.drop(index=ca.index[1:], inplace=True)
                             elif sel_stream_order.sum() == 1:
-                                match.drop(index=sel_stream_order.index[
-                                    ~sel_stream_order], inplace=True)
+                                match.drop(
+                                    index=sel_stream_order.index[~sel_stream_order],
+                                    inplace=True,
+                                )
                             else:
                                 # more than one major; take most overlap area
                                 match.drop(index=ca.index[1:], inplace=True)
@@ -1111,11 +1189,13 @@ class SurfaceWaterNetwork:
             segments_gs = self.segments.geometry[seg_sel]
             if downstream_bias != 0.0:
                 segments_gs = bias_substring(
-                    segments_gs, downstream_bias=downstream_bias)
+                    segments_gs, downstream_bias=downstream_bias
+                )
             try:
                 # faster method, not widely available
                 match_s = geopandas.sjoin_nearest(
-                    res[sel], segments_gs.to_frame(), "inner")["index_right"]
+                    res[sel], segments_gs.to_frame(), "inner"
+                )["index_right"]
                 has_sjoin_nearest = True
             except (AttributeError, NotImplementedError):
                 has_sjoin_nearest = False
@@ -1134,12 +1214,10 @@ class SurfaceWaterNetwork:
                         sl["start"] = sg.interpolate(0.0).intersects(g).values
                         if sl.length.max() > 0.0:
                             # find segment with highest length of intersection
-                            sl.sort_values(
-                                "length", ascending=False, inplace=True)
+                            sl.sort_values("length", ascending=False, inplace=True)
                         elif sl.start.sum() == 1:
                             # find start segment at a junction
-                            sl.sort_values(
-                                "start", ascending=False, inplace=True)
+                            sl.sort_values("start", ascending=False, inplace=True)
                         else:
                             sl.sort_values("segnum", inplace=True)
                         match.drop(index=sl.index[1:], inplace=True)
@@ -1158,12 +1236,10 @@ class SurfaceWaterNetwork:
                         sl["start"] = sg.interpolate(0.0).intersects(g)
                         if sl.length.max() > 0.0:
                             # find segment with highest length of intersection
-                            sl.sort_values(
-                                "length", ascending=False, inplace=True)
+                            sl.sort_values("length", ascending=False, inplace=True)
                         elif sl.start.sum() == 1:
                             # find start segment at a junction
-                            sl.sort_values(
-                                "start", ascending=False, inplace=True)
+                            sl.sort_values("start", ascending=False, inplace=True)
                         else:
                             sl.sort_index(inplace=True)
                         segnum = sl.index[0]
@@ -1174,32 +1250,50 @@ class SurfaceWaterNetwork:
         sel = (res.geom_type != "Point") & (res.segnum != self.END_SEGNUM)
         if sel.any():
             from shapely.ops import nearest_points
+
             with ignore_shapely_warnings_for_object_array():
                 res.geometry.loc[sel] = res.loc[sel].apply(
                     lambda f: nearest_points(
-                        self.segments.geometry[f.segnum], f.geometry)[1],
-                    axis=1)
+                        self.segments.geometry[f.segnum], f.geometry
+                    )[1],
+                    axis=1,
+                )
 
         # Add attributes for match
         sel = res.segnum != self.END_SEGNUM
         res["seg_ndist"] = res.loc[sel].apply(
             lambda f: self.segments.geometry[f.segnum].project(
-                f.geometry, normalized=True), axis=1)
+                f.geometry, normalized=True
+            ),
+            axis=1,
+        )
         # Line between geometry and line segment
         if SHAPELY_GE_20:
-            res["pt2"] = shapely.force_2d(res.loc[sel].apply(
-                lambda f: self.segments.geometry[f.segnum].interpolate(
-                        f.seg_ndist, normalized=True), axis=1))
+            res["pt2"] = shapely.force_2d(
+                res.loc[sel].apply(
+                    lambda f: self.segments.geometry[f.segnum].interpolate(
+                        f.seg_ndist, normalized=True
+                    ),
+                    axis=1,
+                )
+            )
             res["link"] = res.loc[sel].apply(
-                lambda f: LineString([f.geometry, f.pt2]), axis=1)
+                lambda f: LineString([f.geometry, f.pt2]), axis=1
+            )
             res.drop(columns="pt2", inplace=True)
         else:
             with ignore_shapely_warnings_for_object_array():
                 res["link"] = res.loc[sel].apply(
                     lambda f: LineString(
-                        [f.geometry,
-                         self.segments.geometry[f.segnum].interpolate(
-                             f.seg_ndist, normalized=True)]), axis=1)
+                        [
+                            f.geometry,
+                            self.segments.geometry[f.segnum].interpolate(
+                                f.seg_ndist, normalized=True
+                            ),
+                        ]
+                    ),
+                    axis=1,
+                )
         if (~sel).any():
             linestring_empty = wkt.loads("LINESTRING EMPTY")
             for idx in res[~sel].index:
@@ -1208,7 +1302,7 @@ class SurfaceWaterNetwork:
         res["dist_to_seg"] = res[sel].length
         return res
 
-    def aggregate(self, segnums, follow_up='upstream_length'):
+    def aggregate(self, segnums, follow_up="upstream_length"):
         """Aggregate segments (and catchments) to a coarser network of segnums.
 
         Parameters
@@ -1233,23 +1327,21 @@ class SurfaceWaterNetwork:
         """
         from shapely.ops import linemerge, unary_union
 
-        if (isinstance(follow_up, str) and follow_up in self.segments.columns):
+        if isinstance(follow_up, str) and follow_up in self.segments.columns:
             pass
         else:
-            raise ValueError(
-                f'{follow_up!r} not found in segments.columns')
+            raise ValueError(f"{follow_up!r} not found in segments.columns")
         junctions = list(segnums)
         junctions_set = set(junctions)
         if len(junctions) != len(junctions_set):
-            raise ValueError('list of segnums is not unique')
+            raise ValueError("list of segnums is not unique")
         segments_index_set = set(self.segments.index)
         if not junctions_set.issubset(segments_index_set):
             diff = junctions_set.difference(segments_index_set)
             raise IndexError(
-                f"{len(diff)} segnums not found in "
-                f"segments.index: {abbr_str(diff)}")
-        self.logger.debug(
-            'aggregating at least %d segnums (junctions)', len(junctions))
+                f"{len(diff)} segnums not found in segments.index: {abbr_str(diff)}"
+            )
+        self.logger.debug("aggregating at least %d segnums (junctions)", len(junctions))
         from_segnums = self.from_segnums
         to_segnums = dict(self.to_segnums)
 
@@ -1265,8 +1357,10 @@ class SurfaceWaterNetwork:
             trace_down(segnum)
 
         self.logger.debug(
-            'traced down initial junctions to assemble %d traced segnums: %s',
-            len(traced_segnums), abbr_str(traced_segnums))
+            "traced down initial junctions to assemble %d traced segnums: %s",
+            len(traced_segnums),
+            abbr_str(traced_segnums),
+        )
 
         # trace up from each junction, add extra junctions as needed
         traset = set(traced_segnums)
@@ -1283,15 +1377,17 @@ class SurfaceWaterNetwork:
                 segsdjdt = segsdj.difference(segsit)
                 for up_segnum in sorted(segsdjdt):
                     self.logger.debug(
-                        'adding extra junction %s above segnum %s',
-                        up_segnum, segnum)
+                        "adding extra junction %s above segnum %s", up_segnum, segnum
+                    )
                     extra_junctions.append(up_segnum)
                     # but don't follow up these, as it's untraced
             elif len(segsit) > 1:
                 for up_segnum in sorted(segsit):
                     self.logger.debug(
-                        'adding extra junction %s above fork at segnum %s',
-                        up_segnum, segnum)
+                        "adding extra junction %s above fork at segnum %s",
+                        up_segnum,
+                        segnum,
+                    )
                     extra_junctions.append(up_segnum)
                     trace_up(up_segnum)
             elif len(segsit) == 1:
@@ -1301,17 +1397,20 @@ class SurfaceWaterNetwork:
             trace_up(segnum)
 
         if len(extra_junctions) == 0:
-            self.logger.debug('traced up; no extra junctions added')
+            self.logger.debug("traced up; no extra junctions added")
         else:
             junctions += extra_junctions
             junctions_set = set(junctions)
             if len(extra_junctions) == 1:
                 self.logger.debug(
-                    'traced up; added 1 extra junction: %s', extra_junctions)
+                    "traced up; added 1 extra junction: %s", extra_junctions
+                )
             else:
                 self.logger.debug(
-                    'traced up; added %d extra junctions: %s',
-                    len(extra_junctions), abbr_str(extra_junctions))
+                    "traced up; added %d extra junctions: %s",
+                    len(extra_junctions),
+                    abbr_str(extra_junctions),
+                )
 
         # aggregate segnums above each junction, build larger polygons
         def up_patch_segnums(segnum):
@@ -1336,8 +1435,11 @@ class SurfaceWaterNetwork:
             if len(up_segnums) == 1:
                 yield from up_path_headwater_segnums(up_segnums.pop())
             elif len(up_segnums) > 1:
-                up_segnum = self.segments.loc[sorted(up_segnums)].sort_values(
-                    follow_up, ascending=False).index[0]
+                up_segnum = (
+                    self.segments.loc[sorted(up_segnums)]
+                    .sort_values(follow_up, ascending=False)
+                    .index[0]
+                )
                 # self.logger.debug('untraced path %s: %s -> %s',
                 #                   segnum, up_segnums, up_segnum)
                 yield from up_path_headwater_segnums(up_segnum)
@@ -1357,7 +1459,8 @@ class SurfaceWaterNetwork:
             agg_patch.at[segnum] = catchment_segnums
             if polygons is not None:
                 polygons.at[segnum] = unary_union(
-                        list(self.catchments.loc[catchment_segnums]))
+                    list(self.catchments.loc[catchment_segnums])
+                )
             # determine if headwater or not, if any other junctions go to it
             is_headwater = True
             for key, value in junctions_goto.items():
@@ -1374,11 +1477,13 @@ class SurfaceWaterNetwork:
             agg_unpath_l = []
             for aseg in agg_path_l:
                 agg_unpath_l += sorted(
-                        from_segnums.get(aseg, set()).difference(agg_path_s))
+                    from_segnums.get(aseg, set()).difference(agg_path_s)
+                )
             agg_unpath.at[segnum] = agg_unpath_l
             # agg_path_l.reverse()
-            seg_geom = linemerge(list(
-                self.segments.loc[reversed(agg_path_l), 'geometry']))
+            seg_geom = linemerge(
+                list(self.segments.loc[reversed(agg_path_l), "geometry"])
+            )
             with ignore_shapely_warnings_for_object_array():
                 lines.at[segnum] = seg_geom
 
@@ -1388,15 +1493,15 @@ class SurfaceWaterNetwork:
         if polygons is not None:
             polygons = geopandas.GeoSeries(polygons, crs=self.catchments.crs)
             polygons.index.name = self.catchments.index.name
-            txt = ' and polygons'
+            txt = " and polygons"
         else:
-            txt = ''
-        self.logger.debug('aggregated %d lines%s', len(junctions), txt)
+            txt = ""
+        self.logger.debug("aggregated %d lines%s", len(junctions), txt)
 
         na = SurfaceWaterNetwork.from_lines(lines, polygons)
-        na.segments['agg_patch'] = agg_patch
-        na.segments['agg_path'] = agg_path
-        na.segments['agg_unpath'] = agg_unpath
+        na.segments["agg_patch"] = agg_patch
+        na.segments["agg_path"] = agg_path
+        na.segments["agg_unpath"] = agg_unpath
         return na
 
     def accumulate_values(self, values):
@@ -1417,16 +1522,18 @@ class SurfaceWaterNetwork:
 
         """
         if not isinstance(values, pd.Series):
-            raise ValueError('values must be a pandas Series')
-        elif (len(values.index) != len(self.segments.index) or
-                not (values.index == self.segments.index).all()):
-            raise ValueError('index is different')
+            raise ValueError("values must be a pandas Series")
+        elif (
+            len(values.index) != len(self.segments.index)
+            or not (values.index == self.segments.index).all()
+        ):
+            raise ValueError("index is different")
         accum = values.copy()
         if accum.name is not None:
             accum.name = f"accumulated_{accum.name}"
         segnumset = set(self.segments.index)
-        for segnum in self.segments.sort_values('sequence').index:
-            from_segnums = self.segments.at[segnum, 'from_segnums']
+        for segnum in self.segments.sort_values("sequence").index:
+            from_segnums = self.segments.at[segnum, "from_segnums"]
             if from_segnums:
                 from_segnums = from_segnums.intersection(segnumset)
                 if from_segnums:
@@ -1481,19 +1588,17 @@ class SurfaceWaterNetwork:
         remove : Remove segments.
 
         """
-        self.logger.debug('evaluating upstream length')
-        self.segments['upstream_length'] = \
-            self.accumulate_values(self.segments.length)
+        self.logger.debug("evaluating upstream length")
+        self.segments["upstream_length"] = self.accumulate_values(self.segments.length)
 
     def evaluate_upstream_area(self):
         """Evaluate upstream area from catchments, adds to segments."""
-        self.logger.debug('evaluating upstream area')
+        self.logger.debug("evaluating upstream area")
         if self.catchments is None:
             raise ValueError("can't evaluate upstream area without catchments")
-        self.segments['upstream_area'] = \
-            self.accumulate_values(self.catchments.area)
+        self.segments["upstream_area"] = self.accumulate_values(self.catchments.area)
 
-    def estimate_width(self, a=1.42, b=0.52, upstream_area='upstream_area'):
+    def estimate_width(self, a=1.42, b=0.52, upstream_area="upstream_area"):
         """Estimate stream width based on upstream area and fitting parameters.
 
         The column 'upstream_area' (in m^2) must exist in segments, as
@@ -1517,21 +1622,20 @@ class SurfaceWaterNetwork:
         None
 
         """
-        self.logger.debug('evaluating width')
+        self.logger.debug("evaluating width")
         if isinstance(upstream_area, pd.Series):
             upstream_area_km2 = upstream_area / 1e6
         elif isinstance(upstream_area, str):
             if upstream_area not in self.segments.columns:
-                raise ValueError(
-                    f'{upstream_area!r} not found in segments.columns')
+                raise ValueError(f"{upstream_area!r} not found in segments.columns")
             upstream_area_km2 = self.segments[upstream_area] / 1e6
         else:
-            raise ValueError('unknown use for upstream_area')
+            raise ValueError("unknown use for upstream_area")
         if not isinstance(a, (float, int)):
             a = self.segments_series(a, "a")
         if not isinstance(b, (float, int)):
             b = self.segments_series(a, "b")
-        self.segments['width'] = a + upstream_area_km2 ** b
+        self.segments["width"] = a + upstream_area_km2**b
 
     def segments_series(self, value, name=None):
         """Generate a Series along the segments index.
@@ -1578,17 +1682,19 @@ class SurfaceWaterNetwork:
         elif isinstance(value, (list, dict)):
             value = pd.Series(value)
         else:
-            raise ValueError(
-                "expected value to be scalar, list, dict or Series")
-        if (len(value.index) != len(segments_index) or
-                not (value.index == segments_index).all()):
-            raise ValueError('index is different than for segments')
+            raise ValueError("expected value to be scalar, list, dict or Series")
+        if (
+            len(value.index) != len(segments_index)
+            or not (value.index == segments_index).all()
+        ):
+            raise ValueError("index is different than for segments")
         if name is not None:
             value.name = name
         return value
 
     def pair_segments_frame(
-            self, value, value_out=None, name=None, method="continuous"):
+        self, value, value_out=None, name=None, method="continuous"
+    ):
         """Generate a DataFrame of paired values for top/bottom of segments.
 
         The first value applies to the top of each segment, and the bottom
@@ -1692,15 +1798,13 @@ class SurfaceWaterNetwork:
             elif isinstance(value_out, dict):
                 value_out = pd.Series(value_out)
             else:
-                raise ValueError(
-                    "expected value_out to be scalar, dict or Series")
+                raise ValueError("expected value_out to be scalar, dict or Series")
             if not set(value_out.index).issubset(set(df.index)):
-                raise ValueError(
-                    "value_out.index is not a subset of segments.index")
+                raise ValueError("value_out.index is not a subset of segments.index")
             df.loc[value_out.index, c2] = value_out
         return df
 
-    def adjust_elevation_profile(self, min_slope=1./1000):
+    def adjust_elevation_profile(self, min_slope=1.0 / 1000):
         """Check and adjust (if necessary) Z coordinates of elevation profiles.
 
         Parameters
@@ -1713,9 +1817,9 @@ class SurfaceWaterNetwork:
         """
         min_slope = self.segments_series(min_slope)
         if (min_slope <= 0.0).any():
-            raise ValueError('min_slope must be greater than zero')
+            raise ValueError("min_slope must be greater than zero")
         elif not self.has_z:
-            raise AttributeError('line geometry does not have Z dimension')
+            raise AttributeError("line geometry does not have Z dimension")
 
         geom_name = self.segments.geometry.name
         from_segnums = self.from_segnums
@@ -1737,7 +1841,7 @@ class SurfaceWaterNetwork:
                 x0, y0, z0 = x1, y1, z1
             profile_d[segnum] = profile
         # Process elevation adjustments in flow sequence
-        for segnum in self.segments.sort_values('sequence').index:
+        for segnum in self.segments.sort_values("sequence").index:
             if segnum not in modified_d:
                 modified_d[segnum] = []
             profile = profile_d[segnum]
@@ -1753,7 +1857,7 @@ class SurfaceWaterNetwork:
                         profile[0][1] = z0
                         modified_d[segnum].append(drop)
                     elif min(last_zs) > z0:
-                        raise NotImplementedError('unexpected scenario')
+                        raise NotImplementedError("unexpected scenario")
             # Check and enforce minimum slope for remaining coords
             for idx, (dx, z1) in enumerate(profile[1:], 1):
                 dz = z0 - z1
@@ -1790,13 +1894,19 @@ class SurfaceWaterNetwork:
             if modified:
                 if len(modified) == 1:
                     msg = (
-                        'segment %s: adjusted 1 coordinate elevation by %.3f',
-                        segnum, modified[0])
+                        "segment %s: adjusted 1 coordinate elevation by %.3f",
+                        segnum,
+                        modified[0],
+                    )
                 else:
                     msg = (
-                        'segment %s: adjusted %d coordinate elevations between'
-                        ' %.3f and %.3f', segnum, len(modified),
-                        min(modified), max(modified))
+                        "segment %s: adjusted %d coordinate elevations between"
+                        " %.3f and %.3f",
+                        segnum,
+                        len(modified),
+                        min(modified),
+                        max(modified),
+                    )
                 self.logger.debug(*msg)
                 self.messages.append(msg[0] % msg[1:])
                 coords = self.segments.geometry[segnum].coords[:]
@@ -1807,14 +1917,13 @@ class SurfaceWaterNetwork:
                     coords[idx] = coords[idx][0:2] + (profile[idx][1],)
                 self.segments.at[segnum, geom_name] = LineString(coords)
             else:
-                self.logger.debug('segment %s: not adjusted', segnum)
+                self.logger.debug("segment %s: not adjusted", segnum)
                 dist = 0.0
                 for idx in range(len(profile)):
                     dist += profile[idx][0]
                     profile[idx][0] = dist
             profiles.append(LineString(profile))
-        self.profiles = geopandas.GeoSeries(
-                profiles, index=self.segments.index)
+        self.profiles = geopandas.GeoSeries(profiles, index=self.segments.index)
 
     def remove(self, condition=False, segnums=[]):
         r"""Remove segments (and catchments) in-place, preserving attributes.
@@ -1868,8 +1977,8 @@ class SurfaceWaterNetwork:
         condition = self.segments_series(condition, "condition").astype(bool)
         if condition.any():
             self.logger.debug(
-                'selecting %d segnum(s) based on a condition',
-                condition.sum())
+                "selecting %d segnum(s) based on a condition", condition.sum()
+            )
         sel = condition.copy()
         segments_index = self.segments.index
         if len(segnums) > 0:
@@ -1878,27 +1987,39 @@ class SurfaceWaterNetwork:
                 diff = list(sorted(segnums_set.difference(segments_index)))
                 raise IndexError(
                     f"{len(diff)} segnums not found in "
-                    f"segments.index: {abbr_str(diff)}")
+                    f"segments.index: {abbr_str(diff)}"
+                )
             self.logger.debug(
-                'selecting %d segnum(s) based on a list', len(segnums_set))
+                "selecting %d segnum(s) based on a list", len(segnums_set)
+            )
             sel |= segments_index.isin(segnums_set)
         if sel.all():
             raise ValueError(
-                'all segments were selected to remove; must keep at least one')
+                "all segments were selected to remove; must keep at least one"
+            )
         elif (~sel).all():
-            self.logger.info('no segments selected to remove; no changes made')
+            self.logger.info("no segments selected to remove; no changes made")
         else:
             assert sel.any()
             self.logger.info(
-                'removing %d of %d segments (%.2f%%)', sel.sum(),
-                len(segments_index), sel.sum() * 100.0 / len(segments_index))
+                "removing %d of %d segments (%.2f%%)",
+                sel.sum(),
+                len(segments_index),
+                sel.sum() * 100.0 / len(segments_index),
+            )
             self._segments = self.segments.loc[~sel]
             if self.catchments is not None:
                 self.catchments = self.catchments.loc[~sel]
         return
 
-    def plot(self, column='stream_order', sort_column='sequence',
-             cmap='viridis_r', legend=False, ax=None):
+    def plot(
+        self,
+        column="stream_order",
+        sort_column="sequence",
+        cmap="viridis_r",
+        legend=False,
+        ax=None,
+    ):
         """Plot map of surface water network.
 
         Shows map of surface water network lines, with points showing,
@@ -1929,56 +2050,59 @@ class SurfaceWaterNetwork:
 
         if ax is None:
             fig, ax = plt.subplots()
-            ax.set_aspect('equal')
+            ax.set_aspect("equal")
 
         segments = self.segments
         if sort_column:
             segments = self.segments.sort_values(sort_column)
-        segments.plot(
-            column=column, label='segments', legend=legend, ax=ax, cmap=cmap)
+        segments.plot(column=column, label="segments", legend=legend, ax=ax, cmap=cmap)
 
         outet_points = geopandas.GeoSeries(
             self.segments.loc[self.outlets].geometry.apply(
-                lambda g: Point(g.coords[-1])))
-        outet_points.plot(
-            ax=ax, label='outlet', marker='o', color='navy')
+                lambda g: Point(g.coords[-1])
+            )
+        )
+        outet_points.plot(ax=ax, label="outlet", marker="o", color="navy")
 
         headwater_points = geopandas.GeoSeries(
             self.segments.loc[self.headwater].geometry.apply(
-                lambda g: Point(g.coords[0])))
-        headwater_points.plot(
-            ax=ax, label='headwater', marker='.', color='green')
+                lambda g: Point(g.coords[0])
+            )
+        )
+        headwater_points.plot(ax=ax, label="headwater", marker=".", color="green")
 
         diversions = self.diversions
         if diversions is not None:
             with ignore_shapely_warnings_for_object_array():
                 div_seg_pt = geopandas.GeoSeries(
                     self.diversions.apply(
-                        lambda r: self.segments.geometry[
-                            r.from_segnum].interpolate(
-                                r.seg_ndist, normalized=True), axis=1))
+                        lambda r: self.segments.geometry[r.from_segnum].interpolate(
+                            r.seg_ndist, normalized=True
+                        ),
+                        axis=1,
+                    )
+                )
             diversions_is_spatial = (
-                isinstance(diversions, geopandas.GeoDataFrame) and
-                'geometry' in diversions.columns and
-                (~diversions.is_empty).all())
+                isinstance(diversions, geopandas.GeoDataFrame)
+                and "geometry" in diversions.columns
+                and (~diversions.is_empty).all()
+            )
             if diversions_is_spatial:
                 diversion_points = diversions.geometry
             else:
                 diversion_points = div_seg_pt
-            diversion_points.plot(
-                ax=ax, label='diversion', marker='+', color='red')
+            diversion_points.plot(ax=ax, label="diversion", marker="+", color="red")
             if diversions_is_spatial:
                 diversion_lines = []
                 for item in self.diversions.itertuples():
                     pt2 = div_seg_pt[item.Index]
                     if SHAPELY_GE_20 and pt2.has_z:
                         pt2 = shapely.force_2d(pt2)
-                    diversion_lines.append(
-                        LineString([item.geometry.centroid, pt2]))
+                    diversion_lines.append(LineString([item.geometry.centroid, pt2]))
                 diversion_lines = geopandas.GeoSeries(diversion_lines)
                 diversion_lines.plot(
-                    ax=ax, label='diversion lines',
-                    linestyle='--', color='deepskyblue')
+                    ax=ax, label="diversion lines", linestyle="--", color="deepskyblue"
+                )
         return ax
 
     def to_pickle(self, path, protocol=pickle.HIGHEST_PROTOCOL):

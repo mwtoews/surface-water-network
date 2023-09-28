@@ -52,10 +52,6 @@ extra = [
     "matplotlib",
     "netcdf4",
 ]
-lint = [
-    "cffconvert",
-    "flake8",
-]
 test = [
     "pytest >=3.3",
     "pytest-cov",
@@ -68,6 +64,7 @@ Source = "https://github.com/mwtoews/surface-water-network"
 
 [tool.pytest.ini_options]
 minversion = "6.0"
+doctest_optionflags = "NORMALIZE_WHITESPACE"
 testpaths = ["tests"]
 filterwarnings = [
     "ignore:.*distutils Version classes.*:DeprecationWarning",
