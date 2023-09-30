@@ -34,7 +34,7 @@ class SwnMf6(SwnModflowBase):
     segments : geopandas.GeoDataFrame
         Copied from swn.segments, but with additional columns added
     reaches : geopandas.GeoDataFrame
-        Similar to structure in model.sfr.reaches with index "rno",
+        Similar to structure in model.sfr.reaches with index "rno" or "ifno",
         ordered and starting from 1. Contains geometry and other columns
         not used by flopy.
     tsvar : dict
@@ -112,48 +112,54 @@ class SwnMf6(SwnModflowBase):
         else:
             reaches_segnum_s = set(obj.reaches.segnum)
 
-        def find_next_rno(segnum):
+        def find_next_ridx(segnum):
             if segnum in to_segnums_d:
                 to_segnum = to_segnums_d[segnum]
                 if to_segnum in reaches_segnum_s:
                     sel = obj.reaches["segnum"] == to_segnum
                     return obj.reaches[sel].index[0]
                 else:  # recurse downstream
-                    return find_next_rno(to_segnum)
+                    return find_next_ridx(to_segnum)
             else:
                 return 0
 
-        def get_to_rno():
+        def get_to_ridx():
             if segnum == next_segnum:
-                return next_rno
+                return next_ridx
             else:
-                return find_next_rno(segnum)
+                return find_next_ridx(segnum)
 
-        obj.reaches["to_rno"] = -1
+        ridxname = obj.reach_index_name
+        to_ridxname = f"to_{ridxname}"
+        from_ridxsname = f"from_{ridxname}s"
+        obj.reaches[to_ridxname] = -1
         if has_diversions:
+            from_ridxname = f"from_{ridxname}"
+            div_to_ridxsname = f"div_to_{ridxname}s"
+            div_from_ridxname = f"div_from_{ridxname}"
             segnum_iter = obj.reaches.loc[~obj.reaches.diversion, "segnum"].items()
         else:
             segnum_iter = obj.reaches["segnum"].items()
-        rno, segnum = next(segnum_iter)
-        for next_rno, next_segnum in segnum_iter:
-            obj.reaches.at[rno, "to_rno"] = get_to_rno()
-            rno, segnum = next_rno, next_segnum
+        ridx, segnum = next(segnum_iter)
+        for next_ridx, next_segnum in segnum_iter:
+            obj.reaches.at[ridx, to_ridxname] = get_to_ridx()
+            ridx, segnum = next_ridx, next_segnum
         next_segnum = swn.END_SEGNUM
-        obj.reaches.at[rno, "to_rno"] = get_to_rno()
+        obj.reaches.at[ridx, to_ridxname] = get_to_ridx()
         if has_diversions:
-            obj.reaches.loc[obj.reaches["diversion"], "to_rno"] = 0
-        assert obj.reaches.to_rno.min() >= 0
+            obj.reaches.loc[obj.reaches["diversion"], to_ridxname] = 0
+        assert obj.reaches[to_ridxname].min() >= 0
 
-        # Populate from_rnos set
-        obj.reaches["from_rnos"] = [set() for _ in range(len(obj.reaches))]
-        to_rnos = obj.reaches.loc[obj.reaches["to_rno"] > 0, "to_rno"]
-        for k, v in to_rnos.items():
-            obj.reaches.at[v, "from_rnos"].add(k)
+        # Populate from_ set
+        obj.reaches[from_ridxsname] = [set() for _ in range(len(obj.reaches))]
+        to_ridxs = obj.reaches.loc[obj.reaches[to_ridxname] > 0, to_ridxname]
+        for k, v in to_ridxs.items():
+            obj.reaches.at[v, from_ridxsname].add(k)
 
         # Refresh diversions if set
         if has_diversions:
             div_sel = obj.diversions["in_model"]
-            # populate (rno, idv) from their match to non-diversion reaches
+            # populate (ridx, idv) from their match to non-diversion reaches
             diversions_in_model = obj.diversions[div_sel]
             r_df = obj.get_location_frame_reach_info(
                 diversions_in_model.rename(columns={"from_segnum": "segnum"})[
@@ -162,41 +168,43 @@ class SwnMf6(SwnModflowBase):
                 downstream_bias=diversion_downstream_bias,
                 geom_loc_df=getattr(diversions_in_model, "geometry", None),
             )
-            obj.diversions["rno"] = 0  # valid from 1
-            obj.diversions.loc[r_df.index, "rno"] = r_df.rno
+            obj.diversions[ridxname] = 0  # valid from 1
+            obj.diversions.loc[r_df.index, ridxname] = r_df[ridxname]
             # evaluate idv, which is betwen 1 and ndv
             obj.diversions["idv"] = 0
             obj.diversions.loc[div_sel, "idv"] = 1
-            rno_counts = obj.diversions[div_sel].groupby("rno").count()["in_model"]
-            for rno, count in rno_counts[rno_counts > 1].items():
+            ridx_counts = obj.diversions[div_sel].groupby(ridxname).count()["in_model"]
+            for ridx, count in ridx_counts[ridx_counts > 1].items():
                 obj.diversions.loc[
-                    obj.diversions["rno"] == rno, "idv"
-                ] = obj.diversions.idv[obj.diversions["rno"] == rno].cumsum()
-            # cross-reference iconr to rno used as a reach
+                    obj.diversions[ridxname] == ridx, "idv"
+                ] = obj.diversions.idv[obj.diversions[ridxname] == ridx].cumsum()
+            # cross-reference iconr to ridx used as a reach
             diversion_reaches = (
                 obj.reaches.loc[obj.reaches.diversion].reset_index().set_index("divid")
             )
-            obj.diversions["iconr"] = diversion_reaches["rno"]
+            obj.diversions["iconr"] = diversion_reaches[ridxname]
             # Also put data into reaches frame
-            obj.reaches["div_from_rno"] = 0
+            obj.reaches[div_from_ridxname] = 0
             rdiv = (
-                obj.diversions.loc[div_sel, ["rno", "iconr"]]
-                .rename(columns={"rno": "from_rno", "iconr": "rno"})
+                obj.diversions.loc[div_sel, [ridxname, "iconr"]]
+                .rename(columns={ridxname: from_ridxname, "iconr": ridxname})
                 .reset_index()
-                .set_index("rno")
+                .set_index(ridxname)
             )
-            obj.reaches.loc[rdiv.index, "div_from_rno"] = rdiv["from_rno"]
-            obj.reaches["div_to_rnos"] = [set() for _ in range(len(obj.reaches))]
-            to_rnos = obj.reaches.loc[obj.reaches["div_from_rno"] > 0, "div_from_rno"]
-            for k, v in to_rnos.items():
-                obj.reaches.at[v, "div_to_rnos"].add(k)
+            obj.reaches.loc[rdiv.index, div_from_ridxname] = rdiv[from_ridxname]
+            obj.reaches[div_to_ridxsname] = [set() for _ in range(len(obj.reaches))]
+            to_ridxs = obj.reaches.loc[
+                obj.reaches[div_from_ridxname] > 0, div_from_ridxname
+            ]
+            for k, v in to_ridxs.items():
+                obj.reaches.at[v, div_to_ridxsname].add(k)
 
             # Workaround potential MODFLOW6 bug where diversions cannot attach
             # to outlet reach, so add another reach
             sel = (
-                (obj.reaches["to_rno"] == 0)
+                (obj.reaches[to_ridxname] == 0)
                 & (~obj.reaches["diversion"])
-                & (obj.reaches["div_to_rnos"].apply(len) > 0)
+                & (obj.reaches[div_to_ridxsname].apply(len) > 0)
             )
             if sel.any() and "mask" not in obj.reaches.columns:
                 obj.reaches["mask"] = False
@@ -204,29 +212,29 @@ class SwnMf6(SwnModflowBase):
                     empty_geom = wkt.loads("linestring z empty")
                 else:
                     empty_geom = wkt.loads("linestring empty")
-            for rno in sel[sel].index:
-                new_rno = len(obj.reaches) + 1
+            for ridx in sel[sel].index:
+                new_ridx = len(obj.reaches) + 1
                 # Correction to this reach
-                obj.reaches.loc[rno, "to_rno"] = new_rno
+                obj.reaches.loc[ridx, to_ridxname] = new_ridx
                 # Use as template for new reach
-                reach_d = obj.reaches.loc[rno].to_dict()
+                reach_d = obj.reaches.loc[ridx].to_dict()
                 reach_d.update(
                     {
                         "geometry": empty_geom,
                         "mask": True,
                         "ireach": reach_d["ireach"] + 1,
-                        "to_rno": 0,
-                        "from_rnos": {rno},
-                        "div_to_rnos": set(),
+                        to_ridxname: 0,
+                        from_ridxsname: {ridx},
+                        div_to_ridxsname: set(),
                     }
                 )
                 with ignore_shapely_warnings_for_object_array():
-                    obj.reaches.loc[new_rno] = reach_d
+                    obj.reaches.loc[new_ridx] = reach_d
 
         # Set 1.0 for most, 0.0 for head and diversion nodes
         obj.reaches["ustrf"] = 1.0
-        zero_from_rnos = obj.reaches["from_rnos"].apply(len) == 0
-        obj.reaches.loc[zero_from_rnos, "ustrf"] = 0.0
+        zero_from_ridxs = obj.reaches[from_ridxsname].apply(len) == 0
+        obj.reaches.loc[zero_from_ridxs, "ustrf"] = 0.0
 
         return obj
 
@@ -327,7 +335,7 @@ class SwnMf6(SwnModflowBase):
             dat["cellid"] = dat[kij_l].to_records(index=False).tolist()
             if cellid_none.any():
                 dat.loc[cellid_none, "cellid"] = "NONE"
-            # Convert rno from one-based to zero-based notation
+            # Convert ridx from one-based to zero-based notation
             dat.index -= 1
         else:
             raise ValueError("'style' must be either 'native' or 'flopy'")
@@ -370,7 +378,7 @@ class SwnMf6(SwnModflowBase):
         style : str
             If "native", all indicies (including kij) use one-based notation.
             Also use k,i,j columns (as str) rather than cellid.
-            If "flopy", all indices (including rno) use zero-based notation.
+            If "flopy", all indices (including rno/ifno) use zero-based notation.
             Also use cellid as a tuple.
         auxiliary : str, list, optional
             String or list of auxiliary variable names. Default [].
@@ -434,21 +442,27 @@ class SwnMf6(SwnModflowBase):
         from flopy.mf6 import ModflowGwfsfr as Mf6Sfr
 
         defcols_names = [dt[0] for dt in Mf6Sfr.packagedata.dtype(self.model)]
-        defcols_names.remove("rno")  # this is the index
+        ridxname = defcols_names.pop(0)  # this is the index, either "rno" or "ifno"
+        to_ridxname = f"to_{ridxname}"
+        from_ridxsname = f"from_{ridxname}s"
         dat = self._init_package_df(
             style=style, defcols_names=defcols_names, auxiliary=auxiliary
         )
         if "rlen" not in dat.columns:
             dat.loc[:, "rlen"] = dat.geometry.length
-        dat["ncon"] = dat["from_rnos"].apply(len) + (dat["to_rno"] > 0).astype(int)
+        dat["ncon"] = dat[from_ridxsname].apply(len) + (dat[to_ridxname] > 0).astype(
+            int
+        )
         dat["ndv"] = 0
         if self.diversions is not None:
-            dat["ncon"] += dat["div_to_rnos"].apply(len) + (
-                dat["div_from_rno"] > 0
+            div_to_ridxsname = f"div_to_{ridxname}s"
+            div_from_ridxname = f"div_from_{ridxname}"
+            dat["ncon"] += dat[div_to_ridxsname].apply(len) + (
+                dat[div_from_ridxname] > 0
             ).astype(int)
             ndv = (
                 self.diversions[self.diversions["in_model"]]
-                .groupby("rno")
+                .groupby(ridxname)
                 .count()
                 .in_model
             )
@@ -514,7 +528,7 @@ class SwnMf6(SwnModflowBase):
         ----------
         style : str
             If "native", all indicies (including kij) use one-based notation.
-            If "flopy", all indices (including rno) use zero-based notation.
+            If "flopy", all indices (including rno/ifno) use zero-based notation.
         """
 
         def nonzerolst(x, neg=False):
@@ -523,25 +537,30 @@ class SwnMf6(SwnModflowBase):
             else:
                 return [x] if x > 0 else []
 
+        ridxname = self.reach_index_name
+        from_ridxsname = f"from_{ridxname}s"
+        to_ridxname = f"to_{ridxname}"
         if self.diversions is not None:
+            div_from_ridxname = f"div_from_{ridxname}"
+            div_to_ridxsname = f"div_to_{ridxname}s"
             res = (
-                self.reaches["from_rnos"].apply(sorted)
-                + self.reaches["div_from_rno"].apply(nonzerolst, neg=False)
-                + self.reaches["to_rno"].apply(nonzerolst, neg=True)
-                + self.reaches["div_to_rnos"]
+                self.reaches[from_ridxsname].apply(sorted)
+                + self.reaches[div_from_ridxname].apply(nonzerolst, neg=False)
+                + self.reaches[to_ridxname].apply(nonzerolst, neg=True)
+                + self.reaches[div_to_ridxsname]
                 .apply(sorted)
                 .apply(lambda x: [-i for i in x])
             )
         else:
-            res = self.reaches["from_rnos"].apply(sorted) + self.reaches[
-                "to_rno"
+            res = self.reaches[from_ridxsname].apply(sorted) + self.reaches[
+                to_ridxname
             ].apply(nonzerolst, neg=True)
 
         if style == "native":
             # keep one-based notation, but convert list to str
             return res
         elif style == "flopy":
-            # Convert rno from one-based to zero-based notation
+            # Convert ridx from one-based to zero-based notation
             res.index -= 1
             return res.apply(lambda x: [v - 1 if v > 0 else v + 1 for v in x])
         else:
@@ -564,12 +583,12 @@ class SwnMf6(SwnModflowBase):
         cn = self.connectiondata_series("native")
         icn = [f"ic{n+1}" for n in range(cn.apply(len).max())]
         rowfmt = f"{{:>{len(str(cn.index.max()))}}} {{}}\n"
-        rnolen = 1 + len(str(len(self.reaches)))
-        cn = cn.apply(lambda x: " ".join(str(v).rjust(rnolen) for v in x))
+        ridxlen = 1 + len(str(len(self.reaches)))
+        cn = cn.apply(lambda x: " ".join(str(v).rjust(ridxlen) for v in x))
         with open(fname, "w") as f:
-            f.write(f"# rno {' '.join(icn)}\n")
-            for rno, ic in cn.items():
-                f.write(rowfmt.format(rno, ic))
+            f.write(f"# {self.reach_index_name} {' '.join(icn)}\n")
+            for ridx, ic in cn.items():
+                f.write(rowfmt.format(ridx, ic))
 
     def flopy_connectiondata(self):
         """Return list of lists for flopy.
@@ -665,8 +684,8 @@ class SwnMf6(SwnModflowBase):
         if style == "native":
             pass
         elif style == "flopy":
-            # Convert rno from one-based to zero-based notation
-            dat[["rno", "idv", "iconr"]] -= 1
+            # Convert ridx from one-based to zero-based notation
+            dat[[self.reach_index_name, "idv", "iconr"]] -= 1
         else:
             raise ValueError("'style' must be either 'native' or 'flopy'")
         return dat[defcols_names]
@@ -721,7 +740,7 @@ class SwnMf6(SwnModflowBase):
         style : str
             If "native", all indicies (including kij) use one-based notation.
             Also use k,i,j columns (as str) rather than cellid.
-            If "flopy", all indices (including rno) use zero-based notation.
+            If "flopy", all indices (including rno/ifno) use zero-based notation.
             Also use cellid as a tuple.
         auxiliary : str, list, optional
             String or list of auxiliary variable names. Default [].
@@ -801,7 +820,7 @@ class SwnMf6(SwnModflowBase):
         dat["per"] = 1
         if style == "flopy":
             dat["per"] -= 1
-        return dat.reset_index().set_index(["per", "rno"])
+        return dat.reset_index().set_index(["per", self.reach_index_name])
 
     def write_package_period(
         self, package: str, fname, auxiliary: list = [], boundname=None
@@ -1483,6 +1502,9 @@ class SwnMf6(SwnModflowBase):
                 botms[0, r.i, r.j] = new_elev
             return botms
 
+        ridxname = self.reach_index_name
+        from_ridxsname = f"from_{ridxname}s"
+        to_ridxname = f"to_{ridxname}"
         if direction == "upstream":
             ustrm = True
         else:
@@ -1499,7 +1521,7 @@ class SwnMf6(SwnModflowBase):
         self.logger.info("%s reaches above model top", reachsel.sum())
         # copy of layer 1 bottom (for updating to fit in stream reaches)
         layerbots = self.model.dis.botm.array.copy()
-        sel = self.reaches["from_rnos"] == set()
+        sel = self.reaches[from_ridxsname] == set()
         if self.diversions is not None:
             sel &= ~self.reaches["diversion"]
         headreaches = self.reaches.loc[sel]
@@ -1519,10 +1541,10 @@ class SwnMf6(SwnModflowBase):
             reaches = self.reaches.loc[self.reaches.segnum.isin(segs)].sort_index()
             # get outflow reach for this profile
             # maybe can't rely on it being the last one
-            # the sort_index() should order (assuming rno increases downstream)
+            # the sort_index() should order (assuming ridx increases downstream)
             # so last should be to_rno == 0
             assert (
-                reaches.iloc[-1].to_rno == 0
+                reaches.iloc[-1][to_ridxname] == 0
             ), "reach numbers possibly not increasing downstream"
             outflow = reaches.iloc[-1]
             # check if outflow above model top
@@ -1723,8 +1745,8 @@ class SwnMf6(SwnModflowBase):
 
             0. get a list of cells with to_rtp > rtp-minslope*(delr+delc)/2
             1. drop rtp of downstream reach (to_rno) when higher than rtp
-               (of rno)
-            2. grab all offensive reaches downstream of rno
+               (of ridx)
+            2. grab all offensive reaches downstream of ridx
             3. check and fix all layer bottoms to be above minthick+buffer
             4. adjust top, up only, to accomodate minincision or rtp above
                cell top
@@ -1751,6 +1773,7 @@ class SwnMf6(SwnModflowBase):
         None
 
         """
+        to_ridxname = f"to_{self.reach_index_name}"
 
         # copy some data
         top = self.model.dis.top.array.copy()
@@ -1780,9 +1803,9 @@ class SwnMf6(SwnModflowBase):
                 rdf.loc[idx, "rbth"] = np.max([r["rbth"], minthick])
                 rdf.loc[idx, "rtp"] = top[r["ij"]] - minincise
         for idx, r in rdf.iterrows():
-            trno = int(r["to_rno"])
-            if trno != 0:
-                rdf.loc[idx, "to_rtp"] = rdf.loc[trno, "rtp"]
+            to_ridx = int(r[to_ridxname])
+            if to_ridx != 0:
+                rdf.loc[idx, "to_rtp"] = rdf.loc[to_ridx, "rtp"]
         # start loop
         loop = 0
         cont = True
@@ -1795,26 +1818,26 @@ class SwnMf6(SwnModflowBase):
             loop += 1
             chg = 0
             for br in bad_reaches:
-                rno = br
-                trno = int(rdf.loc[br, "to_rno"])
+                ridx = br
+                to_ridx = int(rdf.loc[br, to_ridxname])
                 chglist = []
-                if trno != 0:
+                if to_ridx != 0:
                     # count how many downstream reaches offend
                     # keep track of changes in elev
-                    dz = rdf.loc[rno, "mindz"]
-                    check = rdf.loc[trno, "rtp"] > rdf.loc[rno, "rtp"] - dz
-                    while trno != 0 and check:
+                    dz = rdf.loc[ridx, "mindz"]
+                    check = rdf.loc[to_ridx, "rtp"] > rdf.loc[ridx, "rtp"] - dz
+                    while to_ridx != 0 and check:
                         # keep list of dz in case another inflowing stream is
                         # even lower
-                        chglist.append(trno)
-                        nelev = rdf.loc[rno, "rtp"] - dz
+                        chglist.append(to_ridx)
+                        nelev = rdf.loc[ridx, "rtp"] - dz
                         # set to_rtp and rtp
-                        rdf.loc[rno, "to_rtp"] = nelev
-                        rdf.loc[trno, "rtp"] = nelev
+                        rdf.loc[ridx, "to_rtp"] = nelev
+                        rdf.loc[to_ridx, "rtp"] = nelev
                         # move downstream
-                        rno = trno
-                        trno = rdf.loc[rno, "to_rno"]
-                        dz = rdf.loc[rno, "mindz"]
+                        ridx = to_ridx
+                        to_ridx = rdf.loc[ridx, to_ridxname]
+                        dz = rdf.loc[ridx, "mindz"]
 
                     # now adjust layering if necessary
                     if len(chglist) > 0 and fix_dis:
@@ -1927,7 +1950,7 @@ class SwnMf6(SwnModflowBase):
         Parameters
         ----------
         start, end : any
-            Start and end reach numbers (rno).
+            Start and end reach numbers (rno or ifno).
         allow_indirect : bool, default False
             If True, allow the route to go downstream from start to a
             confluence, then route upstream to end. Defalut False allows
@@ -1984,17 +2007,18 @@ class SwnMf6(SwnModflowBase):
         7    2  1  10.000000
         """  # noqa
         if start not in self.reaches.index:
-            raise IndexError(f"invalid start rno {start}")
+            raise IndexError(f"invalid start {self.reach_index_name} {start}")
         if end not in self.reaches.index:
-            raise IndexError(f"invalid end rno {end}")
+            raise IndexError(f"invalid end {self.reach_index_name} {end}")
         if start == end:
             return [start]
-        to_rnos = dict(self.reaches.loc[self.reaches["to_rno"] != 0, "to_rno"])
+        to_ridxname = f"to_{self.reach_index_name}"
+        to_ridxs = dict(self.reaches.loc[self.reaches[to_ridxname] != 0, to_ridxname])
 
-        def go_downstream(rno):
-            yield rno
-            if rno in to_rnos:
-                yield from go_downstream(to_rnos[rno])
+        def go_downstream(ridx):
+            yield ridx
+            if ridx in to_ridxs:
+                yield from go_downstream(to_ridxs[ridx])
 
         con1 = list(go_downstream(start))
         try:
@@ -2018,16 +2042,16 @@ class SwnMf6(SwnModflowBase):
             if not common:
                 msg += " -- reach networks are disjoint"
             raise ConnectionError(msg)
-        # find the most upstream common rno or "confluence"
-        rno = common.pop()
-        idx1 = con1.index(rno)
-        idx2 = con2.index(rno)
+        # find the most upstream common ridx or "confluence"
+        ridx = common.pop()
+        idx1 = con1.index(ridx)
+        idx2 = con2.index(ridx)
         while common:
-            rno = common.pop()
-            tmp1 = con1.index(rno)
+            ridx = common.pop()
+            tmp1 = con1.index(ridx)
             if tmp1 < idx1:
                 idx1 = tmp1
-                idx2 = con2.index(rno)
+                idx2 = con2.index(ridx)
         return con1[:idx1] + list(reversed(con2[:idx2]))
 
 
