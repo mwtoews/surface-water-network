@@ -48,8 +48,9 @@ jobs:
         run: |
           pytest -v swn --doctest-modules
 
-      - name: Run tests with older packages
+      - name: Run tests with develop flopy and other older packages
         run: |
+          pip install https://github.com/modflowpy/flopy/archive/refs/heads/develop.zip
           pip install "shapely<2.0" "pandas<2.0"
           pytest -v -n2 --cov --cov-append
 

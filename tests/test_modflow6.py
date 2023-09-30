@@ -18,6 +18,18 @@ from .conftest import datadir, matplotlib, plt
 
 try:
     import flopy
+
+    for block in flopy.mf6.ModflowGwfsfr.dfn:
+        if block[0] == "block packagedata" and block[1] != "name packagedata":
+            ridxname = block[1][5:]
+            break
+    else:
+        raise ValueError("cannot determine reach index name for GWF-SFR")
+    to_ridxname = f"to_{ridxname}"
+    from_ridxsname = f"from_{ridxname}s"
+    div_to_ridxsname = f"div_to_{ridxname}s"
+    div_from_ridxname = f"div_from_{ridxname}"
+
 except ImportError:
     pytest.skip("skipping tests that require flopy", allow_module_level=True)
 
@@ -202,10 +214,10 @@ def test_n3d_defaults(tmp_path, has_diversions):
             "iseg": [1, 1, 1, 2, 2, 3, 3],
             "ireach": [1, 2, 3, 1, 2, 1, 2],
             "rlen": [18.027756, 6.009252, 12.018504, 21.081851, 10.5409255, 10.0, 10.0],
-            "to_rno": [2, 3, 6, 5, 6, 7, 0],
-            "from_rnos": [set(), {1}, {2}, set(), {4}, {3, 5}, {6}],
+            to_ridxname: [2, 3, 6, 5, 6, 7, 0],
+            from_ridxsname: [set(), {1}, {2}, set(), {4}, {3, 5}, {6}],
         },
-        index=pd.RangeIndex(1, 8, name="rno"),
+        index=pd.RangeIndex(1, 8, name=ridxname),
     )
     if not has_diversions:
         pd.testing.assert_frame_equal(
@@ -224,17 +236,17 @@ def test_n3d_defaults(tmp_path, has_diversions):
                         "iseg": 0,
                         "ireach": 0,
                         "rlen": 1.0,
-                        "to_rno": 0,
-                        "from_rnos": [set(), set(), set(), set()],
+                        to_ridxname: 0,
+                        from_ridxsname: [set(), set(), set(), set()],
                     },
-                    index=pd.RangeIndex(8, 12, name="rno"),
+                    index=pd.RangeIndex(8, 12, name=ridxname),
                 ),
             ]
         )
         div_expected["diversion"] = [False] * 7 + [True] * 4
         div_expected["divid"] = [0] * 7 + [0, 1, 2, 3]
-        div_expected["div_from_rno"] = [0] * 7 + [3, 5, 6, 6]
-        div_expected["div_to_rnos"] = [
+        div_expected[div_from_ridxname] = [0] * 7 + [3, 5, 6, 6]
+        div_expected[div_to_ridxsname] = [
             set(),
             set(),
             {8},
@@ -273,7 +285,7 @@ def test_n3d_defaults(tmp_path, has_diversions):
             "ncon": [1, 2, 2, 1, 2, 3, 1],
             "ndv": 0,
         },
-        index=pd.RangeIndex(1, 8, name="rno"),
+        index=pd.RangeIndex(1, 8, name=ridxname),
     )
     if not has_diversions:
         pd.testing.assert_frame_equal(
@@ -294,7 +306,7 @@ def test_n3d_defaults(tmp_path, has_diversions):
                         "ncon": 1,
                         "ndv": 0,
                     },
-                    index=pd.RangeIndex(8, 12, name="rno"),
+                    index=pd.RangeIndex(8, 12, name=ridxname),
                 ),
             ]
         )
@@ -341,7 +353,7 @@ def test_n3d_defaults(tmp_path, has_diversions):
             nm.diversions_frame("native"),
             pd.DataFrame(
                 {
-                    "rno": [3, 5, 6, 6],
+                    ridxname: [3, 5, 6, 6],
                     "idv": [1, 1, 1, 2],
                     "iconr": [8, 9, 10, 11],
                     "cprior": "upto",
@@ -357,16 +369,16 @@ def test_n3d_defaults(tmp_path, has_diversions):
         assert nm.flopy_diversions() == expected
     if not has_diversions:
         assert repr(nm) == dedent(
-            """\
+            f"""\
             <SwnMf6: flopy mf6 'model'
-              7 in reaches (rno): [1, 2, ..., 6, 7]
+              7 in reaches ({ridxname}): [1, 2, ..., 6, 7]
               1 stress period with perlen: [1.0] days />"""
         )
     else:
         assert repr(nm) == dedent(
-            """\
+            f"""\
             <SwnMf6: flopy mf6 'model'
-              11 in reaches (rno): [1, 2, ..., 10, 11]
+              11 in reaches ({ridxname}): [1, 2, ..., 10, 11]
               4 in diversions (iconr): [8, 9, 10, 11]
               1 stress period with perlen: [1.0] days />"""
         )
@@ -605,7 +617,7 @@ def test_n2d_defaults(tmp_path):
     assert list(r.i) == [0, 0, 1, 0, 1, 1, 2]
     assert list(r.j) == [0, 1, 1, 1, 1, 1, 1]
     assert list(r.segnum) == [1, 1, 1, 2, 2, 0, 0]
-    assert list(r.to_rno) == [2, 3, 6, 5, 6, 7, 0]
+    assert list(r[to_ridxname]) == [2, 3, 6, 5, 6, 7, 0]
     nm.default_packagedata(hyd_cond1=2.0, thickness1=2.0)
     nm.set_reach_data_from_array("rtp", m.dis.top.array - 1.0)
     np.testing.assert_array_almost_equal(
@@ -660,7 +672,7 @@ def test_packagedata(tmp_path):
     ]
     assert (
         list(m.sfr.packagedata.array.dtype.names)
-        == ["rno", "cellid"] + partial_expected_cols
+        == [ridxname, "cellid"] + partial_expected_cols
     )
 
     # Check pandas frames
@@ -693,7 +705,7 @@ def test_packagedata(tmp_path):
     nm.reaches["var1"] = np.arange(len(nm.reaches), dtype=float) * 12.0
     nm.set_sfr_obj(auxiliary="var1")
     assert list(m.sfr.packagedata.array.dtype.names) == [
-        "rno",
+        ridxname,
         "cellid",
     ] + partial_expected_cols + ["var1"]
     np.testing.assert_array_almost_equal(
@@ -707,7 +719,7 @@ def test_packagedata(tmp_path):
     nm.reaches["var2"] = np.arange(len(nm.reaches)) * 11
     nm.set_sfr_obj(auxiliary=["var1", "var2"])
     assert list(m.sfr.packagedata.array.dtype.names) == [
-        "rno",
+        ridxname,
         "cellid",
     ] + partial_expected_cols + ["var1", "var2"]
     np.testing.assert_array_almost_equal(
@@ -725,7 +737,7 @@ def test_packagedata(tmp_path):
     nm.reaches["boundname"] = nm.reaches["segnum"]
     nm.set_sfr_obj()
     assert list(m.sfr.packagedata.array.dtype.names) == [
-        "rno",
+        ridxname,
         "cellid",
     ] + partial_expected_cols + ["boundname"]
     assert list(m.sfr.packagedata.array["boundname"]) == (
@@ -741,7 +753,7 @@ def test_packagedata(tmp_path):
     nm.reaches["var1"] = np.arange(len(nm.reaches), dtype=float) * 12.0
     nm.set_sfr_obj(auxiliary=["var1"])
     assert list(m.sfr.packagedata.array.dtype.names) == [
-        "rno",
+        ridxname,
         "cellid",
     ] + partial_expected_cols + ["var1", "boundname"]
     np.testing.assert_array_almost_equal(
@@ -826,9 +838,9 @@ def test_coastal(tmp_path, coastal_lines_gdf, coastal_flow_m):
     # Check other packages
     check_number_sum_hex(m.dis.idomain.array, 509, "c4135a084b2593e0b69c148136a3ad6d")
     assert repr(nm) == dedent(
-        """\
+        f"""\
         <SwnMf6: flopy mf6 'h'
-          297 in reaches (rno): [1, 2, ..., 296, 297]
+          297 in reaches ({ridxname}): [1, 2, ..., 296, 297]
           1 stress period with perlen: [1.0] days />"""
     )
     if matplotlib:
@@ -924,9 +936,9 @@ def test_coastal_reduced(coastal_lines_gdf, coastal_flow_m, tmp_path):
     np.testing.assert_almost_equal(reach_geom.length, 237.72893664132727)
     assert len(nm.reaches) == 154
     assert repr(nm) == dedent(
-        """\
+        f"""\
         <SwnMf6: flopy mf6 'h'
-          154 in reaches (rno): [1, 2, ..., 153, 154]
+          154 in reaches ({ridxname}): [1, 2, ..., 153, 154]
           1 stress period with perlen: [1.0] days />"""
     )
     if matplotlib:
@@ -980,9 +992,9 @@ def test_coastal_idomain_modify(coastal_swn, coastal_flow_m, tmp_path):
     # Check other packages
     check_number_sum_hex(m.dis.idomain.array, 572, "d353560128577b37f730562d2f89c025")
     assert repr(nm) == dedent(
-        """\
+        f"""\
         <SwnMf6: flopy mf6 'h'
-          478 in reaches (rno): [1, 2, ..., 477, 478]
+          478 in reaches ({ridxname}): [1, 2, ..., 477, 478]
           1 stress period with perlen: [1.0] days />"""
     )
     if matplotlib:
@@ -1041,7 +1053,7 @@ def test_include_downstream_reach_outside_model(tmp_path):
     )
     assert m.sfr.nreaches.data == 5
     dat = m.sfr.packagedata.array
-    np.testing.assert_array_equal(dat.rno, [0, 1, 2, 3, 4])
+    np.testing.assert_array_equal(dat[ridxname], [0, 1, 2, 3, 4])
     cellid = np.array(dat.cellid, dtype=[("k", int), ("i", int), ("j", int)])
     np.testing.assert_array_equal(cellid["k"], [0, 0, 0, 0, 0])
     np.testing.assert_array_equal(cellid["i"], [0, 1, 0, 1, 1])
@@ -1111,8 +1123,8 @@ def test_n3d_defaults_with_div_on_outlet(tmp_path):
                 1.0,
                 10.0,
             ],
-            "to_rno": [2, 3, 6, 5, 6, 7, 12, 0, 0, 0, 0, 0],
-            "from_rnos": [
+            to_ridxname: [2, 3, 6, 5, 6, 7, 12, 0, 0, 0, 0, 0],
+            from_ridxsname: [
                 set(),
                 {1},
                 {2},
@@ -1126,8 +1138,8 @@ def test_n3d_defaults_with_div_on_outlet(tmp_path):
                 set(),
                 {7},
             ],
-            "div_from_rno": [0, 0, 0, 0, 0, 0, 0, 3, 5, 7, 7, 0],
-            "div_to_rnos": [
+            div_from_ridxname: [0, 0, 0, 0, 0, 0, 0, 3, 5, 7, 7, 0],
+            div_to_ridxsname: [
                 set(),
                 set(),
                 {8},
@@ -1143,7 +1155,7 @@ def test_n3d_defaults_with_div_on_outlet(tmp_path):
             ],
             "mask": [False] * 11 + [True],
         },
-        index=pd.RangeIndex(1, 13, name="rno"),
+        index=pd.RangeIndex(1, 13, name=ridxname),
     )
     pd.testing.assert_frame_equal(nm.reaches[expected.columns], expected)
     nm.default_packagedata(hyd_cond1=1e-4)
@@ -1160,7 +1172,7 @@ def test_n3d_defaults_with_div_on_outlet(tmp_path):
             "ncon": [1, 2, 3, 1, 3, 3, 4, 1, 1, 1, 1, 1],
             "ndv": [0, 0, 1, 0, 1, 0, 2, 0, 0, 0, 0, 0],
         },
-        index=pd.RangeIndex(1, 13, name="rno"),
+        index=pd.RangeIndex(1, 13, name=ridxname),
     )
     pd.testing.assert_frame_equal(
         nm.packagedata_frame("native")[expected.columns], expected
@@ -1193,7 +1205,7 @@ def test_n3d_defaults_with_div_on_outlet(tmp_path):
         nm.diversions_frame("native"),
         pd.DataFrame(
             {
-                "rno": [3, 5, 7, 7],
+                ridxname: [3, 5, 7, 7],
                 "idv": [1, 1, 1, 2],
                 "iconr": [8, 9, 10, 11],
                 "cprior": "upto",
@@ -1208,9 +1220,9 @@ def test_n3d_defaults_with_div_on_outlet(tmp_path):
     ]
     assert nm.flopy_diversions() == expected
     assert repr(nm) == dedent(
-        """\
+        f"""\
         <SwnMf6: flopy mf6 'model'
-          12 in reaches (rno): [1, 2, ..., 11, 12]
+          12 in reaches ({ridxname}): [1, 2, ..., 11, 12]
           4 in diversions (iconr): [8, 9, 10, 11]
           1 stress period with perlen: [1.0] days />"""
     )
@@ -1325,13 +1337,13 @@ def test_diversions(tmp_path):
 
     nm = swn.SwnMf6.from_swn_flopy(n, m)
     nm.reaches["boundname"] = nm.reaches["divid"]
-    assert list(nm.diversions.rno) == [3, 5, 6, 6]
-    assert list(nm.diversions.idv) == [1, 1, 1, 2]
+    assert list(nm.diversions[ridxname]) == [3, 5, 6, 6]
+    assert list(nm.diversions["idv"]) == [1, 1, 1, 2]
 
     # Check optional parameter
     nm2 = swn.SwnMf6.from_swn_flopy(n, m, diversion_downstream_bias=0.3)
-    assert list(nm2.diversions.rno) == [3, 5, 7, 7]
-    assert list(nm2.diversions.idv) == [1, 1, 1, 2]
+    assert list(nm2.diversions[ridxname]) == [3, 5, 7, 7]
+    assert list(nm2.diversions["idv"]) == [1, 1, 1, 2]
 
     # Assemble MODFLOW SFR data
     nm.default_packagedata(hyd_cond1=0.0)
@@ -1345,7 +1357,7 @@ def test_diversions(tmp_path):
         df[col] = df[col].astype(np.int64)
     pd.testing.assert_frame_equal(
         df,
-        swn.file.read_formatted_frame(tmp_path / "packagedata.dat").set_index("rno"),
+        swn.file.read_formatted_frame(tmp_path / "packagedata.dat").set_index(ridxname),
     )
     pd.testing.assert_frame_equal(
         nm.diversions_frame("native").reset_index(drop=True),
@@ -1453,9 +1465,9 @@ def test_route_reaches():
     assert nm.route_reaches(7, 1) == [7, 3, 2, 1]
     assert nm.route_reaches(2, 4, allow_indirect=True) == [2, 3, 5, 4]
     # errors
-    with pytest.raises(IndexError, match="invalid start rno 0"):
+    with pytest.raises(IndexError, match=f"invalid start {ridxname} 0"):
         nm.route_reaches(0, 1)
-    with pytest.raises(IndexError, match="invalid end rno 0"):
+    with pytest.raises(IndexError, match=f"invalid end {ridxname} 0"):
         nm.route_reaches(1, 0)
     with pytest.raises(ConnectionError, match="1 does not connect to 4"):
         nm.route_reaches(1, 4)
@@ -1499,7 +1511,7 @@ def test_package_period_frame():
             "cond": [180.28, 60.09, 120.19, 210.82, 105.41, 100.0, 100.0],
         },
         index=pd.MultiIndex.from_tuples(
-            [(1, rno + 1) for rno in range(7)], names=["per", "rno"]
+            [(1, ridx + 1) for ridx in range(7)], names=["per", ridxname]
         ),
     )
     exp_flopy = pd.DataFrame(
@@ -1517,7 +1529,7 @@ def test_package_period_frame():
             "cond": [180.28, 60.09, 120.19, 210.82, 105.41, 100.0, 100.0],
         },
         index=pd.MultiIndex.from_tuples(
-            [(0, rno) for rno in range(7)], names=["per", "rno"]
+            [(0, ridx) for ridx in range(7)], names=["per", ridxname]
         ),
     )
     pd.testing.assert_frame_equal(nm.package_period_frame("drn", "native"), exp_native)
@@ -1670,7 +1682,7 @@ def test_flopy_package_period(tmp_path):
             "cond": [180.28, 60.09, 120.19, 210.82, 105.41, 100.0, 100.0],
         },
         index=pd.MultiIndex.from_tuples(
-            [(0, rno) for rno in range(7)], names=["per", "rno"]
+            [(0, ridx) for ridx in range(7)], names=["per", ridxname]
         ),
     )
     assert nm.flopy_package_period("drn") == df2dic(exp_flopy)
