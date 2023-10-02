@@ -17,7 +17,7 @@ repos:
     -   id: isort
         name: isort (python)
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.0.291
+    rev: v0.0.292
     hooks:
     -   id: ruff
   - repo: https://github.com/citation-file-format/cffconvert
