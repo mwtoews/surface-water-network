@@ -415,7 +415,8 @@ class SwnMf6(SwnModflowBase):
         """  # noqa
         from flopy.mf6 import ModflowGwfsfr as Mf6Sfr
         defcols_names = [dt[0] for dt in Mf6Sfr.packagedata.dtype(self.model)]
-        defcols_names.remove("rno")  # this is the index
+        if 'rno' in defcols_names:
+            defcols_names.remove("rno")  # this is the index
         dat = self._init_package_df(
             style=style, defcols_names=defcols_names, auxiliary=auxiliary)
         if "rlen" not in dat.columns:
@@ -1654,7 +1655,7 @@ class SwnMf6(SwnModflowBase):
             rdf['botm0'] = rdf[['i','j']].apply(lambda x: botm[0,x[0],x[1]], axis=1)
             rdf['maxbot'] = rdf[['rtp', 'rbth']].apply(lambda x: x[0] - x[1] - buffer, axis=1)
             rdf['bdz'] = rdf['botm0'] - rdf['maxbot']
-            rdf['bdz'].clip(0, None)
+            rdf['bdz'].clip(0, None, inplace=True)
             rdf['rno'] = rdf.index
             # need to get min bdz for each cell (unique 'ij')
             rdf['ij'] = rdf[['i','j']].apply(lambda x: (x[0],x[1]), axis=1)
