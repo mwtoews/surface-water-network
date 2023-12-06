@@ -21,7 +21,7 @@ Python 3.8+ is required.
 
 ### Optional
 
- - `flopy` - read/write MODFLOW models
+ - `flopy >=3.3.6` - read/write MODFLOW models
  - `netCDF4` - used to read TopNet files
 
 ## Testing

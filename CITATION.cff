@@ -2,8 +2,8 @@ cff-version: 1.2.0
 message: "Please cite this software using these metadata."
 type: software
 title: "Surface water network"
-version: "0.6"
-date-released: "2023-05-25"
+version: "0.7"
+date-released: "2023-12-07"
 doi: 10.5281/zenodo.6866082
 abstract: "A Python package to create and analyze surface water networks."
 repository-artifact: https://pypi.org/project/surface-water-network

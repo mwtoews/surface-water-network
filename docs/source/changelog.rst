@@ -3,6 +3,18 @@ Change log
 
 .. currentmodule:: swn
 
+Version 0.7
+-----------
+
+:Date: 7 December 2023
+
+This is primarily a maintenance release.
+
+- Require FloPy 3.3.6 or later (:pr:`80`)
+- Accommodate different reach index names ``rno`` or ``ifno`` since FloPy 3.5.0 (:pr:`83`)
+- Maintenance updates to work with the latest pandas and FloPy releases (:pr:`91`)
+- Update :py:meth:`swn.file.gdf_to_shapefile` to keep number data types (:pr:`79`)
+
 Version 0.6
 -----------
 
