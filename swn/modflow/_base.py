@@ -1241,9 +1241,9 @@ class SwnModflowBase:
         elif method in ("grid_top", "rch_len"):
             # Estimate slope from top and grid spacing
             dis = self.model.dis
-            col_size = np.median(dis.delr.array)
-            row_size = np.median(dis.delc.array)
-            px, py = np.gradient(dis.top.array, col_size, row_size)
+            col_size = np.median(dis.delr.array).astype(np.float64)
+            row_size = np.median(dis.delc.array).astype(np.float64)
+            px, py = np.gradient(dis.top.array.astype(np.float64), col_size, row_size)
             if method == "grid_top":
                 grid_slope = np.sqrt(px**2 + py**2)
                 self.set_reach_data_from_array(grid_name, grid_slope)
