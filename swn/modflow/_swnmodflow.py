@@ -891,7 +891,9 @@ class SwnModflow(SwnModflowBase):
         if "zcoord_avg" in self.reaches.columns:
             # Created by set_reach_slope(); be aware of NaN
             nn = ~self.reaches.zcoord_avg.isnull()
-            self.reaches.loc[nn, "strtop"] = self.reaches.loc[nn, "zcoord_avg"]
+            self.reaches.loc[nn, "strtop"] = self.reaches.loc[nn, "zcoord_avg"].astype(
+                self.reaches.strtop.dtype
+            )
 
         has_diversions = self.diversions is not None
         # Assume all streams will use ICALC=1
