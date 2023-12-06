@@ -217,7 +217,7 @@ def read_formatted_frame(fname):
     >>> df = read_formatted_frame(f).set_index("ifno")
     >>> print(df)
                 value1  value2     value3
-    ifno                                  
+    ifno
     1    -1.000000e+10       1  first one
     12   -1.000000e-10      10        two
     33    0.000000e+00     100      three
