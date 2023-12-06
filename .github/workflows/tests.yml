@@ -9,7 +9,7 @@ on:
       - main
 
 jobs:
-  build:
+  tests:
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -50,6 +50,7 @@ jobs:
           pytest -v swn --doctest-modules
 
       - name: Run tests with older flopy and other packages
+        if: matrix.python-version == '3.8'
         run: |
           pip install "flopy<3.5" "pandas<2.0" "shapely<2.0"
           pytest -v -n2 --cov --cov-append
