@@ -352,7 +352,9 @@ class SurfaceWaterNetwork:
         obj.segments["from_segnums"] = from_segnums
         sel = obj.segments.from_segnums.isna()
         if sel.any():
-            obj.segments.loc[sel, "from_segnums"] = [set() for _ in range(sel.sum())]
+            obj.segments.loc[sel, "from_segnums"] = pd.Series(
+                [set() for _ in range(sel.sum())], index=sel[sel].index
+            )
         obj.logger.debug(
             "evaluating segments upstream from %d outlet%s",
             len(outlets),
@@ -746,7 +748,7 @@ class SurfaceWaterNetwork:
         )
         series.index.name = self.segments.index.name
         series.name = "from_segnums"
-        return series
+        return series.astype(object)
 
     def route_segnums(self, start, end, *, allow_indirect=False):
         r"""Return a list of segnums that connect a pair of segnums.
