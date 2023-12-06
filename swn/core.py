@@ -1804,7 +1804,7 @@ class SurfaceWaterNetwork:
                 raise ValueError("expected value_out to be scalar, dict or Series")
             if not set(value_out.index).issubset(set(df.index)):
                 raise ValueError("value_out.index is not a subset of segments.index")
-            df.loc[value_out.index, c2] = value_out
+            df.loc[value_out.index, c2] = value_out.astype(value.dtype)
         return df
 
     def adjust_elevation_profile(self, min_slope=1.0 / 1000):

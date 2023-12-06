@@ -326,11 +326,26 @@ def test_set_reach_data_from_segments():
             index=reach_idx,
         ),
     )
+    expected_width = pd.Series(
+        [
+            1.897650,
+            2.072998,
+            2.204509,
+            1.912058,
+            2.197152,
+            4.219137,
+            8.073046,
+        ],
+        name="width",
+        index=reach_idx,
+    )
+    nm.set_reach_data_from_segments("width", n.segments.width, 10.0)
+    pd.testing.assert_series_equal(nm.reaches["width"], expected_width)
+    nm.set_reach_data_from_segments("width", n.segments.width, "10")
+    pd.testing.assert_series_equal(nm.reaches["width"], expected_width)
     # misc errors
     with pytest.raises(ValueError, match="name must be a str type"):
         nm.set_reach_data_from_segments(1, 2)
-    with pytest.raises(TypeError, match="unsupported operand type"):
-        nm.set_reach_data_from_segments("width", n.segments.width, "10")
 
 
 @pytest.mark.parametrize("has_diversions", [False, True], ids=["nodiv", "div"])
