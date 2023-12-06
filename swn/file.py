@@ -249,6 +249,11 @@ def read_formatted_frame(fname):
     finally:
         if not fname_is_filelike:
             f.close()
+    # Ensure that object type (including str) use None for missing instead of NaN
+    for name, dtype in df.dtypes.items():
+        if np.issubdtype(dtype, object):
+            sel = df[name].isna()
+            df.loc[sel, name] = None
     return df
 
 
