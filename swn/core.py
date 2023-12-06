@@ -352,7 +352,9 @@ class SurfaceWaterNetwork:
         obj.segments["from_segnums"] = from_segnums
         sel = obj.segments.from_segnums.isna()
         if sel.any():
-            obj.segments.loc[sel, "from_segnums"] = [set() for _ in range(sel.sum())]
+            obj.segments.loc[sel, "from_segnums"] = pd.Series(
+                [set() for _ in range(sel.sum())], index=sel[sel].index
+            )
         obj.logger.debug(
             "evaluating segments upstream from %d outlet%s",
             len(outlets),
@@ -746,7 +748,7 @@ class SurfaceWaterNetwork:
         )
         series.index.name = self.segments.index.name
         series.name = "from_segnums"
-        return series
+        return series.astype(object)
 
     def route_segnums(self, start, end, *, allow_indirect=False):
         r"""Return a list of segnums that connect a pair of segnums.
@@ -1778,6 +1780,7 @@ class SurfaceWaterNetwork:
             to_segnums = self.to_segnums
             df.loc[to_segnums.index, c2] = df.loc[to_segnums, c1].values
         elif method == "additive":
+            df = df.astype(float)
             for segnum, from_segnums in self.from_segnums.items():
                 if len(from_segnums) <= 1:
                     continue
@@ -1801,7 +1804,7 @@ class SurfaceWaterNetwork:
                 raise ValueError("expected value_out to be scalar, dict or Series")
             if not set(value_out.index).issubset(set(df.index)):
                 raise ValueError("value_out.index is not a subset of segments.index")
-            df.loc[value_out.index, c2] = value_out
+            df.loc[value_out.index, c2] = value_out.astype(value.dtype)
         return df
 
     def adjust_elevation_profile(self, min_slope=1.0 / 1000):

@@ -418,7 +418,7 @@ class SwnMf6(SwnModflowBase):
         >>> nm.reaches["aux1"] = 2.0 + nm.reaches.index / 10.0
         >>> nm.packagedata_frame("native", auxiliary="aux1")
              k  i  j       rlen  rwid   rgrd  ...    man  ncon  ustrf  ndv  aux1  boundname
-        rno                                   ...
+        ifno                                  ...
         1    1  1  1  18.027756  10.0  0.001  ...  0.024     1    0.0    0   2.1        101
         2    1  1  2   6.009252  10.0  0.001  ...  0.024     2    1.0    0   2.2        101
         3    1  2  2  12.018504  10.0  0.001  ...  0.024     2    1.0    0   2.3        101
@@ -428,16 +428,16 @@ class SwnMf6(SwnModflowBase):
         7    1  3  2  10.000000  10.0  0.001  ...  0.024     1    1.0    0   2.7        100
         <BLANKLINE>
         [7 rows x 15 columns]
-        >>> nm.packagedata_frame("flopy", boundname=False)
-                cellid       rlen  rwid   rgrd  rtp  rbth  rhk    man  ncon  ustrf  ndv
-        rno
-        0    (0, 0, 0)  18.027756  10.0  0.001  1.0   1.0  1.0  0.024     1    0.0    0
-        1    (0, 0, 1)   6.009252  10.0  0.001  1.0   1.0  1.0  0.024     2    1.0    0
-        2    (0, 1, 1)  12.018504  10.0  0.001  1.0   1.0  1.0  0.024     2    1.0    0
-        3    (0, 0, 1)  21.081851  10.0  0.001  1.0   1.0  1.0  0.024     1    0.0    0
-        4    (0, 1, 1)  10.540926  10.0  0.001  1.0   1.0  1.0  0.024     2    1.0    0
-        5    (0, 1, 1)  10.000000  10.0  0.001  1.0   1.0  1.0  0.024     3    1.0    0
-        6    (0, 2, 1)  10.000000  10.0  0.001  1.0   1.0  1.0  0.024     1    1.0    0
+        >>> nm.packagedata_frame("flopy", boundname=False).drop(columns="man")
+                 cellid       rlen  rwid   rgrd  rtp  rbth  rhk  ncon  ustrf  ndv
+        ifno
+        0     (0, 0, 0)  18.027756  10.0  0.001  1.0   1.0  1.0     1    0.0    0
+        1     (0, 0, 1)   6.009252  10.0  0.001  1.0   1.0  1.0     2    1.0    0
+        2     (0, 1, 1)  12.018504  10.0  0.001  1.0   1.0  1.0     2    1.0    0
+        3     (0, 0, 1)  21.081851  10.0  0.001  1.0   1.0  1.0     1    0.0    0
+        4     (0, 1, 1)  10.540926  10.0  0.001  1.0   1.0  1.0     2    1.0    0
+        5     (0, 1, 1)  10.000000  10.0  0.001  1.0   1.0  1.0     3    1.0    0
+        6     (0, 2, 1)  10.000000  10.0  0.001  1.0   1.0  1.0     1    1.0    0
         """  # noqa
         from flopy.mf6 import ModflowGwfsfr as Mf6Sfr
 
@@ -645,17 +645,17 @@ class SwnMf6(SwnModflowBase):
         ...     length_units="meters", xorigin=30.0, yorigin=70.0)
         >>> nm = swn.SwnMf6.from_swn_flopy(n, gwf)
         >>> nm.diversions_frame("native")
-            rno  idv  iconr cprior
-        11    3    1      8   upto
-        12    5    1      9   upto
-        13    6    1     10   upto
-        14    6    2     11   upto
+            ifno  idv  iconr cprior
+        11    3     1      8   upto
+        12    5     1      9   upto
+        13    6     1     10   upto
+        14    6     2     11   upto
         >>> nm.diversions_frame("flopy")
-            rno  idv  iconr cprior
-        11    2    0      7   upto
-        12    4    0      8   upto
-        13    5    0      9   upto
-        14    5    1     10   upto
+            ifno  idv  iconr cprior
+        11     2    0      7   upto
+        12     4    0      8   upto
+        13     5    0      9   upto
+        14     5    1     10   upto
         """  # noqa
         from flopy.mf6 import ModflowGwfsfr as Mf6Sfr
 
@@ -781,7 +781,7 @@ class SwnMf6(SwnModflowBase):
         >>> nm.reaches["boundname"] = nm.reaches["segnum"]
         >>> nm.package_period_frame("drn", "native", auxiliary="dlen")
                  k  i  j  elev        cond       dlen boundname
-        per rno
+        per ifno
         1   1    1  1  1  10.0  180.277564  18.027756       101
             2    1  1  2  10.0   60.092521   6.009252       101
             3    1  2  2  10.0  120.185043  12.018504       101
@@ -791,7 +791,7 @@ class SwnMf6(SwnModflowBase):
             7    1  3  2  10.0  100.000000  10.000000       100
         >>> nm.package_period_frame("drn","flopy", boundname=False)
                     cellid  elev        cond
-        per rno
+        per ifno
         0   0    (0, 0, 0)  10.0  180.277564
             1    (0, 0, 1)  10.0   60.092521
             2    (0, 1, 1)  10.0  120.185043
@@ -1985,21 +1985,21 @@ class SwnMf6(SwnModflowBase):
         ...     gwf, nrow=3, ncol=2, delr=20.0, delc=20.0, idomain=1,
         ...     length_units="meters", xorigin=30.0, yorigin=70.0)
         >>> nm = swn.SwnMf6.from_swn_flopy(n, gwf)
-        >>> nm.reaches[["iseg", "ireach", "to_rno", "from_rnos", "segnum"]]
-             iseg  ireach  to_rno from_rnos  segnum
-        rno
-        1       1       1       2        {}     101
-        2       1       2       3       {1}     101
-        3       1       3       6       {2}     101
-        4       2       1       5        {}     102
-        5       2       2       6       {4}     102
-        6       3       1       7    {3, 5}     100
-        7       3       2       0       {6}     100
+        >>> nm.reaches[["iseg", "ireach", "to_ifno", "from_ifnos", "segnum"]]
+             iseg  ireach  to_ifno from_ifnos  segnum
+        ifno
+        1       1       1        2         {}     101
+        2       1       2        3        {1}     101
+        3       1       3        6        {2}     101
+        4       2       1        5         {}     102
+        5       2       2        6        {4}     102
+        6       3       1        7     {3, 5}     100
+        7       3       2        0        {6}     100
         >>> nm.route_reaches(1, 7)
         [1, 2, 3, 6, 7]
         >>> nm.reaches.loc[nm.route_reaches(1, 7), ["i", "j", "rlen"]]
              i  j       rlen
-        rno
+        ifno
         1    0  0  18.027756
         2    0  1   6.009252
         3    1  1  12.018504

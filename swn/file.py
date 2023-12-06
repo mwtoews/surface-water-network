@@ -126,6 +126,8 @@ colname10 = {
     "is_within_catchment": "within_cat",
     "div_from_rno": "divfromrno",
     "div_to_rnos": "divtornos",
+    "div_from_ifno": "divfromfno",
+    "div_to_ifnos": "divtofnos",
 }
 assert all(len(x) <= 10 for x in colname10.values())
 
@@ -204,22 +206,22 @@ def read_formatted_frame(fname):
     >>> import pandas as pd
     >>> from swn.file import read_formatted_frame
     >>> f = StringIO('''\
-    ... # rno        value1  value2  value3
-    ... 1     -1.000000e+10       1  'first one'
-    ... 12    -1.000000e-10      10   two
-    ... 33     0.000000e+00     100   three
-    ... 40     1.000000e-10    1000
-    ... 450    1.000000e+00   10000   five
-    ... 6267   1.000000e+03  100000   six
+    ... # ifno        value1  value2  value3
+    ... 1      -1.000000e+10       1  'first one'
+    ... 12     -1.000000e-10      10   two
+    ... 33      0.000000e+00     100   three
+    ... 40      1.000000e-10    1000
+    ... 450     1.000000e+00   10000   five
+    ... 6267    1.000000e+03  100000   six
     ... ''')
-    >>> df = read_formatted_frame(f).set_index("rno")
+    >>> df = read_formatted_frame(f).set_index("ifno")
     >>> print(df)
                 value1  value2     value3
-    rno                                  
+    ifno                                  
     1    -1.000000e+10       1  first one
     12   -1.000000e-10      10        two
     33    0.000000e+00     100      three
-    40    1.000000e-10    1000        NaN
+    40    1.000000e-10    1000       None
     450   1.000000e+00   10000       five
     6267  1.000000e+03  100000        six
     """  # noqa
@@ -249,6 +251,11 @@ def read_formatted_frame(fname):
     finally:
         if not fname_is_filelike:
             f.close()
+    # Ensure that object type (including str) use None for missing instead of NaN
+    for name, dtype in df.dtypes.items():
+        if np.issubdtype(dtype, object):
+            sel = df[name].isna()
+            df.loc[sel, name] = None
     return df
 
 
@@ -281,27 +288,27 @@ def write_formatted_frame(df, fname, index=True, comment_header=True):
     ...     "value2": [1, 10, 100, 1000, 10000, 100000],
     ...     "value3": ["first one", "two", "three", None, "five", "six"],
     ...     }, index=[1, 12, 33, 40, 450, 6267])
-    >>> df.index.name = "rno"
+    >>> df.index.name = "ifno"
     >>> print(df)
-                value1  value2     value3
-    rno
-    1    -1.000000e+10       1  first one
-    12   -1.000000e-10      10        two
-    33    0.000000e+00     100      three
-    40    1.000000e-10    1000       None
-    450   1.000000e+00   10000       five
-    6267  1.000000e+03  100000        six
+                 value1  value2     value3
+    ifno
+    1     -1.000000e+10       1  first one
+    12    -1.000000e-10      10        two
+    33     0.000000e+00     100      three
+    40     1.000000e-10    1000       None
+    450    1.000000e+00   10000       five
+    6267   1.000000e+03  100000        six
     >>> f = StringIO()
     >>> write_formatted_frame(df, f)
     >>> _ = f.seek(0)
     >>> print(f.read(), end="")
-    # rno        value1  value2  value3
-    1     -1.000000e+10       1  'first one'
-    12    -1.000000e-10      10   two
-    33     0.000000e+00     100   three
-    40     1.000000e-10    1000
-    450    1.000000e+00   10000   five
-    6267   1.000000e+03  100000   six
+    # ifno        value1  value2  value3
+    1      -1.000000e+10       1  'first one'
+    12     -1.000000e-10      10   two
+    33      0.000000e+00     100   three
+    40      1.000000e-10    1000
+    450     1.000000e+00   10000   five
+    6267    1.000000e+03  100000   six
     """  # noqa
     if not isinstance(df, pd.DataFrame):
         raise TypeError("expected df to be a pandas.DataFrame")

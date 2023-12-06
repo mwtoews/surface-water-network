@@ -1096,6 +1096,9 @@ class SwnModflowBase:
             self.logger.debug(
                 "set_reach_data_from_segments: choosing method=%r", method
             )
+        if method == "continuous":
+            if not np.issubdtype(value.dtype, np.floating):
+                value = value.astype(float)
         segdat = self._swn.pair_segments_frame(value, value_out, method=method)
         c1, c2 = segdat.columns
         res = self.reaches[["segnum"]].join(segdat[c1], on="segnum")
@@ -1241,9 +1244,9 @@ class SwnModflowBase:
         elif method in ("grid_top", "rch_len"):
             # Estimate slope from top and grid spacing
             dis = self.model.dis
-            col_size = np.median(dis.delr.array)
-            row_size = np.median(dis.delc.array)
-            px, py = np.gradient(dis.top.array, col_size, row_size)
+            col_size = np.median(dis.delr.array).astype(np.float64)
+            row_size = np.median(dis.delc.array).astype(np.float64)
+            px, py = np.gradient(dis.top.array.astype(np.float64), col_size, row_size)
             if method == "grid_top":
                 grid_slope = np.sqrt(px**2 + py**2)
                 self.set_reach_data_from_array(grid_name, grid_slope)
@@ -1390,9 +1393,9 @@ class SwnModflowBase:
         >>> loc_df = n.locate_geoms(obs_gs)
         >>> r_df = nm.get_location_frame_reach_info(loc_df)
         >>> r_df
-            rno  k  i  j  iseg  ireach  dist_to_reach
-        10    3  0  1  1     1       3       1.664101
-        11    7  0  2  1     3       2       2.000000
+            ifno  k  i  j  iseg  ireach  dist_to_reach
+        10     3  0  1  1     1       3       1.664101
+        11     7  0  2  1     3       2       2.000000
         >>> loc_reach_df = pd.concat([loc_df, r_df], axis=1)
         """  # noqa
         loc_df = loc_df.copy()
