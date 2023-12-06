@@ -1096,6 +1096,9 @@ class SwnModflowBase:
             self.logger.debug(
                 "set_reach_data_from_segments: choosing method=%r", method
             )
+        if method == "continuous":
+            if not np.issubdtype(value.dtype, np.floating):
+                value = value.astype(float)
         segdat = self._swn.pair_segments_frame(value, value_out, method=method)
         c1, c2 = segdat.columns
         res = self.reaches[["segnum"]].join(segdat[c1], on="segnum")
