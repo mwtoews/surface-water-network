@@ -120,7 +120,7 @@ def test_read_write_formatted_frame(tmp_path):
         {
             "value1": [-1e10, -1e-10, 0, 1e-10, 1, 1000],
             "value2": [1, 10, 100, 1000, 10000, 100000],
-            "value3": ["first one", "two", "three", np.nan, "five", "six"],
+            "value3": ["first one", "two", "three", None, "five", "six"],
         },
         index=[1, 12, 33, 40, 450, 6267],
     )
