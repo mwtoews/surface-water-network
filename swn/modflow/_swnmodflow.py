@@ -1168,7 +1168,9 @@ class SwnModflow(SwnModflowBase):
             else:
                 dn = down
         # this returns a DF once the apply is done!
-        return pd.Series({"nseg": seg.name, "elevdn": dn, "outseg_elevup": outseg_up})
+        return pd.Series(
+            {"nseg": seg.name, "elevdn": dn, "outseg_elevup": outseg_up}, dtype=object
+        )
 
     def set_forward_segs(self, min_slope=1e-4):
         """Set minimum slope in forwards direction.
@@ -1207,10 +1209,12 @@ class SwnModflow(SwnModflowBase):
             ednsel = tmp[tmp["elevdn"].notna()].index
             oeupsel = tmp[tmp["outseg_elevup"].notna()].index
             # set elevdn and outseg_elevup
-            self.segment_data.loc[ednsel, "elevdn"] = tmp.loc[ednsel, "elevdn"]
+            self.segment_data.loc[ednsel, "elevdn"] = tmp.loc[ednsel, "elevdn"].astype(
+                self.segment_data.elevdn.dtype
+            )
             self.segment_data.loc[oeupsel, "outseg_elevup"] = tmp.loc[
                 oeupsel, "outseg_elevup"
-            ]
+            ].astype(self.segment_data.outseg_elevup.dtype)
             # get `elevups` for outflow segs from `outseg_elevups`
             # taking `min` ensures outseg elevup is below all inflow elevdns
             tmp2 = self.segment_data.apply(self.set_outseg_elev_for_seg, axis=1).min(
