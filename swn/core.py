@@ -1780,6 +1780,7 @@ class SurfaceWaterNetwork:
             to_segnums = self.to_segnums
             df.loc[to_segnums.index, c2] = df.loc[to_segnums, c1].values
         elif method == "additive":
+            df = df.astype(float)
             for segnum, from_segnums in self.from_segnums.items():
                 if len(from_segnums) <= 1:
                     continue

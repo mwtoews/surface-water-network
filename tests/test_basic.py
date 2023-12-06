@@ -921,11 +921,11 @@ def test_pair_segments_frame(valid_n):
     # additive
     pd.testing.assert_frame_equal(
         n.pair_segments_frame(1, method="additive"),
-        pd.DataFrame({1: [1, 1, 1], 2: [1.0, 0.5, 0.5]}),
+        pd.DataFrame({1: [1.0, 1.0, 1.0], 2: [1.0, 0.5, 0.5]}),
     )
     pd.testing.assert_frame_equal(
         n.pair_segments_frame(1, {0: 2, 1: 10}, name="foo", method="additive"),
-        pd.DataFrame({"foo1": [1, 1, 1], "foo2": [2.0, 10.0, 0.5]}),
+        pd.DataFrame({"foo1": [1.0, 1.0, 1.0], "foo2": [2.0, 10.0, 0.5]}),
     )
     pd.testing.assert_frame_equal(
         n.pair_segments_frame([10.0, 2.0, 3.0], name="foo", method="additive"),
