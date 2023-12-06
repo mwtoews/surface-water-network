@@ -39,5 +39,3 @@ Create a surface water network object from the lines using
     print(n.segments[["to_segnum", "from_segnums", "stream_order", "num_to_outlet"]])
     @savefig fluss_swn.png
     n.plot();
-
-
