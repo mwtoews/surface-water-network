@@ -979,7 +979,7 @@ class SwnModflow(SwnModflowBase):
         )
         # seg bottoms
         btmidx = (
-            self.reaches.groupby("iseg")["ireach"].transform(max)
+            self.reaches.groupby("iseg")["ireach"].transform("max")
             == self.reaches["ireach"]
         )
         kij_df = self.reaches[btmidx][["iseg", "k", "i", "j"]].sort_values("iseg")
