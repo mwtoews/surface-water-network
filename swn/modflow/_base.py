@@ -1390,9 +1390,9 @@ class SwnModflowBase:
         >>> loc_df = n.locate_geoms(obs_gs)
         >>> r_df = nm.get_location_frame_reach_info(loc_df)
         >>> r_df
-            rno  k  i  j  iseg  ireach  dist_to_reach
-        10    3  0  1  1     1       3       1.664101
-        11    7  0  2  1     3       2       2.000000
+            ifno  k  i  j  iseg  ireach  dist_to_reach
+        10     3  0  1  1     1       3       1.664101
+        11     7  0  2  1     3       2       2.000000
         >>> loc_reach_df = pd.concat([loc_df, r_df], axis=1)
         """  # noqa
         loc_df = loc_df.copy()
