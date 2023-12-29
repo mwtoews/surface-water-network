@@ -177,7 +177,7 @@ def gdf_to_shapefile(gdf, shp_fname, **kwargs):
             rename[col] = colname10[col]
     if rename:
         gdf.rename(columns=rename, inplace=True)
-    gdf.to_file(str(shp_fname), **kwargs)
+    gdf.to_file(str(shp_fname), index=True, **kwargs)
 
 
 def read_formatted_frame(fname):
