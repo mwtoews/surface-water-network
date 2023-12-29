@@ -417,6 +417,7 @@ document.write(`
 <li class="toctree-l2"><a class="reference internal" href="swn.modflow.SwnMf6.write_package_period.html">swn.modflow.SwnMf6.write_package_period</a></li>
 <li class="toctree-l2"><a class="reference internal" href="swn.modflow.SwnMf6.flopy_package_period.html">swn.modflow.SwnMf6.flopy_package_period</a></li>
 <li class="toctree-l2"><a class="reference internal" href="swn.modflow.SwnMf6.get_location_frame_reach_info.html">swn.modflow.SwnMf6.get_location_frame_reach_info</a></li>
+<li class="toctree-l2"><a class="reference internal" href="swn.modflow.SwnMf6.gather_reaches.html">swn.modflow.SwnMf6.gather_reaches</a></li>
 <li class="toctree-l2"><a class="reference internal" href="swn.modflow.SwnMf6.route_reaches.html">swn.modflow.SwnMf6.route_reaches</a></li>
 </ul>
 </li>
@@ -554,58 +555,61 @@ document.write(`
 <tr class="row-odd"><td><p><a class="reference internal" href="swn.modflow.SwnMf6.from_swn_flopy.html#swn.modflow.SwnMf6.from_swn_flopy" title="swn.modflow.SwnMf6.from_swn_flopy"><code class="xref py py-obj docutils literal notranslate"><span class="pre">from_swn_flopy</span></code></a>(swn, model[, idomain_action, ...])</p></td>
 <td><p>Create a MODFLOW 6 SFR structure from a surface water network.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="swn.modflow.SwnMf6.get_location_frame_reach_info.html#swn.modflow.SwnMf6.get_location_frame_reach_info" title="swn.modflow.SwnMf6.get_location_frame_reach_info"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_location_frame_reach_info</span></code></a>(loc_df[, ...])</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="swn.modflow.SwnMf6.gather_reaches.html#swn.modflow.SwnMf6.gather_reaches" title="swn.modflow.SwnMf6.gather_reaches"><code class="xref py py-obj docutils literal notranslate"><span class="pre">gather_reaches</span></code></a>(*[, upstream, downstream, ...])</p></td>
+<td><p>Return reaches upstream (inclusive) and downstream (exclusive).</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="swn.modflow.SwnMf6.get_location_frame_reach_info.html#swn.modflow.SwnMf6.get_location_frame_reach_info" title="swn.modflow.SwnMf6.get_location_frame_reach_info"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_location_frame_reach_info</span></code></a>(loc_df[, ...])</p></td>
 <td><p>Get reach information to location data frame, matched by segnum.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="swn.modflow.SwnMf6.package_period_frame.html#swn.modflow.SwnMf6.package_period_frame" title="swn.modflow.SwnMf6.package_period_frame"><code class="xref py py-obj docutils literal notranslate"><span class="pre">package_period_frame</span></code></a>(package, style[, ...])</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="swn.modflow.SwnMf6.package_period_frame.html#swn.modflow.SwnMf6.package_period_frame" title="swn.modflow.SwnMf6.package_period_frame"><code class="xref py py-obj docutils literal notranslate"><span class="pre">package_period_frame</span></code></a>(package, style[, ...])</p></td>
 <td><p>Return DataFrame of PERIOD data for MODFLOW 6 packages.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="swn.modflow.SwnMf6.packagedata_frame.html#swn.modflow.SwnMf6.packagedata_frame" title="swn.modflow.SwnMf6.packagedata_frame"><code class="xref py py-obj docutils literal notranslate"><span class="pre">packagedata_frame</span></code></a>(style[, auxiliary, boundname])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="swn.modflow.SwnMf6.packagedata_frame.html#swn.modflow.SwnMf6.packagedata_frame" title="swn.modflow.SwnMf6.packagedata_frame"><code class="xref py py-obj docutils literal notranslate"><span class="pre">packagedata_frame</span></code></a>(style[, auxiliary, boundname])</p></td>
 <td><p>Return DataFrame of PACKAGEDATA for MODFLOW 6 SFR.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">plot</span></code>([column, cmap, colorbar, ax])</p></td>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">plot</span></code>([column, cmap, colorbar, ax])</p></td>
 <td><p>Show map of reaches with inflow segments in royalblue.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">plot_profile</span></code>(segnum[, upstream, downstream, ax])</p></td>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">plot_profile</span></code>(segnum[, upstream, downstream, ax])</p></td>
 <td><p>Plot stream top profiles vs model grid top and bottom.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">plot_reaches_vs_model</span></code>(seg[, dem, ...])</p></td>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">plot_reaches_vs_model</span></code>(seg[, dem, ...])</p></td>
 <td><p>Plot map of stream elevations relative to model surfaces.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="swn.modflow.SwnMf6.route_reaches.html#swn.modflow.SwnMf6.route_reaches" title="swn.modflow.SwnMf6.route_reaches"><code class="xref py py-obj docutils literal notranslate"><span class="pre">route_reaches</span></code></a>(start, end, *[, allow_indirect])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="swn.modflow.SwnMf6.route_reaches.html#swn.modflow.SwnMf6.route_reaches" title="swn.modflow.SwnMf6.route_reaches"><code class="xref py py-obj docutils literal notranslate"><span class="pre">route_reaches</span></code></a>(start, end, *[, allow_indirect])</p></td>
 <td><p>Return a list of reach numbers that connect a pair of reaches.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="swn.modflow.SwnMf6.set_package_obj.html#swn.modflow.SwnMf6.set_package_obj" title="swn.modflow.SwnMf6.set_package_obj"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_package_obj</span></code></a>(package[, auxiliary, boundnames])</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="swn.modflow.SwnMf6.set_package_obj.html#swn.modflow.SwnMf6.set_package_obj" title="swn.modflow.SwnMf6.set_package_obj"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_package_obj</span></code></a>(package[, auxiliary, boundnames])</p></td>
 <td><p>Set MODFLOW 6 package data to flopy model.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="swn.modflow.SwnMf6.set_reach_data_from_array.html#swn.modflow.SwnMf6.set_reach_data_from_array" title="swn.modflow.SwnMf6.set_reach_data_from_array"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_reach_data_from_array</span></code></a>(name, array)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="swn.modflow.SwnMf6.set_reach_data_from_array.html#swn.modflow.SwnMf6.set_reach_data_from_array" title="swn.modflow.SwnMf6.set_reach_data_from_array"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_reach_data_from_array</span></code></a>(name, array)</p></td>
 <td><p>Set reach data from an array that matches the model (nrow, ncol).</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="swn.modflow.SwnMf6.set_reach_data_from_segments.html#swn.modflow.SwnMf6.set_reach_data_from_segments" title="swn.modflow.SwnMf6.set_reach_data_from_segments"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_reach_data_from_segments</span></code></a>(name, value[, ...])</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="swn.modflow.SwnMf6.set_reach_data_from_segments.html#swn.modflow.SwnMf6.set_reach_data_from_segments" title="swn.modflow.SwnMf6.set_reach_data_from_segments"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_reach_data_from_segments</span></code></a>(name, value[, ...])</p></td>
 <td><p>Set reach data based on segment series (or scalar).</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="swn.modflow.SwnMf6.set_reach_slope.html#swn.modflow.SwnMf6.set_reach_slope" title="swn.modflow.SwnMf6.set_reach_slope"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_reach_slope</span></code></a>([method, min_slope])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="swn.modflow.SwnMf6.set_reach_slope.html#swn.modflow.SwnMf6.set_reach_slope" title="swn.modflow.SwnMf6.set_reach_slope"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_reach_slope</span></code></a>([method, min_slope])</p></td>
 <td><p>Set slope for reaches.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="swn.modflow.SwnMf6.set_sfr_obj.html#swn.modflow.SwnMf6.set_sfr_obj" title="swn.modflow.SwnMf6.set_sfr_obj"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_sfr_obj</span></code></a>([auxiliary, boundnames])</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="swn.modflow.SwnMf6.set_sfr_obj.html#swn.modflow.SwnMf6.set_sfr_obj" title="swn.modflow.SwnMf6.set_sfr_obj"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_sfr_obj</span></code></a>([auxiliary, boundnames])</p></td>
 <td><p>Set MODFLOW 6 SFR package data to flopy model.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_tsvar_from_segments</span></code>(name, data[, where])</p></td>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_tsvar_from_segments</span></code>(name, data[, where])</p></td>
 <td><p>Set time-varying data from data defined at segments.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">to_pickle</span></code>(path[, protocol])</p></td>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">to_pickle</span></code>(path[, protocol])</p></td>
 <td><p>Pickle (serialize) non-flopy object data to file.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="swn.modflow.SwnMf6.write_connectiondata.html#swn.modflow.SwnMf6.write_connectiondata" title="swn.modflow.SwnMf6.write_connectiondata"><code class="xref py py-obj docutils literal notranslate"><span class="pre">write_connectiondata</span></code></a>(fname)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="swn.modflow.SwnMf6.write_connectiondata.html#swn.modflow.SwnMf6.write_connectiondata" title="swn.modflow.SwnMf6.write_connectiondata"><code class="xref py py-obj docutils literal notranslate"><span class="pre">write_connectiondata</span></code></a>(fname)</p></td>
 <td><p>Write CONNECTIONDATA file for MODFLOW 6 SFR.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="swn.modflow.SwnMf6.write_diversions.html#swn.modflow.SwnMf6.write_diversions" title="swn.modflow.SwnMf6.write_diversions"><code class="xref py py-obj docutils literal notranslate"><span class="pre">write_diversions</span></code></a>(fname)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="swn.modflow.SwnMf6.write_diversions.html#swn.modflow.SwnMf6.write_diversions" title="swn.modflow.SwnMf6.write_diversions"><code class="xref py py-obj docutils literal notranslate"><span class="pre">write_diversions</span></code></a>(fname)</p></td>
 <td><p>Write DIVERSIONS file for MODFLOW 6 SFR.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="swn.modflow.SwnMf6.write_package_period.html#swn.modflow.SwnMf6.write_package_period" title="swn.modflow.SwnMf6.write_package_period"><code class="xref py py-obj docutils literal notranslate"><span class="pre">write_package_period</span></code></a>(package, fname[, ...])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="swn.modflow.SwnMf6.write_package_period.html#swn.modflow.SwnMf6.write_package_period" title="swn.modflow.SwnMf6.write_package_period"><code class="xref py py-obj docutils literal notranslate"><span class="pre">write_package_period</span></code></a>(package, fname[, ...])</p></td>
 <td><p>Write PERIOD file for MODFLOW 6 packages, to be used within OPEN/CLOSE.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="swn.modflow.SwnMf6.write_packagedata.html#swn.modflow.SwnMf6.write_packagedata" title="swn.modflow.SwnMf6.write_packagedata"><code class="xref py py-obj docutils literal notranslate"><span class="pre">write_packagedata</span></code></a>(fname[, auxiliary, boundname])</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="swn.modflow.SwnMf6.write_packagedata.html#swn.modflow.SwnMf6.write_packagedata" title="swn.modflow.SwnMf6.write_packagedata"><code class="xref py py-obj docutils literal notranslate"><span class="pre">write_packagedata</span></code></a>(fname[, auxiliary, boundname])</p></td>
 <td><p>Write PACKAGEDATA file for MODFLOW 6 SFR.</p></td>
 </tr>
 </tbody>
@@ -663,58 +667,61 @@ document.write(`
 <tr class="row-even"><td><p><a class="reference internal" href="swn.modflow.SwnMf6.from_swn_flopy.html#swn.modflow.SwnMf6.from_swn_flopy" title="swn.modflow.SwnMf6.from_swn_flopy"><code class="xref py py-obj docutils literal notranslate"><span class="pre">from_swn_flopy</span></code></a>(swn, model[, idomain_action, ...])</p></td>
 <td><p>Create a MODFLOW 6 SFR structure from a surface water network.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="swn.modflow.SwnMf6.get_location_frame_reach_info.html#swn.modflow.SwnMf6.get_location_frame_reach_info" title="swn.modflow.SwnMf6.get_location_frame_reach_info"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_location_frame_reach_info</span></code></a>(loc_df[, ...])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="swn.modflow.SwnMf6.gather_reaches.html#swn.modflow.SwnMf6.gather_reaches" title="swn.modflow.SwnMf6.gather_reaches"><code class="xref py py-obj docutils literal notranslate"><span class="pre">gather_reaches</span></code></a>(*[, upstream, downstream, ...])</p></td>
+<td><p>Return reaches upstream (inclusive) and downstream (exclusive).</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="swn.modflow.SwnMf6.get_location_frame_reach_info.html#swn.modflow.SwnMf6.get_location_frame_reach_info" title="swn.modflow.SwnMf6.get_location_frame_reach_info"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_location_frame_reach_info</span></code></a>(loc_df[, ...])</p></td>
 <td><p>Get reach information to location data frame, matched by segnum.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="swn.modflow.SwnMf6.package_period_frame.html#swn.modflow.SwnMf6.package_period_frame" title="swn.modflow.SwnMf6.package_period_frame"><code class="xref py py-obj docutils literal notranslate"><span class="pre">package_period_frame</span></code></a>(package, style[, ...])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="swn.modflow.SwnMf6.package_period_frame.html#swn.modflow.SwnMf6.package_period_frame" title="swn.modflow.SwnMf6.package_period_frame"><code class="xref py py-obj docutils literal notranslate"><span class="pre">package_period_frame</span></code></a>(package, style[, ...])</p></td>
 <td><p>Return DataFrame of PERIOD data for MODFLOW 6 packages.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="swn.modflow.SwnMf6.packagedata_frame.html#swn.modflow.SwnMf6.packagedata_frame" title="swn.modflow.SwnMf6.packagedata_frame"><code class="xref py py-obj docutils literal notranslate"><span class="pre">packagedata_frame</span></code></a>(style[, auxiliary, boundname])</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="swn.modflow.SwnMf6.packagedata_frame.html#swn.modflow.SwnMf6.packagedata_frame" title="swn.modflow.SwnMf6.packagedata_frame"><code class="xref py py-obj docutils literal notranslate"><span class="pre">packagedata_frame</span></code></a>(style[, auxiliary, boundname])</p></td>
 <td><p>Return DataFrame of PACKAGEDATA for MODFLOW 6 SFR.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">plot</span></code>([column, cmap, colorbar, ax])</p></td>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">plot</span></code>([column, cmap, colorbar, ax])</p></td>
 <td><p>Show map of reaches with inflow segments in royalblue.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">plot_profile</span></code>(segnum[, upstream, downstream, ax])</p></td>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">plot_profile</span></code>(segnum[, upstream, downstream, ax])</p></td>
 <td><p>Plot stream top profiles vs model grid top and bottom.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">plot_reaches_vs_model</span></code>(seg[, dem, ...])</p></td>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">plot_reaches_vs_model</span></code>(seg[, dem, ...])</p></td>
 <td><p>Plot map of stream elevations relative to model surfaces.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="swn.modflow.SwnMf6.route_reaches.html#swn.modflow.SwnMf6.route_reaches" title="swn.modflow.SwnMf6.route_reaches"><code class="xref py py-obj docutils literal notranslate"><span class="pre">route_reaches</span></code></a>(start, end, *[, allow_indirect])</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="swn.modflow.SwnMf6.route_reaches.html#swn.modflow.SwnMf6.route_reaches" title="swn.modflow.SwnMf6.route_reaches"><code class="xref py py-obj docutils literal notranslate"><span class="pre">route_reaches</span></code></a>(start, end, *[, allow_indirect])</p></td>
 <td><p>Return a list of reach numbers that connect a pair of reaches.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="swn.modflow.SwnMf6.set_package_obj.html#swn.modflow.SwnMf6.set_package_obj" title="swn.modflow.SwnMf6.set_package_obj"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_package_obj</span></code></a>(package[, auxiliary, boundnames])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="swn.modflow.SwnMf6.set_package_obj.html#swn.modflow.SwnMf6.set_package_obj" title="swn.modflow.SwnMf6.set_package_obj"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_package_obj</span></code></a>(package[, auxiliary, boundnames])</p></td>
 <td><p>Set MODFLOW 6 package data to flopy model.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="swn.modflow.SwnMf6.set_reach_data_from_array.html#swn.modflow.SwnMf6.set_reach_data_from_array" title="swn.modflow.SwnMf6.set_reach_data_from_array"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_reach_data_from_array</span></code></a>(name, array)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="swn.modflow.SwnMf6.set_reach_data_from_array.html#swn.modflow.SwnMf6.set_reach_data_from_array" title="swn.modflow.SwnMf6.set_reach_data_from_array"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_reach_data_from_array</span></code></a>(name, array)</p></td>
 <td><p>Set reach data from an array that matches the model (nrow, ncol).</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="swn.modflow.SwnMf6.set_reach_data_from_segments.html#swn.modflow.SwnMf6.set_reach_data_from_segments" title="swn.modflow.SwnMf6.set_reach_data_from_segments"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_reach_data_from_segments</span></code></a>(name, value[, ...])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="swn.modflow.SwnMf6.set_reach_data_from_segments.html#swn.modflow.SwnMf6.set_reach_data_from_segments" title="swn.modflow.SwnMf6.set_reach_data_from_segments"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_reach_data_from_segments</span></code></a>(name, value[, ...])</p></td>
 <td><p>Set reach data based on segment series (or scalar).</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="swn.modflow.SwnMf6.set_reach_slope.html#swn.modflow.SwnMf6.set_reach_slope" title="swn.modflow.SwnMf6.set_reach_slope"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_reach_slope</span></code></a>([method, min_slope])</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="swn.modflow.SwnMf6.set_reach_slope.html#swn.modflow.SwnMf6.set_reach_slope" title="swn.modflow.SwnMf6.set_reach_slope"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_reach_slope</span></code></a>([method, min_slope])</p></td>
 <td><p>Set slope for reaches.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="swn.modflow.SwnMf6.set_sfr_obj.html#swn.modflow.SwnMf6.set_sfr_obj" title="swn.modflow.SwnMf6.set_sfr_obj"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_sfr_obj</span></code></a>([auxiliary, boundnames])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="swn.modflow.SwnMf6.set_sfr_obj.html#swn.modflow.SwnMf6.set_sfr_obj" title="swn.modflow.SwnMf6.set_sfr_obj"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_sfr_obj</span></code></a>([auxiliary, boundnames])</p></td>
 <td><p>Set MODFLOW 6 SFR package data to flopy model.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_tsvar_from_segments</span></code>(name, data[, where])</p></td>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_tsvar_from_segments</span></code>(name, data[, where])</p></td>
 <td><p>Set time-varying data from data defined at segments.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">to_pickle</span></code>(path[, protocol])</p></td>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">to_pickle</span></code>(path[, protocol])</p></td>
 <td><p>Pickle (serialize) non-flopy object data to file.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="swn.modflow.SwnMf6.write_connectiondata.html#swn.modflow.SwnMf6.write_connectiondata" title="swn.modflow.SwnMf6.write_connectiondata"><code class="xref py py-obj docutils literal notranslate"><span class="pre">write_connectiondata</span></code></a>(fname)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="swn.modflow.SwnMf6.write_connectiondata.html#swn.modflow.SwnMf6.write_connectiondata" title="swn.modflow.SwnMf6.write_connectiondata"><code class="xref py py-obj docutils literal notranslate"><span class="pre">write_connectiondata</span></code></a>(fname)</p></td>
 <td><p>Write CONNECTIONDATA file for MODFLOW 6 SFR.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="swn.modflow.SwnMf6.write_diversions.html#swn.modflow.SwnMf6.write_diversions" title="swn.modflow.SwnMf6.write_diversions"><code class="xref py py-obj docutils literal notranslate"><span class="pre">write_diversions</span></code></a>(fname)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="swn.modflow.SwnMf6.write_diversions.html#swn.modflow.SwnMf6.write_diversions" title="swn.modflow.SwnMf6.write_diversions"><code class="xref py py-obj docutils literal notranslate"><span class="pre">write_diversions</span></code></a>(fname)</p></td>
 <td><p>Write DIVERSIONS file for MODFLOW 6 SFR.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="swn.modflow.SwnMf6.write_package_period.html#swn.modflow.SwnMf6.write_package_period" title="swn.modflow.SwnMf6.write_package_period"><code class="xref py py-obj docutils literal notranslate"><span class="pre">write_package_period</span></code></a>(package, fname[, ...])</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="swn.modflow.SwnMf6.write_package_period.html#swn.modflow.SwnMf6.write_package_period" title="swn.modflow.SwnMf6.write_package_period"><code class="xref py py-obj docutils literal notranslate"><span class="pre">write_package_period</span></code></a>(package, fname[, ...])</p></td>
 <td><p>Write PERIOD file for MODFLOW 6 packages, to be used within OPEN/CLOSE.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="swn.modflow.SwnMf6.write_packagedata.html#swn.modflow.SwnMf6.write_packagedata" title="swn.modflow.SwnMf6.write_packagedata"><code class="xref py py-obj docutils literal notranslate"><span class="pre">write_packagedata</span></code></a>(fname[, auxiliary, boundname])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="swn.modflow.SwnMf6.write_packagedata.html#swn.modflow.SwnMf6.write_packagedata" title="swn.modflow.SwnMf6.write_packagedata"><code class="xref py py-obj docutils literal notranslate"><span class="pre">write_packagedata</span></code></a>(fname[, auxiliary, boundname])</p></td>
 <td><p>Write PACKAGEDATA file for MODFLOW 6 SFR.</p></td>
 </tr>
 </tbody>
