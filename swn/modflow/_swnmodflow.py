@@ -3,6 +3,7 @@
 __all__ = ["SwnModflow"]
 
 import inspect
+import os
 from itertools import zip_longest
 
 import numpy as np
@@ -899,12 +900,16 @@ class SwnModflow(SwnModflowBase):
 
         Parameters
         ----------
-        **kwargs : dict, optional
+        **kwds : dict, optional
             Passed to flopy.modflow.mfsfr2.ModflowSfr2.
+
+        Returns
+        -------
+        flopy.modflow.mfsfr2.ModflowSfr2
         """
         import flopy
 
-        flopy.modflow.mfsfr2.ModflowSfr2(
+        return flopy.modflow.mfsfr2.ModflowSfr2(
             model=self.model,
             reach_data=self.flopy_reach_data(),
             segment_data=self.flopy_segment_data(),
@@ -1687,3 +1692,326 @@ class SwnModflow(SwnModflowBase):
                 idx1 = tmp1
                 idx2 = con2.index(reachID)
         return con1[:idx1] + list(reversed(con2[:idx2]))
+
+    def package_period_frame(
+            self, package: str, style: str, auxiliary=[], **kwds):
+        """Return DataFrame of stress period data for MODFLOW packages.
+
+        This DataFrame is derived from the reaches DataFrame, and is
+        implemented using flopy.modflow package's ``stress_period_data``.
+
+        Parameters
+        ----------
+        package : str
+            MODFLOW package name, such as "drn" for DRAIN.
+        style : str
+            If "native", all indicies (including kij) use one-based notation.
+            Also use k,i,j columns (as str) rather than cellid.
+            If "flopy", all indices (including rno) use zero-based notation.
+            Also use cellid as a tuple.
+        auxiliary : str, list, optional
+            String or list of auxiliary variable names. Default [].
+        **kwds : dict, optional
+            Keyword arguments used for ``get_default_dtype``, if available.
+            A common keyword is ``structured=True``.
+
+        Returns
+        -------
+        DataFrame
+
+        See Also
+        --------
+        SwnModflow.flopy_package_period : Dict of lists of lists for flopy.
+
+        Examples
+        --------
+        >>> import flopy
+        >>> import geopandas
+        >>> import swn
+        >>> lines = geopandas.GeoSeries.from_wkt([
+        ...    "LINESTRING (60 100, 60  80)",
+        ...    "LINESTRING (40 130, 60 100)",
+        ...    "LINESTRING (70 130, 60 100)"])
+        >>> lines.index += 100
+        >>> n = swn.SurfaceWaterNetwork.from_lines(lines)
+        >>> m = flopy.modflow.Modflow(version="mf2005")
+        >>> _ = flopy.modflow.ModflowDis(
+        ...     m, nrow=3, ncol=2, delr=20.0, delc=20.0, xul=30.0, yul=130.0,
+        ...     top=15.0, botm=10.0)
+        >>> _ = flopy.modflow.ModflowBas(m)
+        >>> nm = swn.modflow.SwnModflow.from_swn_flopy(n, m)
+        >>> nm.set_reach_data_from_array("elev", m.dis.top.array)
+        >>> nm.reaches["dlen"] = nm.reaches.length
+        >>> nm.reaches["cond"] = nm.reaches.dlen * 10.0
+        >>> nm.package_period_frame("drn", "native", auxiliary="dlen")
+                     k  i  j  elev        cond       dlen
+        per reachID                                      
+        1   1        1  1  1  15.0  180.277564  18.027756
+            2        1  1  2  15.0   60.092521   6.009252
+            3        1  2  2  15.0  120.185043  12.018504
+            4        1  1  2  15.0  210.818511  21.081851
+            5        1  2  2  15.0  105.409255  10.540926
+            6        1  2  2  15.0  100.000000  10.000000
+            7        1  3  2  15.0  100.000000  10.000000
+        """
+        from inspect import signature
+
+        dat = pd.DataFrame(self.reaches.copy())
+        dat["ibound"] = \
+            self.model.bas6.ibound.array[dat["k"], dat["i"], dat["j"]]
+        if style == "native":
+            # Convert from zero-based to one-based notation
+            dat[list("kij")] += 1
+        elif style == "flopy":
+            pass
+        else:
+            raise ValueError("'style' must be either 'native' or 'flopy'")
+
+        Mfpak = get_flopy_modflow_package(package)
+        sig = signature(Mfpak.get_default_dtype)
+        gdd_kwds = {}
+        for kwarg, value in kwds.items():
+            if kwarg in sig.parameters:
+                gdd_kwds[kwarg] = value
+            else:
+                self.logger.warning(
+                    "%s %r specified, but not part of the "
+                    "get_default_dtype signature", kwarg, value)
+        dtype = Mfpak.get_default_dtype()
+        if auxiliary:
+            dtype = Mfpak.add_to_dtype(dtype, auxiliary, float)
+        # check missing columns
+        missing = []
+        for name in dtype.names:
+            if name not in dat.columns:
+                missing.append(name)
+        if missing:
+            raise KeyError(
+                "missing {} reach series needed for {}: {}"
+                .format(len(missing), Mfpak.__name__, ", ".join(missing)))
+        dat = dat.loc[:, dtype.names]
+        if self.model.dis.nper != 1:
+            self.logger.warning(
+                "only preparing stress period data for the first "
+                "stress period of %s", self.model.dis.nper)
+        dat["per"] = 1
+        if style == "flopy":
+            dat["per"] -= 1
+        return dat.reset_index().set_index(["per", "reachID"])
+
+    def write_package_period(self, package: str, fname, auxiliary=[]):
+        r"""
+        Write PERIOD file for MODFLOW packages, to be used within OPEN/CLOSE.
+
+        Parameters
+        ----------
+        package : str
+            MODFLOW package name, such as "drn" for DRAIN.
+        fname : str or path-like
+            Output file name, with str formatting for stress period number
+            which starts numbering from 1. For example, "drn_sp{:02d}.txt" to
+            create "drn_sp01.txt" for the first stress period.
+        auxiliary : str, list, optional
+            String or list of auxiliary variable names. Default [].
+
+        Returns
+        -------
+        None
+
+        See Also
+        --------
+        SwnModflow.package_period_frame : Dataframe generator.
+        SwnModflow.flopy_package_period : Dict of lists of lists for flopy.
+
+        Examples
+        --------
+        >>> import flopy
+        >>> import geopandas
+        >>> import pandas as pd
+        >>> import swn
+        >>> from tempfile import TemporaryDirectory
+        >>> from pathlib import Path
+        >>> lines = geopandas.GeoSeries.from_wkt([
+        ...    "LINESTRING (60 100, 60  80)",
+        ...    "LINESTRING (40 130, 60 100)",
+        ...    "LINESTRING (70 130, 60 100)"])
+        >>> lines.index += 100
+        >>> n = swn.SurfaceWaterNetwork.from_lines(lines)
+        >>> tmp_dir_obj = TemporaryDirectory()
+        >>> dir = Path(tmp_dir_obj.name)
+        >>> m = flopy.modflow.Modflow("model", version="mf2005", model_ws=str(dir))
+        >>> _ = flopy.modflow.ModflowDis(
+        ...     m, nrow=3, ncol=2, delr=20.0, delc=20.0, xul=30.0, yul=130.0,
+        ...     top=15.0, botm=10.0)
+        >>> _ = flopy.modflow.ModflowBas(m)
+        >>> nm = swn.modflow.SwnModflow.from_swn_flopy(n, m)
+        >>> nm.set_reach_data_from_array("elev", m.dis.top.array)
+        >>> nm.reaches["dlen"] = nm.reaches.length.round(2)
+        >>> nm.reaches["cond"] = (nm.reaches.length * 10.0).round(2)
+        >>> fname_tpl = dir / "model_drn_{:02d}.dat"
+        >>> fname_01 = dir / "model_drn_01.dat"
+        >>> nm.write_package_period("drn", fname_tpl, auxiliary="dlen")
+        >>> print(fname_01.read_text(), end="")
+        1 1 1 15.0 180.28 18.03
+        1 1 2 15.0  60.09  6.01
+        1 2 2 15.0 120.19 12.02
+        1 1 2 15.0 210.82 21.08
+        1 2 2 15.0 105.41 10.54
+        1 2 2 15.0 100.00 10.00
+        1 3 2 15.0 100.00 10.00
+        >>> drn = flopy.modflow.ModflowDrn(
+        ...     m, stress_period_data={
+        ...         0: flopy.modflow.ModflowDrn.get_empty(len(nm.reaches))})
+        >>> m.write_input()
+        >>> with open(dir / "model.drn", "w") as fp:
+        ...     _ = fp.write("7 0 AUX DLEN\n")
+        ...     _ = fp.write("7 0\n")
+        ...     _ = fp.write("OPEN/CLOSE model_drn_01.dat\n")
+        >>> success, buff = m.run_model()  # doctest: +SKIP
+        >>> tmp_dir_obj.cleanup()
+
+        """
+        spdf = self.package_period_frame(
+            package, "native", auxiliary=auxiliary)
+        if isinstance(fname, os.PathLike):
+            fname = os.fsdecode(fname)
+        for per, df in spdf.groupby("per"):
+            per_fname = fname.format(per)
+            self.logger.debug("writing period file %s", per_fname)
+            with open(per_fname, "w") as fp:
+                fp.write(df.to_string(header=False, index=False) + "\n")
+
+    def flopy_package_period(
+            self, package: str, auxiliary=[], **kwds):
+        """Return dict of lists of lists for flopy's stress_period_data.
+
+        Parameters
+        ----------
+        package : str
+            MODFLOW package name, such as "drn" for DRAIN.
+        auxiliary : str, list, optional
+            String or list of auxiliary variable names. Default [].
+        **kwds : dict, optional
+            Keyword arguments used for ``get_default_dtype``, if available.
+            A common keyword is ``structured=True``.
+
+        Returns
+        -------
+        dict
+
+        See Also
+        --------
+        SwnModflow.package_period_frame : Dataframe generator.
+        SwnModflow.set_package_obj : Set MODFLOW package data to flopy model.
+
+        Examples
+        --------
+        >>> import flopy
+        >>> import geopandas
+        >>> import pandas as pd
+        >>> import swn
+        >>> lines = geopandas.GeoSeries.from_wkt([
+        ...    "LINESTRING (60 100, 60  80)",
+        ...    "LINESTRING (40 130, 60 100)",
+        ...    "LINESTRING (70 130, 60 100)"])
+        >>> lines.index += 100
+        >>> n = swn.SurfaceWaterNetwork.from_lines(lines)
+        >>> m = flopy.modflow.Modflow(version="mf2005")
+        >>> _ = flopy.modflow.ModflowDis(
+        ...     m, nrow=3, ncol=2, delr=20.0, delc=20.0, xul=30.0, yul=130.0,
+        ...     top=15.0, botm=10.0)
+        >>> _ = flopy.modflow.ModflowBas(m)
+        >>> nm = swn.modflow.SwnModflow.from_swn_flopy(n, m)
+        >>> nm.set_reach_data_from_array("elev", m.dis.top.array)
+        >>> nm.reaches["dlen"] = nm.reaches.length
+        >>> nm.reaches["cond"] = nm.reaches.dlen * 10.0
+        >>> drn = nm.set_package_obj("drn", auxiliary="dlen")
+        >>> pd.DataFrame(drn.stress_period_data[0])
+           k  i  j  elev        cond       dlen
+        0  0  0  0  15.0  180.277557  18.027756
+        1  0  0  1  15.0   60.092522   6.009252
+        2  0  1  1  15.0  120.185043  12.018504
+        3  0  0  1  15.0  210.818512  21.081852
+        4  0  1  1  15.0  105.409256  10.540926
+        5  0  1  1  15.0  100.000000  10.000000
+        6  0  2  1  15.0  100.000000  10.000000
+        """
+        spdf = self.package_period_frame(
+            package, "flopy", auxiliary=auxiliary, **kwds)
+        Mfpak = get_flopy_modflow_package(package)
+        dtype = Mfpak.get_default_dtype()
+        if auxiliary:
+            dtype = Mfpak.add_to_dtype(dtype, auxiliary, np.float32)
+        # change dtypes
+        for nme, dtp in dtype.descr:
+            if spdf[nme].dtype != dtp:
+                spdf[nme] = spdf[nme].astype(dtp)
+        spd = {}
+        for per, df in spdf.groupby("per"):
+            spd[per] = df.to_records(index=False)
+        return spd
+
+    def set_package_obj(self, package: str, auxiliary=None, **kwds):
+        """Set MODFLOW package data to flopy model.
+
+        Parameters
+        ----------
+        package : str
+            MODFLOW package name, such as "drn" for DRAIN.
+        auxiliary : list, optional
+            List of auxiliary names, which must be columns in the reaches
+            frame.
+        **kwds : dict, optional
+            Passed to flopy.modflow.mfsfr2.ModflowSfr2.
+
+        Notes
+        -----
+        Flopy is sometimes limited with writing "AUX name" in the header to
+        describe auxiliary variables. This stress package file may need to be
+        edited after written by flopy to work as expected.
+
+        See Also
+        --------
+        SwnModflow.flopy_package_period : Used internally to set data.
+
+        Returns
+        -------
+        flopy.pakbase.Package
+        """
+        if "stress_period_data" not in kwds:
+            kwds["stress_period_data"] = self.flopy_package_period(
+                package=package, auxiliary=auxiliary)
+        Mfpak = get_flopy_modflow_package(package)
+        dtype = Mfpak.get_default_dtype()
+        if auxiliary:
+            self.logger.warning(
+                'flopy does not always write "AUX %s" to stress package file',
+                auxiliary)
+            dtype = Mfpak.add_to_dtype(dtype, auxiliary, np.float32)
+        return Mfpak(self.model, dtype=dtype, **kwds)
+
+
+def get_flopy_modflow_package(name: str):
+    """Returns a flopy.modflow package.
+
+    Parameters
+    ----------
+    package : str
+        MODFLOW package name, such as "drn" for DRAIN.
+
+    Returns
+    -------
+    flopy.pakbase.Package
+        Subclass object.
+    """
+    import flopy.modflow
+
+    if not isinstance(name, str):
+        raise ValueError(f"packge must be a str type; found {type(name)!r}")
+    try:
+        return getattr(flopy.modflow, name)
+    except AttributeError:
+        pass
+    # keep only alpha chars, try again
+    name = "".join(x for x in list(name) if x.isalpha())
+    return getattr(flopy.modflow, f"Modflow{name.title()}")

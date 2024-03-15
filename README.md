@@ -1,6 +1,7 @@
 # Surface water network
 [![DOI](https://zenodo.org/badge/187739645.svg)](https://zenodo.org/badge/latestdoi/187739645)
-[![Codacy Badge](https://api.codacy.com/project/badge/Grade/420bcd8896c14f18b2077dd987c78849)](https://app.codacy.com/manual/mwtoews/surface-water-network?utm_source=github.com&utm_medium=referral&utm_content=mwtoews/surface-water-network&utm_campaign=Badge_Grade_Dashboard)
+[![Codacy](https://api.codacy.com/project/badge/Grade/420bcd8896c14f18b2077dd987c78849)](https://app.codacy.com/manual/mwtoews/surface-water-network?utm_source=github.com&utm_medium=referral&utm_content=mwtoews/surface-water-network&utm_campaign=Badge_Grade_Dashboard)
+[![Codcov](https://codecov.io/gh/mwtoews/surface-water-network/branch/main/graph/badge.svg)](https://codecov.io/gh/mwtoews/surface-water-network)
 [![CI](https://github.com/mwtoews/surface-water-network/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/mwtoews/surface-water-network/actions/workflows/tests.yml)
 
 A Python package to create and analyze surface water networks.

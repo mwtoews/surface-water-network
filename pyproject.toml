@@ -58,6 +58,8 @@ lint = [
 ]
 test = [
     "pytest >=3.3",
+    "pytest-cov",
+    "pytest-xdist",
 ]
 
 [project.urls]

@@ -286,7 +286,7 @@ class SwnModflowBase:
                     "model must be a flopy.mf6.MFModel object; found " +
                     str(type(model)))
             sim = model.simulation
-            if "tdis" not in sim.package_key_dict.keys():
+            if "tdis" not in sim.package_type_dict.keys():
                 raise ValueError("TDIS package required")
             if "dis" not in model.package_type_dict.keys():
                 raise ValueError("DIS package required")
