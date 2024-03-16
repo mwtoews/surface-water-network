@@ -443,15 +443,16 @@ class SwnMf6(SwnModflowBase):
         from flopy.mf6 import ModflowGwfsfr as Mf6Sfr
 
         defcols_names = [dt[0] for dt in Mf6Sfr.packagedata.dtype(self.model)]
-        for idx in ['rno', 'ifno']:
+        for idx in ["rno", "ifno"]:
             if idx in defcols_names:
                 defcols_names.remove(idx)  # this is the index
         dat = self._init_package_df(
-            style=style, defcols_names=defcols_names, auxiliary=auxiliary)
+            style=style, defcols_names=defcols_names, auxiliary=auxiliary
+        )
         # MF6 > 6.2.2 changed from rno to ifno
         # TODO: track ifno all the way through?
-        if 'ifno' in defcols_names:
-            dat.index.name = 'rno'
+        if "ifno" in defcols_names:
+            dat.index.name = "rno"
         if "rlen" not in dat.columns:
             dat.loc[:, "rlen"] = dat.geometry.length
         dat["ncon"] = dat[from_ridxsname].apply(len) + (dat[to_ridxname] > 0).astype(
@@ -670,8 +671,8 @@ class SwnMf6(SwnModflowBase):
         defcols_names = list(defcols_dtype.names)
         # MF6 > 6.2.2 changed from rno to ifno
         # TODO: track ifno all the way through?
-        if 'ifno' in defcols_names:
-            dat.index.name = 'rno'
+        if "ifno" in defcols_names:
+            dat.index.name = "rno"
         dat = pd.DataFrame(self.diversions[self.diversions["in_model"]].copy())
         if "cprior" not in dat.columns:
             self.logger.info("diversions missing cprior; assuming UPTO")
@@ -813,8 +814,8 @@ class SwnMf6(SwnModflowBase):
         defcols_names = [dt[0] for dt in lst_tpl.dtype(self.model)]
         # MF6 > 6.2.2 changed from rno to ifno
         # TODO: track ifno all the way through?
-        if 'ifno' == defcols_names.index.name:
-            dat.index.name = 'rno'
+        if "ifno" == defcols_names.index.name:
+            dat.index.name = "rno"
         dat = self._init_package_df(
             style=style, defcols_names=defcols_names, auxiliary=auxiliary
         )
@@ -1748,32 +1749,38 @@ class SwnMf6(SwnModflowBase):
                 layerbots[k + 1] = layerbots[k] - laythick
             self.model.dis.botm.set_data(layerbots)
 
-
     def _fix_dis(self, buffer=0.5, move_top=True):
-            botm = self.model.dis.botm.get_data()
-            top = self.model.dis.top.get_data()
-            rdf = self.reaches.copy()
+        botm = self.model.dis.botm.get_data()
+        top = self.model.dis.top.get_data()
+        rdf = self.reaches.copy()
 
-            rdf['botm0'] = rdf[['i','j']].apply(lambda x: botm[0,x[0],x[1]], axis=1)
-            rdf['maxbot'] = rdf[['rtp', 'rbth']].apply(lambda x: x[0] - x[1] - buffer, axis=1)
-            rdf['bdz'] = rdf['botm0'] - rdf['maxbot']
-            rdf['bdz'].clip(0, None, inplace=True)
-            rdf['rno'] = rdf.index
-            # need to get min bdz for each cell (unique 'ij')
-            rdf['ij'] = rdf[['i','j']].apply(lambda x: (x[0],x[1]), axis=1)
-            rdf = rdf.select_dtypes(include=[np.number, tuple]).groupby(['ij']).max()
-            rdf.set_index('rno', inplace=True)
-            # shift all layers in model column, TODO: enforce min layer thickness instead?
-            for r in rdf.index:
-                botm[:,rdf.loc[r, 'i'], rdf.loc[r, 'j']] = botm[:,rdf.loc[r, 'i'], rdf.loc[r, 'j']] - rdf.loc[r,'bdz']
-                if move_top:
-                    top[rdf.loc[r, 'i'], rdf.loc[r, 'j']] = top[rdf.loc[r, 'i'], rdf.loc[r, 'j']] - rdf.loc[r, 'bdz']
-            # may do funny things to flopy external file reference?
-            self.model.dis.botm.set_data(botm)
-            self.model.dis.top.set_data(top)
+        rdf["botm0"] = rdf[["i", "j"]].apply(lambda x: botm[0, x[0], x[1]], axis=1)
+        rdf["maxbot"] = rdf[["rtp", "rbth"]].apply(
+            lambda x: x[0] - x[1] - buffer, axis=1
+        )
+        rdf["bdz"] = rdf["botm0"] - rdf["maxbot"]
+        rdf["bdz"].clip(0, None, inplace=True)
+        rdf["rno"] = rdf.index
+        # need to get min bdz for each cell (unique 'ij')
+        rdf["ij"] = rdf[["i", "j"]].apply(lambda x: (x[0], x[1]), axis=1)
+        rdf = rdf.select_dtypes(include=[np.number, tuple]).groupby(["ij"]).max()
+        rdf.set_index("rno", inplace=True)
+        # shift all layers in model column, TODO: enforce min layer thickness instead?
+        for r in rdf.index:
+            botm[:, rdf.loc[r, "i"], rdf.loc[r, "j"]] = (
+                botm[:, rdf.loc[r, "i"], rdf.loc[r, "j"]] - rdf.loc[r, "bdz"]
+            )
+            if move_top:
+                top[rdf.loc[r, "i"], rdf.loc[r, "j"]] = (
+                    top[rdf.loc[r, "i"], rdf.loc[r, "j"]] - rdf.loc[r, "bdz"]
+                )
+        # may do funny things to flopy external file reference?
+        self.model.dis.botm.set_data(botm)
+        self.model.dis.top.set_data(top)
 
-    def _to_rno_elevs(self, minslope=0.0001, minincise=0.2,
-                      minthick=0.5, buffer=0.5, fix_dis=True):
+    def _to_rno_elevs(
+        self, minslope=0.0001, minincise=0.2, minthick=0.5, buffer=0.5, fix_dis=True
+    ):
         """
         Attempt to set reach elevations, pandas approach:
             0. ensure minimum incision
@@ -1806,33 +1813,36 @@ class SwnMf6(SwnModflowBase):
         to_ridxname = f"to_{self.reach_index_name}"
 
         def get_to_rtp():
-            intp = (rdf['to_rno'] != 0) & (rdf['to_rno'].isin(rdf.index))
-            trno = rdf.loc[intp, 'to_rno']
+            intp = (rdf["to_rno"] != 0) & (rdf["to_rno"].isin(rdf.index))
+            trno = rdf.loc[intp, "to_rno"]
             trno.drop_duplicates(inplace=True)
-            trtp = rdf.loc[trno.index, 'rtp']
-            rdf['rno'] = rdf.index
-            ndf = rdf[['rno','to_rno']].merge(trtp,left_on='to_rno',right_on='rno',how='outer')
-            ndf.dropna(subset=['rno','to_rno'], inplace=True)
-            ndf[['rno','to_rno']] = ndf[['rno','to_rno']].astype(int)
-            ndf.set_index('rno', inplace=True, drop=True)
-            rdf['to_rtp'] = ndf['rtp']
-            rdf.loc[~intp, 'to_rtp'] = -9999
+            trtp = rdf.loc[trno.index, "rtp"]
+            rdf["rno"] = rdf.index
+            ndf = rdf[["rno", "to_rno"]].merge(
+                trtp, left_on="to_rno", right_on="rno", how="outer"
+            )
+            ndf.dropna(subset=["rno", "to_rno"], inplace=True)
+            ndf[["rno", "to_rno"]] = ndf[["rno", "to_rno"]].astype(int)
+            ndf.set_index("rno", inplace=True, drop=True)
+            rdf["to_rtp"] = ndf["rtp"]
+            rdf.loc[~intp, "to_rtp"] = -9999
 
         # copy some data
         top = self.model.dis.top.array.copy()
         delr = self.model.dis.delr.data.copy()
         delc = self.model.dis.delc.data.copy()
 
-        if 'rtp' not in self.reaches.columns:
-            self.set_reach_data_from_array('rtp', top)
-            self.reaches['rtp'] = self.reaches['rtp'] - minincise
+        if "rtp" not in self.reaches.columns:
+            self.set_reach_data_from_array("rtp", top)
+            self.reaches["rtp"] = self.reaches["rtp"] - minincise
         rdf = self.reaches.copy()
         icols = rdf.columns.to_list()
 
         # add some necessary columns to rdf
         # attempt to sort of addresses local grid refinement?
-        rdf.loc[:,"mindz"] = minslope * \
-            (delr[rdf.loc[:, "j"]] + delc[rdf.loc[:, "i"]]) / 2.0
+        rdf.loc[:, "mindz"] = (
+            minslope * (delr[rdf.loc[:, "j"]] + delc[rdf.loc[:, "i"]]) / 2.0
+        )
         if "rbth" not in rdf.columns:
             rdf["rbth"] = minthick
             icols.append("rbth")
@@ -1840,33 +1850,35 @@ class SwnMf6(SwnModflowBase):
             rdf["incise"] = minincise
             icols.append("incise")
 
-        rdf['rbth'].where(rdf['rbth'] > minthick, minthick, inplace=True)
+        rdf["rbth"].where(rdf["rbth"] > minthick, minthick, inplace=True)
         # initial criteria
         get_to_rtp()
-        #rdf['to_rtp'] = rdf['to_rno'].apply(lambda x: rdf.loc[x, 'rtp'] if x in rdf.index else -10)
-        rdf['mx_to_rtp'] = rdf['rtp'] - rdf['mindz']
-        sel = rdf['to_rtp'] > rdf['mx_to_rtp']
+        # rdf['to_rtp'] = rdf['to_rno'].apply(lambda x: rdf.loc[x, 'rtp'] if x in rdf.index else -10)
+        rdf["mx_to_rtp"] = rdf["rtp"] - rdf["mindz"]
+        sel = rdf["to_rtp"] > rdf["mx_to_rtp"]
         loop = 0
         while sel.sum() > 0 and loop < 10000:
             # this gives geodataframe
-            mx_rtp = rdf.loc[sel, ['to_rno','mx_to_rtp']].groupby('to_rno').min()
+            mx_rtp = rdf.loc[sel, ["to_rno", "mx_to_rtp"]].groupby("to_rno").min()
             # so make it a series, exclude mx_rtp==0
-            mx_rtp = mx_rtp['mx_to_rtp']
+            mx_rtp = mx_rtp["mx_to_rtp"]
             mx_rtp.drop([_ for _ in mx_rtp.index if _ not in rdf.index], inplace=True)
             # reset rtp values in rdf
-            rdf.loc[mx_rtp.index, 'rtp'] = mx_rtp.values
+            rdf.loc[mx_rtp.index, "rtp"] = mx_rtp.values
             # report
             self.logger.debug("%s changed in loop %s", sel.sum(), loop)
             loop += 1
             # prep for next
             get_to_rtp()
-            rdf['mx_to_rtp'] = rdf['rtp'] - rdf['mindz']
-            sel = rdf['to_rtp'] > rdf['mx_to_rtp']
+            rdf["mx_to_rtp"] = rdf["rtp"] - rdf["mindz"]
+            sel = rdf["to_rtp"] > rdf["mx_to_rtp"]
         if loop >= 10000:
             # maybe stronger warning, kill it?
-            self.logger.debug("to_rno_elev did not find final solution after %s loops", loop)
+            self.logger.debug(
+                "to_rno_elev did not find final solution after %s loops", loop
+            )
         # copy here removes pd warning about setting value on copy
-        self.reaches.loc[:,icols] = rdf.loc[:, icols]
+        self.reaches.loc[:, icols] = rdf.loc[:, icols]
         if fix_dis:
             self._fix_dis(buffer)
         self.add_model_topbot_to_reaches()
