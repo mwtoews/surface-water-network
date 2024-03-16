@@ -415,10 +415,15 @@ class SwnMf6(SwnModflowBase):
         """  # noqa
         from flopy.mf6 import ModflowGwfsfr as Mf6Sfr
         defcols_names = [dt[0] for dt in Mf6Sfr.packagedata.dtype(self.model)]
-        if 'rno' in defcols_names:
-            defcols_names.remove("rno")  # this is the index
+        for idx in ['rno', 'ifno']:
+            if idx in defcols_names:
+                defcols_names.remove(idx)  # this is the index
         dat = self._init_package_df(
             style=style, defcols_names=defcols_names, auxiliary=auxiliary)
+        # MF6 > 6.2.2 changed from rno to ifno
+        # TODO: track ifno all the way through?
+        if 'ifno' in defcols_names:
+            dat.index.name = 'rno'
         if "rlen" not in dat.columns:
             dat.loc[:, "rlen"] = dat.geometry.length
         dat["ncon"] = (
@@ -624,6 +629,10 @@ class SwnMf6(SwnModflowBase):
             self.logger.warning("diversions not set")
             return pd.DataFrame(np.recarray(0, dtype=defcols_dtype))
         defcols_names = list(defcols_dtype.names)
+        # MF6 > 6.2.2 changed from rno to ifno
+        # TODO: track ifno all the way through?
+        if 'ifno' in defcols_names:
+            dat.index.name = 'rno'
         dat = pd.DataFrame(self.diversions[self.diversions["in_model"]].copy())
         if "cprior" not in dat.columns:
             self.logger.info("diversions missing cprior; assuming UPTO")
@@ -761,6 +770,10 @@ class SwnMf6(SwnModflowBase):
         Mf6pak = get_flopy_mf6_package(package)
         lst_tpl = Mf6pak.stress_period_data
         defcols_names = [dt[0] for dt in lst_tpl.dtype(self.model)]
+        # MF6 > 6.2.2 changed from rno to ifno
+        # TODO: track ifno all the way through?
+        if 'ifno' in defcols_names:
+            dat.index.name = 'rno'
         dat = self._init_package_df(
             style=style, defcols_names=defcols_names, auxiliary=auxiliary)
         dat = self._final_package_df(
