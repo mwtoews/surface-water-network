@@ -66,4 +66,5 @@ Utilities
    :toctree: ref/
 
     SwnMf6.get_location_frame_reach_info
+    SwnMf6.gather_reaches
     SwnMf6.route_reaches

@@ -11,4 +11,3 @@ Paired data methods
 
    find_location_pairs
    location_pair_geoms
-

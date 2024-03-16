@@ -21,7 +21,7 @@ Python 3.8+ is required.
 
 ### Optional
 
- - `flopy` - read/write MODFLOW models
+ - `flopy >=3.3.6` - read/write MODFLOW models
  - `netCDF4` - used to read TopNet files
 
 ## Testing
@@ -29,6 +29,8 @@ Python 3.8+ is required.
 Run `pytest -v` or `python3 -m pytest -v`
 
 For faster multi-core `pytest -v -n 2` (with `pytest-xdist`)
+
+To run doctests `pytest -v swn --doctest-modules`
 
 ## Examples
 

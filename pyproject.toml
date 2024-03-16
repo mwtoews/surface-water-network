@@ -48,13 +48,9 @@ doc = [
     "sphinx-issues",
 ]
 extra = [
-    "flopy",
+    "flopy >=3.3.6",
     "matplotlib",
     "netcdf4",
-]
-lint = [
-    "cffconvert",
-    "flake8",
 ]
 test = [
     "pytest >=3.3",
@@ -66,11 +62,17 @@ test = [
 Documentation = "https://mwtoews.github.io/surface-water-network/"
 Source = "https://github.com/mwtoews/surface-water-network"
 
-[tool.setuptools.packages.find]
-include = [
-    "swn",
-    "swn.*",
+[tool.pytest.ini_options]
+minversion = "6.0"
+doctest_optionflags = "NORMALIZE_WHITESPACE"
+testpaths = ["tests"]
+filterwarnings = [
+    "ignore:.*distutils Version classes.*:DeprecationWarning",
+    "ignore:.*More than 20 figures have been opened.*:RuntimeWarning",
 ]
+
+[tool.setuptools.packages.find]
+include = ["swn", "swn.*"]
 
 [tool.setuptools_scm]
 write_to = "swn/_version.py"

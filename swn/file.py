@@ -8,13 +8,13 @@ __all__ = [
 ]
 
 import geopandas
+import numpy as np
 import pandas as pd
 
 from .logger import get_logger, logging
 
 
-def topnet2ts(nc_path, varname, *,
-              mult=None, run=None, log_level=logging.INFO):
+def topnet2ts(nc_path, varname, *, mult=None, run=None, log_level=logging.INFO):
     """Read TopNet data from a netCDF file into a pandas.DataFrame timeseries.
 
     User may need to multiply DataFrame to convert units.
@@ -44,7 +44,7 @@ def topnet2ts(nc_path, varname, *,
     try:
         from netCDF4 import Dataset
     except ImportError:
-        raise ImportError('function requires netCDF4')
+        raise ImportError("function requires netCDF4")
     try:
         from cftime import num2pydate as n2d
     except ImportError:
@@ -55,8 +55,7 @@ def topnet2ts(nc_path, varname, *,
         nc.set_auto_mask(False)
         varnames = list(nc.variables.keys())
         if varname not in varnames:
-            raise KeyError(
-                f"{varname!r} not found in dataset; use one of {varnames}")
+            raise KeyError(f"{varname!r} not found in dataset; use one of {varnames}")
         var = nc.variables[varname]
         logger.info("variable %r:\n%s", varname, var)
         # Evaluate dimensions
@@ -73,8 +72,10 @@ def topnet2ts(nc_path, varname, *,
                 if run is None:
                     if size > 1:
                         logger.warning(
-                            "no run specified; taking %s index 0 from dim "
-                            "size %s", var.dimensions[2], var.shape[2])
+                            "no run specified; taking %s index 0 from dim " "size %s",
+                            var.dimensions[2],
+                            var.shape[2],
+                        )
                     run = 0
                 varslice.append(run)
             elif size == 1:
@@ -125,6 +126,8 @@ colname10 = {
     "is_within_catchment": "within_cat",
     "div_from_rno": "divfromrno",
     "div_to_rnos": "divtornos",
+    "div_from_ifno": "divfromfno",
+    "div_to_ifnos": "divtofnos",
 }
 assert all(len(x) <= 10 for x in colname10.values())
 
@@ -134,6 +137,8 @@ def gdf_to_shapefile(gdf, shp_fname, **kwargs):
 
     This is a workaround to the to_file method, which cannot save
     GeoDataFrame objects with other data types, such as set.
+    It also has mappings between internal names and 10-character
+    versions required for shapefiles.
 
     Parameters
     ----------
@@ -154,35 +159,38 @@ def gdf_to_shapefile(gdf, shp_fname, **kwargs):
     gdf = gdf.copy()
     geom_name = gdf.geometry.name
 
+    # Rename columns for shapefile so they are 10 characters or less
+    rename = {}
     # Change data types, as necessary
     for col, dtype in gdf.dtypes.items():
         if col == geom_name:
             continue
         if dtype == bool:
             gdf[col] = gdf[col].astype(int)
+        elif np.issubdtype(dtype, np.number):
+            pass
         else:
             is_none = gdf[col].map(lambda x: x is None).fillna(True)
             gdf[col] = gdf[col].astype(str)
             gdf.loc[is_none, col] = ""
-    # Rename columns for shapefile so they are 10 characters or less
-    rename = {}
-    for key, value in colname10.items():
-        if key in gdf.columns:
-            rename[key] = value
-    gdf.rename(columns=rename).reset_index(drop=False)\
-        .to_file(str(shp_fname), **kwargs)
+        if col in colname10:
+            rename[col] = colname10[col]
+    if rename:
+        gdf.rename(columns=rename, inplace=True)
+    gdf.to_file(str(shp_fname), index=True, **kwargs)
 
 
 def read_formatted_frame(fname):
-    r"""Write a data frame as a free formatted table.
+    r"""Read a free formatted table to data frame.
+
+    Notes
+    -----
+    First line must be a header, which may start with '#'.
 
     Parameters
     ----------
     fname : Path, str or file-like object
         Path to read file.
-    comment_header : bool, default True
-        If True, first line starts with '#' to make it a comment, otherwise
-        it will be an uncommented header.
 
     Returns
     -------
@@ -198,22 +206,22 @@ def read_formatted_frame(fname):
     >>> import pandas as pd
     >>> from swn.file import read_formatted_frame
     >>> f = StringIO('''\
-    ... # rno        value1  value2  value3
-    ... 1     -1.000000e+10       1  'first one'
-    ... 12    -1.000000e-10      10   two
-    ... 33     0.000000e+00     100   three
-    ... 40     1.000000e-10    1000
-    ... 450    1.000000e+00   10000   five
-    ... 6267   1.000000e+03  100000   six
+    ... # ifno        value1  value2  value3
+    ... 1      -1.000000e+10       1  'first one'
+    ... 12     -1.000000e-10      10   two
+    ... 33      0.000000e+00     100   three
+    ... 40      1.000000e-10    1000
+    ... 450     1.000000e+00   10000   five
+    ... 6267    1.000000e+03  100000   six
     ... ''')
-    >>> df = read_formatted_frame(f).set_index("rno")
+    >>> df = read_formatted_frame(f).set_index("ifno")
     >>> print(df)
                 value1  value2     value3
-    rno                                  
+    ifno
     1    -1.000000e+10       1  first one
     12   -1.000000e-10      10        two
     33    0.000000e+00     100      three
-    40    1.000000e-10    1000        NaN
+    40    1.000000e-10    1000       None
     450   1.000000e+00   10000       five
     6267  1.000000e+03  100000        six
     """  # noqa
@@ -223,15 +231,31 @@ def read_formatted_frame(fname):
             f = fname
         else:
             f = open(fname)
-        headers = f.readline().lstrip("#").strip().split()
+        names = f.readline().lstrip("#").strip().split()
         try:
-            df = pd.read_csv(f, sep=r"\s+", quotechar="'", header=None)
-            df.columns = headers
+            df = pd.read_csv(
+                f,
+                sep=r"\s+",
+                quotechar="'",
+                header=None,
+                names=names,
+                skip_blank_lines=False,
+            )
         except pd.errors.EmptyDataError:
-            df = pd.DataFrame(columns=headers)
+            if names:  # no rows
+                df = pd.DataFrame(columns=names)
+            else:  # no columns
+                f.seek(0)
+                nlines = len(f.readlines())
+                df = pd.DataFrame(index=pd.RangeIndex(nlines - 1))
     finally:
         if not fname_is_filelike:
             f.close()
+    # Ensure that object type (including str) use None for missing instead of NaN
+    for name, dtype in df.dtypes.items():
+        if np.issubdtype(dtype, object):
+            sel = df[name].isna()
+            df.loc[sel, name] = None
     return df
 
 
@@ -264,37 +288,42 @@ def write_formatted_frame(df, fname, index=True, comment_header=True):
     ...     "value2": [1, 10, 100, 1000, 10000, 100000],
     ...     "value3": ["first one", "two", "three", None, "five", "six"],
     ...     }, index=[1, 12, 33, 40, 450, 6267])
-    >>> df.index.name = "rno"
+    >>> df.index.name = "ifno"
     >>> print(df)
-                value1  value2     value3
-    rno                                  
-    1    -1.000000e+10       1  first one
-    12   -1.000000e-10      10        two
-    33    0.000000e+00     100      three
-    40    1.000000e-10    1000       None
-    450   1.000000e+00   10000       five
-    6267  1.000000e+03  100000        six
+                 value1  value2     value3
+    ifno
+    1     -1.000000e+10       1  first one
+    12    -1.000000e-10      10        two
+    33     0.000000e+00     100      three
+    40     1.000000e-10    1000       None
+    450    1.000000e+00   10000       five
+    6267   1.000000e+03  100000        six
     >>> f = StringIO()
     >>> write_formatted_frame(df, f)
     >>> _ = f.seek(0)
     >>> print(f.read(), end="")
-    # rno        value1  value2  value3
-    1     -1.000000e+10       1  'first one'
-    12    -1.000000e-10      10   two
-    33     0.000000e+00     100   three
-    40     1.000000e-10    1000
-    450    1.000000e+00   10000   five
-    6267   1.000000e+03  100000   six
+    # ifno        value1  value2  value3
+    1      -1.000000e+10       1  'first one'
+    12     -1.000000e-10      10   two
+    33      0.000000e+00     100   three
+    40      1.000000e-10    1000
+    450     1.000000e+00   10000   five
+    6267    1.000000e+03  100000   six
     """  # noqa
     if not isinstance(df, pd.DataFrame):
         raise TypeError("expected df to be a pandas.DataFrame")
     fname_is_filelike = hasattr(fname, "write")
 
-    if len(df) == 0:
+    df = df.copy()
+    if index and df.index.name is None:
+        # Enforce a default index name
+        df.index.name = "index"
+
+    if df.shape[0] == 0:
         # Special case with no rows
         line = "# " if comment_header else ""
         if index:
-            line += (df.index.name or "index") + " "
+            line += df.index.name + " "
         line += (" ".join(df.columns)) + "\n"
         try:
             if fname_is_filelike:
@@ -307,19 +336,27 @@ def write_formatted_frame(df, fname, index=True, comment_header=True):
                 f.close()
         return
 
-    df = df.copy()
+    elif df.shape[1] == 0:
+        # Special case with no columns, add column of whitespace
+        df.insert(0, " ", "")
+
+    first_shifted = False
     if comment_header:
+        # Check if first character on header is a space
+        out = df.iloc[:, 0:1].to_string(index=index, justify="right")
         if index:
-            if df.index.name is None:
-                df.index.name = "index"
-            elif not df.index.name.startswith("#"):
-                df.index.name = "# " + df.index.name
+            df.index.name = "# " + df.index.name
         else:
-            first = df.columns[0]
-            df.rename(columns={first: "#" + first}, inplace=True)
+            fmt_first = out.split("\n", 1)[0]
+            if fmt_first[0:1] != " ":
+                # Add space to first column name for comment char
+                first = df.columns[0]
+                df.rename(columns={first: " " + first}, inplace=True)
+                first_shifted = True
+    PANDAS_VERSION_1 = pd.__version__[0:2] == "1."
     formatters = {}
     # scan for str type columns
-    for name in list(df.columns):
+    for icol, name in enumerate(df.columns):
         # add single quotes around items with space chars
         try:
             sel = df[name].str.contains(" ").fillna(False)
@@ -334,28 +371,35 @@ def write_formatted_frame(df, fname, index=True, comment_header=True):
         if na.any():
             df.loc[na, name] = ""
         # left-justify column
-        ljust = max(df[name].str.len().max(), len(name))
-        if len(name) < ljust:
-            df.rename(columns={name: name.ljust(ljust)}, inplace=True)
-            name = name.ljust(ljust)
+        name_len = len(name)
+        if icol == 0 and first_shifted:
+            name_len -= 1
+        ljust = max(df[name].str.len().max(), name_len)
+        if name_len < ljust:
+            new_name = name.ljust(ljust)
+            df.rename(columns={name: new_name}, inplace=True)
+            name = new_name
+        elif icol > 0 and PANDAS_VERSION_1:
+            new_name = name.rjust(ljust + 1)
+            df.rename(columns={name: new_name}, inplace=True)
+            name = new_name
         formatters[name] = f"{{:<{ljust}s}}".format
     # format the table to string
-    out = df.to_string(header=True, index=index, formatters=formatters)
-    lines = out.split("\n")
+    out = df.to_string(header=True, index=index, formatters=formatters, justify="right")
+    lines = out.splitlines()
     if index:
         # combine the first two lines
-        line = lines[1].rstrip()
-        lines[0] = line + lines.pop(0)[len(line):]
+        header = lines[1].rstrip()
+        lines[0] = header + lines.pop(0)[len(header) :]
     elif comment_header:
-        # Move '#' to start of line
-        line = lines[0]
-        pos = line.index("#")
-        if pos > 0:
-            llist = list(line)
-            llist[pos] = " "
-            llist[0] = "#"
-            line = "".join(llist)
-            lines[0] = line
+        header = lines[0]
+        first_char = header[0:1]
+        # Add '#' to start of line
+        if first_char == " ":
+            header = "#" + header[1:]
+        elif first_char != "#":
+            header = "#" + header
+        lines[0] = header
     try:
         if fname_is_filelike:
             f = fname

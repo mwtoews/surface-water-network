@@ -1,12 +1,13 @@
 """Common code for testing."""
 import re
 import sys
-from pathlib import Path
 from importlib import metadata
+from pathlib import Path
 
 import geopandas
 import pandas as pd
 import pytest
+from shapely import wkt
 
 try:
     import matplotlib
@@ -20,11 +21,35 @@ if matplotlib and sys.platform == "darwin":
 
 
 # Import this local package for tests
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+#  sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import swn  # noqa: E402
 from swn.compat import ignore_shapely_warnings_for_object_array
 
+PANDAS_VESRSION_TUPLE = tuple(int(x) for x in re.findall(r"\d+", pd.__version__))
+
 datadir = Path("tests") / "data"
+
+
+# https://commons.wikimedia.org/wiki/File:Flussordnung_(Strahler).svg
+fluss_gs = geopandas.GeoSeries(
+    wkt.loads(
+        """\
+MULTILINESTRING(
+    (380 490, 370 420), (300 460, 370 420), (370 420, 420 330),
+    (190 250, 280 270), (225 180, 280 270), (280 270, 420 330),
+    (420 330, 584 250), (520 220, 584 250), (584 250, 710 160),
+    (740 270, 710 160), (735 350, 740 270), (880 320, 740 270),
+    (925 370, 880 320), (974 300, 880 320), (760 460, 735 350),
+    (650 430, 735 350), (710 160, 770 100), (700  90, 770 100),
+    (770 100, 820  40))
+"""
+    ).geoms
+)
+
+
+@pytest.fixture
+def fluss_n():
+    return swn.SurfaceWaterNetwork.from_lines(fluss_gs)
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -73,7 +98,8 @@ def coastal_swn(coastal_lines_gdf):
 @pytest.fixture(scope="module")
 def coastal_swn_w_poly(coastal_lines_gdf, coastal_polygons_gdf):
     return swn.SurfaceWaterNetwork.from_lines(
-        coastal_lines_gdf.geometry, coastal_polygons_gdf.geometry)
+        coastal_lines_gdf.geometry, coastal_polygons_gdf.geometry
+    )
 
 
 @pytest.fixture(scope="session", autouse=True)
