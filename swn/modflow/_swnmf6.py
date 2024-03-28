@@ -446,6 +446,8 @@ class SwnMf6(SwnModflowBase):
         for idx in ["rno", "ifno"]:
             if idx in defcols_names:
                 defcols_names.remove(idx)  # this is the index
+                from_ridxsname = f"from_{idx}s"
+                to_ridxname = f"to_{idx}"
         dat = self._init_package_df(
             style=style, defcols_names=defcols_names, auxiliary=auxiliary
         )
