@@ -1519,9 +1519,9 @@ class SwnModflow(SwnModflowBase):
                                 self.logger.debug(
                                     "setting elevation to minslope from upstream"
                                 )
-                                self.reaches.at[
-                                    reach.Index, "strtop"
-                                ] = strtop_withminslope
+                                self.reaches.at[reach.Index, "strtop"] = (
+                                    strtop_withminslope
+                                )
                                 upreach_strtop = strtop_withminslope
                             else:
                                 # otherwise we can move reach so that it
@@ -1627,9 +1627,9 @@ class SwnModflow(SwnModflowBase):
         else:
             segsel = self.reaches["segnum"] == seg
         self.reaches["tmp_tdif"] = self.reaches["top"] - self.reaches["strtop"]
-        sfrar[
-            tuple(self.reaches[segsel][["i", "j"]].values.T.tolist())
-        ] = self.reaches.loc[segsel, "tmp_tdif"].tolist()
+        sfrar[tuple(self.reaches[segsel][["i", "j"]].values.T.tolist())] = (
+            self.reaches.loc[segsel, "tmp_tdif"].tolist()
+        )
         # .mask = np.ones(sfrar.shape)
         vtop = self.sfr_plot(
             model,
@@ -1648,9 +1648,9 @@ class SwnModflow(SwnModflowBase):
             sfrarbot = np.ma.zeros(dis.botm.array[0].shape, "f")
             sfrarbot.mask = np.ones(sfrarbot.shape)
             self.reaches["tmp_bdif"] = self.reaches["strtop"] - self.reaches["bot"]
-            sfrarbot[
-                tuple(self.reaches.loc[segsel, ["i", "j"]].values.T.tolist())
-            ] = self.reaches.loc[segsel, "tmp_bdif"].tolist()
+            sfrarbot[tuple(self.reaches.loc[segsel, ["i", "j"]].values.T.tolist())] = (
+                self.reaches.loc[segsel, "tmp_bdif"].tolist()
+            )
             # .mask = np.ones(sfrar.shape)
             vbot = self.sfr_plot(
                 model,

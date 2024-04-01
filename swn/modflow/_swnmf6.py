@@ -176,9 +176,9 @@ class SwnMf6(SwnModflowBase):
             obj.diversions.loc[div_sel, "idv"] = 1
             ridx_counts = obj.diversions[div_sel].groupby(ridxname).count()["in_model"]
             for ridx, count in ridx_counts[ridx_counts > 1].items():
-                obj.diversions.loc[
-                    obj.diversions[ridxname] == ridx, "idv"
-                ] = obj.diversions.idv[obj.diversions[ridxname] == ridx].cumsum()
+                obj.diversions.loc[obj.diversions[ridxname] == ridx, "idv"] = (
+                    obj.diversions.idv[obj.diversions[ridxname] == ridx].cumsum()
+                )
             # cross-reference iconr to ridx used as a reach
             diversion_reaches = (
                 obj.reaches.loc[obj.reaches.diversion].reset_index().set_index("divid")
@@ -1374,9 +1374,9 @@ class SwnMf6(SwnModflowBase):
                                 self.logger.debug(
                                     "setting elevation to minslope from upstream"
                                 )
-                                self.reaches.at[
-                                    reach.Index, "strtop"
-                                ] = strtop_withminslope
+                                self.reaches.at[reach.Index, "strtop"] = (
+                                    strtop_withminslope
+                                )
                                 upreach_strtop = strtop_withminslope
                             else:
                                 # otherwise we can move reach so that it
@@ -1640,9 +1640,9 @@ class SwnMf6(SwnModflowBase):
                                 self.logger.debug(
                                     "setting elevation to minslope from previous"
                                 )
-                                self.reaches.at[
-                                    reach.Index, "rtp"
-                                ] = strtop_withminslope
+                                self.reaches.at[reach.Index, "rtp"] = (
+                                    strtop_withminslope
+                                )
                                 # this may still leave us below the
                                 # bottom of layer
                             else:

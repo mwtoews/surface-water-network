@@ -5,6 +5,7 @@ Also check functionality in modflow._misc too.
 MODFLOW models are not run. See test_modflow.py and test_modflow6.py
 for similar, but running models.
 """
+
 import logging
 from hashlib import md5
 from textwrap import dedent

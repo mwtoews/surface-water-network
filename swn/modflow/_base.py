@@ -1645,9 +1645,9 @@ class SwnModflowBase:
         # Reach elevation relative to model top
         self.reaches["tmp_tdif"] = self.reaches["top"] - self.reaches[strtoptag]
         # TODO group by ij first?
-        sfrar[
-            tuple(self.reaches[segsel][["i", "j"]].values.T.tolist())
-        ] = self.reaches.loc[segsel, "tmp_tdif"].tolist()
+        sfrar[tuple(self.reaches[segsel][["i", "j"]].values.T.tolist())] = (
+            self.reaches.loc[segsel, "tmp_tdif"].tolist()
+        )
         # .mask = np.ones(sfrar.shape)
         # Plot reach elevation relative to model top
         if draw_lines:
@@ -1671,9 +1671,9 @@ class SwnModflowBase:
             sfrarbot = np.ma.zeros(dis.botm.array[0].shape, "f")
             sfrarbot.mask = np.ones(sfrarbot.shape)
             self.reaches["tmp_bdif"] = self.reaches[strtoptag] - self.reaches["bot"]
-            sfrarbot[
-                tuple(self.reaches.loc[segsel, ["i", "j"]].values.T.tolist())
-            ] = self.reaches.loc[segsel, "tmp_bdif"].tolist()
+            sfrarbot[tuple(self.reaches.loc[segsel, ["i", "j"]].values.T.tolist())] = (
+                self.reaches.loc[segsel, "tmp_bdif"].tolist()
+            )
             # .mask = np.ones(sfrar.shape)
             if draw_lines:
                 lines = self.reaches.loc[segsel, ["geometry", "tmp_bdif"]]
