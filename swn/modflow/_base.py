@@ -1178,6 +1178,9 @@ class SwnModflowBase:
             Default 1./1000 (or 0.001). Diversions (if present) will use the
             minimum of series.
         """
+        idx = self.reach_index_name
+        to_ridxname = f"to_{idx}"
+        from_ridxname = f"from_{idx}s"
         has_z = self._swn.has_z
         supported_methods = ["auto", "zcoord_ab", "grid_top", "rch_len", "rch_only"]
         if method not in supported_methods:
@@ -1263,20 +1266,20 @@ class SwnModflowBase:
         elif method == "rch_only":
             # Estimate slope from to_rno and from_rnos
             # deal with to and from rno == 0
-            to_0 = [_ for _ in self.reaches.index if self.reaches.loc[_, "to_rno"] == 0]
+            to_0 = [_ for _ in self.reaches.index if self.reaches.loc[_, to_ridxname] == 0]
             from_0 = [
                 _
                 for _ in self.reaches.index
-                if self.reaches.loc[_, "from_rnos"] == set()
+                if self.reaches.loc[_, from_ridxname] == set()
             ]
             to_n0 = [_ for _ in self.reaches.index if _ not in to_0]
             from_n0 = [_ for _ in self.reaches.index if _ not in from_0]
             self.reaches.loc[to_n0, "min_rtp"] = self.reaches.loc[
-                to_n0, "to_rno"
+                to_n0, to_ridxname
             ].apply(lambda x: self.reaches.loc[x, "rtp"])
             self.reaches.loc[to_0, "min_rtp"] = self.reaches.loc[to_0, "rtp"]
             self.reaches.loc[from_n0, "max_rtp"] = self.reaches.loc[
-                from_n0, "from_rnos"
+                from_n0, from_ridxname
             ].apply(lambda x: np.mean([self.reaches.loc[_, "rtp"] for _ in list(x)]))
             self.reaches.loc[from_0, "max_rtp"] = self.reaches.loc[from_0, "rtp"]
             rch_dz = self.reaches["max_rtp"] - self.reaches["min_rtp"]

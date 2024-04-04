@@ -135,7 +135,7 @@ class SwnMf6(SwnModflowBase):
         from_ridxsname = f"from_{ridxname}s"
         obj.reaches[to_ridxname] = -1
         if has_diversions:
-            from_ridxname = f"from_{ridxname}"
+            from_ridxname = f"from_{ridxname}s"
             div_to_ridxsname = f"div_to_{ridxname}s"
             div_from_ridxname = f"div_from_{ridxname}"
             segnum_iter = obj.reaches.loc[~obj.reaches.diversion, "segnum"].items()
@@ -453,8 +453,8 @@ class SwnMf6(SwnModflowBase):
         )
         # MF6 > 6.2.2 changed from rno to ifno
         # TODO: track ifno all the way through?
-        if "ifno" in defcols_names:
-            dat.index.name = "rno"
+        # if "ifno" in defcols_names:
+        #     dat.index.name = "rno"
         if "rlen" not in dat.columns:
             dat.loc[:, "rlen"] = dat.geometry.length
         dat["ncon"] = dat[from_ridxsname].apply(len) + (dat[to_ridxname] > 0).astype(
@@ -673,8 +673,8 @@ class SwnMf6(SwnModflowBase):
         defcols_names = list(defcols_dtype.names)
         # MF6 > 6.2.2 changed from rno to ifno
         # TODO: track ifno all the way through?
-        if "ifno" in defcols_names:
-            dat.index.name = "rno"
+        # if "ifno" in defcols_names:
+        #     dat.index.name = "rno"
         dat = pd.DataFrame(self.diversions[self.diversions["in_model"]].copy())
         if "cprior" not in dat.columns:
             self.logger.info("diversions missing cprior; assuming UPTO")
@@ -816,8 +816,8 @@ class SwnMf6(SwnModflowBase):
         defcols_names = [dt[0] for dt in lst_tpl.dtype(self.model)]
         # MF6 > 6.2.2 changed from rno to ifno
         # TODO: track ifno all the way through?
-        if "ifno" == defcols_names.index.name:
-            dat.index.name = "rno"
+        # if "ifno" == defcols_names.index.name:
+        #     dat.index.name = "rno"
         dat = self._init_package_df(
             style=style, defcols_names=defcols_names, auxiliary=auxiliary
         )
@@ -1756,17 +1756,18 @@ class SwnMf6(SwnModflowBase):
         top = self.model.dis.top.get_data()
         rdf = self.reaches.copy()
 
+        idx = rdf.index.name
         rdf["botm0"] = rdf[["i", "j"]].apply(lambda x: botm[0, x[0], x[1]], axis=1)
         rdf["maxbot"] = rdf[["rtp", "rbth"]].apply(
             lambda x: x[0] - x[1] - buffer, axis=1
         )
         rdf["bdz"] = rdf["botm0"] - rdf["maxbot"]
         rdf["bdz"].clip(0, None, inplace=True)
-        rdf["rno"] = rdf.index
+        rdf[idx] = rdf.index
         # need to get min bdz for each cell (unique 'ij')
         rdf["ij"] = rdf[["i", "j"]].apply(lambda x: (x[0], x[1]), axis=1)
         rdf = rdf.select_dtypes(include=[np.number, tuple]).groupby(["ij"]).max()
-        rdf.set_index("rno", inplace=True)
+        rdf.set_index(idx, inplace=True)
         # shift all layers in model column, TODO: enforce min layer thickness instead?
         for r in rdf.index:
             botm[:, rdf.loc[r, "i"], rdf.loc[r, "j"]] = (
@@ -1812,22 +1813,25 @@ class SwnMf6(SwnModflowBase):
         None
 
         """
-        to_ridxname = f"to_{self.reach_index_name}"
+        idx = self.reach_index_name
+        to_ridxname = f"to_{idx}"
 
         def get_to_rtp():
-            intp = (rdf["to_rno"] != 0) & (rdf["to_rno"].isin(rdf.index))
-            trno = rdf.loc[intp, "to_rno"]
+            # idx = self.reach_index_name
+            # to_ridxname = f"to_{idx}"
+            intp = (rdf[to_ridxname] != 0) & (rdf[to_ridxname].isin(rdf.index))
+            trno = rdf.loc[intp, to_ridxname]
             trno.drop_duplicates(inplace=True)
             trtp = rdf.loc[trno.index, "rtp"]
-            rdf["rno"] = rdf.index
-            ndf = rdf[["rno", "to_rno"]].merge(
-                trtp, left_on="to_rno", right_on="rno", how="outer"
+            rdf[idx] = rdf.index
+            ndf = rdf[[idx, to_ridxname]].merge(
+                trtp, left_on=to_ridxname, right_on=idx, how="outer"
             )
-            ndf.dropna(subset=["rno", "to_rno"], inplace=True)
-            ndf[["rno", "to_rno"]] = ndf[["rno", "to_rno"]].astype(int)
-            ndf.set_index("rno", inplace=True, drop=True)
-            rdf["to_rtp"] = ndf["rtp"]
-            rdf.loc[~intp, "to_rtp"] = -9999
+            ndf.dropna(subset=[idx, to_ridxname], inplace=True)
+            ndf[[idx, to_ridxname]] = ndf[[idx, to_ridxname]].astype(int)
+            ndf.set_index(idx, inplace=True, drop=True)
+            rdf['to_rtp'] = ndf['rtp']
+            rdf.loc[~intp, 'to_rtp'] = -9999
 
         # copy some data
         top = self.model.dis.top.array.copy()
@@ -1861,7 +1865,7 @@ class SwnMf6(SwnModflowBase):
         loop = 0
         while sel.sum() > 0 and loop < 10000:
             # this gives geodataframe
-            mx_rtp = rdf.loc[sel, ["to_rno", "mx_to_rtp"]].groupby("to_rno").min()
+            mx_rtp = rdf.loc[sel, [to_ridxname, "mx_to_rtp"]].groupby(to_ridxname).min()
             # so make it a series, exclude mx_rtp==0
             mx_rtp = mx_rtp["mx_to_rtp"]
             mx_rtp.drop([_ for _ in mx_rtp.index if _ not in rdf.index], inplace=True)
