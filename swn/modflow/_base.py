@@ -1266,7 +1266,9 @@ class SwnModflowBase:
         elif method == "rch_only":
             # Estimate slope from to_rno and from_rnos
             # deal with to and from rno == 0
-            to_0 = [_ for _ in self.reaches.index if self.reaches.loc[_, to_ridxname] == 0]
+            to_0 = [
+                _ for _ in self.reaches.index if self.reaches.loc[_, to_ridxname] == 0
+            ]
             from_0 = [
                 _
                 for _ in self.reaches.index

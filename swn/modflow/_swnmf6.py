@@ -1830,8 +1830,8 @@ class SwnMf6(SwnModflowBase):
             ndf.dropna(subset=[idx, to_ridxname], inplace=True)
             ndf[[idx, to_ridxname]] = ndf[[idx, to_ridxname]].astype(int)
             ndf.set_index(idx, inplace=True, drop=True)
-            rdf['to_rtp'] = ndf['rtp']
-            rdf.loc[~intp, 'to_rtp'] = -9999
+            rdf["to_rtp"] = ndf["rtp"]
+            rdf.loc[~intp, "to_rtp"] = -9999
 
         # copy some data
         top = self.model.dis.top.array.copy()
