@@ -1035,6 +1035,9 @@ class SwnModflowBase:
         # each subclass should do more processing with returned object
         return obj
 
+    def clip_reach_data(self, name, lower=None, upper=None):
+        self.reaches.loc[:, name] = self.reaches.loc[:, name].clip(lower, upper)
+
     def set_reach_data_from_segments(
         self, name, value, value_out=None, method=None, log=False
     ):
@@ -1166,6 +1169,8 @@ class SwnModflowBase:
             - ``grid_top``: evaluate the slope from the top grid of the model.
             - ``rch_len``: calc dz from slope of top model grid
               calc rgrd as dz/rlen
+            - ``rch_only``: calc dz from slope of upstream and downstream rno
+              calc rgrd as dz/rlen
 
         min_slope : float or pandas.Series, optional
             Minimum downwards slope imposed on segments. If float, then this is
@@ -1173,8 +1178,11 @@ class SwnModflowBase:
             Default 1./1000 (or 0.001). Diversions (if present) will use the
             minimum of series.
         """
+        idx = self.reach_index_name
+        to_ridxname = f"to_{idx}"
+        from_ridxname = f"from_{idx}s"
         has_z = self._swn.has_z
-        supported_methods = ["auto", "zcoord_ab", "grid_top", "rch_len"]
+        supported_methods = ["auto", "zcoord_ab", "grid_top", "rch_len", "rch_only"]
         if method not in supported_methods:
             raise ValueError(f"{method} not in {supported_methods}")
         if method == "auto":
@@ -1255,6 +1263,30 @@ class SwnModflowBase:
                 self.reaches.loc[:, grid_name] = (
                     grid_dz[self.reaches["i"], self.reaches["j"]] / self.reaches[lentag]
                 )
+        elif method == "rch_only":
+            # Estimate slope from to_rno and from_rnos
+            # deal with to and from rno == 0
+            to_0 = [
+                _ for _ in self.reaches.index if self.reaches.loc[_, to_ridxname] == 0
+            ]
+            from_0 = [
+                _
+                for _ in self.reaches.index
+                if self.reaches.loc[_, from_ridxname] == set()
+            ]
+            to_n0 = [_ for _ in self.reaches.index if _ not in to_0]
+            from_n0 = [_ for _ in self.reaches.index if _ not in from_0]
+            self.reaches.loc[to_n0, "min_rtp"] = self.reaches.loc[
+                to_n0, to_ridxname
+            ].apply(lambda x: self.reaches.loc[x, "rtp"])
+            self.reaches.loc[to_0, "min_rtp"] = self.reaches.loc[to_0, "rtp"]
+            self.reaches.loc[from_n0, "max_rtp"] = self.reaches.loc[
+                from_n0, from_ridxname
+            ].apply(lambda x: np.mean([self.reaches.loc[_, "rtp"] for _ in list(x)]))
+            self.reaches.loc[from_0, "max_rtp"] = self.reaches.loc[from_0, "rtp"]
+            rch_dz = self.reaches["max_rtp"] - self.reaches["min_rtp"]
+            self.reaches[grid_name] = rch_dz / self.reaches[lentag]
+
         # Enforce min_slope when less than min_slop or is NaN
         sel = (rchs[grid_name] < rchs["min_slope"]) | rchs[grid_name].isna()
         if sel.any():
