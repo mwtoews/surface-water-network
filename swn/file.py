@@ -359,7 +359,7 @@ def write_formatted_frame(df, fname, index=True, comment_header=True):
     for icol, name in enumerate(df.columns):
         # add single quotes around items with space chars
         try:
-            sel = df[name].str.contains(" ").fillna(False)
+            sel = df[name].str.contains(" ").astype(bool)
         except AttributeError:
             continue
         na = df[name].isna()
