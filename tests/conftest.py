@@ -1,4 +1,5 @@
 """Common code for testing."""
+
 import re
 import sys
 from importlib import metadata

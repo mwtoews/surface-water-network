@@ -5,6 +5,7 @@ Also check functionality in modflow._misc too.
 MODFLOW models are not run. See test_modflow.py and test_modflow6.py
 for similar, but running models.
 """
+
 import logging
 from hashlib import md5
 from textwrap import dedent
@@ -52,7 +53,7 @@ def get_basic_swn(has_z: bool = True, has_diversions: bool = False):
 
 
 def get_basic_modflow(with_top: bool = False, nper: int = 1):
-    """Returns a basic Flopy MODFLOW model"""
+    """Returns a basic Flopy MODFLOW model."""
     if with_top:
         top = np.array(
             [
@@ -137,15 +138,14 @@ def test_reaches_property():
 
 @pytest.mark.parametrize("has_z", [False, True], ids=["n2d", "n3d"])
 def test_from_swn_flopy_defaults(has_z):
-    r"""
-      .___.___.
-      :  1:  2:  row 0
-      :__\:_/_:
-      :   \/  :  row 1
-      :__ :0__:
-      :   :|  :  row 2
-      :___:|__:
-    col 0 ' col 1
+    r""".___.___.
+        :  1:  2:  row 0
+        :__\:_/_:
+        :   \/  :  row 1
+        :__ :0__:
+        :   :|  :  row 2
+        :___:|__:
+      col 0 ' col 1.
 
     Segment IDs: 0 (bottom), 1 & 2 (top)
     """
@@ -955,7 +955,7 @@ def test_transform_data_from_dict():
     with pytest.raises(KeyError, match="dict has a disjoint segnum set"):
         f({3: 10}, float, time_index, mapping)
     with pytest.raises(KeyError, match="dict has a disjoint segnum set"):
-        f({"0": 10, "1": 11}, float, time_index, mapping),
+        f({"0": 10, "1": 11}, float, time_index, mapping)
     with pytest.raises(KeyError, match="dict has 1 key not found in segnum"):
         f({0: 1.1, 3: 10}, float, time_index, mapping)
     with pytest.raises(KeyError, match="dict has 2 keys not found in segnum"):
@@ -1182,7 +1182,7 @@ def test_transform_data_from_frame():
             float,
             time_index,
             mapping,
-        ),
+        )
     with pytest.raises(KeyError, match="frame has a disjoint segnum set"):
         f(pd.DataFrame({3: [10, 10]}, index=time_index), float, time_index, mapping)
     with pytest.raises(KeyError, match="frame has 1 key not found in segnum"):

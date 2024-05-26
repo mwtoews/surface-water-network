@@ -116,7 +116,7 @@ def write_list(fname, data):
 
 
 def read_head(hed_fname, reaches=None):
-    """Reads MODFLOW Head file
+    """Reads MODFLOW Head file.
 
     If reaches is not None, it is modified inplace to add a "head" column
 
@@ -130,7 +130,7 @@ def read_head(hed_fname, reaches=None):
 
 
 def read_budget(bud_fname, text, reaches=None, colname=None):
-    """Reads MODFLOW cell-by-cell file
+    """Reads MODFLOW cell-by-cell file.
 
     If reaches is not None, it is modified inplace to add data in "colname"
 

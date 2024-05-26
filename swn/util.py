@@ -54,6 +54,7 @@ def is_location_frame(loc_df, geom_required=True):
         required).
     ValueError
         If the [geo] data frame has insufficent data.
+
     """
     if geom_required:
         if not isinstance(loc_df, geopandas.GeoDataFrame):

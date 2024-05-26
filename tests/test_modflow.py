@@ -55,7 +55,7 @@ def get_basic_swn(has_z: bool = True, has_diversions: bool = False):
 def get_basic_modflow(
     outdir=".", with_top: bool = False, nper: int = 1, hk=1e-2, rech=1e-4
 ):
-    """Returns a basic Flopy MODFLOW model"""
+    """Returns a basic Flopy MODFLOW model."""
     if with_top:
         top = np.array(
             [
@@ -91,7 +91,7 @@ def get_basic_modflow(
 
 
 def read_head(hed_fname, reaches=None):
-    """Reads MODFLOW Head file
+    """Reads MODFLOW Head file.
 
     If reaches is not None, it is modified inplace to add a "head" column
 
@@ -105,7 +105,7 @@ def read_head(hed_fname, reaches=None):
 
 
 def read_budget(bud_fname, text, reaches=None, colname=None):
-    """Reads MODFLOW cell-by-cell file
+    """Reads MODFLOW cell-by-cell file.
 
     If reaches is not None, it is modified inplace to add data in "colname"
 
@@ -127,7 +127,7 @@ def read_budget(bud_fname, text, reaches=None, colname=None):
 
 
 def read_sfl(sfl_fname, reaches=None):
-    """Reads MODFLOW stream flow listing ASCII file
+    """Reads MODFLOW stream flow listing ASCII file.
 
     If reaches is not None, it is modified inplace to add new columns
 
