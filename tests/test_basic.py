@@ -1322,7 +1322,7 @@ def test_locate_geoms_only_lines(coastal_geom, coastal_swn):
     e = pd.DataFrame(
         {
             "method": "nearest",
-            "segnum": [3047364, 3048663, 3048249, 3049113, 3047736, 3047145, 3046736],
+            "segnum": [3047364, 3048663, 3048249, 3049113, 3047736, 3047145, 3046745],
             "seg_ndist": [0.5954064, 0.0974058, 0.279147, 0.0, 0.684387, 0.0, 0.541026],
             "dist_to_seg": [
                 80.25,

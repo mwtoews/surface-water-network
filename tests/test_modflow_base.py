@@ -1502,6 +1502,7 @@ def test_get_location_frame_reach_info_coastal(caplog, coastal_swn, coastal_poin
             geopandas.GeoSeries(
                 [Point(1810531, 5869152), Point(1806822.5, 5869173.5)],
                 index=pd.Index([11, 12], name="id"),
+                crs=coastal_points.crs,
             ),
         ]
     )

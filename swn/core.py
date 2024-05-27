@@ -1092,7 +1092,10 @@ class SurfaceWaterNetwork:
                     if v in missng_segnum_idx_s:
                         del override[k]
             if override:
-                res.segnum.update(override)
+                if pd.__version__.startswith("1."):
+                    res.segnum.update(override)
+                else:
+                    res.update({"segnum": override})
                 res.loc[override.keys(), "method"] = "override"
 
         # Mark empty geometries
@@ -1254,7 +1257,7 @@ class SurfaceWaterNetwork:
             from shapely.ops import nearest_points
 
             with ignore_shapely_warnings_for_object_array():
-                res.geometry.loc[sel] = res.loc[sel].apply(
+                res.loc[sel, "geometry"] = res.loc[sel].apply(
                     lambda f: nearest_points(
                         self.segments.geometry[f.segnum], f.geometry
                     )[1],

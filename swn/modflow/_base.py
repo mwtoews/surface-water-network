@@ -361,7 +361,7 @@ class SwnModflowBase:
 
         # Build stress period DataFrame from modflow model
         stress_df = pd.DataFrame({"perlen": perlen})
-        stress_df["duration"] = pd.TimedeltaIndex(perlen, modeltime.time_units)
+        stress_df["duration"] = pd.to_timedelta(perlen, modeltime.time_units)
         end_time = stress_df["duration"].cumsum()
         stress_df["start_time"] = end_time - stress_df["duration"]
         stress_df["end_time"] = end_time
@@ -376,10 +376,10 @@ class SwnModflowBase:
         self_crs = getattr(self, "crs", None)
         modelgrid_crs = None
         epsg = modelgrid.epsg
-        proj4_str = modelgrid.proj4
         if epsg is not None:
             segments_crs, modelgrid_crs, same = compare_crs(self_crs, epsg)
         else:
+            proj4_str = modelgrid.proj4
             segments_crs, modelgrid_crs, same = compare_crs(self_crs, proj4_str)
         if segments_crs is not None and modelgrid_crs is not None and not same:
             self.logger.warning(
