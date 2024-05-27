@@ -63,6 +63,9 @@ Source = "https://github.com/mwtoews/surface-water-network"
 [tool.hatch.version]
 source = "vcs"
 
+[tool.hatch.build.targets.wheel]
+only-include = ["swn"]
+
 [tool.hatch.build.hooks.vcs]
 version-file = "swn/_version.py"
 
