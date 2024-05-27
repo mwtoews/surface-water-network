@@ -1092,7 +1092,10 @@ class SurfaceWaterNetwork:
                     if v in missng_segnum_idx_s:
                         del override[k]
             if override:
-                res.update({"segnum": override})
+                if pd.__version__.startswith("1."):
+                    res.segnum.update(override)
+                else:
+                    res.update({"segnum": override})
                 res.loc[override.keys(), "method"] = "override"
 
         # Mark empty geometries
