@@ -1,9 +1,6 @@
 [build-system]
-requires = [
-    "setuptools>=61",
-    "setuptools-scm[toml]>=6.2",
-]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
 
 [project]
 name = "surface-water-network"
@@ -39,6 +36,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+dev = ["surface-water-network[doc,extra,test]"]
 doc = [
     "ipython",
     "matplotlib",
@@ -62,6 +60,12 @@ test = [
 Documentation = "https://mwtoews.github.io/surface-water-network/"
 Source = "https://github.com/mwtoews/surface-water-network"
 
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "swn/_version.py"
+
 [tool.pytest.ini_options]
 minversion = "6.0"
 doctest_optionflags = "NORMALIZE_WHITESPACE"
@@ -71,8 +75,11 @@ filterwarnings = [
     "ignore:.*More than 20 figures have been opened.*:RuntimeWarning",
 ]
 
-[tool.setuptools.packages.find]
-include = ["swn", "swn.*"]
-
-[tool.setuptools_scm]
-write_to = "swn/_version.py"
+[tool.ruff.lint]
+select = [
+    "E",  # pycodestyle
+    "F",  # Pyflakes
+    "UP",  # pyupgrade
+    "I",  # isort
+    "NPY",  # NumPy-specific
+]

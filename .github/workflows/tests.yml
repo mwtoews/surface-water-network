@@ -1,6 +1,8 @@
 name: Tests
 
 on:
+  schedule:
+    - cron: '42 9 * * 2' # At 9:42 UTC on Tuesday
   push:
     branches:
       - main
@@ -17,10 +19,10 @@ jobs:
         python-version: ["3.8", "3.12"]
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
           cache: 'pip'
@@ -56,4 +58,7 @@ jobs:
           pytest -v -n2 --cov --cov-append
 
       - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v4
+        with:
+          fail_ci_if_error: true
+          token: ${{ secrets.CODECOV_TOKEN }}

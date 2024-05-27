@@ -37,8 +37,7 @@ class SurfaceWaterNetwork:
     """
 
     def __init__(self, segments, END_SEGNUM=0, logger=None):
-        """
-        Initialise SurfaceWaterNetwork.
+        """Initialise SurfaceWaterNetwork.
 
         Parameters
         ----------
@@ -103,8 +102,9 @@ class SurfaceWaterNetwork:
             diversions_line = "no diversions"
         else:
             div_l = list(diversions.index)
-            diversions_line = "{} diversions (as {}): {}".format(
-                len(div_l), diversions.__class__.__name__, abbr_str(div_l, 4)
+            diversions_line = (
+                f"{len(div_l)} diversions (as {diversions.__class__.__name__}): "
+                + abbr_str(div_l, 4)
             )
         return dedent(
             f"""\
@@ -124,9 +124,7 @@ class SurfaceWaterNetwork:
                 is_none = (av is None, bv is None)
                 if all(is_none):
                     continue
-                elif any(is_none):
-                    return False
-                elif type(av) != type(bv):
+                elif any(is_none) or type(av) != type(bv):
                     return False
                 elif isinstance(av, pd.DataFrame):
                     pd.testing.assert_frame_equal(av, bv)
@@ -176,8 +174,7 @@ class SurfaceWaterNetwork:
 
     @classmethod
     def from_lines(cls, lines, polygons=None):
-        """
-        Create and evaluate a new SurfaceWaterNetwork from lines for segments.
+        """Create and evaluate a new SurfaceWaterNetwork from lines for segments.
 
         Parameters
         ----------
@@ -583,6 +580,7 @@ class SurfaceWaterNetwork:
             Normalized distance along segment to closest point to diversion.
         dist_to_seg : float
             Distance to segment line described by ``from_segnum``.
+
         """
         return getattr(self, "_diversions", None)
 
@@ -628,6 +626,7 @@ class SurfaceWaterNetwork:
         -------
         None
             See :py:attr:`diversions` for result object description.
+
         """
         if diversions is None:
             self.logger.debug("removing diversions")
@@ -800,6 +799,7 @@ class SurfaceWaterNetwork:
         See Also
         --------
         gather_segnums : Query multiple segnums up and downstream.
+
         """
         if start not in self.segments.index:
             raise IndexError(f"invalid start segnum {start}")
@@ -908,6 +908,7 @@ class SurfaceWaterNetwork:
         {100, 101, 102, 103, 104, 105, 106, 107, 108, 116, 117, 118}
         >>> n.gather_segnums(downstream=100, gather_upstream=True, barrier=108)
         [102, 106, 108, 101, 105, 104, 103]
+
         """
         segments_index = self.segments.index
         segments_set = set(segments_index)
@@ -1038,6 +1039,7 @@ class SurfaceWaterNetwork:
         12   nearest       0   0.500000     0.000000
         13   nearest       2   0.790000     2.213594
         14  override       2   0.150000    14.230249
+
         """
         from shapely import wkt
 
@@ -1356,7 +1358,7 @@ class SurfaceWaterNetwork:
         def trace_down(segnum):
             if segnum is not None and segnum not in traced_segnums:
                 traced_segnums.append(segnum)
-                trace_down(to_segnums.get(segnum, None))
+                trace_down(to_segnums.get(segnum))
 
         for segnum in junctions:
             trace_down(segnum)
@@ -1449,7 +1451,7 @@ class SurfaceWaterNetwork:
                 #                   segnum, up_segnums, up_segnum)
                 yield from up_path_headwater_segnums(up_segnum)
 
-        junctions_goto = {s: to_segnums.get(s, None) for s in junctions}
+        junctions_goto = {s: to_segnums.get(s) for s in junctions}
         agg_patch = pd.Series(dtype=object)
         agg_path = pd.Series(dtype=object)
         agg_unpath = pd.Series(dtype=object)
@@ -1678,6 +1680,7 @@ class SurfaceWaterNetwork:
         1    2
         2    1
         Name: codes, dtype: int64
+
         """
         segments_index = self.segments.index
         if np.isscalar(value):
@@ -1768,6 +1771,7 @@ class SurfaceWaterNetwork:
         0  10.0  10.0
         1   2.0   4.0
         2   3.0   6.0
+
         """
         supported_methods = ["continuous", "constant", "additive"]
         if method not in supported_methods:
@@ -1979,6 +1983,7 @@ class SurfaceWaterNetwork:
         --------
         evaluate_upstream_length : Re-evaluate upstream length.
         evaluate_upstream_area : Re-evaluate upstream catchment area.
+
         """
         condition = self.segments_series(condition, "condition").astype(bool)
         if condition.any():
@@ -2124,6 +2129,7 @@ class SurfaceWaterNetwork:
         See Also
         --------
         from_pickle : Read file.
+
         """
         with open(path, "wb") as f:
             pickle.dump(self, f, protocol=protocol)
@@ -2140,5 +2146,6 @@ class SurfaceWaterNetwork:
         See Also
         --------
         to_pickle : Save file.
+
         """
         return pd.read_pickle(path)

@@ -54,6 +54,7 @@ class SwnMf6(SwnModflowBase):
         ----------
         logger : logging.Logger, optional
             Logger to show messages.
+
         """
         super().__init__(logger)
         self.tsvar = {}  # time-varying data
@@ -94,6 +95,7 @@ class SwnMf6(SwnModflowBase):
         Returns
         -------
         obj : swn.SwnMf6 object
+
         """
         if idomain_action not in ("freeze", "modify"):
             raise ValueError("idomain_action must be one of freeze or modify")
@@ -176,9 +178,9 @@ class SwnMf6(SwnModflowBase):
             obj.diversions.loc[div_sel, "idv"] = 1
             ridx_counts = obj.diversions[div_sel].groupby(ridxname).count()["in_model"]
             for ridx, count in ridx_counts[ridx_counts > 1].items():
-                obj.diversions.loc[
-                    obj.diversions[ridxname] == ridx, "idv"
-                ] = obj.diversions.idv[obj.diversions[ridxname] == ridx].cumsum()
+                obj.diversions.loc[obj.diversions[ridxname] == ridx, "idv"] = (
+                    obj.diversions.idv[obj.diversions[ridxname] == ridx].cumsum()
+                )
             # cross-reference iconr to ridx used as a reach
             diversion_reaches = (
                 obj.reaches.loc[obj.reaches.diversion].reset_index().set_index("divid")
@@ -258,14 +260,18 @@ class SwnMf6(SwnModflowBase):
         s = f"<{self.__class__.__name__}: {model_info}\n"
         reaches = self.reaches
         if reaches is not None:
-            s += "  {} in reaches ({}): {}\n".format(
-                len(reaches), reaches.index.name, abbr_str(list(reaches.index), 4)
+            s += (
+                f"  {len(reaches)} in reaches ({reaches.index.name}): "
+                + abbr_str(list(reaches.index), 4)
+                + "\n"
             )
         diversions = self.diversions
         if diversions is not None:
             diversions_in_model = self.diversions[self.diversions["in_model"]]
-            s += "  {} in diversions (iconr): {}\n".format(
-                len(diversions_in_model), abbr_str(list(diversions_in_model.iconr), 4)
+            s += (
+                f"  {len(diversions_in_model)} in diversions (iconr): "
+                + abbr_str(list(diversions_in_model.iconr), 4)
+                + "\n"
             )
         s += f"  {sp_info} />"
         return s
@@ -281,9 +287,7 @@ class SwnMf6(SwnModflowBase):
                 is_none = (av is None, bv is None)
                 if all(is_none):
                     continue
-                elif any(is_none):
-                    return False
-                elif type(av) != type(bv):
+                elif any(is_none) or type(av) != type(bv):
                     return False
                 elif isinstance(av, pd.DataFrame):
                     pd.testing.assert_frame_equal(av, bv)
@@ -478,8 +482,7 @@ class SwnMf6(SwnModflowBase):
         )
 
     def write_packagedata(self, fname: str, auxiliary: list = [], boundname=None):
-        """
-        Write PACKAGEDATA file for MODFLOW 6 SFR.
+        """Write PACKAGEDATA file for MODFLOW 6 SFR.
 
         Parameters
         ----------
@@ -530,6 +533,7 @@ class SwnMf6(SwnModflowBase):
         style : str
             If "native", all indicies (including kij) use one-based notation.
             If "flopy", all indices (including rno/ifno) use zero-based notation.
+
         """
 
         def nonzerolst(x, neg=False):
@@ -568,8 +572,7 @@ class SwnMf6(SwnModflowBase):
             raise ValueError("'style' must be either 'native' or 'flopy'")
 
     def write_connectiondata(self, fname: str):
-        """
-        Write CONNECTIONDATA file for MODFLOW 6 SFR.
+        """Write CONNECTIONDATA file for MODFLOW 6 SFR.
 
         Parameters
         ----------
@@ -708,6 +711,7 @@ class SwnMf6(SwnModflowBase):
         See Also
         --------
         swn.file.read_formatted_frame : Read formatted file as a DataFrame.
+
         """
         dat = self.diversions_frame("native")
         write_formatted_frame(dat, fname, index=False)
@@ -826,8 +830,7 @@ class SwnMf6(SwnModflowBase):
     def write_package_period(
         self, package: str, fname, auxiliary: list = [], boundname=None
     ):
-        """
-        Write PERIOD file for MODFLOW 6 packages, to be used within OPEN/CLOSE.
+        """Write PERIOD file for MODFLOW 6 packages, to be used within OPEN/CLOSE.
 
         Parameters
         ----------
@@ -1016,6 +1019,7 @@ class SwnMf6(SwnModflowBase):
         where : str, optional, default "start"
             For segments represented by multiple reaches, pick which reach
             to represent data. Default "start" is the upper-most reach.
+
         """
         # TODO
         raise NotImplementedError("method is not finished")
@@ -1068,6 +1072,7 @@ class SwnMf6(SwnModflowBase):
         Returns
         -------
         None
+
         """
         self.logger.info("default_packagedata: using high-level function")
 
@@ -1195,8 +1200,7 @@ class SwnMf6(SwnModflowBase):
     def _segbyseg_elevs(
         self, minslope=1e-4, fix_dis=True, minthick=0.5, min_incise=0.2, max_str_z=None
     ):
-        """
-        Fix reach elevations but by using segment definition and setting sane
+        """Fix reach elevations but by using segment definition and setting sane
         segment elevations first.
 
         Need to ensure reach elevation is:
@@ -1374,9 +1378,9 @@ class SwnMf6(SwnModflowBase):
                                 self.logger.debug(
                                     "setting elevation to minslope from upstream"
                                 )
-                                self.reaches.at[
-                                    reach.Index, "strtop"
-                                ] = strtop_withminslope
+                                self.reaches.at[reach.Index, "strtop"] = (
+                                    strtop_withminslope
+                                )
                                 upreach_strtop = strtop_withminslope
                             else:
                                 # otherwise we can move reach so that it
@@ -1441,8 +1445,7 @@ class SwnMf6(SwnModflowBase):
         fix_dis=True,
         direction="downstream",
     ):
-        """
-        Fix reach elevations by just working from headwater to outlet
+        """Fix reach elevations by just working from headwater to outlet
         (ignoring segment divisions).
 
         Need to ensure reach elevation is:
@@ -1640,9 +1643,9 @@ class SwnMf6(SwnModflowBase):
                                 self.logger.debug(
                                     "setting elevation to minslope from previous"
                                 )
-                                self.reaches.at[
-                                    reach.Index, "rtp"
-                                ] = strtop_withminslope
+                                self.reaches.at[reach.Index, "rtp"] = (
+                                    strtop_withminslope
+                                )
                                 # this may still leave us below the
                                 # bottom of layer
                             else:
@@ -1740,8 +1743,7 @@ class SwnMf6(SwnModflowBase):
     def _to_rno_elevs(
         self, minslope=0.0001, minincise=0.2, minthick=0.5, buffer=0.5, fix_dis=True
     ):
-        """
-        Wes's hacky attempt to set reach elevations. Doesn't really ensure
+        """Wes's hacky attempt to set reach elevations. Doesn't really ensure
         anything, but the goal is:
 
             0. get a list of cells with to_rtp > rtp-minslope*(delr+delc)/2
@@ -2114,6 +2116,7 @@ class SwnMf6(SwnModflowBase):
         [6, 3, 2, 1, 5, 4]
         >>> nm.gather_reaches(downstream=4)
         [5, 6, 7]
+
         """
         reaches_set = set(self.reaches.index)
 
@@ -2130,7 +2133,8 @@ class SwnMf6(SwnModflowBase):
             else:
                 if var not in reaches_set:
                     raise IndexError(
-                        f"{name} {self.reach_index_name} {var} not found in reaches.index"
+                        f"{name} {self.reach_index_name} {var} "
+                        "not found in reaches.index"
                     )
                 return [var]
 
@@ -2184,6 +2188,7 @@ def get_flopy_mf6_package(name: str):
     -------
     flopy.mf6.mfpackage.MFPackage
         Subclass object.
+
     """
     import flopy.mf6
 

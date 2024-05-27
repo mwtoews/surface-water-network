@@ -43,6 +43,7 @@ class SwnModflowBase:
         ----------
         logger : logging.Logger, optional
             Logger to show messages.
+
         """
         from ..logger import get_logger, logging
 
@@ -90,9 +91,8 @@ class SwnModflowBase:
         state_class = state.get("class")
         if state_class != self.__class__.__name__:
             raise ValueError(
-                "expected state class {!r}; found {!r}".format(
-                    self.__class__.__name__, state_class
-                )
+                f"expected state class {self.__class__.__name__!r}; "
+                f"found {state_class!r}"
             )
         # Note: swn and model must be set outside of this method
         self.segments = state.pop("segments")
@@ -152,6 +152,7 @@ class SwnModflowBase:
         See Also
         --------
         from_pickle : Read object from file.
+
         """
         try:
             return getattr(self, "_swn", None)
@@ -180,6 +181,7 @@ class SwnModflowBase:
         See Also
         --------
         reaches : [Geo] dataframe of model cell-by-cell reaches.
+
         """
         return getattr(self, "_segments", None)
 
@@ -204,6 +206,7 @@ class SwnModflowBase:
         See Also
         --------
         segments : Geo dataframe of segments.
+
         """
         return getattr(self, "_diversions", None)
 
@@ -250,6 +253,7 @@ class SwnModflowBase:
         set_reach_data_from_segments :
             Set reach data based on segment series (or scalar).
         set_reach_slope : Set slope for reaches.
+
         """
         return getattr(self, "_reaches", None)
 
@@ -275,6 +279,7 @@ class SwnModflowBase:
         See Also
         --------
         from_pickle : Read object from file.
+
         """
         try:
             return getattr(self, "_model", None)
@@ -348,7 +353,7 @@ class SwnModflowBase:
         prev_modelcache = getattr(self, "_modelcache", None)
         if prev_modelcache is not None:
             is_same = True
-            for key in modelcache.keys():
+            for key in modelcache:
                 if prev_modelcache[key] != modelcache[key]:
                     is_same = False
                     self.logger.debug("model setter: %s is different", key)
@@ -449,6 +454,7 @@ class SwnModflowBase:
         Returns
         -------
         obj
+
         """
         this_class = cls.__name__
         if this_class == "SwnModflow":
@@ -1075,6 +1081,7 @@ class SwnModflowBase:
         log : bool, default False
             If True and ``method`` is not "constant", apply a log
             transformation applied to interpolation.
+
         """
         if not isinstance(name, str):
             raise ValueError("name must be a str type")
@@ -1130,6 +1137,7 @@ class SwnModflowBase:
             Name for reach dataset.
         array : array_like
             2D array with dimensions (nrow, ncol).
+
         """
         if not isinstance(name, str):
             raise ValueError("'name' must be a str type")
@@ -1172,6 +1180,7 @@ class SwnModflowBase:
             a global value, otherwise it is per-segment with a Series.
             Default 1./1000 (or 0.001). Diversions (if present) will use the
             minimum of series.
+
         """
         has_z = self._swn.has_z
         supported_methods = ["auto", "zcoord_ab", "grid_top", "rch_len"]
@@ -1281,6 +1290,7 @@ class SwnModflowBase:
         Returns
         -------
         pandas.DataFrame
+
         """
         time_index = self.time_index
         data = transform_data_to_series_or_frame(data, float, time_index)
@@ -1497,8 +1507,7 @@ class SwnModflowBase:
         return loc_df[copy_cols]
 
     def plot(self, column=None, cmap="viridis_r", colorbar=False, ax=None):
-        """
-        Show map of reaches with inflow segments in royalblue.
+        """Show map of reaches with inflow segments in royalblue.
 
         Parameters
         ----------
@@ -1582,13 +1591,13 @@ class SwnModflowBase:
 
     # __________________ SOME ELEVATION METHODS_________________________
     def add_model_topbot_to_reaches(self):
-        """
-        Get top and bottom elevation of the model cell containing each reach.
+        """Get top and bottom elevation of the model cell containing each reach.
 
         Returns
         -------
         pandas.DataFrame
             with reach cell top and bottom elevations
+
         """
         dis = self.model.dis
         self.set_reach_data_from_array("top", dis.top.array)
@@ -1645,9 +1654,9 @@ class SwnModflowBase:
         # Reach elevation relative to model top
         self.reaches["tmp_tdif"] = self.reaches["top"] - self.reaches[strtoptag]
         # TODO group by ij first?
-        sfrar[
-            tuple(self.reaches[segsel][["i", "j"]].values.T.tolist())
-        ] = self.reaches.loc[segsel, "tmp_tdif"].tolist()
+        sfrar[tuple(self.reaches[segsel][["i", "j"]].values.T.tolist())] = (
+            self.reaches.loc[segsel, "tmp_tdif"].tolist()
+        )
         # .mask = np.ones(sfrar.shape)
         # Plot reach elevation relative to model top
         if draw_lines:
@@ -1671,9 +1680,9 @@ class SwnModflowBase:
             sfrarbot = np.ma.zeros(dis.botm.array[0].shape, "f")
             sfrarbot.mask = np.ones(sfrarbot.shape)
             self.reaches["tmp_bdif"] = self.reaches[strtoptag] - self.reaches["bot"]
-            sfrarbot[
-                tuple(self.reaches.loc[segsel, ["i", "j"]].values.T.tolist())
-            ] = self.reaches.loc[segsel, "tmp_bdif"].tolist()
+            sfrarbot[tuple(self.reaches.loc[segsel, ["i", "j"]].values.T.tolist())] = (
+                self.reaches.loc[segsel, "tmp_bdif"].tolist()
+            )
             # .mask = np.ones(sfrar.shape)
             if draw_lines:
                 lines = self.reaches.loc[segsel, ["geometry", "tmp_bdif"]]
@@ -1707,6 +1716,7 @@ class SwnModflowBase:
         Returns
         -------
         None
+
         """
         from ._modelplot import _profile_plot
 

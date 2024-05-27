@@ -262,6 +262,7 @@ def bias_substring(gs, downstream_bias, end_cut=1e-10):
     Returns
     -------
     geopandas.GeoSeries
+
     """
     from shapely.ops import substring
 
@@ -386,6 +387,7 @@ def find_location_pairs(loc_df, n, *, all_pairs=False, exclude_branches=False):
     [(11, 13), (11, 14), (11, 15), (12, 13), (14, 13), (14, 15), (15, 13)]
     >>> swn.spatial.find_location_pairs(obs_match, n, exclude_branches=True)
     {(14, 15)}
+
     """
     from .core import SurfaceWaterNetwork
 
@@ -513,6 +515,7 @@ def location_pair_geoms(pairs, loc_df, n):
     12 13  LINESTRING (728.462 227.692, 710.000 160.000, ...  184.465938
     15 13  LINESTRING (692.027 172.838, 710.000 160.000, ...  136.388347
     14 15      LINESTRING (595.730 241.622, 692.027 172.838)  118.340096
+
     """
     from shapely.ops import linemerge, substring, unary_union
 

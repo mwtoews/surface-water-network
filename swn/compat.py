@@ -1,4 +1,5 @@
 """Compatibility module."""
+
 import contextlib
 import warnings
 

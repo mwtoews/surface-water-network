@@ -117,6 +117,7 @@ def transform_data_to_series_or_frame(
     ValueError
         Raised if there is an issue with the dimensions, time index, or
         data types.
+
     """
     has_mapping = mapping is not None
     has_ignore = ignore is not None and len(ignore) > 0

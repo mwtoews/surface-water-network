@@ -15,8 +15,7 @@ class ModelPlot:
     """Object for plotting array style results."""
 
     def __init__(self, model, domain_extent=None, fig=None, ax=None, figsize=None):
-        """
-        Container to help with results plotting functions.
+        """Container to help with results plotting functions.
 
         :param model: flopy modflow model object
         :param fig: matplotlib figure handle
@@ -163,8 +162,7 @@ class ModelPlot:
         self.divider = make_axes_locatable(self.ax)
 
     def _add_ibound_mask(self, lay, zorder=20, alpha=0.5):
-        """
-        Add the ibound to plot.
+        """Add the ibound to plot.
 
         :param lay: layer for selecting model ibound
         :param zorder: mpl plotting overlay order
@@ -194,8 +192,7 @@ class ModelPlot:
         cbar=True,
         label=None,
     ):
-        """
-        Add image for layer array.
+        """Add image for layer array.
 
         :param ar: 2D numpy array to plot
         :param vmin: minimum value to clip
@@ -246,8 +243,7 @@ class ModelPlot:
     def _add_sfr(
         self, x, zorder=11, cbar=True, cat_cmap=False, label=None, cmap_txt="bwr_r"
     ):
-        """
-        Plot the array of surface water exchange (with SFR).
+        """Plot the array of surface water exchange (with SFR).
 
         :param x: 2D numpy array
         :param zorder: mpl overlay order
