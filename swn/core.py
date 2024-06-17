@@ -289,7 +289,7 @@ class SurfaceWaterNetwork:
         if jout.size > 0:
             # Just evaluate 2D tuple to find segnums with same location
             outsets = (
-                jout.assign(xy=jout.out.map(lambda g: (g.x, g.y)))
+                jout.assign(xy=jout.out.map(lambda g: (float(g.x), float(g.y))))
                 .drop(columns="out")
                 .groupby("xy")
                 .agg(set)
@@ -328,7 +328,7 @@ class SurfaceWaterNetwork:
         obj.jhw = jhw
         if jhw.size > 0:
             hwsets = (
-                jhw.assign(xy=jhw.hw.map(lambda g: (g.x, g.y)))
+                jhw.assign(xy=jhw.hw.map(lambda g: (float(g.x), float(g.y))))
                 .drop(columns="hw")
                 .groupby("xy")
                 .agg(set)
