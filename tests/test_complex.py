@@ -1,6 +1,8 @@
 from textwrap import dedent
 
 import numpy as np
+import pandas as pd
+import pytest
 
 import swn
 
@@ -131,3 +133,57 @@ def test_catchment_polygons(coastal_lines_gdf, coastal_polygons_gdf):
     if matplotlib:
         _ = n.plot()
         plt.close()
+
+
+def test_coarsen_coastal_swn_w_poly(coastal_swn_w_poly):
+    # level 1 gets back the same network, but with 'traced_segnums'
+    # and 'catchment_segnums'
+    nc1 = coastal_swn_w_poly.coarsen(1)
+    assert len(nc1) == 304
+    assert nc1.catchments is not None
+    assert nc1.catchments.area.sum() == pytest.approx(165924652.6749345)
+    pd.testing.assert_frame_equal(
+        coastal_swn_w_poly.segments,
+        nc1.segments.drop(columns=["traced_segnums", "catchment_segnums"]),
+    )
+    pd.testing.assert_series_equal(
+        nc1.segments["traced_segnums"],
+        nc1.segments.index.to_series().apply(lambda x: [x]),
+        check_names=False,
+    )
+    pd.testing.assert_series_equal(
+        nc1.segments["catchment_segnums"],
+        nc1.segments.index.to_series().apply(lambda x: [x]),
+        check_names=False,
+    )
+
+    # coarsen to level 2
+    nc2 = coastal_swn_w_poly.coarsen(2)
+    assert len(nc2) == 66
+    assert nc2.catchments.area.sum() == pytest.approx(165492135.76667663)
+    assert set(nc2.segments.stream_order.unique()) == {2, 3, 4, 5}
+    # validate one item
+    item = nc2.segments.loc[3046539]
+    assert item.geometry.length == pytest.approx(5670.908519171191)
+    assert item.traced_segnums == [3046456, 3046455, 3046539]
+    assert item.catchment_segnums == [
+        3046456,
+        3046604,
+        3046605,
+        3046455,
+        3046409,
+        3046539,
+        3046542,
+    ]
+
+    # coarsen to level 3
+    nc3 = coastal_swn_w_poly.coarsen(3)
+    assert len(nc3) == 14
+    assert nc3.catchments.area.sum() == pytest.approx(165491123.14988112)
+    assert set(nc3.segments.stream_order.unique()) == {3, 4, 5}
+
+    # coarsen to level 4
+    nc4 = coastal_swn_w_poly.coarsen(4)
+    assert len(nc4) == 4
+    assert nc4.catchments.area.sum() == pytest.approx(165491123.14988112)
+    assert set(nc4.segments.stream_order.unique()) == {4, 5}

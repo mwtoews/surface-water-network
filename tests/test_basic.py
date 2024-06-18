@@ -2,6 +2,7 @@ import logging
 from textwrap import dedent
 
 import geopandas
+import geopandas.testing
 import numpy as np
 import pandas as pd
 import pytest
@@ -1536,6 +1537,85 @@ def test_aggregate_fluss_coarse(fluss_n):
     assert list(na.segments["agg_unpath"]) == (
         [[3], [14], [17, 8, 9], [7, 2, 5], [0], [10, 11], [12]]
     )
+
+
+def test_coarsen_fluss(fluss_n):
+    # level 1 gets back the same network, but with 'traced_segnums'
+    nc1 = fluss_n.coarsen(1)
+    assert len(nc1) == 19
+    assert nc1.catchments is None
+    pd.testing.assert_frame_equal(
+        fluss_n.segments, nc1.segments.drop(columns="traced_segnums")
+    )
+    pd.testing.assert_series_equal(
+        nc1.segments["traced_segnums"],
+        nc1.segments.index.to_series().apply(lambda x: [x]),
+        check_names=False,
+    )
+
+    # coarsen to level 2
+    nc2 = fluss_n.coarsen(2)
+    expected_nc2 = geopandas.GeoDataFrame(
+        {
+            "to_segnum": [8, 8, 18, 18, 9, 9, 0],
+            "from_segnums": [set(), set(), {2, 5}, {10, 11}, set(), set(), {8, 9}],
+            "stream_order": [2, 2, 3, 3, 2, 2, 4],
+            "traced_segnums": [[2], [5], [6, 8], [9], [10], [11], [16, 18]],
+        },
+        geometry=geopandas.GeoSeries.from_wkt(
+            [
+                "LINESTRING (370 420, 420 330)",
+                "LINESTRING (280 270, 420 330)",
+                "LINESTRING (420 330, 584 250, 710 160)",
+                "LINESTRING (740 270, 710 160)",
+                "LINESTRING (735 350, 740 270)",
+                "LINESTRING (880 320, 740 270)",
+                "LINESTRING (710 160, 770 100, 820 40)",
+            ],
+        ),
+    ).set_index(pd.Index([2, 5, 8, 9, 10, 11, 18]))
+    cols = ["geometry", "to_segnum", "from_segnums", "stream_order", "traced_segnums"]
+    geopandas.testing.assert_geodataframe_equal(nc2.segments[cols], expected_nc2[cols])
+
+    # coarsen to level 3
+    nc3 = fluss_n.coarsen(3)
+    expected_nc3 = geopandas.GeoDataFrame(
+        {
+            "to_segnum": [18, 18, 0],
+            "from_segnums": [set(), set(), {8, 9}],
+            "stream_order": [3, 3, 4],
+            "traced_segnums": [[6, 8], [9], [16, 18]],
+        },
+        geometry=geopandas.GeoSeries.from_wkt(
+            [
+                "LINESTRING (420 330, 584 250, 710 160)",
+                "LINESTRING (740 270, 710 160)",
+                "LINESTRING (710 160, 770 100, 820 40)",
+            ],
+        ),
+    ).set_index(pd.Index([8, 9, 18]))
+    geopandas.testing.assert_geodataframe_equal(nc3.segments[cols], expected_nc3[cols])
+
+    # coarsen to level 4
+    nc4 = fluss_n.coarsen(4)
+    expected_nc4 = geopandas.GeoDataFrame(
+        {
+            "to_segnum": [0],
+            "from_segnums": [set()],
+            "stream_order": [4],
+            "traced_segnums": [[16, 18]],
+        },
+        geometry=geopandas.GeoSeries.from_wkt(
+            [
+                "LINESTRING (710 160, 770 100, 820 40)",
+            ],
+        ),
+    ).set_index(pd.Index([18]))
+    geopandas.testing.assert_geodataframe_equal(nc4.segments[cols], expected_nc4[cols])
+
+    # can't coarsen to level 5
+    with pytest.raises(ValueError, match="no segments found"):
+        fluss_n.coarsen(5)
 
 
 def test_adjust_elevation_profile_errors(valid_n):
