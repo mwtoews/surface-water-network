@@ -14,7 +14,11 @@ import pandas as pd
 import shapely
 from shapely.geometry import LineString, Point
 
-from .compat import SHAPELY_GE_20, ignore_shapely_warnings_for_object_array
+from .compat import (
+    SHAPELY_GE_20,
+    ignore_shapely_warnings_for_object_array,
+    sjoin_idx_names,
+)
 from .spatial import bias_substring
 from .util import abbr_str
 
@@ -234,13 +238,13 @@ class SurfaceWaterNetwork:
         end_pts = obj.segments.interpolate(1.0, normalized=True)
         start_df = start_pts.to_frame("start").set_geometry("start")
         end_df = end_pts.to_frame("end").set_geometry("end")
-        segidxname = obj.segments.index.name or "index"
         # This is the main component of the algorithm
+        end_idx_name, start_idx_name = sjoin_idx_names(end_df, start_df)
         jxn = pd.DataFrame(
             geopandas.sjoin(end_df, start_df, "inner", "intersects")
             .drop(columns="end")
             .reset_index()
-            .rename(columns={segidxname: "end", "index_right": "start"})
+            .rename(columns={end_idx_name: "end", start_idx_name: "start"})
         )
         # Group end points to start points, list should only have 1 item
         to_segnum_l = jxn.groupby("end")["start"].agg(list)
@@ -281,10 +285,11 @@ class SurfaceWaterNetwork:
         # Find outlets that join to a single coodinate
         multi_outlets = set()
         out_pts = end_pts.loc[outlets].to_frame("out").set_geometry("out")
+        left_idx_name, right_idx_name = sjoin_idx_names(out_pts, out_pts)
         jout = pd.DataFrame(
             geopandas.sjoin(out_pts, out_pts, "inner")
             .reset_index()
-            .rename(columns={segidxname: "out1", "index_right": "out2"})
+            .rename(columns={left_idx_name: "out1", right_idx_name: "out2"})
         ).query("out1 != out2")
         if jout.size > 0:
             # Just evaluate 2D tuple to find segnums with same location
@@ -306,11 +311,12 @@ class SurfaceWaterNetwork:
                 obj.warnings.append(m[0] % m[1:])
                 multi_outlets |= v
         # Find outlets that join to middle of other segments
+        left_idx_name, right_idx_name = sjoin_idx_names(out_pts, obj.segments)
         joutseg = pd.DataFrame(
             geopandas.sjoin(out_pts, obj.segments[["geometry"]], "inner")
             .drop(columns="out")
             .reset_index()
-            .rename(columns={segidxname: "out", "index_right": "segnum"})
+            .rename(columns={left_idx_name: "out", right_idx_name: "segnum"})
         )
         for r in joutseg.query("out != segnum").itertuples():
             if r.out in multi_outlets:
@@ -320,10 +326,11 @@ class SurfaceWaterNetwork:
             obj.errors.append(m[0] % m[1:])
         # Find headwater that join to a single coodinate
         hw_pts = start_pts.loc[headwater].to_frame("hw").set_geometry("hw")
+        hw_idx_name, start_idx_name = sjoin_idx_names(hw_pts, start_df)
         jhw = pd.DataFrame(
             geopandas.sjoin(hw_pts, start_df, "inner")
             .reset_index()
-            .rename(columns={segidxname: "hw1", "index_right": "start"})
+            .rename(columns={hw_idx_name: "hw1", start_idx_name: "start"})
         ).query("hw1 != start")
         obj.jhw = jhw
         if jhw.size > 0:
@@ -1112,9 +1119,8 @@ class SurfaceWaterNetwork:
                 catchments_df = self.catchments.to_frame("geometry")
                 if catchments_df.crs is None and self.segments.crs is not None:
                     catchments_df.crs = self.segments.crs
-                match_s = geopandas.sjoin(res[sel], catchments_df, "inner")[
-                    "index_right"
-                ]
+                _, ridxn = sjoin_idx_names(res, catchments_df)
+                match_s = geopandas.sjoin(res[sel], catchments_df, "inner")[ridxn]
                 match_s.name = "segnum"
                 match_s.index.name = "gidx"
                 match = match_s.reset_index()
@@ -1200,9 +1206,10 @@ class SurfaceWaterNetwork:
                 )
             try:
                 # faster method, not widely available
+                _, right_idx_name = sjoin_idx_names(res, self.segments)
                 match_s = geopandas.sjoin_nearest(
                     res[sel], segments_gs.to_frame(), "inner"
-                )["index_right"]
+                )[right_idx_name]
                 has_sjoin_nearest = True
             except (AttributeError, NotImplementedError):
                 has_sjoin_nearest = False
@@ -1305,7 +1312,13 @@ class SurfaceWaterNetwork:
             linestring_empty = wkt.loads("LINESTRING EMPTY")
             for idx in res[~sel].index:
                 res.at[idx, "link"] = linestring_empty
-        res.set_geometry("link", drop=True, inplace=True)
+        res = (
+            res.set_geometry("link")
+            .drop(columns="geometry")
+            .rename_geometry("geometry")
+        )
+        if geom_crs:
+            res.set_crs(geom_crs, inplace=True)
         res["dist_to_seg"] = res[sel].length
         return res
 

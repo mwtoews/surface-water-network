@@ -9,7 +9,7 @@ from shapely import wkt
 from shapely.geometry import LineString, Point
 
 import swn
-from swn.compat import ignore_shapely_warnings_for_object_array
+from swn.compat import GEOPANDAS_GE_100, ignore_shapely_warnings_for_object_array
 from swn.spatial import force_2d, round_coords
 
 from .conftest import matplotlib, plt
@@ -1237,7 +1237,11 @@ def test_locate_geoms_in_basic_swn(caplog):
     a = r2.geometry.apply(lambda x: Point(*x.coords[0]))
     assert (a.distance(gs.drop(index=16)) == 0.0).all()
     b = r2.geometry.apply(lambda x: Point(*x.coords[-1]))
-    seg_mls = n.segments.geometry[r2.segnum].unary_union
+    seg_geoms = n.segments.geometry[r2.segnum]
+    if GEOPANDAS_GE_100:
+        seg_mls = seg_geoms.union_all()
+    else:
+        seg_mls = seg_geoms.unary_union
     assert (b.distance(seg_mls) < 1e-10).all()
     # now check the empty geometry
     for k in e.keys():
@@ -1342,7 +1346,11 @@ def test_locate_geoms_only_lines(coastal_geom, coastal_swn):
     assert (r.geometry.apply(lambda g: len(g.coords)) == 2).all()
     a = r.geometry.interpolate(0.0)
     b = r.geometry.interpolate(1.0, normalized=True)
-    seg_mls = coastal_swn.segments.geometry[r.segnum].unary_union
+    seg_geoms = coastal_swn.segments.geometry[r.segnum]
+    if GEOPANDAS_GE_100:
+        seg_mls = seg_geoms.union_all()
+    else:
+        seg_mls = seg_geoms.unary_union
     assert (a.distance(coastal_geom) < 1e-10).all()
     assert (a.distance(seg_mls) > 0.0).all()
     assert (b.distance(coastal_geom) > 0.0).all()
@@ -1407,7 +1415,11 @@ def test_locate_geoms_with_catchments(coastal_geom, coastal_swn_w_poly):
     assert (r.geometry.apply(lambda g: len(g.coords)) == 2).all()
     a = r.geometry.interpolate(0.0)
     b = r.geometry.interpolate(1.0, normalized=True)
-    seg_mls = coastal_swn_w_poly.segments.geometry[r.segnum].unary_union
+    seg_geoms = coastal_swn_w_poly.segments.geometry[r.segnum]
+    if GEOPANDAS_GE_100:
+        seg_mls = seg_geoms.union_all()
+    else:
+        seg_mls = seg_geoms.unary_union
     assert (a.distance(coastal_geom) < 1e-10).all()
     assert (a.distance(seg_mls) > 0.0).all()
     assert (b.distance(coastal_geom) > 0.0).all()

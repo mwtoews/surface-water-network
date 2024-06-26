@@ -48,6 +48,7 @@ jobs:
           pytest -v -n2 --cov --cov-append
 
       - name: Run doctest
+        if: matrix.python-version == '3.12'
         run: |
           pytest -v swn --doctest-modules
 
