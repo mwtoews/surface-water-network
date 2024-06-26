@@ -3,6 +3,7 @@
 import contextlib
 import warnings
 
+import geopandas
 import numpy as np
 import shapely
 from packaging.version import Version
@@ -60,3 +61,30 @@ else:
     @contextlib.contextmanager
     def ignore_shapely_warnings_for_object_array():
         yield
+
+
+GEOPANDAS_GE_100 = Version(geopandas.__version__) >= Version("1.0.0")
+
+
+def sjoin_idx_names(left_df, right_df):
+    """Returns left and right index names from geopandas.sjoin methods.
+
+    Handles breaking change from geopandas 1.0.0.
+    """
+    left_idx_name = left_df.index.name or "index"
+    if GEOPANDAS_GE_100:
+        right_idx_name = right_df.index.name or "index"
+        # add _left/_right if needed
+        if left_df.index.name and (
+            left_idx_name == right_idx_name or left_idx_name in right_df.columns
+        ):
+            left_idx_name += "_left"
+        if (
+            right_df.index.name is None
+            or right_idx_name in left_df.columns
+            or right_idx_name == left_df.index.name
+        ):
+            right_idx_name += "_right"
+    else:
+        right_idx_name = "index_right"
+    return left_idx_name, right_idx_name

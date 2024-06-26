@@ -511,10 +511,10 @@ def location_pair_geoms(pairs, loc_df, n):
     >>> pair_gdf.sort_values("length", ascending=False, inplace=True)
     >>> pair_gdf
                                                     geometry      length
-    11 14  LINESTRING (378.491 404.717, 420.000 330.000, ...  282.359779
-    12 13  LINESTRING (728.462 227.692, 710.000 160.000, ...  184.465938
-    15 13  LINESTRING (692.027 172.838, 710.000 160.000, ...  136.388347
-    14 15      LINESTRING (595.730 241.622, 692.027 172.838)  118.340096
+    11 14  LINESTRING (378.491 404.717, 420 330, 584 250,...  282.359779
+    12 13  LINESTRING (728.462 227.692, 710 160, 770 100,...  184.465938
+    15 13  LINESTRING (692.027 172.838, 710 160, 770 100,...  136.388347
+    14 15       LINESTRING (595.73 241.622, 692.027 172.838)  118.340096
 
     """
     from shapely.ops import linemerge, substring, unary_union

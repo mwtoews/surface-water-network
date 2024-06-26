@@ -930,10 +930,8 @@ class SwnModflowBase:
             if is_spatial:
                 try:
                     match_s = geopandas.sjoin_nearest(
-                        diversions_in_model, obj.grid_cells, "inner"
-                    )[["index_right0", "index_right1"]].rename(
-                        columns={"index_right0": "i", "index_right1": "j"}
-                    )
+                        diversions_in_model, obj.grid_cells.reset_index(), "inner"
+                    )[["i", "j"]]
                     match_s.index.name = "divid"
                     match = match_s.reset_index()
                     has_sjoin_nearest = True
