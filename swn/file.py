@@ -165,7 +165,7 @@ def gdf_to_shapefile(gdf, shp_fname, **kwargs):
     for col, dtype in gdf.dtypes.items():
         if col == geom_name:
             continue
-        if dtype == bool:
+        if dtype is bool:
             gdf[col] = gdf[col].astype(int)
         elif np.issubdtype(dtype, np.number):
             pass
