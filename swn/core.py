@@ -1344,6 +1344,9 @@ class SurfaceWaterNetwork:
             segnums that flow into 'agg_path'. Also 'from_segnums' is updated
             to reflect the uppermost segment.
 
+        See Also
+        --------
+        coarsen : Coarsen stream networks to a higher stream order.
         """
         from shapely.ops import linemerge, unary_union
 
@@ -1523,6 +1526,176 @@ class SurfaceWaterNetwork:
         na.segments["agg_path"] = agg_path
         na.segments["agg_unpath"] = agg_unpath
         return na
+
+    def coarsen(self, level: int):
+        r"""Coarsen stream network to a minimum stream order level.
+
+        Parameters
+        ----------
+        level : int
+            Minimum stream order level, e.g. 3 to coarsen to 3rd order streams.
+
+        Returns
+        -------
+        SurfaceWaterNetwork
+            With the returned :py:attr:`segments` attribute, a `traced_segnums`
+            column containing a segnum list from the original network.
+            If the original network has catchment polygons, the result will
+            aggregate the relevant catchment polygons, listed with a
+            `catchment_segnums` column.
+
+        Examples
+        --------
+        >>> import swn
+        >>> from shapely import wkt
+        >>> lines = geopandas.GeoSeries(list(wkt.loads('''\
+        ... MULTILINESTRING(
+        ...     (380 490, 370 420), (300 460, 370 420), (370 420, 420 330),
+        ...     (190 250, 280 270), (225 180, 280 270), (280 270, 420 330),
+        ...     (420 330, 584 250), (520 220, 584 250), (584 250, 710 160),
+        ...     (740 270, 710 160), (735 350, 740 270), (880 320, 740 270),
+        ...     (925 370, 880 320), (974 300, 880 320), (760 460, 735 350),
+        ...     (650 430, 735 350), (710 160, 770 100), (700  90, 770 100),
+        ...     (770 100, 820  40))''').geoms))
+        >>> lines.index += 100
+        >>> n = swn.SurfaceWaterNetwork.from_lines(lines)
+        >>> n2 = n.coarsen(2)
+        >>> n2.segments[["stream_order", "traced_segnums"]]
+            stream_order traced_segnums
+        102             2          [102]
+        105             2          [105]
+        108             3     [106, 108]
+        109             3          [109]
+        110             2          [110]
+        111             2          [111]
+        118             4     [116, 118]
+
+        See Also
+        --------
+        aggregate : Aggregate segments (and catchments) to a coarser network of
+            segnums.
+        remove : Remove segments.
+        """
+        from shapely.ops import linemerge, unary_union
+
+        # filter to a minimum stream order
+        sel_level = self.segments.stream_order >= level
+        if not sel_level.any():
+            raise ValueError(f"no segments found with {level=} or higher")
+        sel_to_segnums = self.segments.loc[
+            (self.segments["to_segnum"] != self.END_SEGNUM) & sel_level, "to_segnum"
+        ]
+        sel_from_segnums = (
+            sel_to_segnums.to_frame(0)
+            .reset_index()
+            .groupby(0)
+            .aggregate(set)
+            .iloc[:, 0]
+        ).astype(object)
+        sel_from_segnums.index.name = self.segments.index.name
+        sel_from_segnums.name = "from_segnums"
+        # similar to "headwater"
+        sel_index = sel_level.index[sel_level]
+        sel_start = sel_index[
+            ~sel_index.isin(self.segments.loc[sel_level, "to_segnum"])
+        ]
+
+        # trace lines down from each start to outlets
+        all_traced_segnums = set()
+        traced_segnums_l = list()
+        traced_segnums_d = dict()
+
+        def trace_down(segnum):
+            traced_segnums_l.append(segnum)
+            down_segnum = sel_to_segnums.get(segnum)
+            if down_segnum is None or len(sel_from_segnums[down_segnum]) > 1:
+                # find outlet or before confluence with more than 1 branch
+                traced_segnums_d[segnum] = traced_segnums_l[:]
+                traced_segnums_l.clear()
+            if down_segnum is not None and down_segnum not in all_traced_segnums:
+                all_traced_segnums.add(segnum)
+                trace_down(down_segnum)
+
+        for segnum in sel_start:
+            trace_down(segnum)
+
+        # Convert traced_segnums_d to a Series
+        traced_segnums = pd.Series(
+            traced_segnums_d.values(),
+            index=pd.Index(
+                traced_segnums_d.keys(),
+                dtype=self.segments.index.dtype,
+                name=self.segments.index.name,
+            ),
+        )
+        # Make index order similar to original
+        if self.segments.index.is_monotonic_increasing:
+            traced_segnums.sort_index(inplace=True)
+        else:
+            traced_segnums = traced_segnums.reindex(
+                self.segments.index[self.segments.index.isin(traced_segnums.index)]
+            )
+
+        self.logger.debug(
+            "traced down %d initial junctions to assemble %d traced segnums",
+            len(sel_start),
+            len(traced_segnums),
+        )
+
+        # Merge lines
+        lines_l = []
+        for segnums in traced_segnums.values:
+            lines_l.append(linemerge(self.segments.geometry[segnums].to_list()))
+        lines_gs = geopandas.GeoSeries(
+            lines_l,
+            index=traced_segnums.index,
+            crs=self.segments.crs,
+        )
+
+        if self.catchments is None:
+            catchments_gs = None
+        else:
+            # Negate selections
+            nsel_to_segnums = self.segments.loc[
+                (self.segments["to_segnum"] != self.END_SEGNUM) & ~sel_level,
+                "to_segnum",
+            ]
+            nsel_from_segnums = (
+                nsel_to_segnums.to_frame(0)
+                .reset_index()
+                .groupby(0)
+                .aggregate(set)
+                .iloc[:, 0]
+            ).astype(object)
+            nsel_from_segnums.index.name = self.segments.index.name
+            nsel_from_segnums.name = "from_segnums"
+
+            def up_nsel_patch_segnums(segnum):
+                yield segnum
+                for up_segnum in nsel_from_segnums.get(segnum, []):
+                    yield from up_nsel_patch_segnums(up_segnum)
+
+            catchments_l = []
+            catchment_segnums_l = []
+            for segnums in traced_segnums.values:
+                catchment_segnums = []
+                for up_segnum in segnums:
+                    catchment_segnums += list(up_nsel_patch_segnums(up_segnum))
+                catchment_geom = unary_union(
+                    self.catchments.geometry[catchment_segnums].to_list()
+                )
+                catchments_l.append(catchment_geom)
+                catchment_segnums_l.append(catchment_segnums)
+            catchments_gs = geopandas.GeoSeries(
+                catchments_l, index=lines_gs.index, crs=self.catchments.crs
+            )
+
+        nc = SurfaceWaterNetwork.from_lines(lines_gs, catchments_gs)
+        nc.segments["traced_segnums"] = traced_segnums
+        if self.catchments is not None:
+            nc.segments["catchment_segnums"] = catchment_segnums_l
+        nc.segments["stream_order"] += level - 1
+        return nc
 
     def accumulate_values(self, values):
         """Accumulate values down the stream network.
@@ -1994,6 +2167,8 @@ class SurfaceWaterNetwork:
 
         See Also
         --------
+        coarsen : Coarsen stream networks to a higher stream order,
+            removing lower orders.
         evaluate_upstream_length : Re-evaluate upstream length.
         evaluate_upstream_area : Re-evaluate upstream catchment area.
 
