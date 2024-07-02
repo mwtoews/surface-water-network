@@ -351,6 +351,7 @@ document.write(`
 <li class="toctree-l2"><a class="reference internal" href="swn.SurfaceWaterNetwork.gather_segnums.html">swn.SurfaceWaterNetwork.gather_segnums</a></li>
 <li class="toctree-l2"><a class="reference internal" href="swn.SurfaceWaterNetwork.locate_geoms.html">swn.SurfaceWaterNetwork.locate_geoms</a></li>
 <li class="toctree-l2"><a class="reference internal" href="swn.SurfaceWaterNetwork.aggregate.html">swn.SurfaceWaterNetwork.aggregate</a></li>
+<li class="toctree-l2"><a class="reference internal" href="swn.SurfaceWaterNetwork.coarsen.html">swn.SurfaceWaterNetwork.coarsen</a></li>
 <li class="toctree-l2"><a class="reference internal" href="swn.SurfaceWaterNetwork.remove.html">swn.SurfaceWaterNetwork.remove</a></li>
 <li class="toctree-l2"><a class="reference internal" href="swn.SurfaceWaterNetwork.evaluate_upstream_length.html">swn.SurfaceWaterNetwork.evaluate_upstream_length</a></li>
 <li class="toctree-l2"><a class="reference internal" href="swn.SurfaceWaterNetwork.evaluate_upstream_area.html">swn.SurfaceWaterNetwork.evaluate_upstream_area</a></li>
@@ -522,88 +523,8 @@ usually 0. This number is not part of segments.index.</p>
 <tr class="row-odd"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.aggregate.html#swn.SurfaceWaterNetwork.aggregate" title="swn.SurfaceWaterNetwork.aggregate"><code class="xref py py-obj docutils literal notranslate"><span class="pre">aggregate</span></code></a>(segnums[, follow_up])</p></td>
 <td><p>Aggregate segments (and catchments) to a coarser network of segnums.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.estimate_width.html#swn.SurfaceWaterNetwork.estimate_width" title="swn.SurfaceWaterNetwork.estimate_width"><code class="xref py py-obj docutils literal notranslate"><span class="pre">estimate_width</span></code></a>([a, b, upstream_area])</p></td>
-<td><p>Estimate stream width based on upstream area and fitting parameters.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.evaluate_upstream_area.html#swn.SurfaceWaterNetwork.evaluate_upstream_area" title="swn.SurfaceWaterNetwork.evaluate_upstream_area"><code class="xref py py-obj docutils literal notranslate"><span class="pre">evaluate_upstream_area</span></code></a>()</p></td>
-<td><p>Evaluate upstream area from catchments, adds to segments.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.evaluate_upstream_length.html#swn.SurfaceWaterNetwork.evaluate_upstream_length" title="swn.SurfaceWaterNetwork.evaluate_upstream_length"><code class="xref py py-obj docutils literal notranslate"><span class="pre">evaluate_upstream_length</span></code></a>()</p></td>
-<td><p>Evaluate upstream length of segments, adds to segments.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.from_lines.html#swn.SurfaceWaterNetwork.from_lines" title="swn.SurfaceWaterNetwork.from_lines"><code class="xref py py-obj docutils literal notranslate"><span class="pre">from_lines</span></code></a>(lines[, polygons])</p></td>
-<td><p>Create and evaluate a new SurfaceWaterNetwork from lines for segments.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.from_pickle.html#swn.SurfaceWaterNetwork.from_pickle" title="swn.SurfaceWaterNetwork.from_pickle"><code class="xref py py-obj docutils literal notranslate"><span class="pre">from_pickle</span></code></a>(path)</p></td>
-<td><p>Read a pickled format from a file.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.gather_segnums.html#swn.SurfaceWaterNetwork.gather_segnums" title="swn.SurfaceWaterNetwork.gather_segnums"><code class="xref py py-obj docutils literal notranslate"><span class="pre">gather_segnums</span></code></a>(*[, upstream, downstream, ...])</p></td>
-<td><p>Return segnums upstream (inclusive) and downstream (exclusive).</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.locate_geoms.html#swn.SurfaceWaterNetwork.locate_geoms" title="swn.SurfaceWaterNetwork.locate_geoms"><code class="xref py py-obj docutils literal notranslate"><span class="pre">locate_geoms</span></code></a>(geom, *[, override, ...])</p></td>
-<td><p>Return GeoDataFrame of data associated in finding geometies.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.pair_segments_frame.html#swn.SurfaceWaterNetwork.pair_segments_frame" title="swn.SurfaceWaterNetwork.pair_segments_frame"><code class="xref py py-obj docutils literal notranslate"><span class="pre">pair_segments_frame</span></code></a>(value[, value_out, ...])</p></td>
-<td><p>Generate a DataFrame of paired values for top/bottom of segments.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.plot.html#swn.SurfaceWaterNetwork.plot" title="swn.SurfaceWaterNetwork.plot"><code class="xref py py-obj docutils literal notranslate"><span class="pre">plot</span></code></a>([column, sort_column, cmap, legend, ax])</p></td>
-<td><p>Plot map of surface water network.</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">query</span></code>([upstream, downstream, barrier, ...])</p></td>
-<td><p>Return segnums upstream (inclusive) and downstream (exclusive).</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.remove.html#swn.SurfaceWaterNetwork.remove" title="swn.SurfaceWaterNetwork.remove"><code class="xref py py-obj docutils literal notranslate"><span class="pre">remove</span></code></a>([condition, segnums])</p></td>
-<td><p>Remove segments (and catchments) in-place, preserving attributes.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.route_segnums.html#swn.SurfaceWaterNetwork.route_segnums" title="swn.SurfaceWaterNetwork.route_segnums"><code class="xref py py-obj docutils literal notranslate"><span class="pre">route_segnums</span></code></a>(start, end, *[, allow_indirect])</p></td>
-<td><p>Return a list of segnums that connect a pair of segnums.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.segments_series.html#swn.SurfaceWaterNetwork.segments_series" title="swn.SurfaceWaterNetwork.segments_series"><code class="xref py py-obj docutils literal notranslate"><span class="pre">segments_series</span></code></a>(value[, name])</p></td>
-<td><p>Generate a Series along the segments index.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.set_diversions.html#swn.SurfaceWaterNetwork.set_diversions" title="swn.SurfaceWaterNetwork.set_diversions"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_diversions</span></code></a>(diversions, *[, override, ...])</p></td>
-<td><p>Set surface water diversion locations.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.to_pickle.html#swn.SurfaceWaterNetwork.to_pickle" title="swn.SurfaceWaterNetwork.to_pickle"><code class="xref py py-obj docutils literal notranslate"><span class="pre">to_pickle</span></code></a>(path[, protocol])</p></td>
-<td><p>Pickle (serialize) object to file.</p></td>
-</tr>
-</tbody>
-</table>
-</div>
-<dl class="py method">
-<dt class="sig sig-object py" id="swn.SurfaceWaterNetwork.__init__">
-<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">segments</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">END_SEGNUM</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">logger</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#swn.SurfaceWaterNetwork.__init__" title="Permalink to this definition">#</a></dt>
-<dd><p>Initialise SurfaceWaterNetwork.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><dl class="simple">
-<dt><strong>segments</strong><span class="classifier">geopandas.GeoDataFrame</span></dt><dd><p>Primary GeoDataFrame for stream segments. Index is treated as a
-segment number or ID.</p>
-</dd>
-<dt><strong>END_SEGNUM</strong><span class="classifier">int</span></dt><dd><p>Special segment number that indicates a line end, default is
-0. This number is not part of segments.index.</p>
-</dd>
-<dt><strong>logger</strong><span class="classifier">logging.Logger, optional</span></dt><dd><p>Logger to show messages.</p>
-</dd>
-</dl>
-</dd>
-</dl>
-</dd></dl>
-
-<p class="rubric">Methods</p>
-<div class="pst-scrollable-table-container"><table class="autosummary longtable table autosummary">
-<tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="#swn.SurfaceWaterNetwork.__init__" title="swn.SurfaceWaterNetwork.__init__"><code class="xref py py-obj docutils literal notranslate"><span class="pre">__init__</span></code></a>(segments[, END_SEGNUM, logger])</p></td>
-<td><p>Initialise SurfaceWaterNetwork.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.accumulate_values.html#swn.SurfaceWaterNetwork.accumulate_values" title="swn.SurfaceWaterNetwork.accumulate_values"><code class="xref py py-obj docutils literal notranslate"><span class="pre">accumulate_values</span></code></a>(values)</p></td>
-<td><p>Accumulate values down the stream network.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.adjust_elevation_profile.html#swn.SurfaceWaterNetwork.adjust_elevation_profile" title="swn.SurfaceWaterNetwork.adjust_elevation_profile"><code class="xref py py-obj docutils literal notranslate"><span class="pre">adjust_elevation_profile</span></code></a>([min_slope])</p></td>
-<td><p>Check and adjust (if necessary) Z coordinates of elevation profiles.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.aggregate.html#swn.SurfaceWaterNetwork.aggregate" title="swn.SurfaceWaterNetwork.aggregate"><code class="xref py py-obj docutils literal notranslate"><span class="pre">aggregate</span></code></a>(segnums[, follow_up])</p></td>
-<td><p>Aggregate segments (and catchments) to a coarser network of segnums.</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.coarsen.html#swn.SurfaceWaterNetwork.coarsen" title="swn.SurfaceWaterNetwork.coarsen"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coarsen</span></code></a>(level)</p></td>
+<td><p>Coarsen stream network to a minimum stream order level.</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.estimate_width.html#swn.SurfaceWaterNetwork.estimate_width" title="swn.SurfaceWaterNetwork.estimate_width"><code class="xref py py-obj docutils literal notranslate"><span class="pre">estimate_width</span></code></a>([a, b, upstream_area])</p></td>
 <td><p>Estimate stream width based on upstream area and fitting parameters.</p></td>
@@ -648,6 +569,92 @@ segment number or ID.</p>
 <td><p>Set surface water diversion locations.</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.to_pickle.html#swn.SurfaceWaterNetwork.to_pickle" title="swn.SurfaceWaterNetwork.to_pickle"><code class="xref py py-obj docutils literal notranslate"><span class="pre">to_pickle</span></code></a>(path[, protocol])</p></td>
+<td><p>Pickle (serialize) object to file.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<dl class="py method">
+<dt class="sig sig-object py" id="swn.SurfaceWaterNetwork.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">segments</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">END_SEGNUM</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">logger</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#swn.SurfaceWaterNetwork.__init__" title="Permalink to this definition">#</a></dt>
+<dd><p>Initialise SurfaceWaterNetwork.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>segments</strong><span class="classifier">geopandas.GeoDataFrame</span></dt><dd><p>Primary GeoDataFrame for stream segments. Index is treated as a
+segment number or ID.</p>
+</dd>
+<dt><strong>END_SEGNUM</strong><span class="classifier">int</span></dt><dd><p>Special segment number that indicates a line end, default is
+0. This number is not part of segments.index.</p>
+</dd>
+<dt><strong>logger</strong><span class="classifier">logging.Logger, optional</span></dt><dd><p>Logger to show messages.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<p class="rubric">Methods</p>
+<div class="pst-scrollable-table-container"><table class="autosummary longtable table autosummary">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#swn.SurfaceWaterNetwork.__init__" title="swn.SurfaceWaterNetwork.__init__"><code class="xref py py-obj docutils literal notranslate"><span class="pre">__init__</span></code></a>(segments[, END_SEGNUM, logger])</p></td>
+<td><p>Initialise SurfaceWaterNetwork.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.accumulate_values.html#swn.SurfaceWaterNetwork.accumulate_values" title="swn.SurfaceWaterNetwork.accumulate_values"><code class="xref py py-obj docutils literal notranslate"><span class="pre">accumulate_values</span></code></a>(values)</p></td>
+<td><p>Accumulate values down the stream network.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.adjust_elevation_profile.html#swn.SurfaceWaterNetwork.adjust_elevation_profile" title="swn.SurfaceWaterNetwork.adjust_elevation_profile"><code class="xref py py-obj docutils literal notranslate"><span class="pre">adjust_elevation_profile</span></code></a>([min_slope])</p></td>
+<td><p>Check and adjust (if necessary) Z coordinates of elevation profiles.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.aggregate.html#swn.SurfaceWaterNetwork.aggregate" title="swn.SurfaceWaterNetwork.aggregate"><code class="xref py py-obj docutils literal notranslate"><span class="pre">aggregate</span></code></a>(segnums[, follow_up])</p></td>
+<td><p>Aggregate segments (and catchments) to a coarser network of segnums.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.coarsen.html#swn.SurfaceWaterNetwork.coarsen" title="swn.SurfaceWaterNetwork.coarsen"><code class="xref py py-obj docutils literal notranslate"><span class="pre">coarsen</span></code></a>(level)</p></td>
+<td><p>Coarsen stream network to a minimum stream order level.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.estimate_width.html#swn.SurfaceWaterNetwork.estimate_width" title="swn.SurfaceWaterNetwork.estimate_width"><code class="xref py py-obj docutils literal notranslate"><span class="pre">estimate_width</span></code></a>([a, b, upstream_area])</p></td>
+<td><p>Estimate stream width based on upstream area and fitting parameters.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.evaluate_upstream_area.html#swn.SurfaceWaterNetwork.evaluate_upstream_area" title="swn.SurfaceWaterNetwork.evaluate_upstream_area"><code class="xref py py-obj docutils literal notranslate"><span class="pre">evaluate_upstream_area</span></code></a>()</p></td>
+<td><p>Evaluate upstream area from catchments, adds to segments.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.evaluate_upstream_length.html#swn.SurfaceWaterNetwork.evaluate_upstream_length" title="swn.SurfaceWaterNetwork.evaluate_upstream_length"><code class="xref py py-obj docutils literal notranslate"><span class="pre">evaluate_upstream_length</span></code></a>()</p></td>
+<td><p>Evaluate upstream length of segments, adds to segments.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.from_lines.html#swn.SurfaceWaterNetwork.from_lines" title="swn.SurfaceWaterNetwork.from_lines"><code class="xref py py-obj docutils literal notranslate"><span class="pre">from_lines</span></code></a>(lines[, polygons])</p></td>
+<td><p>Create and evaluate a new SurfaceWaterNetwork from lines for segments.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.from_pickle.html#swn.SurfaceWaterNetwork.from_pickle" title="swn.SurfaceWaterNetwork.from_pickle"><code class="xref py py-obj docutils literal notranslate"><span class="pre">from_pickle</span></code></a>(path)</p></td>
+<td><p>Read a pickled format from a file.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.gather_segnums.html#swn.SurfaceWaterNetwork.gather_segnums" title="swn.SurfaceWaterNetwork.gather_segnums"><code class="xref py py-obj docutils literal notranslate"><span class="pre">gather_segnums</span></code></a>(*[, upstream, downstream, ...])</p></td>
+<td><p>Return segnums upstream (inclusive) and downstream (exclusive).</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.locate_geoms.html#swn.SurfaceWaterNetwork.locate_geoms" title="swn.SurfaceWaterNetwork.locate_geoms"><code class="xref py py-obj docutils literal notranslate"><span class="pre">locate_geoms</span></code></a>(geom, *[, override, ...])</p></td>
+<td><p>Return GeoDataFrame of data associated in finding geometies.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.pair_segments_frame.html#swn.SurfaceWaterNetwork.pair_segments_frame" title="swn.SurfaceWaterNetwork.pair_segments_frame"><code class="xref py py-obj docutils literal notranslate"><span class="pre">pair_segments_frame</span></code></a>(value[, value_out, ...])</p></td>
+<td><p>Generate a DataFrame of paired values for top/bottom of segments.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.plot.html#swn.SurfaceWaterNetwork.plot" title="swn.SurfaceWaterNetwork.plot"><code class="xref py py-obj docutils literal notranslate"><span class="pre">plot</span></code></a>([column, sort_column, cmap, legend, ax])</p></td>
+<td><p>Plot map of surface water network.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">query</span></code>([upstream, downstream, barrier, ...])</p></td>
+<td><p>Return segnums upstream (inclusive) and downstream (exclusive).</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.remove.html#swn.SurfaceWaterNetwork.remove" title="swn.SurfaceWaterNetwork.remove"><code class="xref py py-obj docutils literal notranslate"><span class="pre">remove</span></code></a>([condition, segnums])</p></td>
+<td><p>Remove segments (and catchments) in-place, preserving attributes.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.route_segnums.html#swn.SurfaceWaterNetwork.route_segnums" title="swn.SurfaceWaterNetwork.route_segnums"><code class="xref py py-obj docutils literal notranslate"><span class="pre">route_segnums</span></code></a>(start, end, *[, allow_indirect])</p></td>
+<td><p>Return a list of segnums that connect a pair of segnums.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.segments_series.html#swn.SurfaceWaterNetwork.segments_series" title="swn.SurfaceWaterNetwork.segments_series"><code class="xref py py-obj docutils literal notranslate"><span class="pre">segments_series</span></code></a>(value[, name])</p></td>
+<td><p>Generate a Series along the segments index.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.set_diversions.html#swn.SurfaceWaterNetwork.set_diversions" title="swn.SurfaceWaterNetwork.set_diversions"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_diversions</span></code></a>(diversions, *[, override, ...])</p></td>
+<td><p>Set surface water diversion locations.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="swn.SurfaceWaterNetwork.to_pickle.html#swn.SurfaceWaterNetwork.to_pickle" title="swn.SurfaceWaterNetwork.to_pickle"><code class="xref py py-obj docutils literal notranslate"><span class="pre">to_pickle</span></code></a>(path[, protocol])</p></td>
 <td><p>Pickle (serialize) object to file.</p></td>
 </tr>
 </tbody>

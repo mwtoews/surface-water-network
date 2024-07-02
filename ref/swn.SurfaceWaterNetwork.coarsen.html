@@ -9,7 +9,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
 
-    <title>swn.SurfaceWaterNetwork.evaluate_upstream_area &#8212; Surface water network 2022 documentation</title>
+    <title>swn.SurfaceWaterNetwork.coarsen &#8212; Surface water network 2022 documentation</title>
   
   
   
@@ -43,11 +43,11 @@
     <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
     <script src="../_static/doctools.js"></script>
     <script src="../_static/sphinx_highlight.js"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'ref/swn.SurfaceWaterNetwork.evaluate_upstream_area';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'ref/swn.SurfaceWaterNetwork.coarsen';</script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="swn.SurfaceWaterNetwork.estimate_width" href="swn.SurfaceWaterNetwork.estimate_width.html" />
-    <link rel="prev" title="swn.SurfaceWaterNetwork.evaluate_upstream_length" href="swn.SurfaceWaterNetwork.evaluate_upstream_length.html" />
+    <link rel="next" title="swn.SurfaceWaterNetwork.remove" href="swn.SurfaceWaterNetwork.remove.html" />
+    <link rel="prev" title="swn.SurfaceWaterNetwork.aggregate" href="swn.SurfaceWaterNetwork.aggregate.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   </head>
@@ -351,10 +351,10 @@ document.write(`
 <li class="toctree-l2"><a class="reference internal" href="swn.SurfaceWaterNetwork.gather_segnums.html">swn.SurfaceWaterNetwork.gather_segnums</a></li>
 <li class="toctree-l2"><a class="reference internal" href="swn.SurfaceWaterNetwork.locate_geoms.html">swn.SurfaceWaterNetwork.locate_geoms</a></li>
 <li class="toctree-l2"><a class="reference internal" href="swn.SurfaceWaterNetwork.aggregate.html">swn.SurfaceWaterNetwork.aggregate</a></li>
-<li class="toctree-l2"><a class="reference internal" href="swn.SurfaceWaterNetwork.coarsen.html">swn.SurfaceWaterNetwork.coarsen</a></li>
+<li class="toctree-l2 current active"><a class="current reference internal" href="#">swn.SurfaceWaterNetwork.coarsen</a></li>
 <li class="toctree-l2"><a class="reference internal" href="swn.SurfaceWaterNetwork.remove.html">swn.SurfaceWaterNetwork.remove</a></li>
 <li class="toctree-l2"><a class="reference internal" href="swn.SurfaceWaterNetwork.evaluate_upstream_length.html">swn.SurfaceWaterNetwork.evaluate_upstream_length</a></li>
-<li class="toctree-l2 current active"><a class="current reference internal" href="#">swn.SurfaceWaterNetwork.evaluate_upstream_area</a></li>
+<li class="toctree-l2"><a class="reference internal" href="swn.SurfaceWaterNetwork.evaluate_upstream_area.html">swn.SurfaceWaterNetwork.evaluate_upstream_area</a></li>
 <li class="toctree-l2"><a class="reference internal" href="swn.SurfaceWaterNetwork.estimate_width.html">swn.SurfaceWaterNetwork.estimate_width</a></li>
 <li class="toctree-l2"><a class="reference internal" href="swn.SurfaceWaterNetwork.adjust_elevation_profile.html">swn.SurfaceWaterNetwork.adjust_elevation_profile</a></li>
 <li class="toctree-l2"><a class="reference internal" href="swn.SurfaceWaterNetwork.plot.html">swn.SurfaceWaterNetwork.plot</a></li>
@@ -490,12 +490,65 @@ document.write(`
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="swn-surfacewaternetwork-evaluate-upstream-area">
-<h1>swn.SurfaceWaterNetwork.evaluate_upstream_area<a class="headerlink" href="#swn-surfacewaternetwork-evaluate-upstream-area" title="Permalink to this heading">#</a></h1>
+  <section id="swn-surfacewaternetwork-coarsen">
+<h1>swn.SurfaceWaterNetwork.coarsen<a class="headerlink" href="#swn-surfacewaternetwork-coarsen" title="Permalink to this heading">#</a></h1>
 <dl class="py method">
-<dt class="sig sig-object py" id="swn.SurfaceWaterNetwork.evaluate_upstream_area">
-<span class="sig-prename descclassname"><span class="pre">SurfaceWaterNetwork.</span></span><span class="sig-name descname"><span class="pre">evaluate_upstream_area</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#swn.SurfaceWaterNetwork.evaluate_upstream_area" title="Permalink to this definition">#</a></dt>
-<dd><p>Evaluate upstream area from catchments, adds to segments.</p>
+<dt class="sig sig-object py" id="swn.SurfaceWaterNetwork.coarsen">
+<span class="sig-prename descclassname"><span class="pre">SurfaceWaterNetwork.</span></span><span class="sig-name descname"><span class="pre">coarsen</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">level</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#swn.SurfaceWaterNetwork.coarsen" title="Permalink to this definition">#</a></dt>
+<dd><p>Coarsen stream network to a minimum stream order level.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl class="simple">
+<dt><strong>level</strong><span class="classifier">int</span></dt><dd><p>Minimum stream order level, e.g. 3 to coarsen to 3rd order streams.</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><dl class="simple">
+<dt>SurfaceWaterNetwork</dt><dd><p>With the returned <a class="reference internal" href="swn.SurfaceWaterNetwork.segments.html#swn.SurfaceWaterNetwork.segments" title="swn.SurfaceWaterNetwork.segments"><code class="xref py py-attr docutils literal notranslate"><span class="pre">segments</span></code></a> attribute, a <cite>traced_segnums</cite>
+column containing a segnum list from the original network.
+If the original network has catchment polygons, the result will
+aggregate the relevant catchment polygons, listed with a
+<cite>catchment_segnums</cite> column.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<dl class="simple">
+<dt><a class="reference internal" href="swn.SurfaceWaterNetwork.aggregate.html#swn.SurfaceWaterNetwork.aggregate" title="swn.SurfaceWaterNetwork.aggregate"><code class="xref py py-obj docutils literal notranslate"><span class="pre">aggregate</span></code></a></dt><dd><p>Aggregate segments (and catchments) to a coarser network of segnums.</p>
+</dd>
+<dt><a class="reference internal" href="swn.SurfaceWaterNetwork.remove.html#swn.SurfaceWaterNetwork.remove" title="swn.SurfaceWaterNetwork.remove"><code class="xref py py-obj docutils literal notranslate"><span class="pre">remove</span></code></a></dt><dd><p>Remove segments.</p>
+</dd>
+</dl>
+</div>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">swn</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">shapely</span> <span class="kn">import</span> <span class="n">wkt</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">lines</span> <span class="o">=</span> <span class="n">geopandas</span><span class="o">.</span><span class="n">GeoSeries</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">wkt</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="s1">&#39;&#39;&#39;</span><span class="se">\</span>
+<span class="gp">... </span><span class="s1">MULTILINESTRING(</span>
+<span class="gp">... </span><span class="s1">    (380 490, 370 420), (300 460, 370 420), (370 420, 420 330),</span>
+<span class="gp">... </span><span class="s1">    (190 250, 280 270), (225 180, 280 270), (280 270, 420 330),</span>
+<span class="gp">... </span><span class="s1">    (420 330, 584 250), (520 220, 584 250), (584 250, 710 160),</span>
+<span class="gp">... </span><span class="s1">    (740 270, 710 160), (735 350, 740 270), (880 320, 740 270),</span>
+<span class="gp">... </span><span class="s1">    (925 370, 880 320), (974 300, 880 320), (760 460, 735 350),</span>
+<span class="gp">... </span><span class="s1">    (650 430, 735 350), (710 160, 770 100), (700  90, 770 100),</span>
+<span class="gp">... </span><span class="s1">    (770 100, 820  40))&#39;&#39;&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">geoms</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">lines</span><span class="o">.</span><span class="n">index</span> <span class="o">+=</span> <span class="mi">100</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">n</span> <span class="o">=</span> <span class="n">swn</span><span class="o">.</span><span class="n">SurfaceWaterNetwork</span><span class="o">.</span><span class="n">from_lines</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">n2</span> <span class="o">=</span> <span class="n">n</span><span class="o">.</span><span class="n">coarsen</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">n2</span><span class="o">.</span><span class="n">segments</span><span class="p">[[</span><span class="s2">&quot;stream_order&quot;</span><span class="p">,</span> <span class="s2">&quot;traced_segnums&quot;</span><span class="p">]]</span>
+<span class="go">    stream_order traced_segnums</span>
+<span class="go">102             2          [102]</span>
+<span class="go">105             2          [105]</span>
+<span class="go">108             3     [106, 108]</span>
+<span class="go">109             3          [109]</span>
+<span class="go">110             2          [110]</span>
+<span class="go">111             2          [111]</span>
+<span class="go">118             4     [116, 118]</span>
+</pre></div>
+</div>
 </dd></dl>
 
 </section>
@@ -511,20 +564,20 @@ document.write(`
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="swn.SurfaceWaterNetwork.evaluate_upstream_length.html"
+       href="swn.SurfaceWaterNetwork.aggregate.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">swn.SurfaceWaterNetwork.evaluate_upstream_length</p>
+        <p class="prev-next-title">swn.SurfaceWaterNetwork.aggregate</p>
       </div>
     </a>
     <a class="right-next"
-       href="swn.SurfaceWaterNetwork.estimate_width.html"
+       href="swn.SurfaceWaterNetwork.remove.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">swn.SurfaceWaterNetwork.estimate_width</p>
+        <p class="prev-next-title">swn.SurfaceWaterNetwork.remove</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -546,14 +599,14 @@ document.write(`
   </div>
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#swn.SurfaceWaterNetwork.evaluate_upstream_area"><code class="docutils literal notranslate"><span class="pre">SurfaceWaterNetwork.evaluate_upstream_area()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#swn.SurfaceWaterNetwork.coarsen"><code class="docutils literal notranslate"><span class="pre">SurfaceWaterNetwork.coarsen()</span></code></a></li>
 </ul>
   </nav></div>
 
   <div class="sidebar-secondary-item">
 
   <div class="tocsection sourcelink">
-    <a href="../_sources/ref/swn.SurfaceWaterNetwork.evaluate_upstream_area.rst.txt">
+    <a href="../_sources/ref/swn.SurfaceWaterNetwork.coarsen.rst.txt">
       <i class="fa-solid fa-file-lines"></i> Show Source
     </a>
   </div>

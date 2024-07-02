@@ -17,6 +17,7 @@
       ~SurfaceWaterNetwork.accumulate_values
       ~SurfaceWaterNetwork.adjust_elevation_profile
       ~SurfaceWaterNetwork.aggregate
+      ~SurfaceWaterNetwork.coarsen
       ~SurfaceWaterNetwork.estimate_width
       ~SurfaceWaterNetwork.evaluate_upstream_area
       ~SurfaceWaterNetwork.evaluate_upstream_length

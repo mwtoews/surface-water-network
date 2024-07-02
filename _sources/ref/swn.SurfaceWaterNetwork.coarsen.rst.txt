@@ -1,0 +1,6 @@
+﻿swn.SurfaceWaterNetwork.coarsen
+===============================
+
+.. currentmodule:: swn
+
+.. automethod:: SurfaceWaterNetwork.coarsen
