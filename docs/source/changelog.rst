@@ -3,6 +3,23 @@ Change log
 
 .. currentmodule:: swn
 
+Version 0.8
+-----------
+
+:Date: 3 July 2024
+
+New things
+~~~~~~~~~~
+- Add :py:meth:`modflow.SwnMf6.gather_reaches` (:pr:`92`)
+- Add :py:meth:`swn.SurfaceWaterNetwork.coarsen` to create stream networks with a higher stream order (:pr:`100`)
+
+Other changes
+~~~~~~~~~~~~~
+- Fix warnings and test with :py:meth:`~SurfaceWaterNetwork.locate_geoms` (:pr:`96`)
+- Change build to hatch, use only ruff format and lint tools, add workflow to publish to PyPI (:pr:`97`)
+- Fixes for geopandas-1.0.0 (:pr:`98`)
+- Always use native Python types for list outputs (:pr:`101`)
+
 Version 0.7
 -----------
 
