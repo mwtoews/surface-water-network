@@ -384,6 +384,30 @@ document.write(`
                   
   <section id="change-log">
 <h1>Change log<a class="headerlink" href="#change-log" title="Permalink to this heading">#</a></h1>
+<section id="version-0-8">
+<h2>Version 0.8<a class="headerlink" href="#version-0-8" title="Permalink to this heading">#</a></h2>
+<dl class="field-list simple">
+<dt class="field-odd">Date<span class="colon">:</span></dt>
+<dd class="field-odd"><p>3 July 2024</p>
+</dd>
+</dl>
+<section id="new-things">
+<h3>New things<a class="headerlink" href="#new-things" title="Permalink to this heading">#</a></h3>
+<ul class="simple">
+<li><p>Add <a class="reference internal" href="ref/swn.modflow.SwnMf6.gather_reaches.html#swn.modflow.SwnMf6.gather_reaches" title="swn.modflow.SwnMf6.gather_reaches"><code class="xref py py-meth docutils literal notranslate"><span class="pre">modflow.SwnMf6.gather_reaches()</span></code></a> (<a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/92">#92</a>)</p></li>
+<li><p>Add <a class="reference internal" href="ref/swn.SurfaceWaterNetwork.coarsen.html#swn.SurfaceWaterNetwork.coarsen" title="swn.SurfaceWaterNetwork.coarsen"><code class="xref py py-meth docutils literal notranslate"><span class="pre">swn.SurfaceWaterNetwork.coarsen()</span></code></a> to create stream networks with a higher stream order (<a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/100">#100</a>)</p></li>
+</ul>
+</section>
+<section id="other-changes">
+<h3>Other changes<a class="headerlink" href="#other-changes" title="Permalink to this heading">#</a></h3>
+<ul class="simple">
+<li><p>Fix warnings and test with <a class="reference internal" href="ref/swn.SurfaceWaterNetwork.locate_geoms.html#swn.SurfaceWaterNetwork.locate_geoms" title="swn.SurfaceWaterNetwork.locate_geoms"><code class="xref py py-meth docutils literal notranslate"><span class="pre">locate_geoms()</span></code></a> (<a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/96">#96</a>)</p></li>
+<li><p>Change build to hatch, use only ruff format and lint tools, add workflow to publish to PyPI (<a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/97">#97</a>)</p></li>
+<li><p>Fixes for geopandas-1.0.0 (<a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/98">#98</a>)</p></li>
+<li><p>Always use native Python types for list outputs (<a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/101">#101</a>)</p></li>
+</ul>
+</section>
+</section>
 <section id="version-0-7">
 <h2>Version 0.7<a class="headerlink" href="#version-0-7" title="Permalink to this heading">#</a></h2>
 <dl class="field-list simple">
@@ -413,16 +437,16 @@ document.write(`
 <li><p>Remove legacy <code class="docutils literal notranslate"><span class="pre">modflow.MfSfrNetwork</span></code> (<a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/56">#56</a>)</p></li>
 </ul>
 </section>
-<section id="new-things">
-<h3>New things<a class="headerlink" href="#new-things" title="Permalink to this heading">#</a></h3>
+<section id="id1">
+<h3>New things<a class="headerlink" href="#id1" title="Permalink to this heading">#</a></h3>
 <ul class="simple">
 <li><p>Add <a class="reference internal" href="ref/swn.file.read_formatted_frame.html#swn.file.read_formatted_frame" title="swn.file.read_formatted_frame"><code class="xref py py-meth docutils literal notranslate"><span class="pre">swn.file.read_formatted_frame()</span></code></a> and <a class="reference internal" href="ref/swn.file.write_formatted_frame.html#swn.file.write_formatted_frame" title="swn.file.write_formatted_frame"><code class="xref py py-meth docutils literal notranslate"><span class="pre">write_formatted_frame()</span></code></a> methods (<a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/62">#62</a>, <a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/73">#73</a>)</p></li>
 <li><p>Add functionality to allow other MF6 packages to use reaches data with <a class="reference internal" href="ref/swn.modflow.SwnMf6.package_period_frame.html#swn.modflow.SwnMf6.package_period_frame" title="swn.modflow.SwnMf6.package_period_frame"><code class="xref py py-meth docutils literal notranslate"><span class="pre">modflow.SwnMf6.package_period_frame()</span></code></a>, <a class="reference internal" href="ref/swn.modflow.SwnMf6.write_package_period.html#swn.modflow.SwnMf6.write_package_period" title="swn.modflow.SwnMf6.write_package_period"><code class="xref py py-meth docutils literal notranslate"><span class="pre">write_package_period()</span></code></a>, <a class="reference internal" href="ref/swn.modflow.SwnMf6.flopy_package_period.html#swn.modflow.SwnMf6.flopy_package_period" title="swn.modflow.SwnMf6.flopy_package_period"><code class="xref py py-meth docutils literal notranslate"><span class="pre">flopy_package_period()</span></code></a>, and <a class="reference internal" href="ref/swn.modflow.SwnMf6.set_package_obj.html#swn.modflow.SwnMf6.set_package_obj" title="swn.modflow.SwnMf6.set_package_obj"><code class="xref py py-meth docutils literal notranslate"><span class="pre">set_package_obj()</span></code></a> (<a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/72">#72</a>)</p></li>
 <li><p>Add functionality to allow other MODFLOW packages to use reaches data with <a class="reference internal" href="ref/swn.modflow.SwnModflow.package_period_frame.html#swn.modflow.SwnModflow.package_period_frame" title="swn.modflow.SwnModflow.package_period_frame"><code class="xref py py-meth docutils literal notranslate"><span class="pre">modflow.SwnModflow.package_period_frame()</span></code></a>, <a class="reference internal" href="ref/swn.modflow.SwnModflow.write_package_period.html#swn.modflow.SwnModflow.write_package_period" title="swn.modflow.SwnModflow.write_package_period"><code class="xref py py-meth docutils literal notranslate"><span class="pre">write_package_period()</span></code></a>, <a class="reference internal" href="ref/swn.modflow.SwnModflow.flopy_package_period.html#swn.modflow.SwnModflow.flopy_package_period" title="swn.modflow.SwnModflow.flopy_package_period"><code class="xref py py-meth docutils literal notranslate"><span class="pre">flopy_package_period()</span></code></a>, and <a class="reference internal" href="ref/swn.modflow.SwnModflow.set_package_obj.html#swn.modflow.SwnModflow.set_package_obj" title="swn.modflow.SwnModflow.set_package_obj"><code class="xref py py-meth docutils literal notranslate"><span class="pre">set_package_obj()</span></code></a> (<a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/74">#74</a>)</p></li>
 </ul>
 </section>
-<section id="other-changes">
-<h3>Other changes<a class="headerlink" href="#other-changes" title="Permalink to this heading">#</a></h3>
+<section id="id2">
+<h3>Other changes<a class="headerlink" href="#id2" title="Permalink to this heading">#</a></h3>
 <ul class="simple">
 <li><p>Better <code class="docutils literal notranslate"><span class="pre">from_swn_flopy</span></code> performance (<a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/57">#57</a>)</p></li>
 <li><p>Change <a class="reference internal" href="ref/swn.spatial.find_location_pairs.html#swn.spatial.find_location_pairs" title="swn.spatial.find_location_pairs"><code class="xref py py-meth docutils literal notranslate"><span class="pre">swn.spatial.find_location_pairs()</span></code></a> adding <code class="docutils literal notranslate"><span class="pre">all_pairs</span></code> and <code class="docutils literal notranslate"><span class="pre">exclude_branches</span></code> parameters (<a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/68">#68</a>)</p></li>
@@ -443,16 +467,16 @@ document.write(`
 <dd class="field-odd"><p>20 July 2022</p>
 </dd>
 </dl>
-<section id="id1">
-<h3>Breaking changes<a class="headerlink" href="#id1" title="Permalink to this heading">#</a></h3>
+<section id="id3">
+<h3>Breaking changes<a class="headerlink" href="#id3" title="Permalink to this heading">#</a></h3>
 <ul class="simple">
 <li><p>Minimum requirements are Python 3.7, pandas 1.2 (<a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/38">#38</a>)</p></li>
 <li><p>Add outside segnum to modflow if it is downstream from others (<a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/50">#50</a>)</p></li>
 <li><p>Change behaviour of <a class="reference internal" href="ref/swn.SurfaceWaterNetwork.set_diversions.html#swn.SurfaceWaterNetwork.set_diversions" title="swn.SurfaceWaterNetwork.set_diversions"><code class="xref py py-meth docutils literal notranslate"><span class="pre">SurfaceWaterNetwork.set_diversions()</span></code></a> which by default will now match to the closest segment line (<a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/52">#52</a>)</p></li>
 </ul>
 </section>
-<section id="id2">
-<h3>New things<a class="headerlink" href="#id2" title="Permalink to this heading">#</a></h3>
+<section id="id4">
+<h3>New things<a class="headerlink" href="#id4" title="Permalink to this heading">#</a></h3>
 <ul class="simple">
 <li><p>Add <a class="reference internal" href="ref/swn.SurfaceWaterNetwork.locate_geoms.html#swn.SurfaceWaterNetwork.locate_geoms" title="swn.SurfaceWaterNetwork.locate_geoms"><code class="xref py py-meth docutils literal notranslate"><span class="pre">SurfaceWaterNetwork.locate_geoms()</span></code></a> method (<a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/41">#41</a>, <a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/48">#48</a>, <a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/51">#51</a>)</p></li>
 <li><p>Add <code class="docutils literal notranslate"><span class="pre">run</span></code> option to <a class="reference internal" href="ref/swn.file.topnet2ts.html#swn.file.topnet2ts" title="swn.file.topnet2ts"><code class="xref py py-func docutils literal notranslate"><span class="pre">topnet2ts()</span></code></a>, improve error messages (<a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/44">#44</a>)</p></li>
@@ -462,8 +486,8 @@ document.write(`
 <li><p>Implement diversions for MODFLOW6 (<a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/54">#54</a>)</p></li>
 </ul>
 </section>
-<section id="id3">
-<h3>Other changes<a class="headerlink" href="#id3" title="Permalink to this heading">#</a></h3>
+<section id="id5">
+<h3>Other changes<a class="headerlink" href="#id5" title="Permalink to this heading">#</a></h3>
 <ul class="simple">
 <li><p>Add packing dependency to check package version (<a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/37">#37</a>)</p></li>
 <li><p>Convert class attributes to properties for <a class="reference internal" href="ref/swn.modflow.SwnModflow.segment_data.html#swn.modflow.SwnModflow.segment_data" title="swn.modflow.SwnModflow.segment_data"><code class="xref py py-attr docutils literal notranslate"><span class="pre">modflow.SwnModflow.segment_data</span></code></a> and <a class="reference internal" href="ref/swn.modflow.SwnModflow.segment_data_ts.html#swn.modflow.SwnModflow.segment_data_ts" title="swn.modflow.SwnModflow.segment_data_ts"><code class="xref py py-attr docutils literal notranslate"><span class="pre">segment_data_ts</span></code></a> (<a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/42">#42</a>)</p></li>
@@ -480,16 +504,16 @@ document.write(`
 <dd class="field-odd"><p>20 October 2021</p>
 </dd>
 </dl>
-<section id="id4">
-<h3>Breaking changes<a class="headerlink" href="#id4" title="Permalink to this heading">#</a></h3>
+<section id="id6">
+<h3>Breaking changes<a class="headerlink" href="#id6" title="Permalink to this heading">#</a></h3>
 <ul class="simple">
 <li><p>Change <code class="docutils literal notranslate"><span class="pre">SurfaceWaterNetwork(lines.geometry)</span></code> → <a class="reference internal" href="ref/swn.SurfaceWaterNetwork.from_lines.html#swn.SurfaceWaterNetwork.from_lines" title="swn.SurfaceWaterNetwork.from_lines"><code class="xref py py-meth docutils literal notranslate"><span class="pre">SurfaceWaterNetwork.from_lines(lines.geometry)</span></code></a></p></li>
 <li><p>Change <code class="docutils literal notranslate"><span class="pre">MfSfrNetwork(n,</span> <span class="pre">m,</span> <span class="pre">...)</span></code> → <a class="reference internal" href="ref/swn.modflow.SwnModflow.from_swn_flopy.html#swn.modflow.SwnModflow.from_swn_flopy" title="swn.modflow.SwnModflow.from_swn_flopy"><code class="xref py py-meth docutils literal notranslate"><span class="pre">SwnModflow.from_swn_flopy(n,</span> <span class="pre">m)</span></code></a></p></li>
 <li><p>Legacy <code class="docutils literal notranslate"><span class="pre">modflow.MfSfrNetwork</span></code> kept, but will be dropped by version 0.6</p></li>
 </ul>
 </section>
-<section id="id5">
-<h3>New things<a class="headerlink" href="#id5" title="Permalink to this heading">#</a></h3>
+<section id="id7">
+<h3>New things<a class="headerlink" href="#id7" title="Permalink to this heading">#</a></h3>
 <ul class="simple">
 <li><p>Add <code class="docutils literal notranslate"><span class="pre">.to_pickle()</span></code> and <code class="docutils literal notranslate"><span class="pre">.from_pickle()</span></code> methods to core classes</p></li>
 <li><p>Support MODFLOW 6 models with <a class="reference internal" href="ref/swn.modflow.SwnMf6.html#swn.modflow.SwnMf6" title="swn.modflow.SwnMf6"><code class="xref py py-class docutils literal notranslate"><span class="pre">modflow.SwnMf6</span></code></a> (<a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/12">#12</a>)</p></li>
@@ -499,8 +523,8 @@ document.write(`
 <li><p>Add Sphinx documentation, with doctests (<a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/18">#18</a>)</p></li>
 </ul>
 </section>
-<section id="id6">
-<h3>Other changes<a class="headerlink" href="#id6" title="Permalink to this heading">#</a></h3>
+<section id="id8">
+<h3>Other changes<a class="headerlink" href="#id8" title="Permalink to this heading">#</a></h3>
 <ul class="simple">
 <li><p>Improve performance of <a class="reference internal" href="ref/swn.SurfaceWaterNetwork.from_lines.html#swn.SurfaceWaterNetwork.from_lines" title="swn.SurfaceWaterNetwork.from_lines"><code class="xref py py-meth docutils literal notranslate"><span class="pre">SurfaceWaterNetwork.from_lines()</span></code></a> (<a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/33">#33</a>)</p></li>
 <li><p>Add <code class="docutils literal notranslate"><span class="pre">mult</span></code> multiplier to <a class="reference internal" href="ref/swn.file.topnet2ts.html#swn.file.topnet2ts" title="swn.file.topnet2ts"><code class="xref py py-func docutils literal notranslate"><span class="pre">topnet2ts()</span></code></a></p></li>
@@ -588,24 +612,29 @@ document.write(`
   </div>
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#version-0-8">Version 0.8</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#new-things">New things</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#other-changes">Other changes</a></li>
+</ul>
+</li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#version-0-7">Version 0.7</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#version-0-6">Version 0.6</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#breaking-changes">Breaking changes</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#new-things">New things</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#other-changes">Other changes</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id1">New things</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id2">Other changes</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#deprecations">Deprecations</a></li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#version-0-5">Version 0.5</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id1">Breaking changes</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id2">New things</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id3">Other changes</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id3">Breaking changes</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id4">New things</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id5">Other changes</a></li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#version-0-4">Version 0.4</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id4">Breaking changes</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id5">New things</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id6">Other changes</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id6">Breaking changes</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id7">New things</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id8">Other changes</a></li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#version-0-3">Version 0.3</a></li>
