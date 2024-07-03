@@ -2020,12 +2020,14 @@ class SwnMf6(SwnModflowBase):
         if start == end:
             return [start]
         to_ridxname = f"to_{self.reach_index_name}"
-        to_ridxs = dict(self.reaches.loc[self.reaches[to_ridxname] != 0, to_ridxname])
+        to_ridxs_d = self.reaches.loc[
+            self.reaches[to_ridxname] != 0, to_ridxname
+        ].to_dict()
 
         def go_downstream(ridx):
             yield ridx
-            if ridx in to_ridxs:
-                yield from go_downstream(to_ridxs[ridx])
+            if ridx in to_ridxs_d:
+                yield from go_downstream(to_ridxs_d[ridx])
 
         con1 = list(go_downstream(start))
         try:
@@ -2145,19 +2147,21 @@ class SwnMf6(SwnModflowBase):
 
         def go_downstream(ridx):
             yield ridx
-            if ridx in to_ridxs:
-                yield from go_downstream(to_ridxs[ridx])
+            if ridx in to_ridxs_d:
+                yield from go_downstream(to_ridxs_d[ridx])
 
         to_ridx_name = f"to_{self.reach_index_name}"
-        to_ridxs = dict(self.reaches.loc[self.reaches[to_ridx_name] != 0, to_ridx_name])
+        to_ridxs_d = self.reaches.loc[
+            self.reaches[to_ridx_name] != 0, to_ridx_name
+        ].to_dict()
         from_ridxs = self.reaches[f"from_{self.reach_index_name}s"]
         # Note that `.copy(deep=True)` does not work; use deepcopy
         from_ridxs = from_ridxs[from_ridxs.apply(len) > 0].apply(deepcopy)
         for barrier in check_and_return_list(barrier, "barrier"):
             for ridx in from_ridxs.get(barrier, []):
-                del to_ridxs[ridx]
-            from_ridxs[to_ridxs[barrier]].remove(barrier)
-            del to_ridxs[barrier]
+                del to_ridxs_d[ridx]
+            from_ridxs[to_ridxs_d[barrier]].remove(barrier)
+            del to_ridxs_d[barrier]
 
         ridxs = []
         for ridx in check_and_return_list(upstream, "upstream"):
