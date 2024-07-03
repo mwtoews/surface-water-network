@@ -1747,19 +1747,21 @@ class SwnModflow(SwnModflowBase):
             .iseg
         )
 
-        to_reachids = {}
+        to_reachids_d = {}
         for segnum, iseg in segnum_iseg.items():
-            sel = self.reaches.index[self.reaches.iseg == iseg]
-            to_reachids.update(dict(zip(sel[0:-1], sel[1:])))
+            sel_l = self.reaches.index[self.reaches.iseg == iseg].to_list()
+            to_reachids_d.update(dict(zip(sel_l[0:-1], sel_l[1:])))
             next_segnum = self.segments.to_segnum[segnum]
-            next_reachids = self.reaches.index[self.reaches.segnum == next_segnum]
-            if len(next_reachids) > 0:
-                to_reachids[sel[-1]] = next_reachids[0]
+            next_reachids_l = self.reaches.index[
+                self.reaches.segnum == next_segnum
+            ].to_list()
+            if len(next_reachids_l) > 0:
+                to_reachids_d[sel_l[-1]] = next_reachids_l[0]
 
         def go_downstream(rid):
             yield rid
-            if rid in to_reachids:
-                yield from go_downstream(to_reachids[rid])
+            if rid in to_reachids_d:
+                yield from go_downstream(to_reachids_d[rid])
 
         con1 = list(go_downstream(start))
         try:

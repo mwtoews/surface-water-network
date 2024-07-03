@@ -89,10 +89,19 @@ def test_init_defaults(valid_n):
     )
     assert "upstream_area" not in n.segments.columns
     assert "width" not in n.segments.columns
-    assert list(n.headwater) == [1, 2]
-    assert list(n.outlets) == [0]
-    assert dict(n.to_segnums) == {1: 0, 2: 0}
-    assert dict(n.from_segnums) == {0: {1, 2}}
+    assert n.headwater.to_list() == [1, 2]
+    assert n.outlets.to_list() == [0]
+    assert n.to_segnums.to_dict() == {1: 0, 2: 0}
+    assert n.from_segnums.to_dict() == {0: {1, 2}}
+    # more pedantic checks
+    pd.testing.assert_index_equal(n.headwater, pd.Index([1, 2]))
+    pd.testing.assert_index_equal(n.outlets, pd.Index([0]))
+    pd.testing.assert_series_equal(
+        n.to_segnums, pd.Series({1: 0, 2: 0}, name="to_segnum")
+    )
+    pd.testing.assert_series_equal(
+        n.from_segnums, pd.Series({0: {1, 2}}, name="from_segnums")
+    )
     n.adjust_elevation_profile()
     assert len(n.messages) == 0
     assert str(n) == repr(n)
@@ -138,8 +147,8 @@ def test_init_2D_geom():
     np.testing.assert_allclose(
         n.segments["upstream_length"], [87.67828936, 36.05551275, 31.6227766]
     )
-    assert list(n.headwater) == [1, 2]
-    assert list(n.outlets) == [0]
+    assert n.headwater.to_list() == [1, 2]
+    assert n.outlets.to_list() == [0]
     assert repr(n) == dedent(
         """\
         <SurfaceWaterNetwork:
@@ -208,10 +217,10 @@ def test_init_reversed_lines():
     np.testing.assert_allclose(
         n.segments["upstream_length"], [20.0, 56.05551275, 31.6227766]
     )
-    assert list(n.headwater) == [0, 2]
-    assert list(n.outlets) == [1, 2]
-    assert dict(n.to_segnums) == {0: 1}
-    assert dict(n.from_segnums) == {1: {0}}
+    assert n.headwater.to_list() == [0, 2]
+    assert n.outlets.to_list() == [1, 2]
+    assert n.to_segnums.to_dict() == {0: 1}
+    assert n.from_segnums.to_dict() == {1: {0}}
     assert repr(n) == dedent(
         """\
         <SurfaceWaterNetwork: with Z coordinates
@@ -257,10 +266,10 @@ def test_init_all_converge():
     np.testing.assert_allclose(
         n.segments["upstream_length"], [36.05551, 31.622776, 20.0]
     )
-    assert list(n.headwater) == [0, 1, 2]
-    assert list(n.outlets) == [0, 1, 2]
-    assert dict(n.to_segnums) == {}
-    assert dict(n.from_segnums) == {}
+    assert n.headwater.to_list() == [0, 1, 2]
+    assert n.outlets.to_list() == [0, 1, 2]
+    assert n.to_segnums.to_dict() == {}
+    assert n.from_segnums.to_dict() == {}
     assert repr(n) == dedent(
         """\
         <SurfaceWaterNetwork: with Z coordinates
@@ -306,10 +315,10 @@ def test_init_all_diverge():
     np.testing.assert_allclose(
         n.segments["upstream_length"], [36.05551, 31.622776, 20.0]
     )
-    assert list(n.headwater) == [0, 1, 2]
-    assert list(n.outlets) == [0, 1, 2]
-    assert dict(n.to_segnums) == {}
-    assert dict(n.from_segnums) == {}
+    assert n.headwater.to_list() == [0, 1, 2]
+    assert n.outlets.to_list() == [0, 1, 2]
+    assert n.to_segnums.to_dict() == {}
+    assert n.from_segnums.to_dict() == {}
     assert repr(n) == dedent(
         """\
         <SurfaceWaterNetwork: with Z coordinates
@@ -344,10 +353,10 @@ def test_init_line_connects_to_middle():
     assert list(n.segments["sequence"]) == [1, 2]
     assert list(n.segments["stream_order"]) == [1, 1]
     np.testing.assert_allclose(n.segments["upstream_length"], [56.05551, 31.622776])
-    assert list(n.headwater) == [0, 1]
-    assert list(n.outlets) == [0, 1]
-    assert dict(n.to_segnums) == {}
-    assert dict(n.from_segnums) == {}
+    assert n.headwater.to_list() == [0, 1]
+    assert n.outlets.to_list() == [0, 1]
+    assert n.to_segnums.to_dict() == {}
+    assert n.from_segnums.to_dict() == {}
     assert repr(n) == dedent(
         """\
         <SurfaceWaterNetwork: with Z coordinates
@@ -476,7 +485,7 @@ def test_init_geoseries():
     assert n.has_z is True
     v = pd.Series([3.0, 2.0, 4.0])
     a = n.accumulate_values(v)
-    assert dict(a) == {0: 9.0, 1: 2.0, 2: 4.0}
+    pd.testing.assert_series_equal(a, pd.Series({0: 9.0, 1: 2.0, 2: 4.0}))
 
 
 def test_init_segments_loc():
@@ -495,7 +504,7 @@ def test_init_segments_loc():
     n2 = swn.SurfaceWaterNetwork(n1.segments.loc[100:102])
     assert len(n2.segments) == 3
     assert list(n2.outlets) == [100]
-    assert dict(n2.to_segnums) == {101: 100, 102: 100}
+    assert n2.to_segnums.to_dict() == {101: 100, 102: 100}
 
 
 def test_accumulate_values_must_be_series(valid_n):
@@ -518,8 +527,12 @@ def test_accumulate_values_different_index(valid_n):
 def test_accumulate_values_expected(valid_n):
     v = pd.Series([2.0, 3.0, 4.0])
     a = valid_n.accumulate_values(v)
-    assert dict(a) == {0: 9.0, 1: 3.0, 2: 4.0}
-    assert a.name is None
+    pd.testing.assert_series_equal(a, pd.Series({0: 9.0, 1: 3.0, 2: 4.0}))
+    v = pd.Series([3.0, 2.0, 4.0], name="vals")
+    a = valid_n.accumulate_values(v)
+    pd.testing.assert_series_equal(
+        a, pd.Series({0: 9.0, 1: 2.0, 2: 4.0}, name="accumulated_vals")
+    )
 
 
 def test_init_polygons():
@@ -1053,9 +1066,9 @@ def test_fluss_n(fluss_n):
     assert list(n.segments["stream_order"]) == (
         [1, 1, 2, 1, 1, 2, 3, 1, 3, 3, 2, 2, 1, 1, 1, 1, 4, 1, 4]
     )
-    assert list(n.headwater) == [0, 1, 3, 4, 7, 12, 13, 14, 15, 17]
-    assert list(n.outlets) == [18]
-    assert dict(n.to_segnums) == {
+    assert n.headwater.to_list() == [0, 1, 3, 4, 7, 12, 13, 14, 15, 17]
+    assert n.outlets.to_list() == [18]
+    assert n.to_segnums.to_dict() == {
         0: 2,
         1: 2,
         2: 6,
@@ -1076,7 +1089,7 @@ def test_fluss_n(fluss_n):
         17: 18,
     }
 
-    assert dict(n.from_segnums) == {
+    assert n.from_segnums.to_dict() == {
         16: {8, 9},
         2: {0, 1},
         5: {3, 4},

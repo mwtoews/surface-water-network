@@ -109,14 +109,14 @@ def test_wkt_to_dataframe():
     with pytest.deprecated_call():
         df = spatial.wkt_to_dataframe(valid_lines_list)
     assert df.shape == (3, 1)
-    assert dict(df.dtypes) == {"geometry": np.dtype("O")}
+    assert df.dtypes.to_dict() == {"geometry": np.dtype("O")}
     assert type(df) == pd.DataFrame
     pd.testing.assert_index_equal(df.index, pd.RangeIndex(3))
 
     with pytest.deprecated_call():
         df = spatial.wkt_to_dataframe(valid_lines_list, "other")
     assert df.shape == (3, 1)
-    assert dict(df.dtypes) == {"other": np.dtype("O")}
+    assert df.dtypes.to_dict() == {"other": np.dtype("O")}
     assert type(df) == pd.DataFrame
     pd.testing.assert_index_equal(df.index, pd.RangeIndex(3))
 

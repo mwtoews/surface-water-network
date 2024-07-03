@@ -399,9 +399,9 @@ def find_location_pairs(loc_df, n, *, all_pairs=False, exclude_branches=False):
     if not segnum_is_in_index.all():
         raise ValueError("loc_df has segnum values not found in surface water network")
 
-    to_segnums = dict(n.to_segnums)
+    to_segnums_d = n.to_segnums.to_dict()
     if exclude_branches:
-        from_segnums = dict(n.from_segnums)
+        from_segnums_d = n.from_segnums.to_dict()
     loc_df = loc_df[["segnum", "seg_ndist"]].assign(_="")  # also does .copy()
     loc_segnum_s = set(loc_df.segnum)
     loc_df["sequence"] = n.segments.sequence[loc_df.segnum].values
@@ -418,9 +418,12 @@ def find_location_pairs(loc_df, n, *, all_pairs=False, exclude_branches=False):
             # continue searching downstream
             cur_segnum = us_segnum
             while True:
-                if cur_segnum in to_segnums:
-                    next_segnum = to_segnums[cur_segnum]
-                    if exclude_branches and len(from_segnums.get(next_segnum, [])) > 1:
+                if cur_segnum in to_segnums_d:
+                    next_segnum = to_segnums_d[cur_segnum]
+                    if (
+                        exclude_branches
+                        and len(from_segnums_d.get(next_segnum, [])) > 1
+                    ):
                         break  # stop searching due to branch
                     sel = loc_df["segnum"] == next_segnum
                     for ds_idx in sel[sel].index:
@@ -433,22 +436,24 @@ def find_location_pairs(loc_df, n, *, all_pairs=False, exclude_branches=False):
             # First case that the downstream segnum is in the same segnum
             next_loc = loc_df.iloc[next_iloc]
             if next_loc.segnum == us_segnum:
-                ds_idx = next_loc.name
+                ds_idx = next_loc.name.item()
             else:
                 # otherwise search downstream
                 cur_segnum = us_segnum
                 while True:
-                    if cur_segnum in to_segnums:
-                        next_segnum = to_segnums[cur_segnum]
+                    if cur_segnum in to_segnums_d:
+                        next_segnum = to_segnums_d[cur_segnum]
                         if (
                             exclude_branches
-                            and len(from_segnums.get(next_segnum, [])) > 1
+                            and len(from_segnums_d.get(next_segnum, [])) > 1
                         ):
                             break  # no pair due to branch
                         if next_segnum in loc_segnum_s:
-                            ds_idx = loc_df.segnum[loc_df.segnum == next_segnum].index[
-                                0
-                            ]
+                            ds_idx = (
+                                loc_df.segnum[loc_df.segnum == next_segnum]
+                                .index[0]
+                                .item()
+                            )
                             break  # found pair
                     else:
                         break  # no pair due to no downstream location

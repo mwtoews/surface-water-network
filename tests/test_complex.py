@@ -56,7 +56,7 @@ def test_init(coastal_swn, coastal_lines_gdf):
     assert list(nto[nto == 32].index) == [3050413, 3050418]
     cat_group = n.segments.groupby("cat_group").count()["to_segnum"]
     assert len(cat_group) == 3
-    assert dict(cat_group) == {3046700: 1, 3046737: 173, 3046736: 130}
+    assert cat_group.to_dict() == {3046700: 1, 3046737: 173, 3046736: 130}
     ln = n.segments["dist_to_outlet"]
     np.testing.assert_almost_equal(ln.min(), 42.437, 3)
     np.testing.assert_almost_equal(ln.mean(), 11105.741, 3)
@@ -69,7 +69,7 @@ def test_init(coastal_swn, coastal_lines_gdf):
     assert list(n.segments["sequence"])[-6:] == [156, 4, 155, 1, 3, 2]
     stream_order = n.segments.groupby("stream_order").count()["to_segnum"]
     assert len(stream_order) == 5
-    assert dict(stream_order) == {1: 154, 2: 72, 3: 46, 4: 28, 5: 4}
+    assert stream_order.to_dict() == {1: 154, 2: 72, 3: 46, 4: 28, 5: 4}
     np.testing.assert_array_equal(
         n.segments["stream_order"], coastal_lines_gdf["StreamOrde"]
     )

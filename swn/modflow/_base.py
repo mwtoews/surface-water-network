@@ -939,7 +939,9 @@ class SwnModflowBase:
                     has_sjoin_nearest = False
             for divn in diversions_in_model.itertuples():
                 # Use the last upstream reach as a template for a new reach
-                reach_d = dict(reaches.loc[reaches.segnum == divn.from_segnum].iloc[-1])
+                reach_d = (
+                    reaches.loc[reaches.segnum == divn.from_segnum].iloc[-1].to_dict()
+                )
                 reach_d.update(
                     {
                         "segnum": swn.END_SEGNUM,

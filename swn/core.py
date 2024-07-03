@@ -814,12 +814,12 @@ class SurfaceWaterNetwork:
             raise IndexError(f"invalid end segnum {end}")
         if start == end:
             return [start]
-        to_segnums = dict(self.to_segnums)
+        to_segnums_d = self.to_segnums.to_dict()
 
         def go_downstream(segnum):
             yield segnum
-            if segnum in to_segnums:
-                yield from go_downstream(to_segnums[segnum])
+            if segnum in to_segnums_d:
+                yield from go_downstream(to_segnums_d[segnum])
 
         con1 = list(go_downstream(start))
         try:
@@ -942,17 +942,17 @@ class SurfaceWaterNetwork:
 
         def go_downstream(segnum):
             yield segnum
-            if segnum in to_segnums:
-                yield from go_downstream(to_segnums[segnum])
+            if segnum in to_segnums_d:
+                yield from go_downstream(to_segnums_d[segnum])
 
-        to_segnums = dict(self.to_segnums)
+        to_segnums_d = self.to_segnums.to_dict()
         from_segnums = self.from_segnums
         for barrier in check_and_return_list(barrier, "barrier"):
             try:
                 del from_segnums[barrier]
             except KeyError:  # this is a tributary, remove value
-                from_segnums[to_segnums[barrier]].remove(barrier)
-            del to_segnums[barrier]
+                from_segnums[to_segnums_d[barrier]].remove(barrier)
+            del to_segnums_d[barrier]
 
         segnums = []
         for segnum in check_and_return_list(upstream, "upstream"):
@@ -1125,7 +1125,7 @@ class SurfaceWaterNetwork:
                 match_s.index.name = "gidx"
                 match = match_s.reset_index()
                 if min_stream_order is not None:
-                    to_segnums = dict(self.to_segnums)
+                    to_segnums_d = self.to_segnums.to_dict()
 
                     def find_downstream_in_min_stream_order(segnum):
                         while True:
@@ -1134,8 +1134,8 @@ class SurfaceWaterNetwork:
                                 >= min_stream_order
                             ):
                                 return segnum
-                            elif segnum in to_segnums:
-                                segnum = to_segnums[segnum]
+                            elif segnum in to_segnums_d:
+                                segnum = to_segnums_d[segnum]
                             else:  # nothing found with stream order criteria
                                 return segnum
 
@@ -1366,7 +1366,7 @@ class SurfaceWaterNetwork:
             )
         self.logger.debug("aggregating at least %d segnums (junctions)", len(junctions))
         from_segnums = self.from_segnums
-        to_segnums = dict(self.to_segnums)
+        to_segnums_d = self.to_segnums.to_dict()
 
         # trace down from each segnum to the outlet - keep this step simple
         traced_segnums = list()
@@ -1374,7 +1374,7 @@ class SurfaceWaterNetwork:
         def trace_down(segnum):
             if segnum is not None and segnum not in traced_segnums:
                 traced_segnums.append(segnum)
-                trace_down(to_segnums.get(segnum))
+                trace_down(to_segnums_d.get(segnum))
 
         for segnum in junctions:
             trace_down(segnum)
@@ -1467,7 +1467,7 @@ class SurfaceWaterNetwork:
                 #                   segnum, up_segnums, up_segnum)
                 yield from up_path_headwater_segnums(up_segnum)
 
-        junctions_goto = {s: to_segnums.get(s) for s in junctions}
+        junctions_goto = {s: to_segnums_d.get(s) for s in junctions}
         agg_patch = pd.Series(dtype=object)
         agg_path = pd.Series(dtype=object)
         agg_unpath = pd.Series(dtype=object)
@@ -2019,7 +2019,7 @@ class SurfaceWaterNetwork:
 
         geom_name = self.segments.geometry.name
         from_segnums = self.from_segnums
-        to_segnums = dict(self.to_segnums)
+        to_segnums_d = self.to_segnums.to_dict()
         modified_d = {}  # key is segnum, value is drop amount (+ve is down)
         self.messages = []
 
@@ -2066,8 +2066,8 @@ class SurfaceWaterNetwork:
                     # print('adj', z0 + drop0, dx * min_slope[segnum], drop)
                 z0 = z1
             # Ensure last coordinate matches other segments that end here
-            if segnum in to_segnums:
-                beside_segnums = from_segnums[to_segnums[segnum]]
+            if segnum in to_segnums_d:
+                beside_segnums = from_segnums[to_segnums_d[segnum]]
                 if beside_segnums:
                     last_zs = [profile_d[n][-1][1] for n in beside_segnums]
                     last_zs_min = min(last_zs)
