@@ -9,7 +9,7 @@ A Python package to create and analyze surface water networks.
 
 ## Python packages
 
-Python 3.8+ is required.
+Python 3.9+ is required.
 
 ### Required
 
