@@ -20,6 +20,10 @@ jobs:
         # pick lower and upper versions only
         python-version: ["3.9", "3.12"]
 
+    env:
+      # Use a non-interactive matplotlib backend
+      MPLBACKEND: Agg
+
     steps:
       - uses: actions/checkout@v4
 
@@ -41,9 +45,9 @@ jobs:
       - name: Run tests with required packages
         run: pytest -v --cov
 
-      - name: Install PyQt5 for macOS
-        if: matrix.os == 'macos-latest'
-        run: pip install PyQt5
+      # - name: Install PyQt5 for macOS
+      #   if: matrix.os == 'macos-latest'
+      #   run: pip install PyQt5
 
       - name: Run tests with optional packages
         run: |
