@@ -55,12 +55,12 @@ jobs:
           pytest -v -n2 --cov --cov-append
 
       - name: Run doctest
-        if: matrix.python-version == matrix.python-version[-1]  # oldest
+        if: matrix.python-version == '3.12'
         run: |
           pytest -v swn --doctest-modules
 
       - name: Run tests with older flopy and other packages
-        if: matrix.python-version == matrix.python-version[0]  # newest
+        if: matrix.python-version == '3.9'
         run: |
           pip install "flopy<3.5" "pandas<2.0" "geopandas<1.0" "shapely<2.0" "numpy<2.0"
           pytest -v -n2 --cov --cov-append
