@@ -1957,6 +1957,7 @@ def test_flopy_package_period(tmp_path):
             ],
             np.float32,
         )
+        print(dl["q"])
         np.testing.assert_almost_equal(dl["q"], expected_q, decimal=5)
         assert "RLEN" not in dl.dtype.names
         assert "RLEN".ljust(16) not in dl.dtype.names
