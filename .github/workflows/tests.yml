@@ -45,9 +45,9 @@ jobs:
       - name: Run tests with required packages
         run: pytest -v --cov
 
-      # - name: Install PyQt5 for macOS
-      #   if: matrix.os == 'macos-latest'
-      #   run: pip install PyQt5
+      - name: Install PyQt5 for macOS
+        if: ${{ startsWith(matrix.os, 'macos') }}
+        run: pip install PyQt5
 
       - name: Run tests with optional packages
         run: |
@@ -55,12 +55,12 @@ jobs:
           pytest -v -n2 --cov --cov-append
 
       - name: Run doctest
-        if: matrix.python-version == '3.12'
+        if: matrix.python-version == matrix.python-version[-1]  # oldest
         run: |
           pytest -v swn --doctest-modules
 
       - name: Run tests with older flopy and other packages
-        if: matrix.python-version == '3.9'
+        if: matrix.python-version == matrix.python-version[0]  # newest
         run: |
           pip install "flopy<3.5" "pandas<2.0" "geopandas<1.0" "shapely<2.0" "numpy<2.0"
           pytest -v -n2 --cov --cov-append
