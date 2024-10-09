@@ -128,7 +128,7 @@ class SurfaceWaterNetwork:
                 is_none = (av is None, bv is None)
                 if all(is_none):
                     continue
-                elif any(is_none) or type(av) != type(bv):
+                elif any(is_none) or type(av) is not type(bv):
                     return False
                 elif isinstance(av, pd.DataFrame):
                     pd.testing.assert_frame_equal(av, bv)

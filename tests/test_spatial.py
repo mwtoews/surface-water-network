@@ -110,14 +110,14 @@ def test_wkt_to_dataframe():
         df = spatial.wkt_to_dataframe(valid_lines_list)
     assert df.shape == (3, 1)
     assert df.dtypes.to_dict() == {"geometry": np.dtype("O")}
-    assert type(df) == pd.DataFrame
+    assert type(df) is pd.DataFrame
     pd.testing.assert_index_equal(df.index, pd.RangeIndex(3))
 
     with pytest.deprecated_call():
         df = spatial.wkt_to_dataframe(valid_lines_list, "other")
     assert df.shape == (3, 1)
     assert df.dtypes.to_dict() == {"other": np.dtype("O")}
-    assert type(df) == pd.DataFrame
+    assert type(df) is pd.DataFrame
     pd.testing.assert_index_equal(df.index, pd.RangeIndex(3))
 
 
@@ -126,14 +126,14 @@ def test_wkt_to_geodataframe():
         gdf = spatial.wkt_to_geodataframe(valid_lines_list)
     assert gdf.shape == (3, 1)
     assert list(gdf.columns) == ["geometry"]
-    assert type(gdf) == geopandas.GeoDataFrame
+    assert type(gdf) is geopandas.GeoDataFrame
     pd.testing.assert_series_equal(gdf.is_valid, pd.Series([True] * 3))
 
     with pytest.deprecated_call():
         gdf = spatial.wkt_to_geodataframe(valid_lines_list, "other")
     assert gdf.shape == (3, 1)
     assert list(gdf.columns) == ["other"]
-    assert type(gdf) == geopandas.GeoDataFrame
+    assert type(gdf) is geopandas.GeoDataFrame
     pd.testing.assert_series_equal(gdf.is_valid, pd.Series([True] * 3))
 
 
@@ -142,14 +142,14 @@ def test_wkt_to_geoseries():
         gs = spatial.wkt_to_geoseries(valid_lines_list)
     assert gs.shape == (3,)
     assert gs.name is None
-    assert type(gs) == geopandas.GeoSeries
+    assert type(gs) is geopandas.GeoSeries
     pd.testing.assert_series_equal(gs.is_valid, pd.Series([True] * 3))
 
     with pytest.deprecated_call():
         gs = spatial.wkt_to_geoseries(valid_lines_list, "other")
     assert gs.shape == (3,)
     assert gs.name == "other"
-    assert type(gs) == geopandas.GeoSeries
+    assert type(gs) is geopandas.GeoSeries
     pd.testing.assert_series_equal(gs.is_valid, pd.Series([True] * 3))
 
 
