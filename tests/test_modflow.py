@@ -1982,7 +1982,7 @@ def test_flopy_package_period(tmp_path):
         # with auxiliary
         _ = nm.set_package_obj("drn", ipakcb=52, auxiliary="rlen")
         m.write_input()
-        # edit file before running, due to flopy shortcomming
+        # edit file before running, due to flopy shortcoming
         drn_fname = tmp_path / "modflowtest.drn"
         txt = drn_fname.read_text().splitlines()
         txt[1] += " AUX RLEN"

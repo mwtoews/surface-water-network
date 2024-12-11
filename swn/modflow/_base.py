@@ -147,7 +147,7 @@ class SwnModflowBase:
     def swn(self):
         """Surface water network object.
 
-        This propery can only be set once.
+        This property can only be set once.
 
         See Also
         --------
@@ -272,7 +272,7 @@ class SwnModflowBase:
     def model(self):
         """Flopy model object.
 
-        This propery can be set more than once, but time and most grid
+        This property can be set more than once, but time and most grid
         properties must match. Setting this method also generates
         ``time_index`` and ``grid_cells`` attributes from the model.
 
@@ -291,7 +291,7 @@ class SwnModflowBase:
         import flopy
 
         if model is None:
-            self.logger.info("unsetting model properry")
+            self.logger.info("unsetting model property")
             self._model = None
             return
 
@@ -327,7 +327,7 @@ class SwnModflowBase:
             self.logger.info("swapping model object, checking other metadata")
         self._model = model
 
-        # Use a model cache to determine if the rest needs to be evaulated
+        # Use a model cache to determine if the rest needs to be evaluated
         dis = model.dis
         modelgrid = model.modelgrid
         modeltime = model.modeltime

@@ -173,7 +173,7 @@ class SwnMf6(SwnModflowBase):
             )
             obj.diversions[ridxname] = 0  # valid from 1
             obj.diversions.loc[r_df.index, ridxname] = r_df[ridxname]
-            # evaluate idv, which is betwen 1 and ndv
+            # evaluate idv, which is between 1 and ndv
             obj.diversions["idv"] = 0
             obj.diversions.loc[div_sel, "idv"] = 1
             ridx_counts = obj.diversions[div_sel].groupby(ridxname).count()["in_model"]
@@ -381,7 +381,7 @@ class SwnMf6(SwnModflowBase):
         Parameters
         ----------
         style : str
-            If "native", all indicies (including kij) use one-based notation.
+            If "native", all indices (including kij) use one-based notation.
             Also use k,i,j columns (as str) rather than cellid.
             If "flopy", all indices (including rno/ifno) use zero-based notation.
             Also use cellid as a tuple.
@@ -531,7 +531,7 @@ class SwnMf6(SwnModflowBase):
         Parameters
         ----------
         style : str
-            If "native", all indicies (including kij) use one-based notation.
+            If "native", all indices (including kij) use one-based notation.
             If "flopy", all indices (including rno/ifno) use zero-based notation.
 
         """
@@ -613,7 +613,7 @@ class SwnMf6(SwnModflowBase):
         Parameters
         ----------
         style : str
-            If "native", all indicies use one-based notation.
+            If "native", all indices use one-based notation.
             If "flopy", all indices use zero-based notation.
 
         Returns
@@ -743,7 +743,7 @@ class SwnMf6(SwnModflowBase):
             MODFLOW 6 package name, such as "drn" for DRAIN, or "GWT/SRC" for
             Mass Source Loading.
         style : str
-            If "native", all indicies (including kij) use one-based notation.
+            If "native", all indices (including kij) use one-based notation.
             Also use k,i,j columns (as str) rather than cellid.
             If "flopy", all indices (including rno/ifno) use zero-based notation.
             Also use cellid as a tuple.
@@ -1217,7 +1217,7 @@ class SwnMf6(SwnModflowBase):
                 rbed_elev = r.strtop - r.strthick
             if (rbed_elev - buffer) < r.bot:
                 # if new strtop is below layer one
-                # drop bottom of layer one to accomodate stream
+                # drop bottom of layer one to accommodate stream
                 # (top, bed thickness and buffer)
                 new_elev = rbed_elev - buffer
                 self.logger.debug(
@@ -1306,7 +1306,7 @@ class SwnMf6(SwnModflowBase):
                 upreach_cmid = self.reaches[rsel]["cmids"].values[0]
                 # use top reach as starting point
 
-                # loop over reaches in segement from second to penultimate
+                # loop over reaches in segment from second to penultimate
                 # (dont want to move elevup or elevdn)
                 for reach in self.reaches[rsel][1:-1].itertuples():
                     # strtop that would result from minimum slope
@@ -1489,7 +1489,7 @@ class SwnMf6(SwnModflowBase):
                 rbed_elev = r.rtp - r.rbth
             if (rbed_elev - buffer) < r.bot:
                 # if new strtop is below layer one
-                # drop bottom of layer one to accomodate stream
+                # drop bottom of layer one to accommodate stream
                 # (top, bed thickness and buffer)
                 new_elev = rbed_elev - buffer
                 name = getattr(r, "Index", None) or getattr(r, "name")
@@ -1573,7 +1573,7 @@ class SwnMf6(SwnModflowBase):
 
             # get incision gradient from headwater and outflow incision
             # ("inc_up" and "inc_dn" are the incisions of the top and
-            # bottom reaches) # TODO is this stil meaningfull?
+            # bottom reaches) # TODO is this still meaningful?
             incgrad = (inc_up - inc_dn) / totlen
             # apparent optimised incision based
             # on the incision gradient for the segment
@@ -1751,7 +1751,7 @@ class SwnMf6(SwnModflowBase):
                (of ridx)
             2. grab all offensive reaches downstream of ridx
             3. check and fix all layer bottoms to be above minthick+buffer
-            4. adjust top, up only, to accomodate minincision or rtp above
+            4. adjust top, up only, to accommodate minincision or rtp above
                cell top
 
         Parameters
@@ -1956,7 +1956,7 @@ class SwnMf6(SwnModflowBase):
             Start and end reach numbers (rno or ifno).
         allow_indirect : bool, default False
             If True, allow the route to go downstream from start to a
-            confluence, then route upstream to end. Defalut False allows
+            confluence, then route upstream to end. Default False allows
             only a direct route along a single direction up or down.
 
         Returns
@@ -2197,7 +2197,7 @@ def get_flopy_mf6_package(name: str):
     import flopy.mf6
 
     if not isinstance(name, str):
-        raise ValueError(f"packge must be a str type; found {type(name)!r}")
+        raise ValueError(f"package must be a str type; found {type(name)!r}")
     try:
         return getattr(flopy.mf6, name)
     except AttributeError:

@@ -53,7 +53,7 @@ def is_location_frame(loc_df, geom_required=True):
         Input must be either a GeoDataFrame or DataFrame (if geometry is not
         required).
     ValueError
-        If the [geo] data frame has insufficent data.
+        If the [geo] data frame has insufficient data.
 
     """
     if geom_required:
