@@ -40,7 +40,7 @@ def test_topnet2ts(coastal_flow_ts):
     flow = swn.file.topnet2ts(datadir / nc_fname, "mod_flow", mult=86400)
     assert flow.shape == (14, 304)
     assert list(pd.unique(flow.dtypes)) == [np.float32]
-    # remove time and truncat to closest day
+    # remove time and truncate to closest day
     try:
         flow.index = flow.index.floor("d")
     except AttributeError:

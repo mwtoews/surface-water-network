@@ -94,7 +94,7 @@ def test_interp_2d_to_3d():
         geopandas.GeoSeries([Point(xy) for xy in zip(x_in, y_in)]), grid, gt
     )
     np.testing.assert_array_equal(gs3d.apply(lambda g: g.z), [18, 15, 10, 12])
-    # Points outside shoud raise an exception
+    # Points outside should raise an exception
     x_out = [29, 71, 71, 29]
     y_out = [131, 131, 69, 69]
     outside_combs = (
@@ -401,7 +401,7 @@ def test_find_location_pairs(coastal_points, coastal_swn):
     assert {(10, 1)} == spatial.find_location_pairs(
         loc_df, coastal_swn, exclude_branches=True
     )
-    # re-gen a simpler network to retry exlude branches
+    # re-gen a simpler network to retry exclude branches
     n2 = swn.SurfaceWaterNetwork.from_lines(
         coastal_swn.segments.geometry[coastal_swn.segments.stream_order >= 2]
     )
@@ -417,7 +417,7 @@ def test_find_location_pairs(coastal_points, coastal_swn):
         spatial.find_location_pairs(loc_df.segnum, coastal_swn)
     with pytest.raises(ValueError, match="loc_df must have 'segnum' column"):
         spatial.find_location_pairs(loc_df[["method"]], coastal_swn)
-    with pytest.raises(ValueError, match="loc_df must have 'seg_ndist' colum"):
+    with pytest.raises(ValueError, match="loc_df must have 'seg_ndist' column"):
         spatial.find_location_pairs(loc_df[["segnum"]], coastal_swn)
     loc_df.segnum += 10
     with pytest.raises(ValueError, match="loc_df has segnum values not foun"):
@@ -454,7 +454,7 @@ def test_location_pair_geoms(coastal_points, coastal_swn):
         spatial.location_pair_geoms(pairs, loc_df.segnum, coastal_swn)
     with pytest.raises(ValueError, match="loc_df must have 'segnum' column"):
         spatial.location_pair_geoms(pairs, loc_df[["method"]], coastal_swn)
-    with pytest.raises(ValueError, match="loc_df must have 'seg_ndist' colum"):
+    with pytest.raises(ValueError, match="loc_df must have 'seg_ndist' column"):
         spatial.location_pair_geoms(pairs, loc_df[["segnum"]], coastal_swn)
     loc_df.segnum += 10
     with pytest.raises(ValueError, match="loc_df has segnum values not found"):

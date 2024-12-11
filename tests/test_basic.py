@@ -371,7 +371,7 @@ def test_init_line_connects_to_middle():
 
 
 def test_to_segnums(valid_n):
-    # check series in propery method
+    # check series in property method
     pd.testing.assert_series_equal(
         valid_n.to_segnums, pd.Series([0, 0], name="to_segnum", index=pd.Index([1, 2]))
     )
@@ -395,7 +395,7 @@ def test_to_segnums(valid_n):
 
 
 def test_from_segnums(valid_n):
-    # check series in propery method
+    # check series in property method
     pd.testing.assert_series_equal(
         valid_n.from_segnums, pd.Series([{1, 2}], name="from_segnums")
     )
@@ -647,7 +647,7 @@ def test_set_diversions_geodataframe():
     assert set(n.diversions.columns) == set(expected.columns)
     pd.testing.assert_frame_equal(n.diversions[expected.columns], expected)
     np.testing.assert_array_equal(n.segments["diversions"], [{2, 3}, {0}, {1}])
-    # defalut parameters
+    # default parameters
     n.set_diversions(diversions)
     expected = geopandas.GeoDataFrame(
         {
@@ -1013,7 +1013,7 @@ def test_remove_errors(valid_n):
     assert len(n) == 3
     n.remove()  # no segments selected to remove; no changes made
     assert len(n) == 3
-    n.remove(n.segments["dist_to_outlet"] > 100.0)  # dito, none selected
+    n.remove(n.segments["dist_to_outlet"] > 100.0)  # ditto, none selected
     assert len(n) == 3
     with pytest.raises(
         IndexError, match=r"1 segnums not found in segments\.index: \[3\]"

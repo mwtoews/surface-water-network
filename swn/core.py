@@ -233,7 +233,7 @@ class SurfaceWaterNetwork:
         del segments, END_SEGNUM  # dereference local copies
         obj.errors = []
         obj.warnings = []
-        obj.logger.debug("creating start/end points and spatial join objets")
+        obj.logger.debug("creating start/end points and spatial join objects")
         start_pts = obj.segments.interpolate(0.0, normalized=True)
         end_pts = obj.segments.interpolate(1.0, normalized=True)
         start_df = start_pts.to_frame("start").set_geometry("start")
@@ -282,7 +282,7 @@ class SurfaceWaterNetwork:
             len(headwater),
             len(outlets),
         )
-        # Find outlets that join to a single coodinate
+        # Find outlets that join to a single coordinate
         multi_outlets = set()
         out_pts = end_pts.loc[outlets].to_frame("out").set_geometry("out")
         left_idx_name, right_idx_name = sjoin_idx_names(out_pts, out_pts)
@@ -324,7 +324,7 @@ class SurfaceWaterNetwork:
             m = ("segment %s connects to the middle of segment %s", r.out, r.segnum)
             obj.logger.error(*m)
             obj.errors.append(m[0] % m[1:])
-        # Find headwater that join to a single coodinate
+        # Find headwater that join to a single coordinate
         hw_pts = start_pts.loc[headwater].to_frame("hw").set_geometry("hw")
         hw_idx_name, start_idx_name = sjoin_idx_names(hw_pts, start_df)
         jhw = pd.DataFrame(
@@ -765,7 +765,7 @@ class SurfaceWaterNetwork:
             Start and end segnums.
         allow_indirect : bool, default False
             If True, allow the route to go downstream from start to a
-            confluence, then route upstream to end. Defalut False allows
+            confluence, then route upstream to end. Default False allows
             only a a direct route along a single direction up or down.
 
         Returns
@@ -2128,7 +2128,7 @@ class SurfaceWaterNetwork:
         ----------
         condition : bool or pandas.Series
             Series of bool for each segment index, where True is to remove.
-            Combined with 'segnums'. Defaut False (keep all).
+            Combined with 'segnums'. Default False (keep all).
         segnums : list
             List of segnums to remove. Combined with 'condition'. Default [].
 

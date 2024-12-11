@@ -86,3 +86,12 @@ select = [
     "I",  # isort
     "NPY",  # NumPy-specific
 ]
+
+[tool.codespell]
+skip = "./docs/build,dist"
+check-filenames = true
+ignore-words-list = [
+    "nam",
+    "notin",
+    "hax",
+]

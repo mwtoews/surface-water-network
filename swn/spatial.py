@@ -257,7 +257,7 @@ def bias_substring(gs, downstream_bias, end_cut=1e-10):
         the upstream end of lines, and a positive bias removes upstream part
         to bias the downstream end of lines. Valid range is -1 to +1.
     end_cut : float, default 1e-10
-        The extra amout to remove on each end. Valid range is 0 to 0.5.
+        The extra amount to remove on each end. Valid range is 0 to 0.5.
 
     Returns
     -------

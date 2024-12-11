@@ -1111,14 +1111,14 @@ class SwnModflow(SwnModflowBase):
         """Force segment to have minimum slope (check for backward flowing segs).
 
         Moves downstream end down (vertically, more incision)
-        to acheive minimum slope.
+        to achieve minimum slope.
 
         Parameters
         ----------
         seg : pandas.Series
             Series containing one row of seg_data dataframe
         *args: tuple
-            Desired minumum slope
+            Desired minimum slope
 
         Returns
         -------
@@ -1367,7 +1367,7 @@ class SwnModflow(SwnModflowBase):
                 rbed_elev = r.strtop - r.strthick
             if (rbed_elev - buffer) < r.bot:
                 # if new strtop is below layer one
-                # drop bottom of layer one to accomodate stream
+                # drop bottom of layer one to accommodate stream
                 # (top, bed thickness and buffer)
                 new_elev = rbed_elev - buffer
                 self.logger.debug(
@@ -1449,7 +1449,7 @@ class SwnModflow(SwnModflowBase):
                 upreach_cmid = self.reaches[rsel]["cmids"].values[0]
                 # use top reach as starting point
 
-                # loop over reaches in segement from second to penultimate
+                # loop over reaches in segment from second to penultimate
                 # (dont want to move elevup or elevdn)
                 for reach in self.reaches[rsel][1:-1].itertuples():
                     # strtop that would result from minimum slope
@@ -1674,7 +1674,7 @@ class SwnModflow(SwnModflowBase):
             Start and end reach identifiers (reachID) used by FloPy.
         allow_indirect : bool, default False
             If True, allow the route to go downstream from start to a
-            confluence, then route upstream to end. Defalut False allows
+            confluence, then route upstream to end. Default False allows
             only a direct route along a single direction up or down.
 
         Returns
@@ -1808,7 +1808,7 @@ class SwnModflow(SwnModflowBase):
         package : str
             MODFLOW package name, such as "drn" for DRAIN.
         style : str
-            If "native", all indicies (including kij) use one-based notation.
+            If "native", all indices (including kij) use one-based notation.
             Also use k,i,j columns (as str) rather than cellid.
             If "flopy", all indices (including rno) use zero-based notation.
             Also use cellid as a tuple.
@@ -2117,7 +2117,7 @@ def get_flopy_modflow_package(name: str):
     import flopy.modflow
 
     if not isinstance(name, str):
-        raise ValueError(f"packge must be a str type; found {type(name)!r}")
+        raise ValueError(f"package must be a str type; found {type(name)!r}")
     try:
         return getattr(flopy.modflow, name)
     except AttributeError:
