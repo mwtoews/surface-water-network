@@ -390,11 +390,11 @@ document.write(`
 <h2>Surface water network<a class="headerlink" href="#surface-water-network" title="Permalink to this heading">#</a></h2>
 <p>This example is based on <a class="reference external" href="https://commons.wikimedia.org/wiki/File:Flussordnung_(Strahler).svg">this image</a> that
 illustrates Strahler number.</p>
-<div class="highlight-ipython notranslate"><div class="highlight"><pre><span></span><span class="gp">In [1]: </span><span class="kn">import</span> <span class="nn">swn</span>
+<div class="highlight-ipython notranslate"><div class="highlight"><pre><span></span><span class="gp">In [1]: </span><span class="kn">import</span><span class="w"> </span><span class="nn">swn</span>
 
-<span class="gp">In [2]: </span><span class="kn">import</span> <span class="nn">geopandas</span>
+<span class="gp">In [2]: </span><span class="kn">import</span><span class="w"> </span><span class="nn">geopandas</span>
 
-<span class="gp">In [3]: </span><span class="kn">from</span> <span class="nn">shapely</span> <span class="kn">import</span> <span class="n">wkt</span>
+<span class="gp">In [3]: </span><span class="kn">from</span><span class="w"> </span><span class="nn">shapely</span><span class="w"> </span><span class="kn">import</span> <span class="n">wkt</span>
 
 <span class="gp">In [4]: </span><span class="n">lines</span> <span class="o">=</span> <span class="n">geopandas</span><span class="o">.</span><span class="n">GeoSeries</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">wkt</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="s2">&quot;&quot;&quot;</span><span class="se">\</span>
 <span class="gp">   ...: </span><span class="s2">MULTILINESTRING(</span>
