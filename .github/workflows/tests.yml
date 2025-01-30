@@ -57,7 +57,7 @@ jobs:
       - name: Run doctest
         if: matrix.python-version == '3.12'
         run: |
-          pytest -v swn --doctest-modules
+          pytest -v --doctest-modules src
 
       - name: Run tests with older flopy and other packages
         if: matrix.python-version == '3.9'
