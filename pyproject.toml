@@ -63,11 +63,14 @@ Source = "https://github.com/mwtoews/surface-water-network"
 [tool.hatch.version]
 source = "vcs"
 
-[tool.hatch.build.targets.wheel]
-only-include = ["swn"]
-
 [tool.hatch.build.hooks.vcs]
-version-file = "swn/_version.py"
+version-file = "src/swn/_version.py"
+
+[tool.hatch.build.targets.sdist]
+only-include = ["src", "tests"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/swn"]
 
 [tool.pytest.ini_options]
 minversion = "6.0"
