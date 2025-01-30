@@ -1214,21 +1214,9 @@ class SwnModflowBase:
             rchs.loc[sel, "min_slope"] = rchs.min_slope[~sel].min()
         rchs[grid_name] = 0.0
         if method == "zcoord_ab":
+            from swn.spatial import get_z_coords
 
-            def get_zcoords(g):
-                if g.is_empty or not g.has_z:
-                    return []
-                if g.geom_type == "LineString":
-                    return [c[2] for c in g.coords[:]]
-                if g.geom_type == "Point":
-                    return [g.z]
-                if g.geom_type.startswith("Multi"):
-                    # recurse and flatten
-                    t = [get_zcoords(sg) for sg in g.geoms]
-                    return [item for slist in t for item in slist]
-                return []
-
-            zcoords = rchs.geometry.apply(get_zcoords)
+            zcoords = rchs.geometry.apply(get_z_coords)
             rchs["zcoord_count"] = zcoords.apply(len)
             sel = rchs["zcoord_count"] > 0
             if not sel.any():

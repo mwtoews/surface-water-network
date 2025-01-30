@@ -105,6 +105,31 @@ def test_interp_2d_to_3d():
             spatial.interp_2d_to_3d(geopandas.GeoSeries([Point(pt)]), grid, gt)
 
 
+@pytest.mark.parametrize(
+    "geom_wkt, expected",
+    [
+        ("POINT EMPTY", []),
+        ("POINT (1 2)", []),
+        ("POINT Z EMPTY", []),
+        ("POINT Z (1 2 3)", [3.0]),
+        ("MULTIPOINT Z (1 2 3, 4 5 6)", [3.0, 6.0]),
+        ("LINESTRING Z (0 0 1.1, 0 1 2.2)", [1.1, 2.2]),
+        (
+            "MULTILINESTRING Z ((0 0 1.1, 0 1 2.2), (1 1 5.4, 1 0 3.1))",
+            [1.1, 2.2, 5.4, 3.1],
+        ),
+        (
+            "GEOMETRYCOLLECTION Z (LINESTRING Z (0 0 1.1, 0 1 2.2), POINT Z (1 2 3))",
+            [1.1, 2.2, 3.0],
+        ),
+        ("POLYGON Z ((0 0 0, 0 1 1, 1 0 1, 0 0 0)))", []),
+    ],
+)
+def test_get_z_coords(geom_wkt, expected):
+    geom = wkt.loads(geom_wkt)
+    assert spatial.get_z_coords(geom) == expected
+
+
 def test_wkt_to_dataframe():
     with pytest.deprecated_call():
         df = spatial.wkt_to_dataframe(valid_lines_list)

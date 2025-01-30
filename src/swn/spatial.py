@@ -6,6 +6,7 @@ __all__ = [
     "find_location_pairs",
     "force_2d",
     "get_crs",
+    "get_z_coords",
     "interp_2d_to_3d",
     "location_pair_geoms",
     "round_coords",
@@ -145,6 +146,23 @@ def interp_2d_to_3d(gs, grid, gt):
         return type(geom)(zip(x, y, z))
 
     return gs.apply(geom2dto3d)
+
+
+def get_z_coords(geom):
+    """Get list of z-coordinates from geometry."""
+    if geom.is_empty or not geom.has_z:
+        return []
+    if geom.geom_type == "LineString":
+        return [c[2] for c in geom.coords[:]]
+    if geom.geom_type == "Point":
+        return [geom.z]
+    if geom.geom_type.startswith("Multi") or geom.geom_type.startswith(
+        "GeometryCollection"
+    ):
+        # recurse and flatten
+        t = [get_z_coords(sg) for sg in geom.geoms]
+        return [item for slist in t for item in slist]
+    return []
 
 
 def wkt_to_dataframe(wkt_list, geom_name="geometry"):
