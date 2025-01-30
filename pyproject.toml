@@ -83,12 +83,20 @@ filterwarnings = [
 
 [tool.ruff.lint]
 select = [
-    "E",  # pycodestyle
-    "F",  # Pyflakes
-    "UP",  # pyupgrade
-    "I",  # isort
+    "E",    # pycodestyle
+    "F",    # Pyflakes
+    "I",    # isort
     "NPY",  # NumPy-specific
+    "RET",  # flake8-return
+    "RUF",  # Ruff-specific rules
+    "UP",   # pyupgrade
 ]
+ignore = [
+    "RUF005",  # Consider iterable unpacking instead of concatenation
+]
+
+[tool.ruff.lint.per-file-ignores]
+"**/{tests}/*" = ["ANN", "D", "RET504"]
 
 [tool.codespell]
 skip = "./docs/build,dist"

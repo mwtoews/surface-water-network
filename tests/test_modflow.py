@@ -1422,7 +1422,7 @@ def test_coastal_ibound_modify(coastal_swn, coastal_flow_m, tmp_path):
           304 in segment_data (nseg): [1, 2, ..., 303, 304]
             304 from segments (nzsegment): [3050413, 3050418, ..., 3046952, 3046736]
           1 stress period with perlen: [1.0] />"""
-    )  # noqa
+    )
     if matplotlib:
         _ = nm.plot()
         plt.close()

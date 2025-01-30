@@ -192,11 +192,11 @@ def transform_data_to_series_or_frame(
             val_lens = list(len(v) for v in data.values())
             if min(val_lens) != max(val_lens):
                 raise ValueError("inconsistent lengths found in dict series")
-            elif max(val_lens) != len(time_index):
+            if max(val_lens) != len(time_index):
                 raise ValueError("length of dict series does not match time index")
             return return_frame(pd.DataFrame(data, index=time_index))
         return return_series(data)
-    elif isinstance(data, pd.Series):
+    if isinstance(data, pd.Series):
         if len(data) == 0:
             return pd.Series(dtype=dtype)
         # elif np.issubdtype(data.dtype, object):
@@ -204,10 +204,10 @@ def transform_data_to_series_or_frame(
         if has_mapping:
             check_keys(data, "index", "series")
         return return_series(data)
-    elif isinstance(data, pd.DataFrame):
+    if isinstance(data, pd.DataFrame):
         if len(data.index) != len(time_index):
             raise ValueError("length of frame index does not match time index")
-        elif isinstance(data.index, pd.DatetimeIndex):
+        if isinstance(data.index, pd.DatetimeIndex):
             if not (data.index == time_index).all():
                 raise ValueError("frame index does not match time index")
         elif (data.index == pd.RangeIndex(len(data.index))).all():

@@ -205,7 +205,7 @@ class ModelPlot:
         :param label: label for colorbar
         """
         if self.ax is None:
-            return
+            return None
         if cmap is None:
             cmap = matplotlib.colormaps.get_cmap("viridis")
         if self.mprj is None:

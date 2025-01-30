@@ -128,9 +128,9 @@ class SurfaceWaterNetwork:
                 is_none = (av is None, bv is None)
                 if all(is_none):
                     continue
-                elif any(is_none) or type(av) is not type(bv):
+                if any(is_none) or type(av) is not type(bv):
                     return False
-                elif isinstance(av, pd.DataFrame):
+                if isinstance(av, pd.DataFrame):
                     pd.testing.assert_frame_equal(av, bv)
                 elif isinstance(av, pd.Series):
                     pd.testing.assert_series_equal(av, bv)
@@ -156,9 +156,9 @@ class SurfaceWaterNetwork:
         """Set object attributes from pickle loads."""
         if not isinstance(state, dict):
             raise ValueError(f"expected 'dict'; found {type(state)!r}")
-        elif "class" not in state:
+        if "class" not in state:
             raise KeyError("state does not have 'class' key")
-        elif state["class"] != self.__class__.__name__:
+        if state["class"] != self.__class__.__name__:
             raise ValueError(
                 "expected state class {!r}; found {!r}".format(
                     state["class"], self.__class__.__name__
@@ -210,9 +210,9 @@ class SurfaceWaterNetwork:
         """
         if not isinstance(lines, geopandas.GeoSeries):
             raise ValueError("lines must be a GeoSeries")
-        elif len(lines) == 0:
+        if len(lines) == 0:
             raise ValueError("one or more lines are required")
-        elif not (lines.geom_type == "LineString").all():
+        if not (lines.geom_type == "LineString").all():
             raise ValueError("lines must all be LineString types")
         # Create a new GeoDataFrame with a copy of line's geometry
         segments = geopandas.GeoDataFrame(geometry=lines)
@@ -497,7 +497,7 @@ class SurfaceWaterNetwork:
         100          0   {101, 102}        100              1         3             2
         101        100           {}        100              2         1             1
         102        100           {}        100              2         2             1
-        """  # noqa
+        """
         return getattr(self, "_segments")
 
     @property
@@ -545,7 +545,7 @@ class SurfaceWaterNetwork:
             if hasattr(self, "_catchments"):
                 delattr(self, "_catchments")
             return
-        elif not isinstance(value, geopandas.GeoSeries):
+        if not isinstance(value, geopandas.GeoSeries):
             raise ValueError(
                 f"catchments must be a GeoSeries or None; found {type(value)!r}"
             )
@@ -930,10 +930,9 @@ class SurfaceWaterNetwork:
                         f"not found in segments.index: {abbr_str(diff)}"
                     )
                 return var
-            else:
-                if var not in segments_index:
-                    raise IndexError(f"{name} segnum {var} not found in segments.index")
-                return [var]
+            if var not in segments_index:
+                raise IndexError(f"{name} segnum {var} not found in segments.index")
+            return [var]
 
         def go_upstream(segnum):
             yield segnum
@@ -1052,7 +1051,7 @@ class SurfaceWaterNetwork:
 
         if not isinstance(geom, geopandas.GeoSeries):
             raise TypeError("expected 'geom' as an instance of GeoSeries")
-        elif not (-1.0 <= downstream_bias <= 1.0):
+        if not (-1.0 <= downstream_bias <= 1.0):
             raise ValueError("downstream_bias must be between -1 and 1")
 
         # Make sure CRS is the same as segments (if defined)
@@ -1134,7 +1133,7 @@ class SurfaceWaterNetwork:
                                 >= min_stream_order
                             ):
                                 return segnum
-                            elif segnum in to_segnums_d:
+                            if segnum in to_segnums_d:
                                 segnum = to_segnums_d[segnum]
                             else:  # nothing found with stream order criteria
                                 return segnum
@@ -1716,7 +1715,7 @@ class SurfaceWaterNetwork:
         """
         if not isinstance(values, pd.Series):
             raise ValueError("values must be a pandas Series")
-        elif (
+        if (
             len(values.index) != len(self.segments.index)
             or not (values.index == self.segments.index).all()
         ):
@@ -2014,7 +2013,7 @@ class SurfaceWaterNetwork:
         min_slope = self.segments_series(min_slope)
         if (min_slope <= 0.0).any():
             raise ValueError("min_slope must be greater than zero")
-        elif not self.has_z:
+        if not self.has_z:
             raise AttributeError("line geometry does not have Z dimension")
 
         geom_name = self.segments.geometry.name
@@ -2185,8 +2184,7 @@ class SurfaceWaterNetwork:
             if not segnums_set.issubset(segments_index):
                 diff = list(sorted(segnums_set.difference(segments_index)))
                 raise IndexError(
-                    f"{len(diff)} segnums not found in "
-                    f"segments.index: {abbr_str(diff)}"
+                    f"{len(diff)} segnums not found in segments.index: {abbr_str(diff)}"
                 )
             self.logger.debug(
                 "selecting %d segnum(s) based on a list", len(segnums_set)
@@ -2196,7 +2194,7 @@ class SurfaceWaterNetwork:
             raise ValueError(
                 "all segments were selected to remove; must keep at least one"
             )
-        elif (~sel).all():
+        if (~sel).all():
             self.logger.info("no segments selected to remove; no changes made")
         else:
             assert sel.any()
