@@ -121,16 +121,14 @@ class SwnMf6(SwnModflowBase):
                 if to_segnum in reaches_segnum_s:
                     sel = obj.reaches["segnum"] == to_segnum
                     return obj.reaches[sel].index[0]
-                else:  # recurse downstream
-                    return find_next_ridx(to_segnum)
-            else:
-                return 0
+                # recurse downstream
+                return find_next_ridx(to_segnum)
+            return 0
 
         def get_to_ridx():
             if segnum == next_segnum:
                 return next_ridx
-            else:
-                return find_next_ridx(segnum)
+            return find_next_ridx(segnum)
 
         ridxname = obj.reach_index_name
         to_ridxname = f"to_{ridxname}"
@@ -287,9 +285,9 @@ class SwnMf6(SwnModflowBase):
                 is_none = (av is None, bv is None)
                 if all(is_none):
                     continue
-                elif any(is_none) or type(av) is not type(bv):
+                if any(is_none) or type(av) is not type(bv):
                     return False
-                elif isinstance(av, pd.DataFrame):
+                if isinstance(av, pd.DataFrame):
                     pd.testing.assert_frame_equal(av, bv)
                 elif isinstance(av, pd.Series):
                     pd.testing.assert_series_equal(av, bv)
@@ -539,8 +537,7 @@ class SwnMf6(SwnModflowBase):
         def nonzerolst(x, neg=False):
             if neg:
                 return [-x] if x > 0 else []
-            else:
-                return [x] if x > 0 else []
+            return [x] if x > 0 else []
 
         ridxname = self.reach_index_name
         from_ridxsname = f"from_{ridxname}s"
@@ -564,12 +561,11 @@ class SwnMf6(SwnModflowBase):
         if style == "native":
             # keep one-based notation, but convert list to str
             return res
-        elif style == "flopy":
+        if style == "flopy":
             # Convert ridx from one-based to zero-based notation
             res.index -= 1
             return res.apply(lambda x: [v - 1 if v > 0 else v + 1 for v in x])
-        else:
-            raise ValueError("'style' must be either 'native' or 'flopy'")
+        raise ValueError("'style' must be either 'native' or 'flopy'")
 
     def write_connectiondata(self, fname: str):
         """Write CONNECTIONDATA file for MODFLOW 6 SFR.
@@ -585,7 +581,7 @@ class SwnMf6(SwnModflowBase):
 
         """
         cn = self.connectiondata_series("native")
-        icn = [f"ic{n+1}" for n in range(cn.apply(len).max())]
+        icn = [f"ic{n + 1}" for n in range(cn.apply(len).max())]
         rowfmt = f"{{:>{len(str(cn.index.max()))}}} {{}}\n"
         ridxlen = 1 + len(str(len(self.reaches)))
         cn = cn.apply(lambda x: " ".join(str(v).rjust(ridxlen) for v in x))
@@ -660,7 +656,7 @@ class SwnMf6(SwnModflowBase):
         12     4    0      8   upto
         13     5    0      9   upto
         14     5    1     10   upto
-        """  # noqa
+        """
         from flopy.mf6 import ModflowGwfsfr as Mf6Sfr
 
         defcols_dtype = Mf6Sfr.diversions.empty(self.model).dtype
@@ -804,7 +800,7 @@ class SwnMf6(SwnModflowBase):
             4    (0, 1, 1)  10.0  105.409255
             5    (0, 1, 1)  10.0  100.000000
             6    (0, 2, 1)  10.0  100.000000
-        """  # noqa
+        """
         Mf6pak = get_flopy_mf6_package(package)
         lst_tpl = Mf6pak.stress_period_data
         defcols_names = [dt[0] for dt in lst_tpl.dtype(self.model)]
@@ -1003,7 +999,7 @@ class SwnMf6(SwnModflowBase):
         raise NotImplementedError("method is not finished")
         if not isinstance(name, str):
             raise ValueError("name must be str type")
-        elif name not in self._tsvar_meta.index:
+        if name not in self._tsvar_meta.index:
             names = ", ".join(repr(n) for n in self._tsvar_meta.index)
             raise KeyError(f"could not find {name!r} in {names}")
 
@@ -1547,9 +1543,9 @@ class SwnMf6(SwnModflowBase):
             # maybe can't rely on it being the last one
             # the sort_index() should order (assuming ridx increases downstream)
             # so last should be to_rno == 0
-            assert (
-                reaches.iloc[-1][to_ridxname] == 0
-            ), "reach numbers possibly not increasing downstream"
+            assert reaches.iloc[-1][to_ridxname] == 0, (
+                "reach numbers possibly not increasing downstream"
+            )
             outflow = reaches.iloc[-1]
             # check if outflow above model top
             if outflow.rtp > outflow.top - minincise:
@@ -1936,7 +1932,7 @@ class SwnMf6(SwnModflowBase):
         if segbyseg:
             raise NotImplementedError("option 'segbyseg=True' not finished")
             self._segbyseg_elevs(minslope, fix_dis, minthick)
-        elif to_rno_elevs:
+        if to_rno_elevs:
             self._to_rno_elevs(minslope, minincise, minthick, buffer, fix_dis)
         else:
             if direction == "both":
@@ -2012,7 +2008,7 @@ class SwnMf6(SwnModflowBase):
         3    1  1  12.018504
         6    1  1  10.000000
         7    2  1  10.000000
-        """  # noqa
+        """
         if start not in self.reaches.index:
             raise IndexError(f"invalid start {self.reach_index_name} {start}")
         if end not in self.reaches.index:
@@ -2132,13 +2128,11 @@ class SwnMf6(SwnModflowBase):
                         f"not found in reaches.index: {abbr_str(diff)}"
                     )
                 return var
-            else:
-                if var not in reaches_set:
-                    raise IndexError(
-                        f"{name} {self.reach_index_name} {var} "
-                        "not found in reaches.index"
-                    )
-                return [var]
+            if var not in reaches_set:
+                raise IndexError(
+                    f"{name} {self.reach_index_name} {var} not found in reaches.index"
+                )
+            return [var]
 
         def go_upstream(ridx):
             yield ridx

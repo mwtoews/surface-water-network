@@ -166,7 +166,7 @@ class SwnModflowBase:
                 "swn property must be an instance of SurfaceWaterNetwork; "
                 f"found {type(swn)!r}"
             )
-        elif getattr(self, "_swn", None) is None:
+        if getattr(self, "_swn", None) is None:
             self._swn = swn
         else:
             raise AttributeError("swn property can only be set once")
@@ -301,9 +301,9 @@ class SwnModflowBase:
                 raise ValueError(
                     f"model must be a flopy Modflow object; found {type(model)!r}"
                 )
-            elif not model.has_package("DIS"):
+            if not model.has_package("DIS"):
                 raise ValueError("DIS package required")
-            elif not model.has_package("BAS6"):
+            if not model.has_package("BAS6"):
                 raise ValueError("BAS6 package required")
         elif this_class == "SwnMf6":
             if not (isinstance(model, flopy.mf6.mfmodel.MFModel)):
@@ -467,7 +467,7 @@ class SwnModflowBase:
             raise TypeError(f"unsupported subclass {cls!r}")
         if not isinstance(swn, SurfaceWaterNetwork):
             raise ValueError("swn must be a SurfaceWaterNetwork object")
-        elif domain_action not in ("freeze", "modify"):
+        if domain_action not in ("freeze", "modify"):
             raise ValueError("domain_action must be one of freeze or modify")
         obj = cls()
 
@@ -638,8 +638,7 @@ class SwnModflowBase:
                 threshold = cell_size * 2.0
                 if rem.length > threshold:
                     obj.logger.debug(
-                        "remaining line from segnum %s too long to merge "
-                        "(%.1f > %.1f)",
+                        "remaining line from segnum %s too long to merge (%.1f > %.1f)",
                         segnum,
                         rem.length,
                         threshold,
@@ -711,8 +710,7 @@ class SwnModflowBase:
                     append_reach_df(reach_df, i2, j2, rem2, moved=True)
                 else:
                     obj.logger.critical(
-                        "how does this happen? Segments from %d touching %d "
-                        "grid cells",
+                        "how does this happen? Segments from %d touching %d grid cells",
                         segnum,
                         len(matches),
                     )
@@ -1141,9 +1139,9 @@ class SwnModflowBase:
         """
         if not isinstance(name, str):
             raise ValueError("'name' must be a str type")
-        elif not hasattr(array, "ndim"):
+        if not hasattr(array, "ndim"):
             raise ValueError("'array' must be array-like")
-        elif array.ndim != 2:
+        if array.ndim != 2:
             raise ValueError("'array' must have two dimensions")
         dis = self.model.dis
         if self.__class__.__name__ == "SwnModflow":
@@ -1220,16 +1218,15 @@ class SwnModflowBase:
             def get_zcoords(g):
                 if g.is_empty or not g.has_z:
                     return []
-                elif g.geom_type == "LineString":
+                if g.geom_type == "LineString":
                     return [c[2] for c in g.coords[:]]
-                elif g.geom_type == "Point":
+                if g.geom_type == "Point":
                     return [g.z]
-                elif g.geom_type.startswith("Multi"):
+                if g.geom_type.startswith("Multi"):
                     # recurse and flatten
                     t = [get_zcoords(sg) for sg in g.geoms]
                     return [item for slist in t for item in slist]
-                else:
-                    return []
+                return []
 
             zcoords = rchs.geometry.apply(get_zcoords)
             rchs["zcoord_count"] = zcoords.apply(len)
@@ -1304,8 +1301,7 @@ class SwnModflowBase:
                 series = inflow.iloc[0]
                 series.name = None
                 return series
-            else:
-                return inflow
+            return inflow
 
         if len(data.columns) == 0:
             self.logger.debug("no data used to determine inflow")
@@ -1407,7 +1403,7 @@ class SwnModflowBase:
         10     3  0  1  1     1       3       1.664101
         11     7  0  2  1     3       2       2.000000
         >>> loc_reach_df = pd.concat([loc_df, r_df], axis=1)
-        """  # noqa
+        """
         loc_df = loc_df.copy()
         try:
             loc_df_has_line = is_location_frame(loc_df, geom_required=True)
@@ -1436,7 +1432,7 @@ class SwnModflowBase:
                     "downstream_bias is non-zero, but original "
                     "geometry position is not available"
                 )
-            elif not (-1.0 <= downstream_bias <= 1.0):
+            if not (-1.0 <= downstream_bias <= 1.0):
                 raise ValueError("downstream_bias must be between -1 and 1")
         has_orig_geom = False
         if geom_loc_df is not None:
@@ -1554,10 +1550,9 @@ class SwnModflowBase:
         def getpt(g, idx):
             if g.geom_type == "LineString":
                 return Point(g.coords[idx])
-            elif g.geom_type == "Point":
+            if g.geom_type == "Point":
                 return g
-            else:
-                return Point()
+            return Point()
 
         def lastpt(g):
             return getpt(g, -1)

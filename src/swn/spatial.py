@@ -1,14 +1,14 @@
 """Spatial methods."""
 
 __all__ = [
-    "interp_2d_to_3d",
-    "force_2d",
-    "round_coords",
-    "compare_crs",
-    "get_crs",
     "bias_substring",
+    "compare_crs",
     "find_location_pairs",
+    "force_2d",
+    "get_crs",
+    "interp_2d_to_3d",
     "location_pair_geoms",
+    "round_coords",
 ]
 
 from warnings import warn
@@ -60,10 +60,9 @@ def get_sindex(gdf):
         ):
             # probably rtree.index.Index
             return sindex
-        else:
-            # probably PyGEOSSTRTreeIndex but unfortunately, 'nearest'
-            # with 'num_results' is required
-            sindex = None
+        # probably PyGEOSSTRTreeIndex but unfortunately, 'nearest'
+        # with 'num_results' is required
+        sindex = None
     if rtree and len(gdf) >= rtree_threshold:
         # Manually populate a 2D spatial index for speed
         sindex = Index()
@@ -268,9 +267,9 @@ def bias_substring(gs, downstream_bias, end_cut=1e-10):
 
     if not isinstance(gs, geopandas.GeoSeries):
         raise TypeError("expected 'gs' as an instance of GeoSeries")
-    elif not (-1.0 <= downstream_bias <= 1.0):
+    if not (-1.0 <= downstream_bias <= 1.0):
         raise ValueError("downstream_bias must be between -1 and 1")
-    elif not (0.0 <= end_cut <= 0.5):
+    if not (0.0 <= end_cut <= 0.5):
         raise ValueError("end_cut must between 0 and 0.5")
 
     us = 0.0

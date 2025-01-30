@@ -118,18 +118,16 @@ class SwnModflow(SwnModflowBase):
         5           102  1  1     2       2  10.540926
         6           100  1  1     3       1  10.000000
         7           100  2  1     3       2  10.000000
-        """  # noqa
+        """
         if ibound_action not in ("freeze", "modify"):
             raise ValueError("ibound_action must be one of freeze or modify")
 
-        obj = super().from_swn_flopy(
+        return super().from_swn_flopy(
             swn=swn,
             model=model,
             domain_action=ibound_action,
             reach_include_fraction=reach_include_fraction,
         )
-
-        return obj
 
     def __repr__(self):
         """Return string representation of SwnModflow object."""
@@ -192,9 +190,9 @@ class SwnModflow(SwnModflowBase):
                 is_none = (av is None, bv is None)
                 if all(is_none):
                     continue
-                elif any(is_none) or type(av) is not type(bv):
+                if any(is_none) or type(av) is not type(bv):
                     return False
-                elif isinstance(av, pd.DataFrame):
+                if isinstance(av, pd.DataFrame):
                     pd.testing.assert_frame_equal(av, bv)
                 elif isinstance(av, pd.Series):
                     pd.testing.assert_series_equal(av, bv)
@@ -258,7 +256,7 @@ class SwnModflow(SwnModflowBase):
             if hasattr(self, "_segment_data"):
                 delattr(self, "_segment_data")
             return
-        elif not isinstance(value, pd.DataFrame):
+        if not isinstance(value, pd.DataFrame):
             raise ValueError(
                 f"segment_data must be a DataFrame or None; found {type(value)!r}"
             )
@@ -298,15 +296,14 @@ class SwnModflow(SwnModflowBase):
             if hasattr(self, "_segment_data_ts"):
                 delattr(self, "_segment_data_ts")
             return
-        elif not isinstance(value, dict):
+        if not isinstance(value, dict):
             raise ValueError(
                 f"segment_data_ts must be a dict or None; found {type(value)!r}"
             )
         for k, v in value.items():
             if not isinstance(v, pd.DataFrame):
                 raise ValueError(
-                    f"segment_data_ts key {k!r} must be a DataFrame; "
-                    f"found {type(v)!r}"
+                    f"segment_data_ts key {k!r} must be a DataFrame; found {type(v)!r}"
                 )
         self._segment_data_ts = value
 
@@ -352,7 +349,7 @@ class SwnModflow(SwnModflowBase):
         See Also
         --------
         default_segment_data : High-level frame constructor for segment data.
-        """  # noqa
+        """
         from flopy.modflow.mfsfr2 import ModflowSfr2
 
         if self.segment_data is None:
@@ -411,7 +408,7 @@ class SwnModflow(SwnModflowBase):
             self.new_segment_data()
         if name == "nseg":
             raise ValueError("'nseg' can't be set")
-        elif name not in self.segment_data.columns:
+        if name not in self.segment_data.columns:
             cols = ", ".join(repr(n) for n in self.segment_data.columns)
             raise KeyError(f"could not find {name!r} in {cols}")
 
@@ -462,7 +459,7 @@ class SwnModflow(SwnModflowBase):
         --------
         set_segment_data_from_segments : Set all segment data from segments.
         set_segment_data_from_diversions: Set all segment data from diversions.
-        """  # noqa
+        """
         self._check_segment_data_name(name)
         if not np.isscalar(data):
             raise ValueError(f"{name!r} data is not scalar")
@@ -569,7 +566,7 @@ class SwnModflow(SwnModflowBase):
         --------
         set_segment_data_from_scalar : Set all segment data to one value.
         set_segment_data_from_diversions: Set all segment data from diversions.
-        """  # noqa
+        """
         self._check_segment_data_name(name)
         if np.isscalar(data):
             self.set_segment_data_from_scalar(name, data, "segments")
@@ -637,7 +634,7 @@ class SwnModflow(SwnModflowBase):
         --------
         set_segment_data_from_scalar : Set all segment data to one value.
         set_segment_data_from_segments : Set all segment data from segments.
-        """  # noqa
+        """
         self._check_segment_data_name(name)
         if np.isscalar(data):
             self.set_segment_data_from_scalar(name, data, "diversions")
@@ -828,7 +825,7 @@ class SwnModflow(SwnModflowBase):
         See Also
         --------
         new_segment_data : Create an empty segment data frame.
-        """  # noqa
+        """
         self.logger.info("default_segment_data: using high-level function")
         if self.segment_data is None:
             self.new_segment_data()
@@ -1068,8 +1065,7 @@ class SwnModflow(SwnModflowBase):
             sel = self.segment_data["elevdn"] > max_str_z
             self.segment_data.loc[sel, "elevdn"] = max_str_z
         # recalculate incisions
-        updown_incision = self.get_segment_incision()
-        return updown_incision
+        return self.get_segment_incision()
 
     def get_segment_length(self):
         """Get segment length from accumulated reach lengths.
@@ -1104,8 +1100,7 @@ class SwnModflow(SwnModflowBase):
         # find where seg is listed as outseg
         outsegsel = self.segment_data["outseg"] == seg.name
         # set outseg elevup
-        outseg_elevup = self.segment_data.loc[outsegsel, "outseg_elevup"]
-        return outseg_elevup
+        return self.segment_data.loc[outsegsel, "outseg_elevup"]
 
     def minslope_seg(self, seg, *args):
         """Force segment to have minimum slope (check for backward flowing segs).
@@ -1161,8 +1156,7 @@ class SwnModflow(SwnModflowBase):
             if down > up - (seg.seglen * prefslope):
                 dn = up - (seg.seglen * prefslope)
                 self.logger.debug(
-                    "outflow segment %s, outseg = %s, old elevdn = %s, "
-                    "new elevdn = %s",
+                    "outflow segment %s, outseg = %s, old elevdn = %s, new elevdn = %s",
                     seg.name,
                     seg.outseg,
                     seg.elevdn,
@@ -1726,7 +1720,7 @@ class SwnModflow(SwnModflowBase):
         3           1       3  1  1  12.018504
         6           3       1  1  1  10.000000
         7           3       2  2  1  10.000000
-        """  # noqa
+        """
         if start not in self.reaches.index:
             raise IndexError(f"invalid start reachID {start}")
         if end not in self.reaches.index:
@@ -1878,8 +1872,7 @@ class SwnModflow(SwnModflowBase):
                 gdd_kwds[kwarg] = value
             else:
                 self.logger.warning(
-                    "%s %r specified, but not part of the "
-                    "get_default_dtype signature",
+                    "%s %r specified, but not part of the get_default_dtype signature",
                     kwarg,
                     value,
                 )
@@ -1900,8 +1893,7 @@ class SwnModflow(SwnModflowBase):
         dat = dat.loc[:, dtype.names]
         if self.model.dis.nper != 1:
             self.logger.warning(
-                "only preparing stress period data for the first "
-                "stress period of %s",
+                "only preparing stress period data for the first stress period of %s",
                 self.model.dis.nper,
             )
         dat["per"] = 1
