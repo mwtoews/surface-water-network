@@ -1,0 +1,35 @@
+name: Build dist
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  release:
+    types: [published]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Hatch
+        run: pipx install hatch
+
+      - name: Build dist
+        run: hatch build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: swn-build
+          path: dist/*
+
+      - name: Publish on PyPI
+        if: github.event_name == 'release' && github.event.action == 'published'
+        run: hatch publish

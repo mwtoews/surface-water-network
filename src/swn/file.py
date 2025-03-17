@@ -1,9 +1,9 @@
 """File reading/writing helpers."""
 
 __all__ = [
-    "topnet2ts",
     "gdf_to_shapefile",
     "read_formatted_frame",
+    "topnet2ts",
     "write_formatted_frame",
 ]
 
@@ -72,7 +72,7 @@ def topnet2ts(nc_path, varname, *, mult=None, run=None, log_level=logging.INFO):
                 if run is None:
                     if size > 1:
                         logger.warning(
-                            "no run specified; taking %s index 0 from dim " "size %s",
+                            "no run specified; taking %s index 0 from dim size %s",
                             var.dimensions[2],
                             var.shape[2],
                         )
@@ -165,7 +165,7 @@ def gdf_to_shapefile(gdf, shp_fname, **kwargs):
     for col, dtype in gdf.dtypes.items():
         if col == geom_name:
             continue
-        if dtype == bool:
+        if dtype is bool:
             gdf[col] = gdf[col].astype(int)
         elif np.issubdtype(dtype, np.number):
             pass
@@ -224,7 +224,7 @@ def read_formatted_frame(fname):
     40    1.000000e-10    1000       None
     450   1.000000e+00   10000       five
     6267  1.000000e+03  100000        six
-    """  # noqa
+    """
     fname_is_filelike = hasattr(fname, "readline")
     try:
         if fname_is_filelike:
@@ -309,7 +309,7 @@ def write_formatted_frame(df, fname, index=True, comment_header=True):
     40      1.000000e-10    1000
     450     1.000000e+00   10000   five
     6267    1.000000e+03  100000   six
-    """  # noqa
+    """
     if not isinstance(df, pd.DataFrame):
         raise TypeError("expected df to be a pandas.DataFrame")
     fname_is_filelike = hasattr(fname, "write")
@@ -336,7 +336,7 @@ def write_formatted_frame(df, fname, index=True, comment_header=True):
                 f.close()
         return
 
-    elif df.shape[1] == 0:
+    if df.shape[1] == 0:
         # Special case with no columns, add column of whitespace
         df.insert(0, " ", "")
 
@@ -359,7 +359,7 @@ def write_formatted_frame(df, fname, index=True, comment_header=True):
     for icol, name in enumerate(df.columns):
         # add single quotes around items with space chars
         try:
-            sel = df[name].str.contains(" ").fillna(False)
+            sel = df[name].str.contains(" ").astype(bool)
         except AttributeError:
             continue
         na = df[name].isna()

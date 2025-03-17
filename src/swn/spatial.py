@@ -1,14 +1,15 @@
 """Spatial methods."""
 
 __all__ = [
-    "interp_2d_to_3d",
-    "force_2d",
-    "round_coords",
-    "compare_crs",
-    "get_crs",
     "bias_substring",
+    "compare_crs",
     "find_location_pairs",
+    "force_2d",
+    "get_crs",
+    "get_z_coords",
+    "interp_2d_to_3d",
     "location_pair_geoms",
+    "round_coords",
 ]
 
 from warnings import warn
@@ -60,10 +61,9 @@ def get_sindex(gdf):
         ):
             # probably rtree.index.Index
             return sindex
-        else:
-            # probably PyGEOSSTRTreeIndex but unfortunately, 'nearest'
-            # with 'num_results' is required
-            sindex = None
+        # probably PyGEOSSTRTreeIndex but unfortunately, 'nearest'
+        # with 'num_results' is required
+        sindex = None
     if rtree and len(gdf) >= rtree_threshold:
         # Manually populate a 2D spatial index for speed
         sindex = Index()
@@ -146,6 +146,23 @@ def interp_2d_to_3d(gs, grid, gt):
         return type(geom)(zip(x, y, z))
 
     return gs.apply(geom2dto3d)
+
+
+def get_z_coords(geom):
+    """Get list of z-coordinates from geometry."""
+    if geom.is_empty or not geom.has_z:
+        return []
+    if geom.geom_type == "LineString":
+        return [c[2] for c in geom.coords[:]]
+    if geom.geom_type == "Point":
+        return [geom.z]
+    if geom.geom_type.startswith("Multi") or geom.geom_type.startswith(
+        "GeometryCollection"
+    ):
+        # recurse and flatten
+        t = [get_z_coords(sg) for sg in geom.geoms]
+        return [item for slist in t for item in slist]
+    return []
 
 
 def wkt_to_dataframe(wkt_list, geom_name="geometry"):
@@ -257,19 +274,20 @@ def bias_substring(gs, downstream_bias, end_cut=1e-10):
         the upstream end of lines, and a positive bias removes upstream part
         to bias the downstream end of lines. Valid range is -1 to +1.
     end_cut : float, default 1e-10
-        The extra amout to remove on each end. Valid range is 0 to 0.5.
+        The extra amount to remove on each end. Valid range is 0 to 0.5.
 
     Returns
     -------
     geopandas.GeoSeries
+
     """
     from shapely.ops import substring
 
     if not isinstance(gs, geopandas.GeoSeries):
         raise TypeError("expected 'gs' as an instance of GeoSeries")
-    elif not (-1.0 <= downstream_bias <= 1.0):
+    if not (-1.0 <= downstream_bias <= 1.0):
         raise ValueError("downstream_bias must be between -1 and 1")
-    elif not (0.0 <= end_cut <= 0.5):
+    if not (0.0 <= end_cut <= 0.5):
         raise ValueError("end_cut must between 0 and 0.5")
 
     us = 0.0
@@ -386,6 +404,7 @@ def find_location_pairs(loc_df, n, *, all_pairs=False, exclude_branches=False):
     [(11, 13), (11, 14), (11, 15), (12, 13), (14, 13), (14, 15), (15, 13)]
     >>> swn.spatial.find_location_pairs(obs_match, n, exclude_branches=True)
     {(14, 15)}
+
     """
     from .core import SurfaceWaterNetwork
 
@@ -397,9 +416,9 @@ def find_location_pairs(loc_df, n, *, all_pairs=False, exclude_branches=False):
     if not segnum_is_in_index.all():
         raise ValueError("loc_df has segnum values not found in surface water network")
 
-    to_segnums = dict(n.to_segnums)
+    to_segnums_d = n.to_segnums.to_dict()
     if exclude_branches:
-        from_segnums = dict(n.from_segnums)
+        from_segnums_d = n.from_segnums.to_dict()
     loc_df = loc_df[["segnum", "seg_ndist"]].assign(_="")  # also does .copy()
     loc_segnum_s = set(loc_df.segnum)
     loc_df["sequence"] = n.segments.sequence[loc_df.segnum].values
@@ -416,9 +435,12 @@ def find_location_pairs(loc_df, n, *, all_pairs=False, exclude_branches=False):
             # continue searching downstream
             cur_segnum = us_segnum
             while True:
-                if cur_segnum in to_segnums:
-                    next_segnum = to_segnums[cur_segnum]
-                    if exclude_branches and len(from_segnums.get(next_segnum, [])) > 1:
+                if cur_segnum in to_segnums_d:
+                    next_segnum = to_segnums_d[cur_segnum]
+                    if (
+                        exclude_branches
+                        and len(from_segnums_d.get(next_segnum, [])) > 1
+                    ):
                         break  # stop searching due to branch
                     sel = loc_df["segnum"] == next_segnum
                     for ds_idx in sel[sel].index:
@@ -431,22 +453,24 @@ def find_location_pairs(loc_df, n, *, all_pairs=False, exclude_branches=False):
             # First case that the downstream segnum is in the same segnum
             next_loc = loc_df.iloc[next_iloc]
             if next_loc.segnum == us_segnum:
-                ds_idx = next_loc.name
+                ds_idx = next_loc.name.item()
             else:
                 # otherwise search downstream
                 cur_segnum = us_segnum
                 while True:
-                    if cur_segnum in to_segnums:
-                        next_segnum = to_segnums[cur_segnum]
+                    if cur_segnum in to_segnums_d:
+                        next_segnum = to_segnums_d[cur_segnum]
                         if (
                             exclude_branches
-                            and len(from_segnums.get(next_segnum, [])) > 1
+                            and len(from_segnums_d.get(next_segnum, [])) > 1
                         ):
                             break  # no pair due to branch
                         if next_segnum in loc_segnum_s:
-                            ds_idx = loc_df.segnum[loc_df.segnum == next_segnum].index[
-                                0
-                            ]
+                            ds_idx = (
+                                loc_df.segnum[loc_df.segnum == next_segnum]
+                                .index[0]
+                                .item()
+                            )
                             break  # found pair
                     else:
                         break  # no pair due to no downstream location
@@ -509,10 +533,11 @@ def location_pair_geoms(pairs, loc_df, n):
     >>> pair_gdf.sort_values("length", ascending=False, inplace=True)
     >>> pair_gdf
                                                     geometry      length
-    11 14  LINESTRING (378.491 404.717, 420.000 330.000, ...  282.359779
-    12 13  LINESTRING (728.462 227.692, 710.000 160.000, ...  184.465938
-    15 13  LINESTRING (692.027 172.838, 710.000 160.000, ...  136.388347
-    14 15      LINESTRING (595.730 241.622, 692.027 172.838)  118.340096
+    11 14  LINESTRING (378.491 404.717, 420 330, 584 250,...  282.359779
+    12 13  LINESTRING (728.462 227.692, 710 160, 770 100,...  184.465938
+    15 13  LINESTRING (692.027 172.838, 710 160, 770 100,...  136.388347
+    14 15       LINESTRING (595.73 241.622, 692.027 172.838)  118.340096
+
     """
     from shapely.ops import linemerge, substring, unary_union
 

@@ -94,7 +94,7 @@ def test_interp_2d_to_3d():
         geopandas.GeoSeries([Point(xy) for xy in zip(x_in, y_in)]), grid, gt
     )
     np.testing.assert_array_equal(gs3d.apply(lambda g: g.z), [18, 15, 10, 12])
-    # Points outside shoud raise an exception
+    # Points outside should raise an exception
     x_out = [29, 71, 71, 29]
     y_out = [131, 131, 69, 69]
     outside_combs = (
@@ -105,19 +105,44 @@ def test_interp_2d_to_3d():
             spatial.interp_2d_to_3d(geopandas.GeoSeries([Point(pt)]), grid, gt)
 
 
+@pytest.mark.parametrize(
+    "geom_wkt, expected",
+    [
+        ("POINT EMPTY", []),
+        ("POINT (1 2)", []),
+        ("POINT Z EMPTY", []),
+        ("POINT Z (1 2 3)", [3.0]),
+        ("MULTIPOINT Z (1 2 3, 4 5 6)", [3.0, 6.0]),
+        ("LINESTRING Z (0 0 1.1, 0 1 2.2)", [1.1, 2.2]),
+        (
+            "MULTILINESTRING Z ((0 0 1.1, 0 1 2.2), (1 1 5.4, 1 0 3.1))",
+            [1.1, 2.2, 5.4, 3.1],
+        ),
+        (
+            "GEOMETRYCOLLECTION Z (LINESTRING Z (0 0 1.1, 0 1 2.2), POINT Z (1 2 3))",
+            [1.1, 2.2, 3.0],
+        ),
+        ("POLYGON Z ((0 0 0, 0 1 1, 1 0 1, 0 0 0)))", []),
+    ],
+)
+def test_get_z_coords(geom_wkt, expected):
+    geom = wkt.loads(geom_wkt)
+    assert spatial.get_z_coords(geom) == expected
+
+
 def test_wkt_to_dataframe():
     with pytest.deprecated_call():
         df = spatial.wkt_to_dataframe(valid_lines_list)
     assert df.shape == (3, 1)
-    assert dict(df.dtypes) == {"geometry": np.dtype("O")}
-    assert type(df) == pd.DataFrame
+    assert df.dtypes.to_dict() == {"geometry": np.dtype("O")}
+    assert type(df) is pd.DataFrame
     pd.testing.assert_index_equal(df.index, pd.RangeIndex(3))
 
     with pytest.deprecated_call():
         df = spatial.wkt_to_dataframe(valid_lines_list, "other")
     assert df.shape == (3, 1)
-    assert dict(df.dtypes) == {"other": np.dtype("O")}
-    assert type(df) == pd.DataFrame
+    assert df.dtypes.to_dict() == {"other": np.dtype("O")}
+    assert type(df) is pd.DataFrame
     pd.testing.assert_index_equal(df.index, pd.RangeIndex(3))
 
 
@@ -126,14 +151,14 @@ def test_wkt_to_geodataframe():
         gdf = spatial.wkt_to_geodataframe(valid_lines_list)
     assert gdf.shape == (3, 1)
     assert list(gdf.columns) == ["geometry"]
-    assert type(gdf) == geopandas.GeoDataFrame
+    assert type(gdf) is geopandas.GeoDataFrame
     pd.testing.assert_series_equal(gdf.is_valid, pd.Series([True] * 3))
 
     with pytest.deprecated_call():
         gdf = spatial.wkt_to_geodataframe(valid_lines_list, "other")
     assert gdf.shape == (3, 1)
     assert list(gdf.columns) == ["other"]
-    assert type(gdf) == geopandas.GeoDataFrame
+    assert type(gdf) is geopandas.GeoDataFrame
     pd.testing.assert_series_equal(gdf.is_valid, pd.Series([True] * 3))
 
 
@@ -142,14 +167,14 @@ def test_wkt_to_geoseries():
         gs = spatial.wkt_to_geoseries(valid_lines_list)
     assert gs.shape == (3,)
     assert gs.name is None
-    assert type(gs) == geopandas.GeoSeries
+    assert type(gs) is geopandas.GeoSeries
     pd.testing.assert_series_equal(gs.is_valid, pd.Series([True] * 3))
 
     with pytest.deprecated_call():
         gs = spatial.wkt_to_geoseries(valid_lines_list, "other")
     assert gs.shape == (3,)
     assert gs.name == "other"
-    assert type(gs) == geopandas.GeoSeries
+    assert type(gs) is geopandas.GeoSeries
     pd.testing.assert_series_equal(gs.is_valid, pd.Series([True] * 3))
 
 
@@ -401,7 +426,7 @@ def test_find_location_pairs(coastal_points, coastal_swn):
     assert {(10, 1)} == spatial.find_location_pairs(
         loc_df, coastal_swn, exclude_branches=True
     )
-    # re-gen a simpler network to retry exlude branches
+    # re-gen a simpler network to retry exclude branches
     n2 = swn.SurfaceWaterNetwork.from_lines(
         coastal_swn.segments.geometry[coastal_swn.segments.stream_order >= 2]
     )
@@ -417,7 +442,7 @@ def test_find_location_pairs(coastal_points, coastal_swn):
         spatial.find_location_pairs(loc_df.segnum, coastal_swn)
     with pytest.raises(ValueError, match="loc_df must have 'segnum' column"):
         spatial.find_location_pairs(loc_df[["method"]], coastal_swn)
-    with pytest.raises(ValueError, match="loc_df must have 'seg_ndist' colum"):
+    with pytest.raises(ValueError, match="loc_df must have 'seg_ndist' column"):
         spatial.find_location_pairs(loc_df[["segnum"]], coastal_swn)
     loc_df.segnum += 10
     with pytest.raises(ValueError, match="loc_df has segnum values not foun"):
@@ -454,7 +479,7 @@ def test_location_pair_geoms(coastal_points, coastal_swn):
         spatial.location_pair_geoms(pairs, loc_df.segnum, coastal_swn)
     with pytest.raises(ValueError, match="loc_df must have 'segnum' column"):
         spatial.location_pair_geoms(pairs, loc_df[["method"]], coastal_swn)
-    with pytest.raises(ValueError, match="loc_df must have 'seg_ndist' colum"):
+    with pytest.raises(ValueError, match="loc_df must have 'seg_ndist' column"):
         spatial.location_pair_geoms(pairs, loc_df[["segnum"]], coastal_swn)
     loc_df.segnum += 10
     with pytest.raises(ValueError, match="loc_df has segnum values not found"):

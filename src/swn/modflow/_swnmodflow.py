@@ -56,6 +56,7 @@ class SwnModflow(SwnModflowBase):
         ----------
         logger : logging.Logger, optional
             Logger to show messages.
+
         """
         super().__init__(logger)
         # all other properties added afterwards
@@ -117,18 +118,16 @@ class SwnModflow(SwnModflowBase):
         5           102  1  1     2       2  10.540926
         6           100  1  1     3       1  10.000000
         7           100  2  1     3       2  10.000000
-        """  # noqa
+        """
         if ibound_action not in ("freeze", "modify"):
             raise ValueError("ibound_action must be one of freeze or modify")
 
-        obj = super().from_swn_flopy(
+        return super().from_swn_flopy(
             swn=swn,
             model=model,
             domain_action=ibound_action,
             reach_include_fraction=reach_include_fraction,
         )
-
-        return obj
 
     def __repr__(self):
         """Return string representation of SwnModflow object."""
@@ -146,15 +145,17 @@ class SwnModflow(SwnModflowBase):
         s = f"<{self.__class__.__name__}: {model_info}\n"
         reaches = self.reaches
         if reaches is not None:
-            s += "  {} in reaches ({}): {}\n".format(
-                len(reaches), reaches.index.name, abbr_str(list(reaches.index), 4)
+            s += (
+                f"  {len(reaches)} in reaches ({reaches.index.name}): "
+                + abbr_str(list(reaches.index), 4)
+                + "\n"
             )
         segment_data = self.segment_data
         if segment_data is not None:
-            s += "  {} in segment_data ({}): {}\n".format(
-                len(segment_data),
-                segment_data.index.name,
-                abbr_str(list(segment_data.index), 4),
+            s += (
+                f"  {len(segment_data)} in segment_data ({segment_data.index.name}): "
+                + abbr_str(list(segment_data.index), 4)
+                + "\n"
             )
             is_diversion = segment_data["iupseg"] != 0
             segnum_l = list(segment_data.loc[~is_diversion, "segnum"])
@@ -189,11 +190,9 @@ class SwnModflow(SwnModflowBase):
                 is_none = (av is None, bv is None)
                 if all(is_none):
                     continue
-                elif any(is_none):
+                if any(is_none) or type(av) is not type(bv):
                     return False
-                elif type(av) != type(bv):
-                    return False
-                elif isinstance(av, pd.DataFrame):
+                if isinstance(av, pd.DataFrame):
                     pd.testing.assert_frame_equal(av, bv)
                 elif isinstance(av, pd.Series):
                     pd.testing.assert_series_equal(av, bv)
@@ -247,6 +246,7 @@ class SwnModflow(SwnModflowBase):
         --------
         new_segment_data : Create an empty segment data frame.
         default_segment_data : High-level frame constructor for segment data.
+
         """
         return getattr(self, "_segment_data", None)
 
@@ -256,7 +256,7 @@ class SwnModflow(SwnModflowBase):
             if hasattr(self, "_segment_data"):
                 delattr(self, "_segment_data")
             return
-        elif not isinstance(value, pd.DataFrame):
+        if not isinstance(value, pd.DataFrame):
             raise ValueError(
                 f"segment_data must be a DataFrame or None; found {type(value)!r}"
             )
@@ -286,6 +286,7 @@ class SwnModflow(SwnModflowBase):
         set_segment_data_from_scalar : Set all segment data to one value.
         set_segment_data_from_segments : Set all segment data from segments.
         set_segment_data_from_diversions: Set all segment data from diversions.
+
         """
         return getattr(self, "_segment_data_ts", None)
 
@@ -295,15 +296,14 @@ class SwnModflow(SwnModflowBase):
             if hasattr(self, "_segment_data_ts"):
                 delattr(self, "_segment_data_ts")
             return
-        elif not isinstance(value, dict):
+        if not isinstance(value, dict):
             raise ValueError(
                 f"segment_data_ts must be a dict or None; found {type(value)!r}"
             )
         for k, v in value.items():
             if not isinstance(v, pd.DataFrame):
                 raise ValueError(
-                    f"segment_data_ts key {k!r} must be a DataFrame; "
-                    f"found {type(v)!r}"
+                    f"segment_data_ts key {k!r} must be a DataFrame; found {type(v)!r}"
                 )
         self._segment_data_ts = value
 
@@ -349,7 +349,7 @@ class SwnModflow(SwnModflowBase):
         See Also
         --------
         default_segment_data : High-level frame constructor for segment data.
-        """  # noqa
+        """
         from flopy.modflow.mfsfr2 import ModflowSfr2
 
         if self.segment_data is None:
@@ -408,7 +408,7 @@ class SwnModflow(SwnModflowBase):
             self.new_segment_data()
         if name == "nseg":
             raise ValueError("'nseg' can't be set")
-        elif name not in self.segment_data.columns:
+        if name not in self.segment_data.columns:
             cols = ", ".join(repr(n) for n in self.segment_data.columns)
             raise KeyError(f"could not find {name!r} in {cols}")
 
@@ -459,7 +459,7 @@ class SwnModflow(SwnModflowBase):
         --------
         set_segment_data_from_segments : Set all segment data from segments.
         set_segment_data_from_diversions: Set all segment data from diversions.
-        """  # noqa
+        """
         self._check_segment_data_name(name)
         if not np.isscalar(data):
             raise ValueError(f"{name!r} data is not scalar")
@@ -566,7 +566,7 @@ class SwnModflow(SwnModflowBase):
         --------
         set_segment_data_from_scalar : Set all segment data to one value.
         set_segment_data_from_diversions: Set all segment data from diversions.
-        """  # noqa
+        """
         self._check_segment_data_name(name)
         if np.isscalar(data):
             self.set_segment_data_from_scalar(name, data, "segments")
@@ -634,7 +634,7 @@ class SwnModflow(SwnModflowBase):
         --------
         set_segment_data_from_scalar : Set all segment data to one value.
         set_segment_data_from_segments : Set all segment data from segments.
-        """  # noqa
+        """
         self._check_segment_data_name(name)
         if np.isscalar(data):
             self.set_segment_data_from_scalar(name, data, "diversions")
@@ -657,6 +657,7 @@ class SwnModflow(SwnModflowBase):
         data: dict, pandas.Series or pandas.DataFrame
             Time series of flow for segnums either inside or outside model,
             indexed by segnum.
+
         """
         inflow = self._get_segments_inflow(data)
         self.set_segment_data_from_segments("inflow", inflow)
@@ -824,7 +825,7 @@ class SwnModflow(SwnModflowBase):
         See Also
         --------
         new_segment_data : Create an empty segment data frame.
-        """  # noqa
+        """
         self.logger.info("default_segment_data: using high-level function")
         if self.segment_data is None:
             self.new_segment_data()
@@ -946,6 +947,7 @@ class SwnModflow(SwnModflowBase):
         Returns
         -------
         flopy.modflow.mfsfr2.ModflowSfr2
+
         """
         import flopy
 
@@ -957,13 +959,13 @@ class SwnModflow(SwnModflowBase):
         )
 
     def get_seg_ijk(self):
-        """
-        Get the k,i,j location of upstream and downstream segments
-        for each segment
+        """Get the k,i,j location of upstream and downstream segments
+        for each segment.
 
         Returns
         -------
         pandas DataFrame with
+
         """
         topidx = self.reaches["ireach"] == 1
         kij_df = self.reaches[topidx][["iseg", "k", "i", "j"]].sort_values("iseg")
@@ -996,8 +998,7 @@ class SwnModflow(SwnModflowBase):
         return self.segment_data[["k_up", "i_up", "j_up", "k_dn", "i_dn", "j_dn"]]
 
     def get_top_elevs_at_segs(self):
-        """
-        Get topsurface elevations associated with segment up and dn elevations.
+        """Get topsurface elevations associated with segment up and dn elevations.
 
         Returns
         -------
@@ -1017,13 +1018,13 @@ class SwnModflow(SwnModflowBase):
         return self.segment_data[["top_up", "top_dn"]]
 
     def get_segment_incision(self):
-        """
-        Calculate the upstream and downstream incision of the segment.
+        """Calculate the upstream and downstream incision of the segment.
 
         Returns
         -------
         pandas.DataFrame
             with "diff_up" and "diff_dn" series.
+
         """
         self.segment_data["diff_up"] = (
             self.segment_data["top_up"] - self.segment_data["elevup"]
@@ -1034,8 +1035,7 @@ class SwnModflow(SwnModflowBase):
         return self.segment_data[["diff_up", "diff_dn"]]
 
     def set_seg_minincise(self, minincise=0.2, max_str_z=None):
-        """
-        Set segment elevation to have the minimum incision from the top.
+        """Set segment elevation to have the minimum incision from the top.
 
         Parameters
         ----------
@@ -1049,6 +1049,7 @@ class SwnModflow(SwnModflowBase):
         -------
         pandas.DataFrame
             incisions at the upstream and downstream end of each segment
+
         """
         sel = self.segment_data["diff_up"] < minincise
         self.segment_data.loc[sel, "elevup"] = (
@@ -1064,12 +1065,10 @@ class SwnModflow(SwnModflowBase):
             sel = self.segment_data["elevdn"] > max_str_z
             self.segment_data.loc[sel, "elevdn"] = max_str_z
         # recalculate incisions
-        updown_incision = self.get_segment_incision()
-        return updown_incision
+        return self.get_segment_incision()
 
     def get_segment_length(self):
-        """
-        Get segment length from accumulated reach lengths.
+        """Get segment length from accumulated reach lengths.
 
         :return:
         """
@@ -1101,27 +1100,26 @@ class SwnModflow(SwnModflowBase):
         # find where seg is listed as outseg
         outsegsel = self.segment_data["outseg"] == seg.name
         # set outseg elevup
-        outseg_elevup = self.segment_data.loc[outsegsel, "outseg_elevup"]
-        return outseg_elevup
+        return self.segment_data.loc[outsegsel, "outseg_elevup"]
 
     def minslope_seg(self, seg, *args):
-        """
-        Force segment to have minimum slope (check for backward flowing segs).
+        """Force segment to have minimum slope (check for backward flowing segs).
 
         Moves downstream end down (vertically, more incision)
-        to acheive minimum slope.
+        to achieve minimum slope.
 
         Parameters
         ----------
         seg : pandas.Series
             Series containing one row of seg_data dataframe
         *args: tuple
-            Desired minumum slope
+            Desired minimum slope
 
         Returns
         -------
         pandas.Series:
             Series with new downstream elevation and associated outseg_elevup
+
         """
         # segdata_df = args[0]
         minslope = args[0]
@@ -1158,8 +1156,7 @@ class SwnModflow(SwnModflowBase):
             if down > up - (seg.seglen * prefslope):
                 dn = up - (seg.seglen * prefslope)
                 self.logger.debug(
-                    "outflow segment %s, outseg = %s, old elevdn = %s, "
-                    "new elevdn = %s",
+                    "outflow segment %s, outseg = %s, old elevdn = %s, new elevdn = %s",
                     seg.name,
                     seg.outseg,
                     seg.elevdn,
@@ -1190,6 +1187,7 @@ class SwnModflow(SwnModflowBase):
         -------
         pandas.DataFrame
             segment_data with updated values
+
         """
         # upper most segments (not referenced as outsegs)
         # segdata_df = self.segment_data.sort_index(axis=1)
@@ -1231,8 +1229,7 @@ class SwnModflow(SwnModflowBase):
         return self.segment_data
 
     def fix_segment_elevs(self, min_incise=0.2, min_slope=1e-4, max_str_z=None):
-        """
-        Provide wrapper function for calculating SFR segment elevations.
+        """Provide wrapper function for calculating SFR segment elevations.
 
         Calls series of functions to process and move sfr segment elevations,
         to try to ensure:
@@ -1271,8 +1268,7 @@ class SwnModflow(SwnModflowBase):
         return self.segment_data
 
     def reconcile_reach_strtop(self):
-        """
-        Recalculate reach strtop elevations after moving segment elevations.
+        """Recalculate reach strtop elevations after moving segment elevations.
 
         :return: None
         """
@@ -1309,8 +1305,7 @@ class SwnModflow(SwnModflowBase):
         return self.reaches
 
     def set_topbot_elevs_at_reaches(self):
-        """
-        Legacy method to add model top and bottom information to reaches.
+        """Legacy method to add model top and bottom information to reaches.
 
         .. deprecated:: 1.0
             Use :py:meth:`add_model_topbot_to_reaches` instead.
@@ -1319,6 +1314,7 @@ class SwnModflow(SwnModflowBase):
         -------
         pandas.DataFrame
             with reach cell top and bottom elevations
+
         """
         import warnings
 
@@ -1365,7 +1361,7 @@ class SwnModflow(SwnModflowBase):
                 rbed_elev = r.strtop - r.strthick
             if (rbed_elev - buffer) < r.bot:
                 # if new strtop is below layer one
-                # drop bottom of layer one to accomodate stream
+                # drop bottom of layer one to accommodate stream
                 # (top, bed thickness and buffer)
                 new_elev = rbed_elev - buffer
                 self.logger.debug(
@@ -1447,7 +1443,7 @@ class SwnModflow(SwnModflowBase):
                 upreach_cmid = self.reaches[rsel]["cmids"].values[0]
                 # use top reach as starting point
 
-                # loop over reaches in segement from second to penultimate
+                # loop over reaches in segment from second to penultimate
                 # (dont want to move elevup or elevdn)
                 for reach in self.reaches[rsel][1:-1].itertuples():
                     # strtop that would result from minimum slope
@@ -1519,9 +1515,9 @@ class SwnModflow(SwnModflowBase):
                                 self.logger.debug(
                                     "setting elevation to minslope from upstream"
                                 )
-                                self.reaches.at[
-                                    reach.Index, "strtop"
-                                ] = strtop_withminslope
+                                self.reaches.at[reach.Index, "strtop"] = (
+                                    strtop_withminslope
+                                )
                                 upreach_strtop = strtop_withminslope
                             else:
                                 # otherwise we can move reach so that it
@@ -1627,9 +1623,9 @@ class SwnModflow(SwnModflowBase):
         else:
             segsel = self.reaches["segnum"] == seg
         self.reaches["tmp_tdif"] = self.reaches["top"] - self.reaches["strtop"]
-        sfrar[
-            tuple(self.reaches[segsel][["i", "j"]].values.T.tolist())
-        ] = self.reaches.loc[segsel, "tmp_tdif"].tolist()
+        sfrar[tuple(self.reaches[segsel][["i", "j"]].values.T.tolist())] = (
+            self.reaches.loc[segsel, "tmp_tdif"].tolist()
+        )
         # .mask = np.ones(sfrar.shape)
         vtop = self.sfr_plot(
             model,
@@ -1648,9 +1644,9 @@ class SwnModflow(SwnModflowBase):
             sfrarbot = np.ma.zeros(dis.botm.array[0].shape, "f")
             sfrarbot.mask = np.ones(sfrarbot.shape)
             self.reaches["tmp_bdif"] = self.reaches["strtop"] - self.reaches["bot"]
-            sfrarbot[
-                tuple(self.reaches.loc[segsel, ["i", "j"]].values.T.tolist())
-            ] = self.reaches.loc[segsel, "tmp_bdif"].tolist()
+            sfrarbot[tuple(self.reaches.loc[segsel, ["i", "j"]].values.T.tolist())] = (
+                self.reaches.loc[segsel, "tmp_bdif"].tolist()
+            )
             # .mask = np.ones(sfrar.shape)
             vbot = self.sfr_plot(
                 model,
@@ -1672,7 +1668,7 @@ class SwnModflow(SwnModflowBase):
             Start and end reach identifiers (reachID) used by FloPy.
         allow_indirect : bool, default False
             If True, allow the route to go downstream from start to a
-            confluence, then route upstream to end. Defalut False allows
+            confluence, then route upstream to end. Default False allows
             only a direct route along a single direction up or down.
 
         Returns
@@ -1724,7 +1720,7 @@ class SwnModflow(SwnModflowBase):
         3           1       3  1  1  12.018504
         6           3       1  1  1  10.000000
         7           3       2  2  1  10.000000
-        """  # noqa
+        """
         if start not in self.reaches.index:
             raise IndexError(f"invalid start reachID {start}")
         if end not in self.reaches.index:
@@ -1745,19 +1741,21 @@ class SwnModflow(SwnModflowBase):
             .iseg
         )
 
-        to_reachids = {}
+        to_reachids_d = {}
         for segnum, iseg in segnum_iseg.items():
-            sel = self.reaches.index[self.reaches.iseg == iseg]
-            to_reachids.update(dict(zip(sel[0:-1], sel[1:])))
+            sel_l = self.reaches.index[self.reaches.iseg == iseg].to_list()
+            to_reachids_d.update(dict(zip(sel_l[0:-1], sel_l[1:])))
             next_segnum = self.segments.to_segnum[segnum]
-            next_reachids = self.reaches.index[self.reaches.segnum == next_segnum]
-            if len(next_reachids) > 0:
-                to_reachids[sel[-1]] = next_reachids[0]
+            next_reachids_l = self.reaches.index[
+                self.reaches.segnum == next_segnum
+            ].to_list()
+            if len(next_reachids_l) > 0:
+                to_reachids_d[sel_l[-1]] = next_reachids_l[0]
 
         def go_downstream(rid):
             yield rid
-            if rid in to_reachids:
-                yield from go_downstream(to_reachids[rid])
+            if rid in to_reachids_d:
+                yield from go_downstream(to_reachids_d[rid])
 
         con1 = list(go_downstream(start))
         try:
@@ -1804,7 +1802,7 @@ class SwnModflow(SwnModflowBase):
         package : str
             MODFLOW package name, such as "drn" for DRAIN.
         style : str
-            If "native", all indicies (including kij) use one-based notation.
+            If "native", all indices (including kij) use one-based notation.
             Also use k,i,j columns (as str) rather than cellid.
             If "flopy", all indices (including rno) use zero-based notation.
             Also use cellid as a tuple.
@@ -1852,6 +1850,7 @@ class SwnModflow(SwnModflowBase):
             5        1  2  2  15.0  105.409255  10.540926
             6        1  2  2  15.0  100.000000  10.000000
             7        1  3  2  15.0  100.000000  10.000000
+
         """
         from inspect import signature
 
@@ -1873,8 +1872,7 @@ class SwnModflow(SwnModflowBase):
                 gdd_kwds[kwarg] = value
             else:
                 self.logger.warning(
-                    "%s %r specified, but not part of the "
-                    "get_default_dtype signature",
+                    "%s %r specified, but not part of the get_default_dtype signature",
                     kwarg,
                     value,
                 )
@@ -1895,8 +1893,7 @@ class SwnModflow(SwnModflowBase):
         dat = dat.loc[:, dtype.names]
         if self.model.dis.nper != 1:
             self.logger.warning(
-                "only preparing stress period data for the first "
-                "stress period of %s",
+                "only preparing stress period data for the first stress period of %s",
                 self.model.dis.nper,
             )
         dat["per"] = 1
@@ -1905,8 +1902,7 @@ class SwnModflow(SwnModflowBase):
         return dat.reset_index().set_index(["per", "reachID"])
 
     def write_package_period(self, package: str, fname, auxiliary=[]):
-        r"""
-        Write PERIOD file for MODFLOW packages, to be used within OPEN/CLOSE.
+        r"""Write PERIOD file for MODFLOW packages, to be used within OPEN/CLOSE.
 
         Parameters
         ----------
@@ -2038,6 +2034,7 @@ class SwnModflow(SwnModflowBase):
         4  0  1  1  15.0  105.409256  10.540926
         5  0  1  1  15.0  100.000000  10.000000
         6  0  2  1  15.0  100.000000  10.000000
+
         """
         spdf = self.package_period_frame(package, "flopy", auxiliary=auxiliary, **kwds)
         Mfpak = get_flopy_modflow_package(package)
@@ -2079,6 +2076,7 @@ class SwnModflow(SwnModflowBase):
         Returns
         -------
         flopy.pakbase.Package
+
         """
         if "stress_period_data" not in kwds:
             kwds["stress_period_data"] = self.flopy_package_period(
@@ -2106,11 +2104,12 @@ def get_flopy_modflow_package(name: str):
     -------
     flopy.pakbase.Package
         Subclass object.
+
     """
     import flopy.modflow
 
     if not isinstance(name, str):
-        raise ValueError(f"packge must be a str type; found {type(name)!r}")
+        raise ValueError(f"package must be a str type; found {type(name)!r}")
     try:
         return getattr(flopy.modflow, name)
     except AttributeError:

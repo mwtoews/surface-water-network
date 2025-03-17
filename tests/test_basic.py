@@ -2,6 +2,7 @@ import logging
 from textwrap import dedent
 
 import geopandas
+import geopandas.testing
 import numpy as np
 import pandas as pd
 import pytest
@@ -9,7 +10,7 @@ from shapely import wkt
 from shapely.geometry import LineString, Point
 
 import swn
-from swn.compat import ignore_shapely_warnings_for_object_array
+from swn.compat import GEOPANDAS_GE_100, ignore_shapely_warnings_for_object_array
 from swn.spatial import force_2d, round_coords
 
 from .conftest import matplotlib, plt
@@ -88,10 +89,19 @@ def test_init_defaults(valid_n):
     )
     assert "upstream_area" not in n.segments.columns
     assert "width" not in n.segments.columns
-    assert list(n.headwater) == [1, 2]
-    assert list(n.outlets) == [0]
-    assert dict(n.to_segnums) == {1: 0, 2: 0}
-    assert dict(n.from_segnums) == {0: {1, 2}}
+    assert n.headwater.to_list() == [1, 2]
+    assert n.outlets.to_list() == [0]
+    assert n.to_segnums.to_dict() == {1: 0, 2: 0}
+    assert n.from_segnums.to_dict() == {0: {1, 2}}
+    # more pedantic checks
+    pd.testing.assert_index_equal(n.headwater, pd.Index([1, 2]))
+    pd.testing.assert_index_equal(n.outlets, pd.Index([0]))
+    pd.testing.assert_series_equal(
+        n.to_segnums, pd.Series({1: 0, 2: 0}, name="to_segnum")
+    )
+    pd.testing.assert_series_equal(
+        n.from_segnums, pd.Series({0: {1, 2}}, name="from_segnums")
+    )
     n.adjust_elevation_profile()
     assert len(n.messages) == 0
     assert str(n) == repr(n)
@@ -137,8 +147,8 @@ def test_init_2D_geom():
     np.testing.assert_allclose(
         n.segments["upstream_length"], [87.67828936, 36.05551275, 31.6227766]
     )
-    assert list(n.headwater) == [1, 2]
-    assert list(n.outlets) == [0]
+    assert n.headwater.to_list() == [1, 2]
+    assert n.outlets.to_list() == [0]
     assert repr(n) == dedent(
         """\
         <SurfaceWaterNetwork:
@@ -207,10 +217,10 @@ def test_init_reversed_lines():
     np.testing.assert_allclose(
         n.segments["upstream_length"], [20.0, 56.05551275, 31.6227766]
     )
-    assert list(n.headwater) == [0, 2]
-    assert list(n.outlets) == [1, 2]
-    assert dict(n.to_segnums) == {0: 1}
-    assert dict(n.from_segnums) == {1: {0}}
+    assert n.headwater.to_list() == [0, 2]
+    assert n.outlets.to_list() == [1, 2]
+    assert n.to_segnums.to_dict() == {0: 1}
+    assert n.from_segnums.to_dict() == {1: {0}}
     assert repr(n) == dedent(
         """\
         <SurfaceWaterNetwork: with Z coordinates
@@ -256,10 +266,10 @@ def test_init_all_converge():
     np.testing.assert_allclose(
         n.segments["upstream_length"], [36.05551, 31.622776, 20.0]
     )
-    assert list(n.headwater) == [0, 1, 2]
-    assert list(n.outlets) == [0, 1, 2]
-    assert dict(n.to_segnums) == {}
-    assert dict(n.from_segnums) == {}
+    assert n.headwater.to_list() == [0, 1, 2]
+    assert n.outlets.to_list() == [0, 1, 2]
+    assert n.to_segnums.to_dict() == {}
+    assert n.from_segnums.to_dict() == {}
     assert repr(n) == dedent(
         """\
         <SurfaceWaterNetwork: with Z coordinates
@@ -305,10 +315,10 @@ def test_init_all_diverge():
     np.testing.assert_allclose(
         n.segments["upstream_length"], [36.05551, 31.622776, 20.0]
     )
-    assert list(n.headwater) == [0, 1, 2]
-    assert list(n.outlets) == [0, 1, 2]
-    assert dict(n.to_segnums) == {}
-    assert dict(n.from_segnums) == {}
+    assert n.headwater.to_list() == [0, 1, 2]
+    assert n.outlets.to_list() == [0, 1, 2]
+    assert n.to_segnums.to_dict() == {}
+    assert n.from_segnums.to_dict() == {}
     assert repr(n) == dedent(
         """\
         <SurfaceWaterNetwork: with Z coordinates
@@ -343,10 +353,10 @@ def test_init_line_connects_to_middle():
     assert list(n.segments["sequence"]) == [1, 2]
     assert list(n.segments["stream_order"]) == [1, 1]
     np.testing.assert_allclose(n.segments["upstream_length"], [56.05551, 31.622776])
-    assert list(n.headwater) == [0, 1]
-    assert list(n.outlets) == [0, 1]
-    assert dict(n.to_segnums) == {}
-    assert dict(n.from_segnums) == {}
+    assert n.headwater.to_list() == [0, 1]
+    assert n.outlets.to_list() == [0, 1]
+    assert n.to_segnums.to_dict() == {}
+    assert n.from_segnums.to_dict() == {}
     assert repr(n) == dedent(
         """\
         <SurfaceWaterNetwork: with Z coordinates
@@ -361,7 +371,7 @@ def test_init_line_connects_to_middle():
 
 
 def test_to_segnums(valid_n):
-    # check series in propery method
+    # check series in property method
     pd.testing.assert_series_equal(
         valid_n.to_segnums, pd.Series([0, 0], name="to_segnum", index=pd.Index([1, 2]))
     )
@@ -385,7 +395,7 @@ def test_to_segnums(valid_n):
 
 
 def test_from_segnums(valid_n):
-    # check series in propery method
+    # check series in property method
     pd.testing.assert_series_equal(
         valid_n.from_segnums, pd.Series([{1, 2}], name="from_segnums")
     )
@@ -475,7 +485,7 @@ def test_init_geoseries():
     assert n.has_z is True
     v = pd.Series([3.0, 2.0, 4.0])
     a = n.accumulate_values(v)
-    assert dict(a) == {0: 9.0, 1: 2.0, 2: 4.0}
+    pd.testing.assert_series_equal(a, pd.Series({0: 9.0, 1: 2.0, 2: 4.0}))
 
 
 def test_init_segments_loc():
@@ -494,7 +504,7 @@ def test_init_segments_loc():
     n2 = swn.SurfaceWaterNetwork(n1.segments.loc[100:102])
     assert len(n2.segments) == 3
     assert list(n2.outlets) == [100]
-    assert dict(n2.to_segnums) == {101: 100, 102: 100}
+    assert n2.to_segnums.to_dict() == {101: 100, 102: 100}
 
 
 def test_accumulate_values_must_be_series(valid_n):
@@ -517,8 +527,12 @@ def test_accumulate_values_different_index(valid_n):
 def test_accumulate_values_expected(valid_n):
     v = pd.Series([2.0, 3.0, 4.0])
     a = valid_n.accumulate_values(v)
-    assert dict(a) == {0: 9.0, 1: 3.0, 2: 4.0}
-    assert a.name is None
+    pd.testing.assert_series_equal(a, pd.Series({0: 9.0, 1: 3.0, 2: 4.0}))
+    v = pd.Series([3.0, 2.0, 4.0], name="vals")
+    a = valid_n.accumulate_values(v)
+    pd.testing.assert_series_equal(
+        a, pd.Series({0: 9.0, 1: 2.0, 2: 4.0}, name="accumulated_vals")
+    )
 
 
 def test_init_polygons():
@@ -633,7 +647,7 @@ def test_set_diversions_geodataframe():
     assert set(n.diversions.columns) == set(expected.columns)
     pd.testing.assert_frame_equal(n.diversions[expected.columns], expected)
     np.testing.assert_array_equal(n.segments["diversions"], [{2, 3}, {0}, {1}])
-    # defalut parameters
+    # default parameters
     n.set_diversions(diversions)
     expected = geopandas.GeoDataFrame(
         {
@@ -999,7 +1013,7 @@ def test_remove_errors(valid_n):
     assert len(n) == 3
     n.remove()  # no segments selected to remove; no changes made
     assert len(n) == 3
-    n.remove(n.segments["dist_to_outlet"] > 100.0)  # dito, none selected
+    n.remove(n.segments["dist_to_outlet"] > 100.0)  # ditto, none selected
     assert len(n) == 3
     with pytest.raises(
         IndexError, match=r"1 segnums not found in segments\.index: \[3\]"
@@ -1052,9 +1066,9 @@ def test_fluss_n(fluss_n):
     assert list(n.segments["stream_order"]) == (
         [1, 1, 2, 1, 1, 2, 3, 1, 3, 3, 2, 2, 1, 1, 1, 1, 4, 1, 4]
     )
-    assert list(n.headwater) == [0, 1, 3, 4, 7, 12, 13, 14, 15, 17]
-    assert list(n.outlets) == [18]
-    assert dict(n.to_segnums) == {
+    assert n.headwater.to_list() == [0, 1, 3, 4, 7, 12, 13, 14, 15, 17]
+    assert n.outlets.to_list() == [18]
+    assert n.to_segnums.to_dict() == {
         0: 2,
         1: 2,
         2: 6,
@@ -1075,7 +1089,7 @@ def test_fluss_n(fluss_n):
         17: 18,
     }
 
-    assert dict(n.from_segnums) == {
+    assert n.from_segnums.to_dict() == {
         16: {8, 9},
         2: {0, 1},
         5: {3, 4},
@@ -1237,7 +1251,11 @@ def test_locate_geoms_in_basic_swn(caplog):
     a = r2.geometry.apply(lambda x: Point(*x.coords[0]))
     assert (a.distance(gs.drop(index=16)) == 0.0).all()
     b = r2.geometry.apply(lambda x: Point(*x.coords[-1]))
-    seg_mls = n.segments.geometry[r2.segnum].unary_union
+    seg_geoms = n.segments.geometry[r2.segnum]
+    if GEOPANDAS_GE_100:
+        seg_mls = seg_geoms.union_all()
+    else:
+        seg_mls = seg_geoms.unary_union
     assert (b.distance(seg_mls) < 1e-10).all()
     # now check the empty geometry
     for k in e.keys():
@@ -1322,7 +1340,7 @@ def test_locate_geoms_only_lines(coastal_geom, coastal_swn):
     e = pd.DataFrame(
         {
             "method": "nearest",
-            "segnum": [3047364, 3048663, 3048249, 3049113, 3047736, 3047145, 3046736],
+            "segnum": [3047364, 3048663, 3048249, 3049113, 3047736, 3047145, 3046745],
             "seg_ndist": [0.5954064, 0.0974058, 0.279147, 0.0, 0.684387, 0.0, 0.541026],
             "dist_to_seg": [
                 80.25,
@@ -1342,7 +1360,11 @@ def test_locate_geoms_only_lines(coastal_geom, coastal_swn):
     assert (r.geometry.apply(lambda g: len(g.coords)) == 2).all()
     a = r.geometry.interpolate(0.0)
     b = r.geometry.interpolate(1.0, normalized=True)
-    seg_mls = coastal_swn.segments.geometry[r.segnum].unary_union
+    seg_geoms = coastal_swn.segments.geometry[r.segnum]
+    if GEOPANDAS_GE_100:
+        seg_mls = seg_geoms.union_all()
+    else:
+        seg_mls = seg_geoms.unary_union
     assert (a.distance(coastal_geom) < 1e-10).all()
     assert (a.distance(seg_mls) > 0.0).all()
     assert (b.distance(coastal_geom) > 0.0).all()
@@ -1407,7 +1429,11 @@ def test_locate_geoms_with_catchments(coastal_geom, coastal_swn_w_poly):
     assert (r.geometry.apply(lambda g: len(g.coords)) == 2).all()
     a = r.geometry.interpolate(0.0)
     b = r.geometry.interpolate(1.0, normalized=True)
-    seg_mls = coastal_swn_w_poly.segments.geometry[r.segnum].unary_union
+    seg_geoms = coastal_swn_w_poly.segments.geometry[r.segnum]
+    if GEOPANDAS_GE_100:
+        seg_mls = seg_geoms.union_all()
+    else:
+        seg_mls = seg_geoms.unary_union
     assert (a.distance(coastal_geom) < 1e-10).all()
     assert (a.distance(seg_mls) > 0.0).all()
     assert (b.distance(coastal_geom) > 0.0).all()
@@ -1524,6 +1550,85 @@ def test_aggregate_fluss_coarse(fluss_n):
     assert list(na.segments["agg_unpath"]) == (
         [[3], [14], [17, 8, 9], [7, 2, 5], [0], [10, 11], [12]]
     )
+
+
+def test_coarsen_fluss(fluss_n):
+    # level 1 gets back the same network, but with 'traced_segnums'
+    nc1 = fluss_n.coarsen(1)
+    assert len(nc1) == 19
+    assert nc1.catchments is None
+    pd.testing.assert_frame_equal(
+        fluss_n.segments, nc1.segments.drop(columns="traced_segnums")
+    )
+    pd.testing.assert_series_equal(
+        nc1.segments["traced_segnums"],
+        nc1.segments.index.to_series().apply(lambda x: [x]),
+        check_names=False,
+    )
+
+    # coarsen to level 2
+    nc2 = fluss_n.coarsen(2)
+    expected_nc2 = geopandas.GeoDataFrame(
+        {
+            "to_segnum": [8, 8, 18, 18, 9, 9, 0],
+            "from_segnums": [set(), set(), {2, 5}, {10, 11}, set(), set(), {8, 9}],
+            "stream_order": [2, 2, 3, 3, 2, 2, 4],
+            "traced_segnums": [[2], [5], [6, 8], [9], [10], [11], [16, 18]],
+        },
+        geometry=geopandas.GeoSeries.from_wkt(
+            [
+                "LINESTRING (370 420, 420 330)",
+                "LINESTRING (280 270, 420 330)",
+                "LINESTRING (420 330, 584 250, 710 160)",
+                "LINESTRING (740 270, 710 160)",
+                "LINESTRING (735 350, 740 270)",
+                "LINESTRING (880 320, 740 270)",
+                "LINESTRING (710 160, 770 100, 820 40)",
+            ],
+        ),
+    ).set_index(pd.Index([2, 5, 8, 9, 10, 11, 18]))
+    cols = ["geometry", "to_segnum", "from_segnums", "stream_order", "traced_segnums"]
+    geopandas.testing.assert_geodataframe_equal(nc2.segments[cols], expected_nc2[cols])
+
+    # coarsen to level 3
+    nc3 = fluss_n.coarsen(3)
+    expected_nc3 = geopandas.GeoDataFrame(
+        {
+            "to_segnum": [18, 18, 0],
+            "from_segnums": [set(), set(), {8, 9}],
+            "stream_order": [3, 3, 4],
+            "traced_segnums": [[6, 8], [9], [16, 18]],
+        },
+        geometry=geopandas.GeoSeries.from_wkt(
+            [
+                "LINESTRING (420 330, 584 250, 710 160)",
+                "LINESTRING (740 270, 710 160)",
+                "LINESTRING (710 160, 770 100, 820 40)",
+            ],
+        ),
+    ).set_index(pd.Index([8, 9, 18]))
+    geopandas.testing.assert_geodataframe_equal(nc3.segments[cols], expected_nc3[cols])
+
+    # coarsen to level 4
+    nc4 = fluss_n.coarsen(4)
+    expected_nc4 = geopandas.GeoDataFrame(
+        {
+            "to_segnum": [0],
+            "from_segnums": [set()],
+            "stream_order": [4],
+            "traced_segnums": [[16, 18]],
+        },
+        geometry=geopandas.GeoSeries.from_wkt(
+            [
+                "LINESTRING (710 160, 770 100, 820 40)",
+            ],
+        ),
+    ).set_index(pd.Index([18]))
+    geopandas.testing.assert_geodataframe_equal(nc4.segments[cols], expected_nc4[cols])
+
+    # can't coarsen to level 5
+    with pytest.raises(ValueError, match="no segments found"):
+        fluss_n.coarsen(5)
 
 
 def test_adjust_elevation_profile_errors(valid_n):

@@ -6,14 +6,14 @@ __email__ = "mwtoews@gmail.com"
 __credits__ = ["Brioch Hemmings"]
 
 __all__ = [
+    "SurfaceWaterNetwork",
+    "SwnMf6",
+    "SwnModflow",
     "__version__",
     "core",
     "file",
     "modflow",
     "spatial",
-    "SurfaceWaterNetwork",
-    "SwnMf6",
-    "SwnModflow",
 ]
 
 from . import core, file, modflow, spatial

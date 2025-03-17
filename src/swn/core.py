@@ -14,7 +14,11 @@ import pandas as pd
 import shapely
 from shapely.geometry import LineString, Point
 
-from .compat import SHAPELY_GE_20, ignore_shapely_warnings_for_object_array
+from .compat import (
+    SHAPELY_GE_20,
+    ignore_shapely_warnings_for_object_array,
+    sjoin_idx_names,
+)
 from .spatial import bias_substring
 from .util import abbr_str
 
@@ -37,8 +41,7 @@ class SurfaceWaterNetwork:
     """
 
     def __init__(self, segments, END_SEGNUM=0, logger=None):
-        """
-        Initialise SurfaceWaterNetwork.
+        """Initialise SurfaceWaterNetwork.
 
         Parameters
         ----------
@@ -103,8 +106,9 @@ class SurfaceWaterNetwork:
             diversions_line = "no diversions"
         else:
             div_l = list(diversions.index)
-            diversions_line = "{} diversions (as {}): {}".format(
-                len(div_l), diversions.__class__.__name__, abbr_str(div_l, 4)
+            diversions_line = (
+                f"{len(div_l)} diversions (as {diversions.__class__.__name__}): "
+                + abbr_str(div_l, 4)
             )
         return dedent(
             f"""\
@@ -124,11 +128,9 @@ class SurfaceWaterNetwork:
                 is_none = (av is None, bv is None)
                 if all(is_none):
                     continue
-                elif any(is_none):
+                if any(is_none) or type(av) is not type(bv):
                     return False
-                elif type(av) != type(bv):
-                    return False
-                elif isinstance(av, pd.DataFrame):
+                if isinstance(av, pd.DataFrame):
                     pd.testing.assert_frame_equal(av, bv)
                 elif isinstance(av, pd.Series):
                     pd.testing.assert_series_equal(av, bv)
@@ -154,9 +156,9 @@ class SurfaceWaterNetwork:
         """Set object attributes from pickle loads."""
         if not isinstance(state, dict):
             raise ValueError(f"expected 'dict'; found {type(state)!r}")
-        elif "class" not in state:
+        if "class" not in state:
             raise KeyError("state does not have 'class' key")
-        elif state["class"] != self.__class__.__name__:
+        if state["class"] != self.__class__.__name__:
             raise ValueError(
                 "expected state class {!r}; found {!r}".format(
                     state["class"], self.__class__.__name__
@@ -176,8 +178,7 @@ class SurfaceWaterNetwork:
 
     @classmethod
     def from_lines(cls, lines, polygons=None):
-        """
-        Create and evaluate a new SurfaceWaterNetwork from lines for segments.
+        """Create and evaluate a new SurfaceWaterNetwork from lines for segments.
 
         Parameters
         ----------
@@ -209,9 +210,9 @@ class SurfaceWaterNetwork:
         """
         if not isinstance(lines, geopandas.GeoSeries):
             raise ValueError("lines must be a GeoSeries")
-        elif len(lines) == 0:
+        if len(lines) == 0:
             raise ValueError("one or more lines are required")
-        elif not (lines.geom_type == "LineString").all():
+        if not (lines.geom_type == "LineString").all():
             raise ValueError("lines must all be LineString types")
         # Create a new GeoDataFrame with a copy of line's geometry
         segments = geopandas.GeoDataFrame(geometry=lines)
@@ -232,18 +233,18 @@ class SurfaceWaterNetwork:
         del segments, END_SEGNUM  # dereference local copies
         obj.errors = []
         obj.warnings = []
-        obj.logger.debug("creating start/end points and spatial join objets")
+        obj.logger.debug("creating start/end points and spatial join objects")
         start_pts = obj.segments.interpolate(0.0, normalized=True)
         end_pts = obj.segments.interpolate(1.0, normalized=True)
         start_df = start_pts.to_frame("start").set_geometry("start")
         end_df = end_pts.to_frame("end").set_geometry("end")
-        segidxname = obj.segments.index.name or "index"
         # This is the main component of the algorithm
+        end_idx_name, start_idx_name = sjoin_idx_names(end_df, start_df)
         jxn = pd.DataFrame(
             geopandas.sjoin(end_df, start_df, "inner", "intersects")
             .drop(columns="end")
             .reset_index()
-            .rename(columns={segidxname: "end", "index_right": "start"})
+            .rename(columns={end_idx_name: "end", start_idx_name: "start"})
         )
         # Group end points to start points, list should only have 1 item
         to_segnum_l = jxn.groupby("end")["start"].agg(list)
@@ -281,18 +282,19 @@ class SurfaceWaterNetwork:
             len(headwater),
             len(outlets),
         )
-        # Find outlets that join to a single coodinate
+        # Find outlets that join to a single coordinate
         multi_outlets = set()
         out_pts = end_pts.loc[outlets].to_frame("out").set_geometry("out")
+        left_idx_name, right_idx_name = sjoin_idx_names(out_pts, out_pts)
         jout = pd.DataFrame(
             geopandas.sjoin(out_pts, out_pts, "inner")
             .reset_index()
-            .rename(columns={segidxname: "out1", "index_right": "out2"})
+            .rename(columns={left_idx_name: "out1", right_idx_name: "out2"})
         ).query("out1 != out2")
         if jout.size > 0:
             # Just evaluate 2D tuple to find segnums with same location
             outsets = (
-                jout.assign(xy=jout.out.map(lambda g: (g.x, g.y)))
+                jout.assign(xy=jout.out.map(lambda g: (float(g.x), float(g.y))))
                 .drop(columns="out")
                 .groupby("xy")
                 .agg(set)
@@ -309,11 +311,12 @@ class SurfaceWaterNetwork:
                 obj.warnings.append(m[0] % m[1:])
                 multi_outlets |= v
         # Find outlets that join to middle of other segments
+        left_idx_name, right_idx_name = sjoin_idx_names(out_pts, obj.segments)
         joutseg = pd.DataFrame(
             geopandas.sjoin(out_pts, obj.segments[["geometry"]], "inner")
             .drop(columns="out")
             .reset_index()
-            .rename(columns={segidxname: "out", "index_right": "segnum"})
+            .rename(columns={left_idx_name: "out", right_idx_name: "segnum"})
         )
         for r in joutseg.query("out != segnum").itertuples():
             if r.out in multi_outlets:
@@ -321,17 +324,18 @@ class SurfaceWaterNetwork:
             m = ("segment %s connects to the middle of segment %s", r.out, r.segnum)
             obj.logger.error(*m)
             obj.errors.append(m[0] % m[1:])
-        # Find headwater that join to a single coodinate
+        # Find headwater that join to a single coordinate
         hw_pts = start_pts.loc[headwater].to_frame("hw").set_geometry("hw")
+        hw_idx_name, start_idx_name = sjoin_idx_names(hw_pts, start_df)
         jhw = pd.DataFrame(
             geopandas.sjoin(hw_pts, start_df, "inner")
             .reset_index()
-            .rename(columns={segidxname: "hw1", "index_right": "start"})
+            .rename(columns={hw_idx_name: "hw1", start_idx_name: "start"})
         ).query("hw1 != start")
         obj.jhw = jhw
         if jhw.size > 0:
             hwsets = (
-                jhw.assign(xy=jhw.hw.map(lambda g: (g.x, g.y)))
+                jhw.assign(xy=jhw.hw.map(lambda g: (float(g.x), float(g.y))))
                 .drop(columns="hw")
                 .groupby("xy")
                 .agg(set)
@@ -493,7 +497,7 @@ class SurfaceWaterNetwork:
         100          0   {101, 102}        100              1         3             2
         101        100           {}        100              2         1             1
         102        100           {}        100              2         2             1
-        """  # noqa
+        """
         return getattr(self, "_segments")
 
     @property
@@ -541,7 +545,7 @@ class SurfaceWaterNetwork:
             if hasattr(self, "_catchments"):
                 delattr(self, "_catchments")
             return
-        elif not isinstance(value, geopandas.GeoSeries):
+        if not isinstance(value, geopandas.GeoSeries):
             raise ValueError(
                 f"catchments must be a GeoSeries or None; found {type(value)!r}"
             )
@@ -583,6 +587,7 @@ class SurfaceWaterNetwork:
             Normalized distance along segment to closest point to diversion.
         dist_to_seg : float
             Distance to segment line described by ``from_segnum``.
+
         """
         return getattr(self, "_diversions", None)
 
@@ -628,6 +633,7 @@ class SurfaceWaterNetwork:
         -------
         None
             See :py:attr:`diversions` for result object description.
+
         """
         if diversions is None:
             self.logger.debug("removing diversions")
@@ -759,7 +765,7 @@ class SurfaceWaterNetwork:
             Start and end segnums.
         allow_indirect : bool, default False
             If True, allow the route to go downstream from start to a
-            confluence, then route upstream to end. Defalut False allows
+            confluence, then route upstream to end. Default False allows
             only a a direct route along a single direction up or down.
 
         Returns
@@ -800,6 +806,7 @@ class SurfaceWaterNetwork:
         See Also
         --------
         gather_segnums : Query multiple segnums up and downstream.
+
         """
         if start not in self.segments.index:
             raise IndexError(f"invalid start segnum {start}")
@@ -807,12 +814,12 @@ class SurfaceWaterNetwork:
             raise IndexError(f"invalid end segnum {end}")
         if start == end:
             return [start]
-        to_segnums = dict(self.to_segnums)
+        to_segnums_d = self.to_segnums.to_dict()
 
         def go_downstream(segnum):
             yield segnum
-            if segnum in to_segnums:
-                yield from go_downstream(to_segnums[segnum])
+            if segnum in to_segnums_d:
+                yield from go_downstream(to_segnums_d[segnum])
 
         con1 = list(go_downstream(start))
         try:
@@ -908,6 +915,7 @@ class SurfaceWaterNetwork:
         {100, 101, 102, 103, 104, 105, 106, 107, 108, 116, 117, 118}
         >>> n.gather_segnums(downstream=100, gather_upstream=True, barrier=108)
         [102, 106, 108, 101, 105, 104, 103]
+
         """
         segments_index = self.segments.index
         segments_set = set(segments_index)
@@ -922,10 +930,9 @@ class SurfaceWaterNetwork:
                         f"not found in segments.index: {abbr_str(diff)}"
                     )
                 return var
-            else:
-                if var not in segments_index:
-                    raise IndexError(f"{name} segnum {var} not found in segments.index")
-                return [var]
+            if var not in segments_index:
+                raise IndexError(f"{name} segnum {var} not found in segments.index")
+            return [var]
 
         def go_upstream(segnum):
             yield segnum
@@ -934,17 +941,17 @@ class SurfaceWaterNetwork:
 
         def go_downstream(segnum):
             yield segnum
-            if segnum in to_segnums:
-                yield from go_downstream(to_segnums[segnum])
+            if segnum in to_segnums_d:
+                yield from go_downstream(to_segnums_d[segnum])
 
-        to_segnums = dict(self.to_segnums)
+        to_segnums_d = self.to_segnums.to_dict()
         from_segnums = self.from_segnums
         for barrier in check_and_return_list(barrier, "barrier"):
             try:
                 del from_segnums[barrier]
             except KeyError:  # this is a tributary, remove value
-                from_segnums[to_segnums[barrier]].remove(barrier)
-            del to_segnums[barrier]
+                from_segnums[to_segnums_d[barrier]].remove(barrier)
+            del to_segnums_d[barrier]
 
         segnums = []
         for segnum in check_and_return_list(upstream, "upstream"):
@@ -1038,12 +1045,13 @@ class SurfaceWaterNetwork:
         12   nearest       0   0.500000     0.000000
         13   nearest       2   0.790000     2.213594
         14  override       2   0.150000    14.230249
+
         """
         from shapely import wkt
 
         if not isinstance(geom, geopandas.GeoSeries):
             raise TypeError("expected 'geom' as an instance of GeoSeries")
-        elif not (-1.0 <= downstream_bias <= 1.0):
+        if not (-1.0 <= downstream_bias <= 1.0):
             raise ValueError("downstream_bias must be between -1 and 1")
 
         # Make sure CRS is the same as segments (if defined)
@@ -1092,7 +1100,10 @@ class SurfaceWaterNetwork:
                     if v in missng_segnum_idx_s:
                         del override[k]
             if override:
-                res.segnum.update(override)
+                if pd.__version__.startswith("1."):
+                    res.segnum.update(override)
+                else:
+                    res.update({"segnum": override})
                 res.loc[override.keys(), "method"] = "override"
 
         # Mark empty geometries
@@ -1107,14 +1118,13 @@ class SurfaceWaterNetwork:
                 catchments_df = self.catchments.to_frame("geometry")
                 if catchments_df.crs is None and self.segments.crs is not None:
                     catchments_df.crs = self.segments.crs
-                match_s = geopandas.sjoin(res[sel], catchments_df, "inner")[
-                    "index_right"
-                ]
+                _, ridxn = sjoin_idx_names(res, catchments_df)
+                match_s = geopandas.sjoin(res[sel], catchments_df, "inner")[ridxn]
                 match_s.name = "segnum"
                 match_s.index.name = "gidx"
                 match = match_s.reset_index()
                 if min_stream_order is not None:
-                    to_segnums = dict(self.to_segnums)
+                    to_segnums_d = self.to_segnums.to_dict()
 
                     def find_downstream_in_min_stream_order(segnum):
                         while True:
@@ -1123,8 +1133,8 @@ class SurfaceWaterNetwork:
                                 >= min_stream_order
                             ):
                                 return segnum
-                            elif segnum in to_segnums:
-                                segnum = to_segnums[segnum]
+                            if segnum in to_segnums_d:
+                                segnum = to_segnums_d[segnum]
                             else:  # nothing found with stream order criteria
                                 return segnum
 
@@ -1195,9 +1205,10 @@ class SurfaceWaterNetwork:
                 )
             try:
                 # faster method, not widely available
+                _, right_idx_name = sjoin_idx_names(res, self.segments)
                 match_s = geopandas.sjoin_nearest(
                     res[sel], segments_gs.to_frame(), "inner"
-                )["index_right"]
+                )[right_idx_name]
                 has_sjoin_nearest = True
             except (AttributeError, NotImplementedError):
                 has_sjoin_nearest = False
@@ -1254,7 +1265,7 @@ class SurfaceWaterNetwork:
             from shapely.ops import nearest_points
 
             with ignore_shapely_warnings_for_object_array():
-                res.geometry.loc[sel] = res.loc[sel].apply(
+                res.loc[sel, "geometry"] = res.loc[sel].apply(
                     lambda f: nearest_points(
                         self.segments.geometry[f.segnum], f.geometry
                     )[1],
@@ -1300,7 +1311,13 @@ class SurfaceWaterNetwork:
             linestring_empty = wkt.loads("LINESTRING EMPTY")
             for idx in res[~sel].index:
                 res.at[idx, "link"] = linestring_empty
-        res.set_geometry("link", drop=True, inplace=True)
+        res = (
+            res.set_geometry("link")
+            .drop(columns="geometry")
+            .rename_geometry("geometry")
+        )
+        if geom_crs:
+            res.set_crs(geom_crs, inplace=True)
         res["dist_to_seg"] = res[sel].length
         return res
 
@@ -1326,6 +1343,9 @@ class SurfaceWaterNetwork:
             segnums that flow into 'agg_path'. Also 'from_segnums' is updated
             to reflect the uppermost segment.
 
+        See Also
+        --------
+        coarsen : Coarsen stream networks to a higher stream order.
         """
         from shapely.ops import linemerge, unary_union
 
@@ -1345,7 +1365,7 @@ class SurfaceWaterNetwork:
             )
         self.logger.debug("aggregating at least %d segnums (junctions)", len(junctions))
         from_segnums = self.from_segnums
-        to_segnums = dict(self.to_segnums)
+        to_segnums_d = self.to_segnums.to_dict()
 
         # trace down from each segnum to the outlet - keep this step simple
         traced_segnums = list()
@@ -1353,7 +1373,7 @@ class SurfaceWaterNetwork:
         def trace_down(segnum):
             if segnum is not None and segnum not in traced_segnums:
                 traced_segnums.append(segnum)
-                trace_down(to_segnums.get(segnum, None))
+                trace_down(to_segnums_d.get(segnum))
 
         for segnum in junctions:
             trace_down(segnum)
@@ -1446,7 +1466,7 @@ class SurfaceWaterNetwork:
                 #                   segnum, up_segnums, up_segnum)
                 yield from up_path_headwater_segnums(up_segnum)
 
-        junctions_goto = {s: to_segnums.get(s, None) for s in junctions}
+        junctions_goto = {s: to_segnums_d.get(s) for s in junctions}
         agg_patch = pd.Series(dtype=object)
         agg_path = pd.Series(dtype=object)
         agg_unpath = pd.Series(dtype=object)
@@ -1506,6 +1526,176 @@ class SurfaceWaterNetwork:
         na.segments["agg_unpath"] = agg_unpath
         return na
 
+    def coarsen(self, level: int):
+        r"""Coarsen stream network to a minimum stream order level.
+
+        Parameters
+        ----------
+        level : int
+            Minimum stream order level, e.g. 3 to coarsen to 3rd order streams.
+
+        Returns
+        -------
+        SurfaceWaterNetwork
+            With the returned :py:attr:`segments` attribute, a `traced_segnums`
+            column containing a segnum list from the original network.
+            If the original network has catchment polygons, the result will
+            aggregate the relevant catchment polygons, listed with a
+            `catchment_segnums` column.
+
+        Examples
+        --------
+        >>> import swn
+        >>> from shapely import wkt
+        >>> lines = geopandas.GeoSeries(list(wkt.loads('''\
+        ... MULTILINESTRING(
+        ...     (380 490, 370 420), (300 460, 370 420), (370 420, 420 330),
+        ...     (190 250, 280 270), (225 180, 280 270), (280 270, 420 330),
+        ...     (420 330, 584 250), (520 220, 584 250), (584 250, 710 160),
+        ...     (740 270, 710 160), (735 350, 740 270), (880 320, 740 270),
+        ...     (925 370, 880 320), (974 300, 880 320), (760 460, 735 350),
+        ...     (650 430, 735 350), (710 160, 770 100), (700  90, 770 100),
+        ...     (770 100, 820  40))''').geoms))
+        >>> lines.index += 100
+        >>> n = swn.SurfaceWaterNetwork.from_lines(lines)
+        >>> n2 = n.coarsen(2)
+        >>> n2.segments[["stream_order", "traced_segnums"]]
+            stream_order traced_segnums
+        102             2          [102]
+        105             2          [105]
+        108             3     [106, 108]
+        109             3          [109]
+        110             2          [110]
+        111             2          [111]
+        118             4     [116, 118]
+
+        See Also
+        --------
+        aggregate : Aggregate segments (and catchments) to a coarser network of
+            segnums.
+        remove : Remove segments.
+        """
+        from shapely.ops import linemerge, unary_union
+
+        # filter to a minimum stream order
+        sel_level = self.segments.stream_order >= level
+        if not sel_level.any():
+            raise ValueError(f"no segments found with {level=} or higher")
+        sel_to_segnums = self.segments.loc[
+            (self.segments["to_segnum"] != self.END_SEGNUM) & sel_level, "to_segnum"
+        ]
+        sel_from_segnums = (
+            sel_to_segnums.to_frame(0)
+            .reset_index()
+            .groupby(0)
+            .aggregate(set)
+            .iloc[:, 0]
+        ).astype(object)
+        sel_from_segnums.index.name = self.segments.index.name
+        sel_from_segnums.name = "from_segnums"
+        # similar to "headwater"
+        sel_index = sel_level.index[sel_level]
+        sel_start = sel_index[
+            ~sel_index.isin(self.segments.loc[sel_level, "to_segnum"])
+        ]
+
+        # trace lines down from each start to outlets
+        all_traced_segnums = set()
+        traced_segnums_l = list()
+        traced_segnums_d = dict()
+
+        def trace_down(segnum):
+            traced_segnums_l.append(segnum)
+            down_segnum = sel_to_segnums.get(segnum)
+            if down_segnum is None or len(sel_from_segnums[down_segnum]) > 1:
+                # find outlet or before confluence with more than 1 branch
+                traced_segnums_d[segnum] = traced_segnums_l[:]
+                traced_segnums_l.clear()
+            if down_segnum is not None and down_segnum not in all_traced_segnums:
+                all_traced_segnums.add(segnum)
+                trace_down(down_segnum)
+
+        for segnum in sel_start:
+            trace_down(segnum)
+
+        # Convert traced_segnums_d to a Series
+        traced_segnums = pd.Series(
+            traced_segnums_d.values(),
+            index=pd.Index(
+                traced_segnums_d.keys(),
+                dtype=self.segments.index.dtype,
+                name=self.segments.index.name,
+            ),
+        )
+        # Make index order similar to original
+        if self.segments.index.is_monotonic_increasing:
+            traced_segnums.sort_index(inplace=True)
+        else:
+            traced_segnums = traced_segnums.reindex(
+                self.segments.index[self.segments.index.isin(traced_segnums.index)]
+            )
+
+        self.logger.debug(
+            "traced down %d initial junctions to assemble %d traced segnums",
+            len(sel_start),
+            len(traced_segnums),
+        )
+
+        # Merge lines
+        lines_l = []
+        for segnums in traced_segnums.values:
+            lines_l.append(linemerge(self.segments.geometry[segnums].to_list()))
+        lines_gs = geopandas.GeoSeries(
+            lines_l,
+            index=traced_segnums.index,
+            crs=self.segments.crs,
+        )
+
+        if self.catchments is None:
+            catchments_gs = None
+        else:
+            # Negate selections
+            nsel_to_segnums = self.segments.loc[
+                (self.segments["to_segnum"] != self.END_SEGNUM) & ~sel_level,
+                "to_segnum",
+            ]
+            nsel_from_segnums = (
+                nsel_to_segnums.to_frame(0)
+                .reset_index()
+                .groupby(0)
+                .aggregate(set)
+                .iloc[:, 0]
+            ).astype(object)
+            nsel_from_segnums.index.name = self.segments.index.name
+            nsel_from_segnums.name = "from_segnums"
+
+            def up_nsel_patch_segnums(segnum):
+                yield segnum
+                for up_segnum in nsel_from_segnums.get(segnum, []):
+                    yield from up_nsel_patch_segnums(up_segnum)
+
+            catchments_l = []
+            catchment_segnums_l = []
+            for segnums in traced_segnums.values:
+                catchment_segnums = []
+                for up_segnum in segnums:
+                    catchment_segnums += list(up_nsel_patch_segnums(up_segnum))
+                catchment_geom = unary_union(
+                    self.catchments.geometry[catchment_segnums].to_list()
+                )
+                catchments_l.append(catchment_geom)
+                catchment_segnums_l.append(catchment_segnums)
+            catchments_gs = geopandas.GeoSeries(
+                catchments_l, index=lines_gs.index, crs=self.catchments.crs
+            )
+
+        nc = SurfaceWaterNetwork.from_lines(lines_gs, catchments_gs)
+        nc.segments["traced_segnums"] = traced_segnums
+        if self.catchments is not None:
+            nc.segments["catchment_segnums"] = catchment_segnums_l
+        nc.segments["stream_order"] += level - 1
+        return nc
+
     def accumulate_values(self, values):
         """Accumulate values down the stream network.
 
@@ -1525,7 +1715,7 @@ class SurfaceWaterNetwork:
         """
         if not isinstance(values, pd.Series):
             raise ValueError("values must be a pandas Series")
-        elif (
+        if (
             len(values.index) != len(self.segments.index)
             or not (values.index == self.segments.index).all()
         ):
@@ -1675,6 +1865,7 @@ class SurfaceWaterNetwork:
         1    2
         2    1
         Name: codes, dtype: int64
+
         """
         segments_index = self.segments.index
         if np.isscalar(value):
@@ -1765,6 +1956,7 @@ class SurfaceWaterNetwork:
         0  10.0  10.0
         1   2.0   4.0
         2   3.0   6.0
+
         """
         supported_methods = ["continuous", "constant", "additive"]
         if method not in supported_methods:
@@ -1821,12 +2013,12 @@ class SurfaceWaterNetwork:
         min_slope = self.segments_series(min_slope)
         if (min_slope <= 0.0).any():
             raise ValueError("min_slope must be greater than zero")
-        elif not self.has_z:
+        if not self.has_z:
             raise AttributeError("line geometry does not have Z dimension")
 
         geom_name = self.segments.geometry.name
         from_segnums = self.from_segnums
-        to_segnums = dict(self.to_segnums)
+        to_segnums_d = self.to_segnums.to_dict()
         modified_d = {}  # key is segnum, value is drop amount (+ve is down)
         self.messages = []
 
@@ -1873,8 +2065,8 @@ class SurfaceWaterNetwork:
                     # print('adj', z0 + drop0, dx * min_slope[segnum], drop)
                 z0 = z1
             # Ensure last coordinate matches other segments that end here
-            if segnum in to_segnums:
-                beside_segnums = from_segnums[to_segnums[segnum]]
+            if segnum in to_segnums_d:
+                beside_segnums = from_segnums[to_segnums_d[segnum]]
                 if beside_segnums:
                     last_zs = [profile_d[n][-1][1] for n in beside_segnums]
                     last_zs_min = min(last_zs)
@@ -1935,7 +2127,7 @@ class SurfaceWaterNetwork:
         ----------
         condition : bool or pandas.Series
             Series of bool for each segment index, where True is to remove.
-            Combined with 'segnums'. Defaut False (keep all).
+            Combined with 'segnums'. Default False (keep all).
         segnums : list
             List of segnums to remove. Combined with 'condition'. Default [].
 
@@ -1974,8 +2166,11 @@ class SurfaceWaterNetwork:
 
         See Also
         --------
+        coarsen : Coarsen stream networks to a higher stream order,
+            removing lower orders.
         evaluate_upstream_length : Re-evaluate upstream length.
         evaluate_upstream_area : Re-evaluate upstream catchment area.
+
         """
         condition = self.segments_series(condition, "condition").astype(bool)
         if condition.any():
@@ -1989,8 +2184,7 @@ class SurfaceWaterNetwork:
             if not segnums_set.issubset(segments_index):
                 diff = list(sorted(segnums_set.difference(segments_index)))
                 raise IndexError(
-                    f"{len(diff)} segnums not found in "
-                    f"segments.index: {abbr_str(diff)}"
+                    f"{len(diff)} segnums not found in segments.index: {abbr_str(diff)}"
                 )
             self.logger.debug(
                 "selecting %d segnum(s) based on a list", len(segnums_set)
@@ -2000,7 +2194,7 @@ class SurfaceWaterNetwork:
             raise ValueError(
                 "all segments were selected to remove; must keep at least one"
             )
-        elif (~sel).all():
+        if (~sel).all():
             self.logger.info("no segments selected to remove; no changes made")
         else:
             assert sel.any()
@@ -2121,6 +2315,7 @@ class SurfaceWaterNetwork:
         See Also
         --------
         from_pickle : Read file.
+
         """
         with open(path, "wb") as f:
             pickle.dump(self, f, protocol=protocol)
@@ -2137,5 +2332,6 @@ class SurfaceWaterNetwork:
         See Also
         --------
         to_pickle : Save file.
+
         """
         return pd.read_pickle(path)

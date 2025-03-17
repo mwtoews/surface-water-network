@@ -27,8 +27,7 @@ def abbr_str(lst, limit=15):
         )
     if is_set:
         return f"{{{res}}}"
-    else:
-        return f"[{res}]"
+    return f"[{res}]"
 
 
 def is_location_frame(loc_df, geom_required=True):
@@ -53,7 +52,8 @@ def is_location_frame(loc_df, geom_required=True):
         Input must be either a GeoDataFrame or DataFrame (if geometry is not
         required).
     ValueError
-        If the [geo] data frame has insufficent data.
+        If the [geo] data frame has insufficient data.
+
     """
     if geom_required:
         if not isinstance(loc_df, geopandas.GeoDataFrame):
@@ -70,7 +70,7 @@ def is_location_frame(loc_df, geom_required=True):
         raise ValueError(
             "loc_df must have 'segnum' column; was it created by n.locate_geoms?"
         )
-    elif "seg_ndist" not in loc_df_columns:
+    if "seg_ndist" not in loc_df_columns:
         raise ValueError(
             "loc_df must have 'seg_ndist' column; was it created by n.locate_geoms?"
         )

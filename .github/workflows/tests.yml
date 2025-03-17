@@ -1,6 +1,8 @@
 name: Tests
 
 on:
+  schedule:
+    - cron: '42 9 * * 2' # At 9:42 UTC on Tuesday
   push:
     branches:
       - main
@@ -10,17 +12,23 @@ on:
 
 jobs:
   tests:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
         # pick lower and upper versions only
-        python-version: ["3.8", "3.12"]
+        python-version: ["3.9", "3.12"]
+
+    env:
+      # Use a non-interactive matplotlib backend
+      MPLBACKEND: Agg
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
           cache: 'pip'
@@ -30,15 +38,16 @@ jobs:
         uses: modflowpy/install-modflow-action@v1
 
       - name: Install dependencies
-        shell: bash
         run: |
           python -m pip install pip --upgrade --disable-pip-version-check
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
           pip install -e .[test]
 
       - name: Run tests with required packages
-        run: |
-          pytest -v --cov
+        run: pytest -v --cov
+
+      - name: Install PyQt5 for macOS
+        if: ${{ startsWith(matrix.os, 'macos') }}
+        run: pip install PyQt5
 
       - name: Run tests with optional packages
         run: |
@@ -46,14 +55,18 @@ jobs:
           pytest -v -n2 --cov --cov-append
 
       - name: Run doctest
+        if: matrix.python-version == '3.12'
         run: |
-          pytest -v swn --doctest-modules
+          pytest -v --doctest-modules src
 
       - name: Run tests with older flopy and other packages
-        if: matrix.python-version == '3.8'
+        if: matrix.python-version == '3.9'
         run: |
-          pip install "flopy<3.5" "pandas<2.0" "shapely<2.0"
+          pip install "flopy<3.5" "pandas<2.0" "geopandas<1.0" "shapely<2.0" "numpy<2.0"
           pytest -v -n2 --cov --cov-append
 
       - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v4
+        with:
+          fail_ci_if_error: true
+          token: ${{ secrets.CODECOV_TOKEN }}

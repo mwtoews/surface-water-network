@@ -116,7 +116,7 @@ def write_list(fname, data):
 
 
 def read_head(hed_fname, reaches=None):
-    """Reads MODFLOW Head file
+    """Reads MODFLOW Head file.
 
     If reaches is not None, it is modified inplace to add a "head" column
 
@@ -130,7 +130,7 @@ def read_head(hed_fname, reaches=None):
 
 
 def read_budget(bud_fname, text, reaches=None, colname=None):
-    """Reads MODFLOW cell-by-cell file
+    """Reads MODFLOW cell-by-cell file.
 
     If reaches is not None, it is modified inplace to add data in "colname"
 
@@ -764,6 +764,10 @@ def test_packagedata(tmp_path):
     )
     nm.write_packagedata(tmp_path / "packagedata_aux_boundname.dat", auxiliary=["var1"])
 
+    # Check errors
+    with pytest.raises(ValueError, match="must be either"):
+        nm.packagedata_frame("bad")
+
 
 def test_connectiondata(tmp_path):
     n = get_basic_swn()
@@ -781,6 +785,10 @@ def test_connectiondata(tmp_path):
     assert list(cf) == [[-1], [0, -2], [1, -5], [-4], [3, -5], [2, 4, -6], [5]]
 
     nm.write_connectiondata(tmp_path / "connectiondata.dat")
+
+    # Check errors
+    with pytest.raises(ValueError, match="must be either"):
+        nm.connectiondata_series("bad")
 
 
 def check_number_sum_hex(a, n, h):
@@ -1414,6 +1422,10 @@ def test_diversions(tmp_path):
         read_budget(tmp_path / "model.sfr.bud", "EXT-OUTFLOW").q,
         [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -2.0, 0.0, -3.0, 0.0, 0.0],
     )
+
+    # Check errors
+    with pytest.raises(ValueError, match="must be either"):
+        nm.diversions_frame("bad")
 
 
 def test_pickle(tmp_path):

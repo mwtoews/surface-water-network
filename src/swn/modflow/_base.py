@@ -43,6 +43,7 @@ class SwnModflowBase:
         ----------
         logger : logging.Logger, optional
             Logger to show messages.
+
         """
         from ..logger import get_logger, logging
 
@@ -90,9 +91,8 @@ class SwnModflowBase:
         state_class = state.get("class")
         if state_class != self.__class__.__name__:
             raise ValueError(
-                "expected state class {!r}; found {!r}".format(
-                    self.__class__.__name__, state_class
-                )
+                f"expected state class {self.__class__.__name__!r}; "
+                f"found {state_class!r}"
             )
         # Note: swn and model must be set outside of this method
         self.segments = state.pop("segments")
@@ -147,11 +147,12 @@ class SwnModflowBase:
     def swn(self):
         """Surface water network object.
 
-        This propery can only be set once.
+        This property can only be set once.
 
         See Also
         --------
         from_pickle : Read object from file.
+
         """
         try:
             return getattr(self, "_swn", None)
@@ -165,7 +166,7 @@ class SwnModflowBase:
                 "swn property must be an instance of SurfaceWaterNetwork; "
                 f"found {type(swn)!r}"
             )
-        elif getattr(self, "_swn", None) is None:
+        if getattr(self, "_swn", None) is None:
             self._swn = swn
         else:
             raise AttributeError("swn property can only be set once")
@@ -180,6 +181,7 @@ class SwnModflowBase:
         See Also
         --------
         reaches : [Geo] dataframe of model cell-by-cell reaches.
+
         """
         return getattr(self, "_segments", None)
 
@@ -204,6 +206,7 @@ class SwnModflowBase:
         See Also
         --------
         segments : Geo dataframe of segments.
+
         """
         return getattr(self, "_diversions", None)
 
@@ -250,6 +253,7 @@ class SwnModflowBase:
         set_reach_data_from_segments :
             Set reach data based on segment series (or scalar).
         set_reach_slope : Set slope for reaches.
+
         """
         return getattr(self, "_reaches", None)
 
@@ -268,13 +272,14 @@ class SwnModflowBase:
     def model(self):
         """Flopy model object.
 
-        This propery can be set more than once, but time and most grid
+        This property can be set more than once, but time and most grid
         properties must match. Setting this method also generates
         ``time_index`` and ``grid_cells`` attributes from the model.
 
         See Also
         --------
         from_pickle : Read object from file.
+
         """
         try:
             return getattr(self, "_model", None)
@@ -286,7 +291,7 @@ class SwnModflowBase:
         import flopy
 
         if model is None:
-            self.logger.info("unsetting model properry")
+            self.logger.info("unsetting model property")
             self._model = None
             return
 
@@ -296,9 +301,9 @@ class SwnModflowBase:
                 raise ValueError(
                     f"model must be a flopy Modflow object; found {type(model)!r}"
                 )
-            elif not model.has_package("DIS"):
+            if not model.has_package("DIS"):
                 raise ValueError("DIS package required")
-            elif not model.has_package("BAS6"):
+            if not model.has_package("BAS6"):
                 raise ValueError("BAS6 package required")
         elif this_class == "SwnMf6":
             if not (isinstance(model, flopy.mf6.mfmodel.MFModel)):
@@ -322,7 +327,7 @@ class SwnModflowBase:
             self.logger.info("swapping model object, checking other metadata")
         self._model = model
 
-        # Use a model cache to determine if the rest needs to be evaulated
+        # Use a model cache to determine if the rest needs to be evaluated
         dis = model.dis
         modelgrid = model.modelgrid
         modeltime = model.modeltime
@@ -348,7 +353,7 @@ class SwnModflowBase:
         prev_modelcache = getattr(self, "_modelcache", None)
         if prev_modelcache is not None:
             is_same = True
-            for key in modelcache.keys():
+            for key in modelcache:
                 if prev_modelcache[key] != modelcache[key]:
                     is_same = False
                     self.logger.debug("model setter: %s is different", key)
@@ -361,7 +366,7 @@ class SwnModflowBase:
 
         # Build stress period DataFrame from modflow model
         stress_df = pd.DataFrame({"perlen": perlen})
-        stress_df["duration"] = pd.TimedeltaIndex(perlen, modeltime.time_units)
+        stress_df["duration"] = pd.to_timedelta(perlen, modeltime.time_units)
         end_time = stress_df["duration"].cumsum()
         stress_df["start_time"] = end_time - stress_df["duration"]
         stress_df["end_time"] = end_time
@@ -376,10 +381,10 @@ class SwnModflowBase:
         self_crs = getattr(self, "crs", None)
         modelgrid_crs = None
         epsg = modelgrid.epsg
-        proj4_str = modelgrid.proj4
         if epsg is not None:
             segments_crs, modelgrid_crs, same = compare_crs(self_crs, epsg)
         else:
+            proj4_str = modelgrid.proj4
             segments_crs, modelgrid_crs, same = compare_crs(self_crs, proj4_str)
         if segments_crs is not None and modelgrid_crs is not None and not same:
             self.logger.warning(
@@ -449,6 +454,7 @@ class SwnModflowBase:
         Returns
         -------
         obj
+
         """
         this_class = cls.__name__
         if this_class == "SwnModflow":
@@ -461,7 +467,7 @@ class SwnModflowBase:
             raise TypeError(f"unsupported subclass {cls!r}")
         if not isinstance(swn, SurfaceWaterNetwork):
             raise ValueError("swn must be a SurfaceWaterNetwork object")
-        elif domain_action not in ("freeze", "modify"):
+        if domain_action not in ("freeze", "modify"):
             raise ValueError("domain_action must be one of freeze or modify")
         obj = cls()
 
@@ -632,8 +638,7 @@ class SwnModflowBase:
                 threshold = cell_size * 2.0
                 if rem.length > threshold:
                     obj.logger.debug(
-                        "remaining line from segnum %s too long to merge "
-                        "(%.1f > %.1f)",
+                        "remaining line from segnum %s too long to merge (%.1f > %.1f)",
                         segnum,
                         rem.length,
                         threshold,
@@ -705,8 +710,7 @@ class SwnModflowBase:
                     append_reach_df(reach_df, i2, j2, rem2, moved=True)
                 else:
                     obj.logger.critical(
-                        "how does this happen? Segments from %d touching %d "
-                        "grid cells",
+                        "how does this happen? Segments from %d touching %d grid cells",
                         segnum,
                         len(matches),
                     )
@@ -924,10 +928,8 @@ class SwnModflowBase:
             if is_spatial:
                 try:
                     match_s = geopandas.sjoin_nearest(
-                        diversions_in_model, obj.grid_cells, "inner"
-                    )[["index_right0", "index_right1"]].rename(
-                        columns={"index_right0": "i", "index_right1": "j"}
-                    )
+                        diversions_in_model, obj.grid_cells.reset_index(), "inner"
+                    )[["i", "j"]]
                     match_s.index.name = "divid"
                     match = match_s.reset_index()
                     has_sjoin_nearest = True
@@ -935,7 +937,9 @@ class SwnModflowBase:
                     has_sjoin_nearest = False
             for divn in diversions_in_model.itertuples():
                 # Use the last upstream reach as a template for a new reach
-                reach_d = dict(reaches.loc[reaches.segnum == divn.from_segnum].iloc[-1])
+                reach_d = (
+                    reaches.loc[reaches.segnum == divn.from_segnum].iloc[-1].to_dict()
+                )
                 reach_d.update(
                     {
                         "segnum": swn.END_SEGNUM,
@@ -1078,6 +1082,7 @@ class SwnModflowBase:
         log : bool, default False
             If True and ``method`` is not "constant", apply a log
             transformation applied to interpolation.
+
         """
         if not isinstance(name, str):
             raise ValueError("name must be a str type")
@@ -1133,12 +1138,13 @@ class SwnModflowBase:
             Name for reach dataset.
         array : array_like
             2D array with dimensions (nrow, ncol).
+
         """
         if not isinstance(name, str):
             raise ValueError("'name' must be a str type")
-        elif not hasattr(array, "ndim"):
+        if not hasattr(array, "ndim"):
             raise ValueError("'array' must be array-like")
-        elif array.ndim != 2:
+        if array.ndim != 2:
             raise ValueError("'array' must have two dimensions")
         dis = self.model.dis
         if self.__class__.__name__ == "SwnModflow":
@@ -1177,6 +1183,7 @@ class SwnModflowBase:
             a global value, otherwise it is per-segment with a Series.
             Default 1./1000 (or 0.001). Diversions (if present) will use the
             minimum of series.
+
         """
         idx = self.reach_index_name
         to_ridxname = f"to_{idx}"
@@ -1215,22 +1222,9 @@ class SwnModflowBase:
             rchs.loc[sel, "min_slope"] = rchs.min_slope[~sel].min()
         rchs[grid_name] = 0.0
         if method == "zcoord_ab":
+            from swn.spatial import get_z_coords
 
-            def get_zcoords(g):
-                if g.is_empty or not g.has_z:
-                    return []
-                elif g.geom_type == "LineString":
-                    return [c[2] for c in g.coords[:]]
-                elif g.geom_type == "Point":
-                    return [g.z]
-                elif g.geom_type.startswith("Multi"):
-                    # recurse and flatten
-                    t = [get_zcoords(sg) for sg in g.geoms]
-                    return [item for slist in t for item in slist]
-                else:
-                    return []
-
-            zcoords = rchs.geometry.apply(get_zcoords)
+            zcoords = rchs.geometry.apply(get_z_coords)
             rchs["zcoord_count"] = zcoords.apply(len)
             sel = rchs["zcoord_count"] > 0
             if not sel.any():
@@ -1313,6 +1307,7 @@ class SwnModflowBase:
         Returns
         -------
         pandas.DataFrame
+
         """
         time_index = self.time_index
         data = transform_data_to_series_or_frame(data, float, time_index)
@@ -1326,8 +1321,7 @@ class SwnModflowBase:
                 series = inflow.iloc[0]
                 series.name = None
                 return series
-            else:
-                return inflow
+            return inflow
 
         if len(data.columns) == 0:
             self.logger.debug("no data used to determine inflow")
@@ -1429,7 +1423,7 @@ class SwnModflowBase:
         10     3  0  1  1     1       3       1.664101
         11     7  0  2  1     3       2       2.000000
         >>> loc_reach_df = pd.concat([loc_df, r_df], axis=1)
-        """  # noqa
+        """
         loc_df = loc_df.copy()
         try:
             loc_df_has_line = is_location_frame(loc_df, geom_required=True)
@@ -1458,7 +1452,7 @@ class SwnModflowBase:
                     "downstream_bias is non-zero, but original "
                     "geometry position is not available"
                 )
-            elif not (-1.0 <= downstream_bias <= 1.0):
+            if not (-1.0 <= downstream_bias <= 1.0):
                 raise ValueError("downstream_bias must be between -1 and 1")
         has_orig_geom = False
         if geom_loc_df is not None:
@@ -1529,8 +1523,7 @@ class SwnModflowBase:
         return loc_df[copy_cols]
 
     def plot(self, column=None, cmap="viridis_r", colorbar=False, ax=None):
-        """
-        Show map of reaches with inflow segments in royalblue.
+        """Show map of reaches with inflow segments in royalblue.
 
         Parameters
         ----------
@@ -1577,10 +1570,9 @@ class SwnModflowBase:
         def getpt(g, idx):
             if g.geom_type == "LineString":
                 return Point(g.coords[idx])
-            elif g.geom_type == "Point":
+            if g.geom_type == "Point":
                 return g
-            else:
-                return Point()
+            return Point()
 
         def lastpt(g):
             return getpt(g, -1)
@@ -1614,13 +1606,13 @@ class SwnModflowBase:
 
     # __________________ SOME ELEVATION METHODS_________________________
     def add_model_topbot_to_reaches(self):
-        """
-        Get top and bottom elevation of the model cell containing each reach.
+        """Get top and bottom elevation of the model cell containing each reach.
 
         Returns
         -------
         pandas.DataFrame
             with reach cell top and bottom elevations
+
         """
         dis = self.model.dis
         self.set_reach_data_from_array("top", dis.top.array)
@@ -1677,9 +1669,9 @@ class SwnModflowBase:
         # Reach elevation relative to model top
         self.reaches["tmp_tdif"] = self.reaches["top"] - self.reaches[strtoptag]
         # TODO group by ij first?
-        sfrar[
-            tuple(self.reaches[segsel][["i", "j"]].values.T.tolist())
-        ] = self.reaches.loc[segsel, "tmp_tdif"].tolist()
+        sfrar[tuple(self.reaches[segsel][["i", "j"]].values.T.tolist())] = (
+            self.reaches.loc[segsel, "tmp_tdif"].tolist()
+        )
         # .mask = np.ones(sfrar.shape)
         # Plot reach elevation relative to model top
         if draw_lines:
@@ -1703,9 +1695,9 @@ class SwnModflowBase:
             sfrarbot = np.ma.zeros(dis.botm.array[0].shape, "f")
             sfrarbot.mask = np.ones(sfrarbot.shape)
             self.reaches["tmp_bdif"] = self.reaches[strtoptag] - self.reaches["bot"]
-            sfrarbot[
-                tuple(self.reaches.loc[segsel, ["i", "j"]].values.T.tolist())
-            ] = self.reaches.loc[segsel, "tmp_bdif"].tolist()
+            sfrarbot[tuple(self.reaches.loc[segsel, ["i", "j"]].values.T.tolist())] = (
+                self.reaches.loc[segsel, "tmp_bdif"].tolist()
+            )
             # .mask = np.ones(sfrar.shape)
             if draw_lines:
                 lines = self.reaches.loc[segsel, ["geometry", "tmp_bdif"]]
@@ -1739,6 +1731,7 @@ class SwnModflowBase:
         Returns
         -------
         None
+
         """
         from ._modelplot import _profile_plot
 
