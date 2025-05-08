@@ -312,9 +312,9 @@ class SwnModflowBase:
                     + str(type(model))
                 )
             sim = model.simulation
-            if "tdis" not in sim.package_type_dict.keys():
+            if sim.get_package("tdis") is None:
                 raise ValueError("TDIS package required")
-            if "dis" not in model.package_type_dict.keys():
+            if model.get_package("dis") is None:
                 raise ValueError("DIS package required")
             if not model.dis.idomain.has_data():
                 raise ValueError("DIS idomain has no data")

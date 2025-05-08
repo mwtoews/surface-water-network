@@ -1299,9 +1299,12 @@ class SwnModflow(SwnModflowBase):
         self.segment_data["Zslope"] = (
             self.segment_data["elevdn"] - self.segment_data["elevup"]
         ) / self.segment_data["seglen"]
+        iseg_vals = self.reaches["iseg"]
+        iseg_pos = self.reaches.columns.tolist().index("iseg")
         segs = self.reaches.groupby("iseg", group_keys=False)
         self.reaches["seglen"] = segs.rchlen.cumsum()
-        self.reaches = segs.apply(reach_elevs)
+        self.reaches = segs.apply(reach_elevs, include_groups=False)
+        self.reaches.insert(iseg_pos, "iseg", iseg_vals)
         return self.reaches
 
     def set_topbot_elevs_at_reaches(self):

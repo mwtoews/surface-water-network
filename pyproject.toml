@@ -36,7 +36,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["surface-water-network[doc,extra,test]"]
+dev = ["surface-water-network[doc,extra,test]", "pre-commit"]
 doc = [
     "ipython",
     "matplotlib",
