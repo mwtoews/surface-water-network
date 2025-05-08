@@ -642,7 +642,7 @@ class SurfaceWaterNetwork:
                 self.segments.drop("diversions", axis=1, inplace=True)
             return
 
-        if not isinstance(diversions, (geopandas.GeoDataFrame, pd.DataFrame)):
+        if not isinstance(diversions, geopandas.GeoDataFrame | pd.DataFrame):
             raise ValueError("a [Geo]DataFrame is expected")
 
         diversions = diversions.copy()
@@ -1823,9 +1823,9 @@ class SurfaceWaterNetwork:
             upstream_area_km2 = self.segments[upstream_area] / 1e6
         else:
             raise ValueError("unknown use for upstream_area")
-        if not isinstance(a, (float, int)):
+        if not isinstance(a, float | int):
             a = self.segments_series(a, "a")
-        if not isinstance(b, (float, int)):
+        if not isinstance(b, float | int):
             b = self.segments_series(a, "b")
         self.segments["width"] = a + upstream_area_km2**b
 
@@ -1872,7 +1872,7 @@ class SurfaceWaterNetwork:
             value = pd.Series(value, index=segments_index)
         elif isinstance(value, pd.Series):
             pass
-        elif isinstance(value, (list, dict)):
+        elif isinstance(value, list | dict):
             value = pd.Series(value)
         else:
             raise ValueError("expected value to be scalar, list, dict or Series")

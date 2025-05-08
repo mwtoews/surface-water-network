@@ -4,7 +4,7 @@ __all__ = ["SwnModflow"]
 
 import inspect
 import os
-from itertools import zip_longest
+from itertools import pairwise, zip_longest
 
 import numpy as np
 import pandas as pd
@@ -1747,7 +1747,7 @@ class SwnModflow(SwnModflowBase):
         to_reachids_d = {}
         for segnum, iseg in segnum_iseg.items():
             sel_l = self.reaches.index[self.reaches.iseg == iseg].to_list()
-            to_reachids_d.update(dict(zip(sel_l[0:-1], sel_l[1:])))
+            to_reachids_d.update(dict(pairwise(sel_l)))
             next_segnum = self.segments.to_segnum[segnum]
             next_reachids_l = self.reaches.index[
                 self.reaches.segnum == next_segnum

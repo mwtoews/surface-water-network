@@ -214,7 +214,7 @@ class SwnModflowBase:
     def diversions(self, value):
         if value is None:
             pass
-        elif not isinstance(value, (geopandas.GeoDataFrame, pd.DataFrame)):
+        elif not isinstance(value, geopandas.GeoDataFrame | pd.DataFrame):
             raise ValueError(
                 "diversions must be a GeoDataFrame, DataFrame or None; "
                 f"found {type(value)!r}"
