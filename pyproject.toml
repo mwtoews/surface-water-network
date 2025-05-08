@@ -25,12 +25,12 @@ classifiers = [
     "Programming Language :: Python :: 3 :: Only",
     "Topic :: Scientific/Engineering :: Hydrology",
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
-    "geopandas >=0.9",
+    "geopandas",
     "packaging",
-    "pandas >=1.2",
-    "pyproj >=2.2",
+    "pandas",
+    "pyproj",
     "rtree",
     "shapely",
 ]
@@ -51,7 +51,7 @@ extra = [
     "netcdf4",
 ]
 test = [
-    "pytest >=3.3",
+    "pytest",
     "pytest-cov",
     "pytest-xdist",
 ]

@@ -9,14 +9,14 @@ A Python package to create and analyze surface water networks.
 
 ## Python packages
 
-Python 3.9+ is required.
+Python 3.10+ is required.
 
 ### Required
 
- - `geopandas >=0.9` - process spatial data similar to pandas
+ - `geopandas` - process spatial data similar to pandas
  - `packaging` - used to check package versions
- - `pandas >=1.2` - tabular data analysis
- - `pyproj >=2.2` - spatial projection support
+ - `pandas` - tabular data analysis
+ - `pyproj` - spatial projection support
  - `rtree` - spatial index support
 
 ### Optional
@@ -42,20 +42,20 @@ import swn
 
 Read from Shapefile:
 ```python
-shp_srs = 'tests/data/DN2_Coastal_strahler1z_stream_vf.shp'
+shp_srs = "tests/data/DN2_Coastal_strahler1z_stream_vf.shp"
 lines = geopandas.read_file(shp_srs)
-lines.set_index('nzsegment', inplace=True, verify_integrity=True)  # optional
+lines.set_index("nzsegment", inplace=True, verify_integrity=True)  # optional
 ```
 
 Or, read from PostGIS:
 ```python
 from sqlalchemy import create_engine, engine
 
-con_url = engine.url.URL(drivername='postgresql', database='scigen')
+con_url = engine.url.URL(drivername="postgresql", database="scigen")
 con = create_engine(con_url)
-sql = 'SELECT * FROM wrc.rec2_riverlines_coastal'
+sql = "SELECT * FROM wrc.rec2_riverlines_coastal"
 lines = geopandas.read_postgis(sql, con)
-lines.set_index('nzsegment', inplace=True, verify_integrity=True)  # optional
+lines.set_index("nzsegment", inplace=True, verify_integrity=True)  # optional
 ```
 
 Initialise and create network:
@@ -73,10 +73,10 @@ Plot the network, write a Shapefile, write and read a SurfaceWaterNetwork file:
 ```python
 n.plot()
 
-swn.file.gdf_to_shapefile(n.segments, 'segments.shp')
+swn.file.gdf_to_shapefile(n.segments, "segments.shp")
 
-n.to_pickle('network.pkl')
-n = swn.SurfaceWaterNetwork.from_pickle('network.pkl')
+n.to_pickle("network.pkl")
+n = swn.SurfaceWaterNetwork.from_pickle("network.pkl")
 ```
 
 Remove segments that meet a condition (stream order), or that are
@@ -90,13 +90,13 @@ n.remove(
 Read flow data from a TopNet netCDF file, convert from m3/s to m3/day:
 ```python
 
-nc_path = 'tests/data/streamq_20170115_20170128_topnet_03046727_strahler1.nc'
-flow = swn.file.topnet2ts(nc_path, 'mod_flow', 86400)
+nc_path = "tests/data/streamq_20170115_20170128_topnet_03046727_strahler1.nc"
+flow = swn.file.topnet2ts(nc_path, "mod_flow", 86400)
 # remove time and truncate to closest day
-flow.index = flow.index.floor('d')
+flow.index = flow.index.floor("d")
 
 # 7-day mean
-flow7d = flow.resample('7D').mean()
+flow7d = flow.resample("7D").mean()
 
 # full mean
 flow_m = pd.DataFrame(flow.mean(0)).T
@@ -106,17 +106,17 @@ Process a MODFLOW/flopy model:
 ```python
 import flopy
 
-m = flopy.modflow.Modflow.load('h.nam', model_ws='tests/data', check=False)
+m = flopy.modflow.Modflow.load("h.nam", model_ws="tests/data", check=False)
 nm = swn.SwnModflow.from_swn_flopy(n, m)
 nm.default_segment_data()
 nm.set_segment_data_inflow(flow_m)
 nm.plot()
-nm.to_pickle('sfr_network.pkl')
-nm = swn.SwnModflow.from_pickle('sfr_network.pkl', n, m)
+nm.to_pickle("sfr_network.pkl")
+nm = swn.SwnModflow.from_pickle("sfr_network.pkl", n, m)
 nm.set_sfr_obj()
-m.sfr.write_file('file.sfr')
-nm.grid_cells.to_file('grid_cells.shp')
-nm.reaches.to_file('reaches.shp')
+m.sfr.write_file("file.sfr")
+nm.grid_cells.to_file("grid_cells.shp")
+nm.reaches.to_file("reaches.shp")
 ```
 
 ## Citation
