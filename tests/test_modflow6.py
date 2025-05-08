@@ -176,7 +176,7 @@ def test_from_swn_flopy_errors():
     with pytest.raises(ValueError, match="swn must be a SurfaceWaterNetwork object"):
         swn.SwnMf6.from_swn_flopy(object(), gwf)
 
-    gwf.modelgrid.set_coord_info(epsg=2193)
+    gwf.modelgrid.set_coord_info(crs=2193)
     # n.segments.crs = {"init": "epsg:27200"}
     # with pytest.raises(
     #        ValueError,
@@ -198,6 +198,7 @@ def test_from_swn_flopy_errors():
     swn.SwnMf6.from_swn_flopy(n, gwf)
 
 
+@pytest.mark.filterwarnings("ignore:.*was not provided.*:UserWarning")
 @pytest.mark.parametrize("has_diversions", [False, True], ids=["nodiv", "div"])
 def test_n3d_defaults(tmp_path, has_diversions):
     n = get_basic_swn(has_diversions=has_diversions)
@@ -1099,6 +1100,7 @@ def test_include_downstream_reach_outside_model(tmp_path):
     np.testing.assert_array_equal(nm.reaches["Qout"], [0.0, 0.0, 0.0, 0.0, -4.6])
 
 
+@pytest.mark.filterwarnings("ignore:.*was not provided.*:UserWarning")
 def test_n3d_defaults_with_div_on_outlet(tmp_path):
     """Test special case to handle, possible MODFLOW6 bug."""
     n = get_basic_swn()

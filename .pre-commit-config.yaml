@@ -1,6 +1,12 @@
 ci:
   autoupdate_schedule: quarterly
 repos:
+  - repo: https://github.com/astral-sh/uv-pre-commit
+    # uv version.
+    rev: 0.6.12
+    hooks:
+      # Update the uv lockfile
+      - id: uv-lock
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
     hooks:
@@ -8,12 +14,12 @@ repos:
     - id: end-of-file-fixer
     - id: trailing-whitespace
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.11.4
+    rev: v0.11.8
     hooks:
-      # Run the linter.
+      # Run the linter
       - id: ruff
         args: [ --fix ]
-      # Run the formatter.
+      # Run the formatter
       - id: ruff-format
   - repo: https://github.com/citation-file-format/cffconvert
     rev: 054bda51dbe278b3e86f27c890e3f3ac877d616c

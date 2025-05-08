@@ -170,7 +170,7 @@ def test_from_swn_flopy_errors():
 
     _ = flopy.modflow.ModflowBas(m)
 
-    m.modelgrid.set_coord_info(epsg=2193)
+    m.modelgrid.set_coord_info(crs=2193)
     # n.segments.crs = {"init": "epsg:27200"}
     # with pytest.raises(
     #        ValueError,
@@ -218,6 +218,7 @@ def test_new_segment_data(has_diversions):
 
 
 @requires_mf2005
+@pytest.mark.filterwarnings("ignore:.*was not provided.*:UserWarning")
 def test_n3d_defaults(tmp_path):
     n = get_basic_swn()
     m = get_basic_modflow(tmp_path)
@@ -727,6 +728,7 @@ def test_set_segment_data_inflow(nper, inflow, expected):
 
 
 @requires_mf2005
+@pytest.mark.filterwarnings("ignore:.*was not provided.*:UserWarning")
 def test_n3d_vars(tmp_path):
     # Repeat, but with min_slope enforced, and other options
     n = get_basic_swn()
@@ -847,6 +849,7 @@ def test_n3d_vars(tmp_path):
 
 
 @requires_mf2005
+@pytest.mark.filterwarnings("ignore:.*was not provided.*:UserWarning")
 def test_n2d_defaults(tmp_path):
     # similar to 3D version, but getting information from model
     n = get_basic_swn(has_z=False)
@@ -898,6 +901,7 @@ def test_n2d_defaults(tmp_path):
 
 
 @requires_mf2005
+@pytest.mark.filterwarnings("ignore:.*was not provided.*:UserWarning")
 def test_n2d_min_slope(tmp_path):
     n = get_basic_swn(has_z=False)
     m = get_basic_modflow(tmp_path, with_top=True, hk=1.0, rech=0.01)
@@ -936,6 +940,7 @@ def test_n2d_min_slope(tmp_path):
 
 
 @requires_mf2005
+@pytest.mark.filterwarnings("ignore:.*was not provided.*:UserWarning")
 def test_set_elevations(tmp_path):
     n = get_basic_swn(has_z=False)
     m = get_basic_modflow(tmp_path, with_top=True, hk=1.0, rech=0.01)
@@ -1194,8 +1199,7 @@ def test_coastal_elevations(coastal_swn, coastal_flow_m, tmp_path):
     nm.fix_reach_elevs()
     _make_plot_sequence()
 
-    nm.set_sfr_obj(ipakcb=50, istcb2=-51)
-    m.sfr.unit_number = [24]
+    nm.set_sfr_obj(ipakcb=50, istcb2=-51, unit_number=24)
     m.add_output_file(51, extension="sfo", binflag=True)
     # Run model
     m.model_ws = str(tmp_path)
@@ -1233,7 +1237,7 @@ def test_coastal_reduced(coastal_lines_gdf, coastal_flow_m, tmp_path):
     # This reach should not be extended, the remainder is too long
     reach_geom = nm.reaches.loc[nm.reaches["segnum"] == 3047926, "geometry"].iloc[0]
     np.testing.assert_almost_equal(reach_geom.length, 237.72893664132727)
-    nm.set_sfr_obj()
+    nm.set_sfr_obj(unit_number=24)
     # Data set 1c
     assert abs(m.sfr.nstrm) == 154
     assert m.sfr.nss == 94
@@ -1348,7 +1352,7 @@ def test_coastal_ibound_modify(coastal_swn, coastal_flow_m, tmp_path):
         "1818577.6 5869534.1 5.6, 1818487.6 5869534 6.2)"
     )
     reach_geom.equals_exact(expected_geom, 0)
-    nm.set_sfr_obj()
+    nm.set_sfr_obj(unit_number=24)
     # Data set 1c
     assert abs(m.sfr.nstrm) == 478
     assert m.sfr.nss == 304
@@ -1443,6 +1447,7 @@ def test_coastal_ibound_modify(coastal_swn, coastal_flow_m, tmp_path):
 
 
 @requires_mf2005
+@pytest.mark.filterwarnings("ignore:.*was not provided.*:UserWarning")
 def test_include_downstream_reach_outside_model(tmp_path):
     m = get_basic_modflow(tmp_path, with_top=True)
     m.remove_package("rch")
@@ -1513,6 +1518,7 @@ def test_include_downstream_reach_outside_model(tmp_path):
 
 
 @requires_mf2005
+@pytest.mark.filterwarnings("ignore:.*was not provided.*:UserWarning")
 def test_diversions(tmp_path):
     m = get_basic_modflow(tmp_path, with_top=True)
     m.remove_package("rch")
@@ -1980,6 +1986,7 @@ def test_flopy_package_period(tmp_path):
         assert "RLEN".ljust(16) not in dl.dtype.names
 
         # with auxiliary
+        m.remove_package("drn")
         _ = nm.set_package_obj("drn", ipakcb=52, auxiliary="rlen")
         m.write_input()
         # edit file before running, due to flopy shortcoming

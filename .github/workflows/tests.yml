@@ -18,7 +18,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
         # pick lower and upper versions only
-        python-version: ["3.9", "3.12"]
+        python-version: ["3.10", "3.13"]
 
     env:
       # Use a non-interactive matplotlib backend
@@ -60,7 +60,7 @@ jobs:
           pytest -v --doctest-modules src
 
       - name: Run tests with older flopy and other packages
-        if: matrix.python-version == '3.9'
+        if: matrix.python-version == '3.10'
         run: |
           pip install "flopy<3.5" "pandas<2.0" "geopandas<1.0" "shapely<2.0" "numpy<2.0"
           pytest -v -n2 --cov --cov-append

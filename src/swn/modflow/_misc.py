@@ -63,7 +63,7 @@ def geotransform_from_flopy(m):
         import flopy
     except ImportError:
         raise ImportError("this method requires flopy")
-    if not isinstance(m, (flopy.mbase.BaseModel, flopy.mf6.MFModel)):
+    if not isinstance(m, flopy.mbase.BaseModel | flopy.mf6.MFModel):
         raise TypeError("'m' must be a flopy model")
     mg = m.modelgrid
     if mg.angrot != 0.0:

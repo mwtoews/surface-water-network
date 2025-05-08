@@ -63,7 +63,7 @@ def is_location_frame(loc_df, geom_required=True):
         except AttributeError:
             raise TypeError("loc_df must be a GeoDataFrame")
     else:
-        if not isinstance(loc_df, (geopandas.GeoDataFrame, pd.DataFrame)):
+        if not isinstance(loc_df, geopandas.GeoDataFrame | pd.DataFrame):
             raise TypeError("loc_df must be a GeoDataFrame or DataFrame")
     loc_df_columns = loc_df.columns
     if "segnum" not in loc_df_columns:
