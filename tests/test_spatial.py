@@ -122,7 +122,7 @@ def test_interp_2d_to_3d():
             "GEOMETRYCOLLECTION Z (LINESTRING Z (0 0 1.1, 0 1 2.2), POINT Z (1 2 3))",
             [1.1, 2.2, 3.0],
         ),
-        ("POLYGON Z ((0 0 0, 0 1 1, 1 0 1, 0 0 0)))", []),
+        ("POLYGON Z ((0 0 0, 0 1 1, 1 0 1, 0 0 0))", []),
     ],
 )
 def test_get_z_coords(geom_wkt, expected):
