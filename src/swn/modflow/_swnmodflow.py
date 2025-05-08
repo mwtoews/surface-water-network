@@ -1303,8 +1303,12 @@ class SwnModflow(SwnModflowBase):
         iseg_pos = self.reaches.columns.tolist().index("iseg")
         segs = self.reaches.groupby("iseg", group_keys=False)
         self.reaches["seglen"] = segs.rchlen.cumsum()
-        self.reaches = segs.apply(reach_elevs, include_groups=False)
-        self.reaches.insert(iseg_pos, "iseg", iseg_vals)
+        try:
+            self.reaches = segs.apply(reach_elevs, include_groups=False)
+            self.reaches.insert(iseg_pos, "iseg", iseg_vals)
+        except TypeError:
+            # pandas<2.0
+            self.reaches = segs.apply(reach_elevs)
         return self.reaches
 
     def set_topbot_elevs_at_reaches(self):
