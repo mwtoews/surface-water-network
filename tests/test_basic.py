@@ -579,6 +579,18 @@ def test_init_polygons():
         swn.SurfaceWaterNetwork.from_lines(valid_lines, 1.0)
 
 
+def test_catchments_misaligned(caplog):
+    caplog.clear()
+    _ = swn.SurfaceWaterNetwork.from_lines(valid_lines, valid_polygons.translate(50))
+    assert "lines and catchments don't intersect" in caplog.messages[-1]
+    caplog.clear()
+    _ = swn.SurfaceWaterNetwork.from_lines(valid_lines, valid_polygons.translate(15, 1))
+    assert "1 of 3 lines (33.3%) don't intersect their catchment" in caplog.messages[-1]
+    caplog.clear()
+    _ = swn.SurfaceWaterNetwork.from_lines(valid_lines, valid_polygons)
+    assert len(caplog.messages) == 0
+
+
 def test_catchments_property():
     # also vary previous test with 2D lines
     n = swn.SurfaceWaterNetwork.from_lines(force_2d(valid_lines))
