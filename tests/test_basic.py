@@ -574,9 +574,17 @@ def test_init_polygons():
     if matplotlib:
         _ = n.plot()
         plt.close()
-    # check error
+    # check errors
     with pytest.raises(ValueError, match="polygons must be a GeoSeries or None"):
         swn.SurfaceWaterNetwork.from_lines(valid_lines, 1.0)
+    with pytest.raises(
+        ValueError, match="polygons.index is different than lines.index"
+    ):
+        swn.SurfaceWaterNetwork.from_lines(
+            valid_lines, valid_polygons.sort_index(ascending=False)
+        )
+    with pytest.raises(ValueError, match="polygons geometry type must be Polygon"):
+        swn.SurfaceWaterNetwork.from_lines(valid_lines, valid_lines)
 
 
 def test_catchments_misaligned(caplog):
