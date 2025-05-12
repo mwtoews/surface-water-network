@@ -216,14 +216,6 @@ class SurfaceWaterNetwork:
             raise ValueError("lines must all be LineString types")
         # Create a new GeoDataFrame with a copy of line's geometry
         segments = geopandas.GeoDataFrame(geometry=lines)
-        if not (polygons is None or isinstance(polygons, geopandas.GeoSeries)):
-            raise ValueError("polygons must be a GeoSeries or None")
-        if polygons is not None:
-            if (
-                len(polygons.index) != len(lines.index)
-                or not (polygons.index == lines.index).all()
-            ):
-                raise ValueError("polygons.index is different than lines.index")
         if segments.index.min() > 0:
             END_SEGNUM = 0
         else:
@@ -233,6 +225,32 @@ class SurfaceWaterNetwork:
         del segments, END_SEGNUM  # dereference local copies
         obj.errors = []
         obj.warnings = []
+        if polygons is not None:
+            if not isinstance(polygons, geopandas.GeoSeries):
+                raise ValueError("polygons must be a GeoSeries or None")
+            if not set(polygons.geom_type.unique()).issubset(
+                ["Polygon", "MultiPolygon"]
+            ):
+                raise ValueError(
+                    "polygons geometry type must be Polygon and/or MultiPolygon"
+                )
+            if (
+                len(polygons.index) != len(lines.index)
+                or not (polygons.index == lines.index).all()
+            ):
+                raise ValueError("polygons.index is different than lines.index")
+
+            no_intersects = ~lines.intersects(polygons, align=True)
+            if no_intersects.all():
+                obj.logger.error("lines and catchments don't intersect")
+            elif no_intersects.any():
+                obj.logger.error(
+                    "lines and catchments partially intersect: "
+                    "%d of %d lines (%.1f%%) don't intersect their catchment",
+                    no_intersects.sum(),
+                    no_intersects.size,
+                    no_intersects.sum() * 100.0 / no_intersects.size,
+                )
         obj.logger.debug("creating start/end points and spatial join objects")
         start_pts = obj.segments.interpolate(0.0, normalized=True)
         end_pts = obj.segments.interpolate(1.0, normalized=True)
