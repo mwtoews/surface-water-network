@@ -62,6 +62,7 @@ def coastal_lines_gdf():
 @pytest.fixture(scope="module")
 def coastal_polygons_gdf(coastal_lines_gdf):
     polygons = geopandas.read_file(datadir / "DN2_Coastal_strahler1_vf.shp")
+    crs = polygons.crs
     polygons.set_index("nzsegment", inplace=True)
     # repair the shapefile by filling in the missing data
     for segnum in [3046737, 3047026, 3047906, 3048995, 3049065]:
@@ -81,6 +82,7 @@ def coastal_polygons_gdf(coastal_lines_gdf):
         }
         with ignore_shapely_warnings_for_object_array():
             polygons.loc[segnum] = poly_d
+        polygons.crs = crs  # restore original CRS after edit
     return polygons.reindex(index=coastal_lines_gdf.index)
 
 
