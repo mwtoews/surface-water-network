@@ -135,16 +135,75 @@ class SwnMf6(SwnModflowBase):
         from_ridxsname = f"from_{ridxname}s"
         obj.reaches[to_ridxname] = -1
         if has_diversions:
-            from_ridxname = f"from_{ridxname}"
+            from_ridxname = f"from_{ridxname}s"
             div_to_ridxsname = f"div_to_{ridxname}s"
             div_from_ridxname = f"div_from_{ridxname}"
             segnum_iter = obj.reaches.loc[~obj.reaches.diversion, "segnum"].items()
         else:
             segnum_iter = obj.reaches["segnum"].items()
         ridx, segnum = next(segnum_iter)
-        for next_ridx, next_segnum in segnum_iter:
-            obj.reaches.at[ridx, to_ridxname] = get_to_ridx()
-            ridx, segnum = next_ridx, next_segnum
+        # for next_ridx, next_segnum in segnum_iter:
+        #     obj.reaches.at[ridx, to_ridxname] = get_to_ridx()
+        #     ridx, segnum = next_ridx, next_segnum
+
+        def vectorized_routing(obj, swn, has_diversions=False, min_stream_order=None):
+            """
+            Vectorized routing computation for surface water network reaches.
+            Parameters:
+                obj: The SwnMf6 object
+                swn: Surface water network object
+                has_diversions: Whether to handle diversions
+                min_stream_order: Minimum stream order to consider (optional filter)
+            """
+            # Prepare necessary data structures
+            to_segnums_d = swn.to_segnums.to_dict()
+
+            # Filter reaches based on diversions if present
+            if has_diversions:
+                reaches = obj.reaches[~obj.reaches.diversion]
+            else:
+                reaches = obj.reaches
+
+            # Apply stream_order filter if provided
+            if min_stream_order is not None:
+                # Filter to work only with reaches of higher stream order
+                working_reaches = reaches[reaches["stream_order"] >= min_stream_order]
+            else:
+                working_reaches = reaches
+
+            # Create mapping without iteration - this is the vectorized approach
+            segnum_to_ridx = (
+                reaches["segnum"].reset_index().set_index("segnum")["index"].to_dict()
+            )
+
+            to_ridxname = f"to_{obj.reach_index_name}"
+            # Initialize the routing column
+            obj.reaches[to_ridxname] = -1
+
+            # Vectorized function to find downstream reach
+            def find_downstream_reach(segnum):
+                """Find downstream reach for a segment"""
+                current = segnum
+                while current in to_segnums_d:
+                    next_segnum = to_segnums_d[current]
+                    if next_segnum in segnum_to_ridx:
+                        return segnum_to_ridx[next_segnum]
+                    current = next_segnum
+                return 0  # End of network
+
+            # Apply the function only to filtered reaches
+            downstream_reaches = working_reaches["segnum"].map(find_downstream_reach)
+
+            # Update values only for the filtered reaches
+            obj.reaches.loc[downstream_reaches.index, to_ridxname] = downstream_reaches
+
+            return obj.reaches[to_ridxname]
+
+        to_ridxname = f"to_{obj.reach_index_name}"
+        obj.reaches[to_ridxname] = vectorized_routing(
+            obj, swn, has_diversions=has_diversions
+        )
+
         next_segnum = swn.END_SEGNUM
         obj.reaches.at[ridx, to_ridxname] = get_to_ridx()
         if has_diversions:
@@ -445,12 +504,18 @@ class SwnMf6(SwnModflowBase):
         from flopy.mf6 import ModflowGwfsfr as Mf6Sfr
 
         defcols_names = [dt[0] for dt in Mf6Sfr.packagedata.dtype(self.model)]
-        ridxname = defcols_names.pop(0)  # this is the index, either "rno" or "ifno"
-        to_ridxname = f"to_{ridxname}"
-        from_ridxsname = f"from_{ridxname}s"
+        for idx in ["rno", "ifno"]:
+            if idx in defcols_names:
+                defcols_names.remove(idx)  # this is the index
+                from_ridxsname = f"from_{idx}s"
+                to_ridxname = f"to_{idx}"
         dat = self._init_package_df(
             style=style, defcols_names=defcols_names, auxiliary=auxiliary
         )
+        # MF6 > 6.2.2 changed from rno to ifno
+        # TODO: track ifno all the way through?
+        # if "ifno" in defcols_names:
+        #     dat.index.name = "rno"
         if "rlen" not in dat.columns:
             dat.loc[:, "rlen"] = dat.geometry.length
         dat["ncon"] = dat[from_ridxsname].apply(len) + (dat[to_ridxname] > 0).astype(
@@ -664,6 +729,10 @@ class SwnMf6(SwnModflowBase):
             self.logger.warning("diversions not set")
             return pd.DataFrame(np.recarray(0, dtype=defcols_dtype))
         defcols_names = list(defcols_dtype.names)
+        # MF6 > 6.2.2 changed from rno to ifno
+        # TODO: track ifno all the way through?
+        # if "ifno" in defcols_names:
+        #     dat.index.name = "rno"
         dat = pd.DataFrame(self.diversions[self.diversions["in_model"]].copy())
         if "cprior" not in dat.columns:
             self.logger.info("diversions missing cprior; assuming UPTO")
@@ -804,6 +873,10 @@ class SwnMf6(SwnModflowBase):
         Mf6pak = get_flopy_mf6_package(package)
         lst_tpl = Mf6pak.stress_period_data
         defcols_names = [dt[0] for dt in lst_tpl.dtype(self.model)]
+        # MF6 > 6.2.2 changed from rno to ifno
+        # TODO: track ifno all the way through?
+        # if "ifno" == defcols_names.index.name:
+        #     dat.index.name = "rno"
         dat = self._init_package_df(
             style=style, defcols_names=defcols_names, auxiliary=auxiliary
         )
@@ -1736,19 +1809,45 @@ class SwnMf6(SwnModflowBase):
                 layerbots[k + 1] = layerbots[k] - laythick
             self.model.dis.botm.set_data(layerbots)
 
+    def _fix_dis(self, buffer=0.5, move_top=True):
+        botm = self.model.dis.botm.get_data()
+        top = self.model.dis.top.get_data()
+        rdf = self.reaches.copy()
+
+        idx = rdf.index.name
+        rdf["botm0"] = rdf[["i", "j"]].apply(lambda x: botm[0, x[0], x[1]], axis=1)
+        rdf["maxbot"] = rdf[["rtp", "rbth"]].apply(
+            lambda x: x[0] - x[1] - buffer, axis=1
+        )
+        rdf["bdz"] = rdf["botm0"] - rdf["maxbot"]
+        rdf["bdz"].clip(0, None, inplace=True)
+        rdf[idx] = rdf.index
+        # need to get min bdz for each cell (unique 'ij')
+        rdf["ij"] = rdf[["i", "j"]].apply(lambda x: (x[0], x[1]), axis=1)
+        rdf = rdf.select_dtypes(include=[np.number, tuple]).groupby(["ij"]).max()
+        rdf.set_index(idx, inplace=True)
+        # shift all layers in model column, TODO: enforce min layer thickness instead?
+        for r in rdf.index:
+            botm[:, rdf.loc[r, "i"], rdf.loc[r, "j"]] = (
+                botm[:, rdf.loc[r, "i"], rdf.loc[r, "j"]] - rdf.loc[r, "bdz"]
+            )
+            if move_top:
+                top[rdf.loc[r, "i"], rdf.loc[r, "j"]] = (
+                    top[rdf.loc[r, "i"], rdf.loc[r, "j"]] - rdf.loc[r, "bdz"]
+                )
+        # may do funny things to flopy external file reference?
+        self.model.dis.botm.set_data(botm)
+        self.model.dis.top.set_data(top)
+
     def _to_rno_elevs(
         self, minslope=0.0001, minincise=0.2, minthick=0.5, buffer=0.5, fix_dis=True
     ):
-        """Wes's hacky attempt to set reach elevations. Doesn't really ensure
-        anything, but the goal is:
-
-            0. get a list of cells with to_rtp > rtp-minslope*(delr+delc)/2
-            1. drop rtp of downstream reach (to_rno) when higher than rtp
-               (of ridx)
-            2. grab all offensive reaches downstream of ridx
-            3. check and fix all layer bottoms to be above minthick+buffer
-            4. adjust top, up only, to accommodate minincision or rtp above
-               cell top
+        """
+        Attempt to set reach elevations, pandas approach:
+            0. ensure minimum incision
+            1. find minimum dz to next reach rtp-minslope*(delr+delc)/2
+            2. adjust rtp of receiving reaches that are too high (while loop)
+            3. optionally fix discretization in external method
 
         Parameters
         ----------
@@ -1758,11 +1857,11 @@ class SwnMf6(SwnModflowBase):
         minincise : float, default 0.2
             The minimum allowable incision of a reach below the model top.
         minthick : float, default 0.5
-            The minimum thickness of stream bed. Will try to ensure that this
-            is available below stream top before layer bottom.
+            The minimum thickness of stream bed. Ensure that this
+            is available below stream top before layer bottom or model will fail.
         buffer : float, default 0.5
             The minimum cell thickness between the bottom of stream bed
-            (rtp-minthick) and the bottom of the layer 1 cell
+            (rtp-minthick) and the bottom of the cell below
         fix_dis : bool, default True
             Move layer elevations down where it is not possible to honor
             minimum slope without going below layer 1 bottom.
@@ -1772,97 +1871,81 @@ class SwnMf6(SwnModflowBase):
         None
 
         """
-        to_ridxname = f"to_{self.reach_index_name}"
+        idx = self.reach_index_name
+        to_ridxname = f"to_{idx}"
+
+        def get_to_rtp():
+            # idx = self.reach_index_name
+            # to_ridxname = f"to_{idx}"
+            intp = (rdf[to_ridxname] != 0) & (rdf[to_ridxname].isin(rdf.index))
+            trno = rdf.loc[intp, to_ridxname]
+            trno.drop_duplicates(inplace=True)
+            trtp = rdf.loc[trno.index, "rtp"]
+            rdf[idx] = rdf.index
+            ndf = rdf[[idx, to_ridxname]].merge(
+                trtp, left_on=to_ridxname, right_on=idx, how="outer"
+            )
+            ndf.dropna(subset=[idx, to_ridxname], inplace=True)
+            ndf[[idx, to_ridxname]] = ndf[[idx, to_ridxname]].astype(int)
+            ndf.set_index(idx, inplace=True, drop=True)
+            rdf["to_rtp"] = ndf["rtp"]
+            rdf.loc[~intp, "to_rtp"] = -9999
 
         # copy some data
         top = self.model.dis.top.array.copy()
-        botm = self.model.dis.botm.array.copy()
         delr = self.model.dis.delr.data.copy()
         delc = self.model.dis.delc.data.copy()
+
+        if "rtp" not in self.reaches.columns:
+            self.set_reach_data_from_array("rtp", top)
+            self.reaches["rtp"] = self.reaches["rtp"] - minincise
         rdf = self.reaches.copy()
         icols = rdf.columns.to_list()
 
-        # add some columns to rdf
-        rdf["ij"] = rdf.apply(lambda x: (int(x["i"]), int(x["j"])), axis=1)
-        # hopefully this sort of addresses local grid refinement?
-        rdf["mindz"] = minslope * (delr[rdf.loc[:, "j"]] + delc[rdf.loc[:, "i"]]) / 2.0
+        # add some necessary columns to rdf
+        # attempt to sort of addresses local grid refinement?
+        rdf.loc[:, "mindz"] = (
+            minslope * (delr[rdf.loc[:, "j"]] + delc[rdf.loc[:, "i"]]) / 2.0
+        )
         if "rbth" not in rdf.columns:
             rdf["rbth"] = minthick
             icols.append("rbth")
-        if "rtp" not in rdf.columns:
-            rdf["rtp"] = np.nan
-            # add to list of columns to be returned
-            icols.append("rtp")
         if "incise" not in rdf.columns:
             rdf["incise"] = minincise
             icols.append("incise")
-        # reach specific so iterrows?
-        for idx, r in rdf.iterrows():
-            if np.isnan(r["rtp"]):
-                rdf.loc[idx, "rbth"] = np.max([r["rbth"], minthick])
-                rdf.loc[idx, "rtp"] = top[r["ij"]] - minincise
-        for idx, r in rdf.iterrows():
-            to_ridx = int(r[to_ridxname])
-            if to_ridx != 0:
-                rdf.loc[idx, "to_rtp"] = rdf.loc[to_ridx, "rtp"]
-        # start loop
+
+        rdf["rbth"].where(rdf["rbth"] > minthick, minthick, inplace=True)
+        # initial criteria
+        get_to_rtp()
+        # rdf['to_rtp'] = rdf['to_rno'].apply(lambda x: rdf.loc[x, 'rtp'] if x in rdf.index else -10)
+        rdf["mx_to_rtp"] = rdf["rtp"] - rdf["mindz"]
+        sel = rdf["to_rtp"] > rdf["mx_to_rtp"]
         loop = 0
-        cont = True
-        while cont:
-            bad_reaches = [
-                i
-                for i in rdf.index
-                if rdf.loc[i, "to_rtp"] > rdf.loc[i, "rtp"] - rdf.loc[i, "mindz"]
-            ]
+        while sel.sum() > 0 and loop < 10000:
+            # this gives geodataframe
+            mx_rtp = rdf.loc[sel, [to_ridxname, "mx_to_rtp"]].groupby(to_ridxname).min()
+            # so make it a series, exclude mx_rtp==0
+            mx_rtp = mx_rtp["mx_to_rtp"]
+            mx_rtp.drop([_ for _ in mx_rtp.index if _ not in rdf.index], inplace=True)
+            # reset rtp values in rdf
+            rdf.loc[mx_rtp.index, "rtp"] = mx_rtp.values
+            # report
+            self.logger.debug("%s changed in loop %s", sel.sum(), loop)
             loop += 1
-            chg = 0
-            for br in bad_reaches:
-                ridx = br
-                to_ridx = int(rdf.loc[br, to_ridxname])
-                chglist = []
-                if to_ridx != 0:
-                    # count how many downstream reaches offend
-                    # keep track of changes in elev
-                    dz = rdf.loc[ridx, "mindz"]
-                    check = rdf.loc[to_ridx, "rtp"] > rdf.loc[ridx, "rtp"] - dz
-                    while to_ridx != 0 and check:
-                        # keep list of dz in case another inflowing stream is
-                        # even lower
-                        chglist.append(to_ridx)
-                        nelev = rdf.loc[ridx, "rtp"] - dz
-                        # set to_rtp and rtp
-                        rdf.loc[ridx, "to_rtp"] = nelev
-                        rdf.loc[to_ridx, "rtp"] = nelev
-                        # move downstream
-                        ridx = to_ridx
-                        to_ridx = rdf.loc[ridx, to_ridxname]
-                        dz = rdf.loc[ridx, "mindz"]
-
-                    # now adjust layering if necessary
-                    if len(chglist) > 0 and fix_dis:
-                        self.logger.debug("adjusting top for %s reaches", len(chglist))
-                        for r in chglist:
-                            # bump top elev up to rtp+incise if need be
-                            new_top = rdf.loc[r, "rtp"] + rdf.loc[r, "incise"]
-                            if top[rdf.loc[r, "ij"]] < new_top:
-                                top[rdf.loc[r, "ij"]] = new_top
-                            # bump bottoms down if needed
-                            maxbot = rdf.loc[r, "rtp"] - rdf.loc[r, "rbth"] - buffer
-                            if botm[0][rdf.loc[r, "ij"]] >= maxbot:
-                                botdz = botm[0][rdf.loc[r, "ij"]] - maxbot
-                                for b in range(botm.shape[0]):
-                                    botm[b][rdf.loc[r, "ij"]] = (
-                                        botm[b][rdf.loc[r, "ij"]] - botdz
-                                    )
-
-                chg += len(chglist)
-            if chg == 0:
-                cont = False
-            else:
-                self.logger.debug("%s changed in loop %s", chg, loop)
-        setattr(self, "reaches", rdf[icols + ["to_rtp", "mindz"]])
-        self.model.dis.botm = botm
-        self.model.dis.top = top
+            # prep for next
+            get_to_rtp()
+            rdf["mx_to_rtp"] = rdf["rtp"] - rdf["mindz"]
+            sel = rdf["to_rtp"] > rdf["mx_to_rtp"]
+        if loop >= 10000:
+            # maybe stronger warning, kill it?
+            self.logger.debug(
+                "to_rno_elev did not find final solution after %s loops", loop
+            )
+        # copy here removes pd warning about setting value on copy
+        self.reaches.loc[:, icols] = rdf.loc[:, icols]
+        if fix_dis:
+            self._fix_dis(buffer)
+        self.add_model_topbot_to_reaches()
 
     def fix_reach_elevs(
         self,
