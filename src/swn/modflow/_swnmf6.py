@@ -142,9 +142,68 @@ class SwnMf6(SwnModflowBase):
         else:
             segnum_iter = obj.reaches["segnum"].items()
         ridx, segnum = next(segnum_iter)
-        for next_ridx, next_segnum in segnum_iter:
-            obj.reaches.at[ridx, to_ridxname] = get_to_ridx()
-            ridx, segnum = next_ridx, next_segnum
+        # for next_ridx, next_segnum in segnum_iter:
+        #     obj.reaches.at[ridx, to_ridxname] = get_to_ridx()
+        #     ridx, segnum = next_ridx, next_segnum
+
+        def vectorized_routing(obj, swn, has_diversions=False, min_stream_order=None):
+            """
+            Vectorized routing computation for surface water network reaches.
+            Parameters:
+                obj: The SwnMf6 object
+                swn: Surface water network object
+                has_diversions: Whether to handle diversions
+                min_stream_order: Minimum stream order to consider (optional filter)
+            """
+            # Prepare necessary data structures
+            to_segnums_d = swn.to_segnums.to_dict()
+
+            # Filter reaches based on diversions if present
+            if has_diversions:
+                reaches = obj.reaches[~obj.reaches.diversion]
+            else:
+                reaches = obj.reaches
+
+            # Apply stream_order filter if provided
+            if min_stream_order is not None:
+                # Filter to work only with reaches of higher stream order
+                working_reaches = reaches[reaches['stream_order'] >= min_stream_order]
+            else:
+                working_reaches = reaches
+
+            # Create mapping without iteration - this is the vectorized approach
+            segnum_to_ridx = reaches['segnum'].reset_index().set_index('segnum')['index'].to_dict()
+
+            to_ridxname = f"to_{obj.reach_index_name}"
+            # Initialize the routing column
+            obj.reaches[to_ridxname] = -1
+
+            # Vectorized function to find downstream reach
+            def find_downstream_reach(segnum):
+                """Find downstream reach for a segment"""
+                current = segnum
+                while current in to_segnums_d:
+                    next_segnum = to_segnums_d[current]
+                    if next_segnum in segnum_to_ridx:
+                        return segnum_to_ridx[next_segnum]
+                    current = next_segnum
+                return 0  # End of network
+
+            # Apply the function only to filtered reaches
+            downstream_reaches = working_reaches['segnum'].map(find_downstream_reach)
+
+            # Update values only for the filtered reaches
+            obj.reaches.loc[downstream_reaches.index, to_ridxname] = downstream_reaches
+
+            return obj.reaches[to_ridxname]
+
+        to_ridxname = f"to_{obj.reach_index_name}"
+        obj.reaches[to_ridxname] = vectorized_routing(
+            obj,
+            swn,
+            has_diversions=has_diversions
+        )
+
         next_segnum = swn.END_SEGNUM
         obj.reaches.at[ridx, to_ridxname] = get_to_ridx()
         if has_diversions:

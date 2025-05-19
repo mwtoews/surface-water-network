@@ -428,7 +428,7 @@ class SwnModflowBase:
 
         # Keep the for next time
         self._modelcache = modelcache
-
+    '''
     @classmethod
     def from_swn_flopy(
         cls, swn, model, domain_action="freeze", reach_include_fraction=0.2
@@ -1037,6 +1037,195 @@ class SwnModflowBase:
         obj.reaches = reaches
 
         # each subclass should do more processing with returned object
+        return obj
+        '''
+        
+    @classmethod
+    def from_swn_flopy(
+        cls, swn, model, domain_action="freeze", reach_include_fraction=0.2
+    ):
+        """Fully optimized implementation of from_swn_flopy."""
+        # === INITIALIZATION ===
+        this_class = cls.__name__
+        if this_class == "SwnModflow":
+            reach_length_name = "rchlen"
+            uses_segments = True
+            dis = model.dis
+            domain_label = "ibound"
+        elif this_class == "SwnMf6":
+            reach_length_name = "rlen"
+            uses_segments = False
+            dis = model.dis
+            domain_label = "idomain"
+        else:
+            raise TypeError(f"unsupported subclass {cls!r}")
+
+        if not isinstance(swn, SurfaceWaterNetwork):
+            raise ValueError("swn must be a SurfaceWaterNetwork object")
+        if domain_action not in ("freeze", "modify"):
+            raise ValueError("domain_action must be one of freeze or modify")
+
+        obj = cls()
+        obj.crs = getattr(swn.segments.geometry, "crs", None)
+        obj.segments = segments = swn.segments.copy()
+        obj.model = model
+        obj._swn = swn
+        obj.domain_label = domain_label
+
+        # === GRID PROCESSING ===
+        grid_cells = obj.grid_cells.copy()
+        if domain_action == "freeze":
+            sel = grid_cells[domain_label] != 0
+            grid_cells = grid_cells.loc[sel] if sel.any() else grid_cells
+
+        _ = grid_cells.sindex  # Create spatial index once
+
+        # Get domain array
+        domain = getattr(model.bas6 if domain_label == "ibound" else dis, domain_label).array[0].copy()
+
+        # Calculate cell sizes
+        col_size = np.median(dis.delr.array)
+        row_size = np.median(dis.delc.array)
+        cell_size = (row_size + col_size) / 2.0
+        reach_include = swn.segments_series(reach_include_fraction) * cell_size
+
+        # === OPTIMIZED DATA STRUCTURES ===
+        reach_data = []
+        segment_geoms = {segnum: geom for segnum, geom in segments.geometry.items()}
+        grid_geoms = {(i, j): geom for (i, j), geom in grid_cells.geometry.items()}
+
+        # === PROCESS SEGMENTS ===
+        df1 = segments[["geometry"]].assign(segnum=segments.index)
+        df2 = grid_cells.reset_index()
+        grid_reaches = geopandas.overlay(
+            df1, df2, how="intersection", keep_geom_type=True, make_valid=False
+        )
+        grid_reaches["geometry"] = grid_reaches.geometry.apply(visible_wkt)
+
+        for segnum, grid_reaches_df in grid_reaches.groupby("segnum"):
+            line = segment_geoms[segnum]
+            remaining_line = line
+            
+            # Process intersections
+            for _, gr in grid_reaches_df.iterrows():
+                grid_geom = grid_geoms[(gr.i, gr.j)]
+                remaining_line = remaining_line.difference(grid_geom)
+                
+                if gr.geometry.geom_type == "LineString":
+                    reach_data.append({
+                        "geometry": gr.geometry,
+                        "segnum": segnum,
+                        "i": gr.i,
+                        "j": gr.j,
+                        "length": gr.geometry.length,
+                        "moved": False
+                    })
+                elif gr.geometry.geom_type.startswith("Multi"):
+                    for sub_geom in gr.geometry.geoms:
+                        reach_data.append({
+                            "geometry": sub_geom,
+                            "segnum": segnum,
+                            "i": gr.i,
+                            "j": gr.j,
+                            "length": sub_geom.length,
+                            "moved": False
+                        })
+
+            # Process remaining line
+            if remaining_line.length > 1e-6:
+                threshold = cell_size * 2.0
+                if remaining_line.length <= threshold:
+                    for (i,j), grid_geom in grid_geoms.items():
+                        if remaining_line.intersects(grid_geom):
+                            reach_data.append({
+                                "geometry": remaining_line,
+                                "segnum": segnum,
+                                "i": i,
+                                "j": j,
+                                "length": remaining_line.length,
+                                "moved": True
+                            })
+                            break
+
+        # === CREATE REACHES DATAFRAME ===
+        reaches = pd.DataFrame(reach_data)
+        
+        # Add segment distances
+        reaches["segndist"] = reaches.apply(
+            lambda row: segment_geoms[row.segnum].project(
+                row.geometry.interpolate(0.5, normalized=True)
+            ), axis=1
+        )
+
+        # Handle domain modification
+        if domain_action == "modify":
+            modified_cells = reaches[["i", "j"]].drop_duplicates()
+            for i, j in modified_cells.itertuples(index=False):
+                if domain[i, j] == 0:
+                    domain[i, j] = 1
+            if domain_label == "ibound":
+                model.bas6.ibound[0] = domain
+            else:
+                dis.idomain.set_data(domain, layer=0)
+
+        # === FINAL PROCESSING ===
+        reaches["k"] = 0
+        reaches = geopandas.GeoDataFrame(reaches, geometry="geometry", crs=obj.crs)
+        
+        # Add sequence and sort
+        reaches = reaches.merge(
+            segments[["sequence"]],
+            left_on="segnum",
+            right_index=True,
+            how="left"
+        )
+        reaches.sort_values(["sequence", "segndist"], inplace=True)
+        
+        # Add iseg/ireach
+        reaches["iseg"] = reaches.groupby("segnum").ngroup() + 1
+        reaches["ireach"] = reaches.groupby("segnum").cumcount() + 1
+        
+        # Handle diversions
+        if hasattr(swn, 'diversions'):
+            if swn.diversions is not None:
+                div_reaches = []
+                diversions = swn.diversions.copy()
+                diversions["in_model"] = diversions.from_segnum.isin(reaches.segnum)
+
+                for divid, div in diversions[diversions.in_model].iterrows():
+                    template = reaches[reaches.segnum == div.from_segnum].iloc[-1].to_dict()
+                    template.update({
+                        "segnum": swn.END_SEGNUM,
+                        "segndist": 0.0,
+                        "diversion": True,
+                        "divid": divid,
+                        "geometry": wkt.loads("linestring z empty" if swn.has_z else "linestring empty")
+                    })
+
+                    # Find nearest grid cell
+                    if hasattr(div, 'geometry') and not div.geometry.is_empty:
+                        distances = grid_cells.distance(div.geometry)
+                        i, j = distances.idxmin()
+                        template.update({"i": i, "j": j, "geometry": div.geometry})
+
+                    div_reaches.append(template)
+
+                if div_reaches:
+                    div_df = pd.DataFrame(div_reaches)
+                    reaches = pd.concat([reaches, div_df], ignore_index=True)
+
+        # Final touches
+        reaches[reach_length_name] = reaches.geometry.length.clip(lower=1.0)
+        reaches.index += 1
+        reaches.index.name = obj.reach_index_name
+
+        # Update object properties
+        segments["in_model"] = segments.index.isin(reaches.segnum)
+        obj.reaches = reaches
+        if hasattr(swn, 'diversions'):
+            if swn.diversions is not None:
+                obj.diversions = diversions
+
         return obj
 
     def clip_reach_data(self, name, lower=None, upper=None):
