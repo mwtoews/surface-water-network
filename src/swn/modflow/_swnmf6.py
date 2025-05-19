@@ -167,12 +167,14 @@ class SwnMf6(SwnModflowBase):
             # Apply stream_order filter if provided
             if min_stream_order is not None:
                 # Filter to work only with reaches of higher stream order
-                working_reaches = reaches[reaches['stream_order'] >= min_stream_order]
+                working_reaches = reaches[reaches["stream_order"] >= min_stream_order]
             else:
                 working_reaches = reaches
 
             # Create mapping without iteration - this is the vectorized approach
-            segnum_to_ridx = reaches['segnum'].reset_index().set_index('segnum')['index'].to_dict()
+            segnum_to_ridx = (
+                reaches["segnum"].reset_index().set_index("segnum")["index"].to_dict()
+            )
 
             to_ridxname = f"to_{obj.reach_index_name}"
             # Initialize the routing column
@@ -190,7 +192,7 @@ class SwnMf6(SwnModflowBase):
                 return 0  # End of network
 
             # Apply the function only to filtered reaches
-            downstream_reaches = working_reaches['segnum'].map(find_downstream_reach)
+            downstream_reaches = working_reaches["segnum"].map(find_downstream_reach)
 
             # Update values only for the filtered reaches
             obj.reaches.loc[downstream_reaches.index, to_ridxname] = downstream_reaches
@@ -199,9 +201,7 @@ class SwnMf6(SwnModflowBase):
 
         to_ridxname = f"to_{obj.reach_index_name}"
         obj.reaches[to_ridxname] = vectorized_routing(
-            obj,
-            swn,
-            has_diversions=has_diversions
+            obj, swn, has_diversions=has_diversions
         )
 
         next_segnum = swn.END_SEGNUM

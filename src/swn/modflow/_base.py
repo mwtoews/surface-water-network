@@ -6,8 +6,7 @@ import geopandas
 import numpy as np
 import pandas as pd
 from shapely import wkt
-from shapely.geometry import LineString, Point, Polygon, box
-from shapely.ops import linemerge, substring
+from shapely.geometry import Point, Polygon, box
 
 from ..compat import ignore_shapely_warnings_for_object_array
 from ..core import SurfaceWaterNetwork
@@ -428,6 +427,7 @@ class SwnModflowBase:
 
         # Keep the for next time
         self._modelcache = modelcache
+
     '''
     @classmethod
     def from_swn_flopy(
@@ -1039,7 +1039,7 @@ class SwnModflowBase:
         # each subclass should do more processing with returned object
         return obj
         '''
-        
+
     @classmethod
     def from_swn_flopy(
         cls, swn, model, domain_action="freeze", reach_include_fraction=0.2
@@ -1081,7 +1081,11 @@ class SwnModflowBase:
         _ = grid_cells.sindex  # Create spatial index once
 
         # Get domain array
-        domain = getattr(model.bas6 if domain_label == "ibound" else dis, domain_label).array[0].copy()
+        domain = (
+            getattr(model.bas6 if domain_label == "ibound" else dis, domain_label)
+            .array[0]
+            .copy()
+        )
 
         # Calculate cell sizes
         col_size = np.median(dis.delr.array)
@@ -1105,56 +1109,63 @@ class SwnModflowBase:
         for segnum, grid_reaches_df in grid_reaches.groupby("segnum"):
             line = segment_geoms[segnum]
             remaining_line = line
-            
+
             # Process intersections
             for _, gr in grid_reaches_df.iterrows():
                 grid_geom = grid_geoms[(gr.i, gr.j)]
                 remaining_line = remaining_line.difference(grid_geom)
-                
+
                 if gr.geometry.geom_type == "LineString":
-                    reach_data.append({
-                        "geometry": gr.geometry,
-                        "segnum": segnum,
-                        "i": gr.i,
-                        "j": gr.j,
-                        "length": gr.geometry.length,
-                        "moved": False
-                    })
-                elif gr.geometry.geom_type.startswith("Multi"):
-                    for sub_geom in gr.geometry.geoms:
-                        reach_data.append({
-                            "geometry": sub_geom,
+                    reach_data.append(
+                        {
+                            "geometry": gr.geometry,
                             "segnum": segnum,
                             "i": gr.i,
                             "j": gr.j,
-                            "length": sub_geom.length,
-                            "moved": False
-                        })
+                            "length": gr.geometry.length,
+                            "moved": False,
+                        }
+                    )
+                elif gr.geometry.geom_type.startswith("Multi"):
+                    for sub_geom in gr.geometry.geoms:
+                        reach_data.append(
+                            {
+                                "geometry": sub_geom,
+                                "segnum": segnum,
+                                "i": gr.i,
+                                "j": gr.j,
+                                "length": sub_geom.length,
+                                "moved": False,
+                            }
+                        )
 
             # Process remaining line
             if remaining_line.length > 1e-6:
                 threshold = cell_size * 2.0
                 if remaining_line.length <= threshold:
-                    for (i,j), grid_geom in grid_geoms.items():
+                    for (i, j), grid_geom in grid_geoms.items():
                         if remaining_line.intersects(grid_geom):
-                            reach_data.append({
-                                "geometry": remaining_line,
-                                "segnum": segnum,
-                                "i": i,
-                                "j": j,
-                                "length": remaining_line.length,
-                                "moved": True
-                            })
+                            reach_data.append(
+                                {
+                                    "geometry": remaining_line,
+                                    "segnum": segnum,
+                                    "i": i,
+                                    "j": j,
+                                    "length": remaining_line.length,
+                                    "moved": True,
+                                }
+                            )
                             break
 
         # === CREATE REACHES DATAFRAME ===
         reaches = pd.DataFrame(reach_data)
-        
+
         # Add segment distances
         reaches["segndist"] = reaches.apply(
             lambda row: segment_geoms[row.segnum].project(
                 row.geometry.interpolate(0.5, normalized=True)
-            ), axis=1
+            ),
+            axis=1,
         )
 
         # Handle domain modification
@@ -1171,39 +1182,44 @@ class SwnModflowBase:
         # === FINAL PROCESSING ===
         reaches["k"] = 0
         reaches = geopandas.GeoDataFrame(reaches, geometry="geometry", crs=obj.crs)
-        
+
         # Add sequence and sort
         reaches = reaches.merge(
-            segments[["sequence"]],
-            left_on="segnum",
-            right_index=True,
-            how="left"
+            segments[["sequence"]], left_on="segnum", right_index=True, how="left"
         )
         reaches.sort_values(["sequence", "segndist"], inplace=True)
-        
+
         # Add iseg/ireach
         reaches["iseg"] = reaches.groupby("segnum").ngroup() + 1
         reaches["ireach"] = reaches.groupby("segnum").cumcount() + 1
-        
+
         # Handle diversions
-        if hasattr(swn, 'diversions'):
+        if hasattr(swn, "diversions"):
             if swn.diversions is not None:
                 div_reaches = []
                 diversions = swn.diversions.copy()
                 diversions["in_model"] = diversions.from_segnum.isin(reaches.segnum)
 
                 for divid, div in diversions[diversions.in_model].iterrows():
-                    template = reaches[reaches.segnum == div.from_segnum].iloc[-1].to_dict()
-                    template.update({
-                        "segnum": swn.END_SEGNUM,
-                        "segndist": 0.0,
-                        "diversion": True,
-                        "divid": divid,
-                        "geometry": wkt.loads("linestring z empty" if swn.has_z else "linestring empty")
-                    })
+                    template = (
+                        reaches[reaches.segnum == div.from_segnum].iloc[-1].to_dict()
+                    )
+                    template.update(
+                        {
+                            "segnum": swn.END_SEGNUM,
+                            "segndist": 0.0,
+                            "diversion": True,
+                            "divid": divid,
+                            "geometry": wkt.loads(
+                                "linestring z empty"
+                                if swn.has_z
+                                else "linestring empty"
+                            ),
+                        }
+                    )
 
                     # Find nearest grid cell
-                    if hasattr(div, 'geometry') and not div.geometry.is_empty:
+                    if hasattr(div, "geometry") and not div.geometry.is_empty:
                         distances = grid_cells.distance(div.geometry)
                         i, j = distances.idxmin()
                         template.update({"i": i, "j": j, "geometry": div.geometry})
@@ -1222,7 +1238,7 @@ class SwnModflowBase:
         # Update object properties
         segments["in_model"] = segments.index.isin(reaches.segnum)
         obj.reaches = reaches
-        if hasattr(swn, 'diversions'):
+        if hasattr(swn, "diversions"):
             if swn.diversions is not None:
                 obj.diversions = diversions
 
