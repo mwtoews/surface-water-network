@@ -2264,7 +2264,7 @@ class SurfaceWaterNetwork:
         import matplotlib.pyplot as plt
 
         if ax is None:
-            fig, ax = plt.subplots()
+            _fig, ax = plt.subplots()
             ax.set_aspect("equal")
 
         segments = self.segments

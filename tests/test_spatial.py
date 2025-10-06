@@ -101,7 +101,7 @@ def test_interp_2d_to_3d():
         list(zip(x_out, y_out)) + list(zip(x_in, y_out)) + list(zip(x_out, y_in))
     )
     for pt in outside_combs:
-        with pytest.raises(ValueError, match="coordinates are outside grid"):
+        with pytest.raises(ValueError, match=r"coordinates are outside grid"):
             spatial.interp_2d_to_3d(geopandas.GeoSeries([Point(pt)]), grid, gt)
 
 
@@ -293,11 +293,11 @@ def test_bias_substring():
         geopandas.GeoSeries.from_wkt(["POINT (5 0)"]),
     )
     # errors
-    with pytest.raises(TypeError, match="xpected 'gs' as an instance of GeoS"):
+    with pytest.raises(TypeError, match=r"expected 'gs' as an instance of GeoS"):
         spatial.bias_substring(line.to_frame(), 0)
-    with pytest.raises(ValueError, match="must be between -1 and 1"):
+    with pytest.raises(ValueError, match=r"must be between -1 and 1"):
         spatial.bias_substring(line, 2)
-    with pytest.raises(ValueError, match="must between 0 and 0.5"):
+    with pytest.raises(ValueError, match=r"must between 0 and 0.5"):
         spatial.bias_substring(line, 0, 1)
 
 
@@ -436,16 +436,16 @@ def test_find_location_pairs(coastal_points, coastal_swn):
     pairs = spatial.find_location_pairs(loc_df2, n2, exclude_branches=True)
     assert pairs == {(2, 8), (10, 1)}
     # errors
-    with pytest.raises(TypeError, match="expected 'n' as an instance of Surf"):
+    with pytest.raises(TypeError, match=r"expected 'n' as an instance of Surf"):
         spatial.find_location_pairs(loc_df, False)
-    with pytest.raises(TypeError, match="loc_df must be a GeoDataFrame or"):
+    with pytest.raises(TypeError, match=r"loc_df must be a GeoDataFrame or"):
         spatial.find_location_pairs(loc_df.segnum, coastal_swn)
-    with pytest.raises(ValueError, match="loc_df must have 'segnum' column"):
+    with pytest.raises(ValueError, match=r"loc_df must have 'segnum' column"):
         spatial.find_location_pairs(loc_df[["method"]], coastal_swn)
-    with pytest.raises(ValueError, match="loc_df must have 'seg_ndist' column"):
+    with pytest.raises(ValueError, match=r"loc_df must have 'seg_ndist' column"):
         spatial.find_location_pairs(loc_df[["segnum"]], coastal_swn)
     loc_df.segnum += 10
-    with pytest.raises(ValueError, match="loc_df has segnum values not foun"):
+    with pytest.raises(ValueError, match=r"loc_df has segnum values not foun"):
         spatial.find_location_pairs(loc_df, coastal_swn)
 
 
@@ -473,17 +473,17 @@ def test_location_pair_geoms(coastal_points, coastal_swn):
         gs.length.values, [4890.81221721, 10929.54403336, 13901.28305631]
     )
     # errors
-    with pytest.raises(TypeError, match="expected 'n' as an instance of Surf"):
+    with pytest.raises(TypeError, match=r"expected 'n' as an instance of Surf"):
         spatial.location_pair_geoms(pairs, loc_df, False)
-    with pytest.raises(TypeError, match="loc_df must be a GeoDataFrame or"):
+    with pytest.raises(TypeError, match=r"loc_df must be a GeoDataFrame or"):
         spatial.location_pair_geoms(pairs, loc_df.segnum, coastal_swn)
-    with pytest.raises(ValueError, match="loc_df must have 'segnum' column"):
+    with pytest.raises(ValueError, match=r"loc_df must have 'segnum' column"):
         spatial.location_pair_geoms(pairs, loc_df[["method"]], coastal_swn)
-    with pytest.raises(ValueError, match="loc_df must have 'seg_ndist' column"):
+    with pytest.raises(ValueError, match=r"loc_df must have 'seg_ndist' column"):
         spatial.location_pair_geoms(pairs, loc_df[["segnum"]], coastal_swn)
     loc_df.segnum += 10
-    with pytest.raises(ValueError, match="loc_df has segnum values not found"):
+    with pytest.raises(ValueError, match=r"loc_df has segnum values not found"):
         spatial.location_pair_geoms(pairs, loc_df, coastal_swn)
     n2 = swn.SurfaceWaterNetwork.from_lines(coastal_swn.segments.geometry.iloc[0:4])
-    with pytest.raises(ValueError, match="loc_df has segnum values not found"):
+    with pytest.raises(ValueError, match=r"loc_df has segnum values not found"):
         spatial.location_pair_geoms(pairs, loc_df, n2)

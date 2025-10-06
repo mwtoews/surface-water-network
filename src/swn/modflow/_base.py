@@ -320,10 +320,10 @@ class SwnModflowBase:
                 raise ValueError("DIS idomain has no data")
         else:
             raise NotImplementedError(this_class)
-        _model = getattr(self, "_model", None)
-        if _model is model:
+        swap_model = getattr(self, "_model", None)
+        if swap_model is model:
             self.logger.info("model is same object, checking other metadata")
-        elif _model is not None:
+        elif swap_model is not None:
             self.logger.info("swapping model object, checking other metadata")
         self._model = model
 
@@ -1514,7 +1514,7 @@ class SwnModflowBase:
         import matplotlib.pyplot as plt
 
         if ax is None:
-            fig, ax = plt.subplots()
+            _fig, ax = plt.subplots()
             ax.set_aspect("equal")
 
         if column is None:

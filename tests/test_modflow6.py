@@ -160,7 +160,7 @@ def read_budget(bud_fname, text, reaches=None, colname=None):
 
 
 def test_init_errors():
-    with pytest.raises(ValueError, match="expected 'logger' to be Logger"):
+    with pytest.raises(ValueError, match=r"expected 'logger' to be Logger"):
         swn.SwnMf6(object())
 
 
@@ -173,25 +173,25 @@ def test_from_swn_flopy_errors():
         gwf, nlay=1, nrow=3, ncol=2, delr=20.0, delc=20.0, idomain=1
     )
 
-    with pytest.raises(ValueError, match="swn must be a SurfaceWaterNetwork object"):
+    with pytest.raises(ValueError, match=r"swn must be a SurfaceWaterNetwork object"):
         swn.SwnMf6.from_swn_flopy(object(), gwf)
 
     gwf.modelgrid.set_coord_info(crs=2193)
     # n.segments.crs = {"init": "epsg:27200"}
     # with pytest.raises(
     #        ValueError,
-    #        match="CRS for segments and modelgrid are different"):
+    #        match=r"CRS for segments and modelgrid are different"):
     #    nm = swn.SwnMf6.from_swn_flopy(n, gwf)
 
     n.segments.crs = None
     with pytest.raises(
-        ValueError, match="modelgrid extent does not cover segments extent"
+        ValueError, match=r"modelgrid extent does not cover segments extent"
     ):
         swn.SwnMf6.from_swn_flopy(n, gwf)
 
     gwf.modelgrid.set_coord_info(xoff=30.0, yoff=70.0)
 
-    with pytest.raises(ValueError, match="idomain_action must be one of"):
+    with pytest.raises(ValueError, match=r"idomain_action must be one of"):
         swn.SwnMf6.from_swn_flopy(n, gwf, idomain_action="foo")
 
     # finally success!
@@ -261,10 +261,10 @@ def test_n3d_defaults(tmp_path, has_diversions):
             set(),
         ]
         pd.testing.assert_frame_equal(nm.reaches[div_expected.columns], div_expected)
-    with pytest.raises(KeyError, match="missing 6 packagedata reaches series"):
+    with pytest.raises(KeyError, match=r"missing 6 packagedata reaches series"):
         nm.packagedata_frame("native")
     nm.set_reach_slope()
-    with pytest.raises(KeyError, match="missing 5 packagedata reaches series"):
+    with pytest.raises(KeyError, match=r"missing 5 packagedata reaches series"):
         nm.packagedata_frame("native")
     nm.default_packagedata(hyd_cond1=1e-4)
     nodiv_expected = pd.DataFrame(
@@ -421,7 +421,7 @@ def test_n3d_defaults(tmp_path, has_diversions):
         # Run model and read outputs
         if mf6_exe:
             sim.write_simulation()
-            success, buff = sim.run_simulation()
+            success, _buff = sim.run_simulation()
             assert success
     # Write some files
     gdf_to_shapefile(
@@ -482,20 +482,20 @@ def test_n3d_defaults(tmp_path, has_diversions):
 
 def test_model_property():
     nm = swn.SwnMf6()
-    with pytest.raises(ValueError, match="model must be a flopy.mf6.MFModel object"):
+    with pytest.raises(ValueError, match=r"model must be a flopy.mf6.MFModel object"):
         nm.model = 0
 
     sim = flopy.mf6.MFSimulation()
     gwf = flopy.mf6.MFModel(sim)
 
-    with pytest.raises(ValueError, match="TDIS package required"):
+    with pytest.raises(ValueError, match=r"TDIS package required"):
         nm.model = gwf
 
     _ = flopy.mf6.ModflowTdis(
         sim, nper=1, time_units="days", start_date_time="2001-02-03"
     )
 
-    with pytest.raises(ValueError, match="DIS package required"):
+    with pytest.raises(ValueError, match=r"DIS package required"):
         nm.model = gwf
 
     _ = flopy.mf6.ModflowGwfdis(
@@ -512,7 +512,7 @@ def test_model_property():
         yorigin=70.0,
     )
 
-    with pytest.raises(ValueError, match="DIS idomain has no data"):
+    with pytest.raises(ValueError, match=r"DIS idomain has no data"):
         nm.model = gwf
 
     gwf.dis.idomain.set_data(1)
@@ -561,7 +561,7 @@ def test_model_property():
         _ = flopy.mf6.ModflowTdis(sim, **tdis_args_use)
         _ = flopy.mf6.ModflowGwfdis(gwf, **dis_args)
         # this is not allowed
-        with pytest.raises(AttributeError, match="properties are too differe"):
+        with pytest.raises(AttributeError, match=r"properties are too different"):
             nm.model = gwf
     dis_args_replace = {
         "nrow": 4,
@@ -579,7 +579,7 @@ def test_model_property():
         _ = flopy.mf6.ModflowTdis(sim, **tdis_args)
         _ = flopy.mf6.ModflowGwfdis(gwf, **dis_args_use)
         # this is not allowed
-        with pytest.raises(AttributeError, match="properties are too differe"):
+        with pytest.raises(AttributeError, match=r"properties are too different"):
             nm.model = gwf
 
 
@@ -599,7 +599,7 @@ def test_time_index():
 
 def test_set_reach_data_from_array():
     n = get_basic_swn()
-    sim, gwf = get_basic_modflow(with_top=False)
+    _sim, gwf = get_basic_modflow(with_top=False)
     nm = swn.SwnMf6.from_swn_flopy(n, gwf)
     ar = np.arange(6).reshape((3, 2)) + 8.0
     nm.set_reach_data_from_array("test", ar)
@@ -647,14 +647,14 @@ def test_n2d_defaults(tmp_path):
     if mf6_exe:
         # Run model
         sim.write_simulation()
-        success, buff = sim.run_simulation()
+        success, _buff = sim.run_simulation()
         assert success
         # check outputs?
 
 
 def test_packagedata(tmp_path):
     n = get_basic_swn()
-    sim, gwf = get_basic_modflow(tmp_path)
+    _sim, gwf = get_basic_modflow(tmp_path)
     nm = swn.SwnMf6.from_swn_flopy(n, gwf)
     nm.default_packagedata()
     nm.set_sfr_obj()
@@ -766,13 +766,13 @@ def test_packagedata(tmp_path):
     nm.write_packagedata(tmp_path / "packagedata_aux_boundname.dat", auxiliary=["var1"])
 
     # Check errors
-    with pytest.raises(ValueError, match="must be either"):
+    with pytest.raises(ValueError, match=r"must be either"):
         nm.packagedata_frame("bad")
 
 
 def test_connectiondata(tmp_path):
     n = get_basic_swn()
-    sim, gwf = get_basic_modflow(tmp_path)
+    _sim, gwf = get_basic_modflow(tmp_path)
     nm = swn.SwnMf6.from_swn_flopy(n, gwf)
     nm.default_packagedata()
     nm.set_sfr_obj()
@@ -788,7 +788,7 @@ def test_connectiondata(tmp_path):
     nm.write_connectiondata(tmp_path / "connectiondata.dat")
 
     # Check errors
-    with pytest.raises(ValueError, match="must be either"):
+    with pytest.raises(ValueError, match=r"must be either"):
         nm.connectiondata_series("bad")
 
 
@@ -809,7 +809,7 @@ def test_coastal(tmp_path, coastal_lines_gdf, coastal_flow_m):
     gwf = sim.get_model("h")
     # this model runs without SFR
     sim.write_simulation()
-    success, buff = sim.run_simulation()
+    success, _buff = sim.run_simulation()
     assert success
     # Create a SWN with adjusted elevation profiles
     n = swn.SurfaceWaterNetwork.from_lines(coastal_lines_gdf.geometry)
@@ -824,7 +824,7 @@ def test_coastal(tmp_path, coastal_lines_gdf, coastal_flow_m):
         maximum_picard_iterations=10,
     )
     sim.write_simulation()
-    success, buff = sim.run_simulation()
+    success, _buff = sim.run_simulation()
     assert not success  # failed run
     # Check dataframes
     assert len(nm.segments) == 304
@@ -907,7 +907,7 @@ def test_coastal_elevations(coastal_swn, coastal_flow_m, tmp_path):
     # sim.ims.outer_dvclose = 1e-2
     # sim.ims.inner_dvclose = 1e-3
     sim.write_simulation()
-    success, buff = sim.run_simulation()
+    success, _buff = sim.run_simulation()
     assert success
     if matplotlib:
         plt.close()
@@ -963,7 +963,7 @@ def test_coastal_reduced(coastal_lines_gdf, coastal_flow_m, tmp_path):
         maximum_picard_iterations=10,
     )
     sim.write_simulation()
-    success, buff = sim.run_simulation()
+    success, _buff = sim.run_simulation()
     assert not success
     # Error/warning: upstream elevation is equal to downstream, slope is zero
     # TODO: improve processing to correct elevation errors
@@ -1019,7 +1019,7 @@ def test_coastal_idomain_modify(coastal_swn, coastal_flow_m, tmp_path):
         maximum_picard_iterations=10,
     )
     sim.write_simulation()
-    success, buff = sim.run_simulation()
+    success, _buff = sim.run_simulation()
     assert not success
     # Error/warning: upstream elevation is equal to downstream, slope is zero
     # TODO: improve processing to correct elevation errors
@@ -1090,7 +1090,7 @@ def test_include_downstream_reach_outside_model(tmp_path):
 
     # Run model and read outputs
     sim.write_simulation()
-    success, buff = sim.run_simulation()
+    success, _buff = sim.run_simulation()
     assert success
     sfr_bud_fname = tmp_path / "model.sfr.bud"
     read_budget(sfr_bud_fname, "EXT-INFLOW", nm.reaches, colname="Qin")
@@ -1272,7 +1272,7 @@ def test_n3d_defaults_with_div_on_outlet(tmp_path):
         if mf6_exe:
             # Run model and read outputs
             sim.write_simulation()
-            success, buff = sim.run_simulation()
+            success, _buff = sim.run_simulation()
             assert success
     # Write some files
     gdf_to_shapefile(
@@ -1395,7 +1395,8 @@ def test_diversions(tmp_path):
         perioddata={0: {"filename": "perioddata.dat"}},
     )
     sim.write_simulation()
-    success, buff = sim.run_simulation()
+    success, _buff = sim.run_simulation()
+    assert success
     res = pd.DataFrame(index=nm.reaches.index)
     _ = read_budget(tmp_path / "model.sfr.bud", "EXT-INFLOW", res, "Qin")
     _ = read_budget(tmp_path / "model.sfr.bud", "EXT-OUTFLOW", res, "Qout")
@@ -1411,7 +1412,8 @@ def test_diversions(tmp_path):
     # With abstraction
     perioddata = [[1, "inflow", 2.0], [4, "inflow", 3.0], [5, "diversion", 1, 1.1]]
     write_list(tmp_path / "perioddata.dat", perioddata)
-    success, buff = sim.run_simulation()
+    success, _buff = sim.run_simulation()
+    assert success
     np.testing.assert_array_almost_equal(
         read_budget(tmp_path / "model.sfr.bud", "EXT-OUTFLOW").q,
         [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -3.9, 0.0, -1.1, 0.0, 0.0],
@@ -1419,19 +1421,20 @@ def test_diversions(tmp_path):
     # More abstraction with dry streams
     perioddata = [[1, "inflow", 2.0], [4, "inflow", 3.0], [5, "diversion", 1, 3.3]]
     write_list(tmp_path / "perioddata.dat", perioddata)
-    success, buff = sim.run_simulation()
+    success, _buff = sim.run_simulation()
+    assert success
     np.testing.assert_array_almost_equal(
         read_budget(tmp_path / "model.sfr.bud", "EXT-OUTFLOW").q,
         [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -2.0, 0.0, -3.0, 0.0, 0.0],
     )
 
     # Check errors
-    with pytest.raises(ValueError, match="must be either"):
+    with pytest.raises(ValueError, match=r"must be either"):
         nm.diversions_frame("bad")
 
 
 def test_pickle(tmp_path):
-    sim, gwf = get_basic_modflow(tmp_path, with_top=True)
+    _sim, gwf = get_basic_modflow(tmp_path, with_top=True)
     gt = swn.modflow.geotransform_from_flopy(gwf)
     lsz = interp_2d_to_3d(n3d_lines, gwf.dis.top.array, gt)
     n = swn.SurfaceWaterNetwork.from_lines(lsz)
@@ -1457,9 +1460,9 @@ def test_pickle(tmp_path):
     assert nm3 == nm4
 
     # Issue 31
-    with pytest.raises(TypeError, match="swn property must be an instance o"):
+    with pytest.raises(TypeError, match=r"swn property must be an instance of"):
         swn.SwnMf6.from_pickle(tmp_path / "nm4.pickle", gwf)
-    with pytest.raises(AttributeError, match="swn property can only be set o"):
+    with pytest.raises(AttributeError, match=r"swn property can only be set once"):
         nm2.swn = n
 
 
@@ -1468,7 +1471,7 @@ def test_route_reaches():
     lines2 = list(n1.segments.geometry)
     lines2.append(wkt.loads("LINESTRING (40 90, 50 80)"))
     n = swn.SurfaceWaterNetwork.from_lines(geopandas.GeoSeries(lines2))
-    sim, gwf = get_basic_modflow(with_top=False)
+    _sim, gwf = get_basic_modflow(with_top=False)
     nm = swn.SwnMf6.from_swn_flopy(n, gwf)
     assert nm.route_reaches(8, 8) == [8]
     assert nm.route_reaches(7, 8) == [7, 8]
@@ -1483,11 +1486,11 @@ def test_route_reaches():
         nm.route_reaches(0, 1)
     with pytest.raises(IndexError, match=f"invalid end {ridxname} 0"):
         nm.route_reaches(1, 0)
-    with pytest.raises(ConnectionError, match="1 does not connect to 4"):
+    with pytest.raises(ConnectionError, match=r"1 does not connect to 4"):
         nm.route_reaches(1, 4)
-    with pytest.raises(ConnectionError, match="reach networks are disjoint"):
+    with pytest.raises(ConnectionError, match=r"reach networks are disjoint"):
         nm.route_reaches(1, 6)
-    with pytest.raises(ConnectionError, match="reach networks are disjoint"):
+    with pytest.raises(ConnectionError, match=r"reach networks are disjoint"):
         nm.route_reaches(1, 6, allow_indirect=True)
     # TODO: diversions?
 
@@ -1598,11 +1601,11 @@ def test_get_flopy_mf6_package():
 
 def test_package_period_frame():
     n = get_basic_swn()
-    sim, gwf = get_basic_modflow()
+    _sim, gwf = get_basic_modflow()
     nm = swn.SwnMf6.from_swn_flopy(n, gwf)
 
     with pytest.raises(
-        KeyError, match="missing 2 ModflowGwfdrn reaches series: elev, c"
+        KeyError, match=r"missing 2 ModflowGwfdrn reaches series: elev, c"
     ):
         nm.package_period_frame("drn", "native")
 
@@ -1729,7 +1732,7 @@ def test_write_package_period(tmp_path):
             "drn", pname="swn_drn", stress_period_data={0: {"filename": fname.name}}
         )
         sim.write_simulation()
-        success, buff = sim.run_simulation()
+        success, _buff = sim.run_simulation()
         assert success
         dl = read_budget(tmp_path / "model.cbc", "DRN")
         assert "RLEN" not in dl.dtype.names
@@ -1756,7 +1759,7 @@ def test_write_package_period(tmp_path):
             stress_period_data={0: {"filename": fname.name}},
         )
         sim.write_simulation()
-        success, buff = sim.run_simulation()
+        success, _buff = sim.run_simulation()
         assert success
         dl = read_budget(tmp_path / "model.cbc", "DRN")
         assert "RLEN" in dl.dtype.names
@@ -1821,7 +1824,7 @@ def test_flopy_package_period(tmp_path):
         nm.reaches["cond"] = nm.reaches.length * 10.0
         _ = nm.set_package_obj("drn", pname="swn_drn")
         sim.write_simulation()
-        success, buff = sim.run_simulation()
+        success, _buff = sim.run_simulation()
         assert success
         dl = read_budget(tmp_path / "model.cbc", "DRN")
         assert "RLEN" not in dl.dtype.names
@@ -1842,7 +1845,7 @@ def test_flopy_package_period(tmp_path):
         nm.reaches["cond"] = 10.0
         _ = nm.set_package_obj("drn", pname="swn_drn", auxmultname="rlen")
         sim.write_simulation()
-        success, buff = sim.run_simulation()
+        success, _buff = sim.run_simulation()
         assert success
         dl = read_budget(tmp_path / "model.cbc", "DRN")
         assert "RLEN" in dl.dtype.names
