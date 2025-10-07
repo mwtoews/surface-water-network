@@ -313,7 +313,7 @@ class ModelPlot:
         ]
         if cb:
             sm = cm.ScalarMappable(norm=norm, cmap=cmap)
-            divider_props, props = self._get_cbar_props()
+            divider_props, _props = self._get_cbar_props()
             cax = self.divider.append_axes(
                 "right", size="5%", axes_class=plt.Axes, **divider_props
             )
@@ -343,7 +343,7 @@ def _profile_plot(
         # will use this for seg dividers anyway
         sorted_df["csum"] = sorted_df[lentag].cumsum()
     if ax is None:
-        fig, ax = plt.subplots(figsize=(8, 6))
+        _fig, ax = plt.subplots(figsize=(8, 6))
     # make sure we include end of final reach
     pd.concat(
         [
