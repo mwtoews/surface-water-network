@@ -42,18 +42,18 @@ def valid_n():
 
 
 def test_init_errors():
-    with pytest.raises(ValueError, match="segments must be a GeoDataFrame"):
+    with pytest.raises(ValueError, match=r"segments must be a GeoDataFrame"):
         swn.SurfaceWaterNetwork(object())
-    with pytest.raises(ValueError, match="segments must be a GeoDataFrame"):
+    with pytest.raises(ValueError, match=r"segments must be a GeoDataFrame"):
         swn.SurfaceWaterNetwork(valid_df)
 
 
 def test_from_lines_errors():
-    with pytest.raises(ValueError, match="lines must be a GeoSeries"):
+    with pytest.raises(ValueError, match=r"lines must be a GeoSeries"):
         swn.SurfaceWaterNetwork.from_lines(object())
-    with pytest.raises(ValueError, match="lines must be a GeoSeries"):
+    with pytest.raises(ValueError, match=r"lines must be a GeoSeries"):
         swn.SurfaceWaterNetwork.from_lines(valid_df)
-    with pytest.raises(ValueError, match="one or more lines are required"):
+    with pytest.raises(ValueError, match=r"one or more lines are required"):
         swn.SurfaceWaterNetwork.from_lines(valid_lines[0:0])
 
 
@@ -61,7 +61,7 @@ def test_init_geom_type():
     wkt_list = valid_lines_list[:]
     wkt_list[1] = "MULTILINESTRING Z ((70 130 15, 60 100 14))"
     lines = geopandas.GeoSeries.from_wkt(wkt_list)
-    with pytest.raises(ValueError, match="lines must all be LineString types"):
+    with pytest.raises(ValueError, match=r"lines must all be LineString types"):
         swn.SurfaceWaterNetwork.from_lines(lines)
 
 
@@ -123,7 +123,7 @@ def test_segments(valid_n):
     assert isinstance(valid_n.segments, geopandas.GeoDataFrame)
     # columns are checked in other tests
     with pytest.raises(
-        AttributeError, match="can't set attribute|object has no setter"
+        AttributeError, match=r"can't set attribute|object has no setter"
     ):
         valid_n.segments = None
 
@@ -508,7 +508,7 @@ def test_init_segments_loc():
 
 
 def test_accumulate_values_must_be_series(valid_n):
-    with pytest.raises(ValueError, match="values must be a pandas Series"):
+    with pytest.raises(ValueError, match=r"values must be a pandas Series"):
         valid_n.accumulate_values([3.0, 2.0, 4.0])
 
 
@@ -516,11 +516,11 @@ def test_accumulate_values_different_index(valid_n):
     # indexes don't completely overlap
     v = pd.Series([3.0, 2.0, 4.0])
     v.index += 1
-    with pytest.raises(ValueError, match="index is different"):
+    with pytest.raises(ValueError, match=r"index is different"):
         valid_n.accumulate_values(v)
     # indexes overlap, but have a different sequence
     v = pd.Series([3.0, 2.0, 4.0]).sort_values()
-    with pytest.raises(ValueError, match="index is different"):
+    with pytest.raises(ValueError, match=r"index is different"):
         valid_n.accumulate_values(v)
 
 
@@ -575,15 +575,15 @@ def test_init_polygons():
         _ = n.plot()
         plt.close()
     # check errors
-    with pytest.raises(ValueError, match="polygons must be a GeoSeries or None"):
+    with pytest.raises(ValueError, match=r"polygons must be a GeoSeries or None"):
         swn.SurfaceWaterNetwork.from_lines(valid_lines, 1.0)
     with pytest.raises(
-        ValueError, match="polygons.index is different than lines.index"
+        ValueError, match=r"polygons.index is different than lines.index"
     ):
         swn.SurfaceWaterNetwork.from_lines(
             valid_lines, valid_polygons.sort_index(ascending=False)
         )
-    with pytest.raises(ValueError, match="polygons geometry type must be Polygon"):
+    with pytest.raises(ValueError, match=r"polygons geometry type must be Polygon"):
         swn.SurfaceWaterNetwork.from_lines(valid_lines, valid_lines)
 
 
@@ -627,7 +627,7 @@ def test_catchments_property():
     n.catchments = None
     assert n.catchments is None
     # check errors
-    with pytest.raises(ValueError, match="catchments must be a GeoSeries or None"):
+    with pytest.raises(ValueError, match=r"catchments must be a GeoSeries or None"):
         n.catchments = 1.0
     with pytest.raises(
         ValueError, match=r"catchments\.index is different than for segments"
@@ -647,7 +647,7 @@ def test_set_diversions_geodataframe():
         n.set_diversions([1])
     with pytest.raises(ValueError, match=r"a \[Geo\]DataFrame is expected"):
         n.set_diversions(diversions.geometry)
-    with pytest.raises(ValueError, match="does not appear to be spatial"):
+    with pytest.raises(ValueError, match=r"does not appear to be spatial"):
         n.set_diversions(geopandas.GeoDataFrame([1]))
     # normal operation
     assert n.diversions is None
@@ -727,7 +727,7 @@ def test_set_diversions_dataframe():
         n.diversions = diversions
     with pytest.raises(ValueError, match=r"a \[Geo\]DataFrame is expected"):
         n.set_diversions(diversions.from_segnum)
-    with pytest.raises(ValueError, match="does not appear to be spatial"):
+    with pytest.raises(ValueError, match=r"does not appear to be spatial"):
         n.set_diversions(pd.DataFrame([1]))
     # normal operation
     assert n.diversions is None
@@ -806,7 +806,7 @@ def test_estimate_width():
         n2.segments["width"], [1.4614, 1.4461, 1.4444], 4
     )
     # check errors
-    with pytest.raises(ValueError, match="unknown use for upstream_area"):
+    with pytest.raises(ValueError, match=r"unknown use for upstream_area"):
         n.estimate_width(upstream_area=3)
     with pytest.raises(
         ValueError, match=r"'upstream_area' not found in segments\.columns"
@@ -852,7 +852,7 @@ def test_segments_series(valid_n):
     with pytest.raises(ValueError, match=errmsg):
         n.segments_series(s)
     # misc error
-    with pytest.raises(ValueError, match="expected value to be scalar, list,"):
+    with pytest.raises(ValueError, match=r"expected value to be scalar, list,"):
         n.segments_series(object())
 
 
@@ -966,9 +966,9 @@ def test_pair_segments_frame(valid_n):
         pd.DataFrame({"foo1": [10.0, 2.0, 3.0], "foo2": [10.0, 4.0, 6.0]}),
     )
     # misc errors
-    with pytest.raises(ValueError, match="method must be one of "):
+    with pytest.raises(ValueError, match=r"method must be one of "):
         n.pair_segments_frame(1, method="nope")
-    with pytest.raises(ValueError, match="expected value to be scalar, list,"):
+    with pytest.raises(ValueError, match=r"expected value to be scalar, list,"):
         n.pair_segments_frame(object())
     with pytest.raises(ValueError, match=errmsg_value_out_expected):
         n.pair_segments_frame(1, object())
@@ -1040,7 +1040,7 @@ def test_remove_errors(valid_n):
     ):
         n.remove(segnums=[3])
     with pytest.raises(
-        ValueError, match="all segments were selected to remove; must keep at least "
+        ValueError, match=r"all segments were selected to remove; must keep at least "
     ):
         n.remove(segnums=[0, 1, 2])
 
@@ -1145,18 +1145,18 @@ def test_route_segnums(fluss_n):
     assert n.route_segnums(0, 1, allow_indirect=True) == [0, 1]
     assert n.route_segnums(0, 11, allow_indirect=True) == [0, 2, 6, 8, 9, 11]
     # errors
-    with pytest.raises(IndexError, match="invalid start segnum -1"):
+    with pytest.raises(IndexError, match=r"invalid start segnum -1"):
         n.route_segnums(-1, 0)
-    with pytest.raises(IndexError, match="invalid end segnum -1"):
+    with pytest.raises(IndexError, match=r"invalid end segnum -1"):
         n.route_segnums(0, -1)
-    with pytest.raises(ConnectionError, match="0 does not connect to 1"):
+    with pytest.raises(ConnectionError, match=r"0 does not connect to 1"):
         n.route_segnums(0, 1)
-    with pytest.raises(ConnectionError, match="3 does not connect to 9"):
+    with pytest.raises(ConnectionError, match=r"3 does not connect to 9"):
         n.route_segnums(3, 9)
     n2 = swn.SurfaceWaterNetwork.from_lines(n.segments.geometry.iloc[0:4])
-    with pytest.raises(ConnectionError, match="segment networks are disjoint"):
+    with pytest.raises(ConnectionError, match=r"segment networks are disjoint"):
         n2.route_segnums(0, 3)
-    with pytest.raises(ConnectionError, match="segment networks are disjoint"):
+    with pytest.raises(ConnectionError, match=r"segment networks are disjoint"):
         n2.route_segnums(0, 3, allow_indirect=True)
 
 
@@ -1647,12 +1647,12 @@ def test_coarsen_fluss(fluss_n):
     geopandas.testing.assert_geodataframe_equal(nc4.segments[cols], expected_nc4[cols])
 
     # can't coarsen to level 5
-    with pytest.raises(ValueError, match="no segments found"):
+    with pytest.raises(ValueError, match=r"no segments found"):
         fluss_n.coarsen(5)
 
 
 def test_adjust_elevation_profile_errors(valid_n):
-    with pytest.raises(ValueError, match="min_slope must be greater than zero"):
+    with pytest.raises(ValueError, match=r"min_slope must be greater than zero"):
         valid_n.adjust_elevation_profile(0.0)
 
     n2d = swn.SurfaceWaterNetwork.from_lines(force_2d(valid_lines))
@@ -1662,7 +1662,7 @@ def test_adjust_elevation_profile_errors(valid_n):
     min_slope = pd.Series(2.0 / 1000, index=valid_n.segments.index)
     min_slope[1] = 3.0 / 1000
     min_slope.index += 1
-    with pytest.raises(ValueError, match="index is different"):
+    with pytest.raises(ValueError, match=r"index is different"):
         valid_n.adjust_elevation_profile(min_slope)
 
 

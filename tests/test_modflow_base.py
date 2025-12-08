@@ -89,7 +89,7 @@ def test_swn_property():
     nm.swn = n
     assert nm.swn is not None
     assert nm.swn is n
-    with pytest.raises(AttributeError, match="swn property can only be set o"):
+    with pytest.raises(AttributeError, match=r"swn property can only be set once"):
         nm.swn = n
 
 
@@ -102,7 +102,7 @@ def test_segments_property():
     assert nm.segments is gdf
     nm.segments = None
     assert nm.segments is None
-    with pytest.raises(ValueError, match="segments must be a GeoDataFrame or"):
+    with pytest.raises(ValueError, match=r"segments must be a GeoDataFrame or"):
         nm.segments = pd.DataFrame()
 
 
@@ -119,7 +119,7 @@ def test_diversions_property():
     assert nm.diversions is df
     nm.diversions = None
     assert nm.diversions is None
-    with pytest.raises(ValueError, match="diversions must be a GeoDataFrame,"):
+    with pytest.raises(ValueError, match=r"diversions must be a GeoDataFrame,"):
         nm.diversions = {}
 
 
@@ -132,7 +132,7 @@ def test_reaches_property():
     assert nm.reaches is gdf
     nm.reaches = None
     assert nm.reaches is None
-    with pytest.raises(ValueError, match="reaches must be a GeoDataFrame or "):
+    with pytest.raises(ValueError, match=r"reaches must be a GeoDataFrame or "):
         nm.reaches = pd.DataFrame()
 
 
@@ -344,7 +344,7 @@ def test_set_reach_data_from_segments():
     nm.set_reach_data_from_segments("width", n.segments.width, "10")
     pd.testing.assert_series_equal(nm.reaches["width"], expected_width)
     # misc errors
-    with pytest.raises(ValueError, match="name must be a str type"):
+    with pytest.raises(ValueError, match=r"name must be a str type"):
         nm.set_reach_data_from_segments(1, 2)
 
 
@@ -392,7 +392,7 @@ def test_set_reach_slope_n2d(has_diversions):
         expected += [0.5, 0.5, 1.0, 1.0]
     np.testing.assert_array_almost_equal(nm.reaches.slope, expected)
 
-    with pytest.raises(ValueError, match="method zcoord_ab requested"):
+    with pytest.raises(ValueError, match=r"method zcoord_ab requested"):
         nm.set_reach_slope("zcoord_ab")
 
 
@@ -952,13 +952,13 @@ def test_transform_data_from_dict():
     )
 
     # errors returning series
-    with pytest.raises(KeyError, match="dict has a disjoint segnum set"):
+    with pytest.raises(KeyError, match=r"dict has a disjoint segnum set"):
         f({3: 10}, float, time_index, mapping)
-    with pytest.raises(KeyError, match="dict has a disjoint segnum set"):
+    with pytest.raises(KeyError, match=r"dict has a disjoint segnum set"):
         f({"0": 10, "1": 11}, float, time_index, mapping)
-    with pytest.raises(KeyError, match="dict has 1 key not found in segnum"):
+    with pytest.raises(KeyError, match=r"dict has 1 key not found in segnum"):
         f({0: 1.1, 3: 10}, float, time_index, mapping)
-    with pytest.raises(KeyError, match="dict has 2 keys not found in segnum"):
+    with pytest.raises(KeyError, match=r"dict has 2 keys not found in segnum"):
         f({0: 1.1, 3: 10, 10: 1}, float, time_index, mapping)
 
     # returns frame
@@ -988,19 +988,19 @@ def test_transform_data_from_dict():
     )
 
     # errors returning frame
-    with pytest.raises(ValueError, match="mixture of iterable and scalar val"):
+    with pytest.raises(ValueError, match=r"mixture of iterable and scalar val"):
         f({1: 10, 2: [1, 2]}, float, time_index)
-    with pytest.raises(ValueError, match="inconsistent lengths found in dict"):
+    with pytest.raises(ValueError, match=r"inconsistent lengths found in dict"):
         f({1: [10], 2: [1, 2]}, float, time_index)
-    with pytest.raises(ValueError, match="length of dict series does not mat"):
+    with pytest.raises(ValueError, match=r"length of dict series does not mat"):
         f({1: [10], 2: [1]}, float, time_index)
-    with pytest.raises(KeyError, match="dict has a disjoint segnum set"):
+    with pytest.raises(KeyError, match=r"dict has a disjoint segnum set"):
         f({3: [10, 10]}, float, time_index, mapping)
-    with pytest.raises(KeyError, match="dict has a disjoint segnum set"):
+    with pytest.raises(KeyError, match=r"dict has a disjoint segnum set"):
         f({"0": [10, 10], "1": [11.1, 12.2]}, float, time_index, mapping)
-    with pytest.raises(KeyError, match="dict has 1 key not found in segnum"):
+    with pytest.raises(KeyError, match=r"dict has 1 key not found in segnum"):
         f({0: [0, 0], 3: [0, 0]}, float, time_index, mapping)
-    with pytest.raises(KeyError, match="dict has 2 keys not found in segnum"):
+    with pytest.raises(KeyError, match=r"dict has 2 keys not found in segnum"):
         f({0: [0, 0], 3: [0, 0], 10: [0, 0]}, float, time_index, mapping)
 
 
@@ -1057,15 +1057,15 @@ def test_transform_data_from_series():
     )
 
     # errors
-    # with pytest.raises(ValueError,match="dtype for series cannot be object"):
+    # with pytest.raises(ValueError,match=r"dtype for series cannot be object"):
     #    f(pd.Series([[1]]), float, time_index)
-    with pytest.raises(ValueError, match="cannot cast index.dtype to int64"):
+    with pytest.raises(ValueError, match=r"cannot cast index.dtype to int64"):
         f(pd.Series([10, 11], index=["0", "1A"]), int, time_index, mapping)
-    with pytest.raises(KeyError, match="series has a disjoint segnum set"):
+    with pytest.raises(KeyError, match=r"series has a disjoint segnum set"):
         f(pd.Series([3], index=[10]), float, time_index, mapping)
-    with pytest.raises(KeyError, match="series has 1 key not found in segnum"):
+    with pytest.raises(KeyError, match=r"series has 1 key not found in segnum"):
         f(pd.Series([2, 3], index=[0, 3]), float, time_index, mapping)
-    with pytest.raises(KeyError, match="series has 2 keys not found in segnu"):
+    with pytest.raises(KeyError, match=r"series has 2 keys not found in segnu"):
         f(pd.Series([2, 3, 4], index=[0, 3, 10]), float, time_index, mapping)
 
 
@@ -1158,16 +1158,16 @@ def test_transform_data_from_frame():
     )
 
     # errors returning frame
-    with pytest.raises(ValueError, match="frame index should be a DatetimeIn"):
+    with pytest.raises(ValueError, match=r"frame index should be a DatetimeIn"):
         f(pd.DataFrame({3: [10, 10]}, index=[1, 2]), float, time_index, mapping)
-    with pytest.raises(ValueError, match="length of frame index does not mat"):
+    with pytest.raises(ValueError, match=r"length of frame index does not mat"):
         f(
             pd.DataFrame({3: [10]}, index=pd.DatetimeIndex(["2000-07-03"])),
             float,
             time_index,
             mapping,
         )
-    with pytest.raises(ValueError, match="frame index does not match time in"):
+    with pytest.raises(ValueError, match=r"frame index does not match time in"):
         f(
             pd.DataFrame(
                 {3: [10, 10]}, index=pd.DatetimeIndex(["2000-07-03", "2000-07-04"])
@@ -1176,23 +1176,23 @@ def test_transform_data_from_frame():
             time_index,
             mapping,
         )
-    with pytest.raises(ValueError, match="cannot cast columns.dtype to int64"):
+    with pytest.raises(ValueError, match=r"cannot cast columns.dtype to int64"):
         f(
             pd.DataFrame({"0": [10, 10], "1A": [11.1, 12.2]}),
             float,
             time_index,
             mapping,
         )
-    with pytest.raises(KeyError, match="frame has a disjoint segnum set"):
+    with pytest.raises(KeyError, match=r"frame has a disjoint segnum set"):
         f(pd.DataFrame({3: [10, 10]}, index=time_index), float, time_index, mapping)
-    with pytest.raises(KeyError, match="frame has 1 key not found in segnum"):
+    with pytest.raises(KeyError, match=r"frame has 1 key not found in segnum"):
         f(
             pd.DataFrame({0: [0, 0], 3: [0, 0]}, index=time_index),
             float,
             time_index,
             mapping,
         )
-    with pytest.raises(KeyError, match="frame has 2 keys not found in segnum"):
+    with pytest.raises(KeyError, match=r"frame has 2 keys not found in segnum"):
         f(
             pd.DataFrame({0: [0, 0], 3: [0, 0], 10: [0, 0]}, index=time_index),
             float,
@@ -1409,13 +1409,13 @@ def test_get_location_frame_reach_info(caplog):
         assert "resetting reachID from location frame" in caplog.messages[-1]
     pd.testing.assert_frame_equal(r_df, expected_df)
     # errors
-    with pytest.raises(TypeError, match="loc_df must be a GeoDataFrame or Da"):
+    with pytest.raises(TypeError, match=r"loc_df must be a GeoDataFrame or DataFrame"):
         nm.get_location_frame_reach_info(loc_df.index)
-    with pytest.raises(ValueError, match="loc_df must have 'segnum' column"):
+    with pytest.raises(ValueError, match=r"loc_df must have 'segnum' column"):
         nm.get_location_frame_reach_info(loc_df[["geometry", "method"]])
-    with pytest.raises(ValueError, match="downstream_bias must be between -1"):
+    with pytest.raises(ValueError, match=r"downstream_bias must be between -1"):
         nm.get_location_frame_reach_info(loc_df, 8)
-    with pytest.raises(ValueError, match="downstream_bias must be between -1"):
+    with pytest.raises(ValueError, match=r"downstream_bias must be between -1"):
         nm.get_location_frame_reach_info(loc_df, -2)
 
 

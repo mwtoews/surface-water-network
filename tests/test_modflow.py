@@ -290,7 +290,7 @@ def test_n3d_defaults(tmp_path):
     # Run model and read outputs
     m.model_ws = str(tmp_path)
     m.write_input()
-    success, buff = m.run_model()
+    success, _buff = m.run_model()
     assert success
     heads = read_head(tmp_path / "modflowtest.hds")
     sl = read_budget(
@@ -796,7 +796,7 @@ def test_n3d_vars(tmp_path):
     # Run model and read outputs
     m.model_ws = str(tmp_path)
     m.write_input()
-    success, buff = m.run_model()
+    success, _buff = m.run_model()
     assert success
     heads = read_head(tmp_path / "modflowtest.hds")
     sl = read_budget(
@@ -891,7 +891,7 @@ def test_n2d_defaults(tmp_path):
     # Run model
     m.model_ws = str(tmp_path)
     m.write_input()
-    success, buff = m.run_model()
+    success, _buff = m.run_model()
     assert not success
     # Error/warning: upstream elevation is equal to downstream, slope is zero
     # TODO: improve processing to correct elevation errors
@@ -930,7 +930,7 @@ def test_n2d_min_slope(tmp_path):
     # Run model and read outputs
     m.model_ws = str(tmp_path)
     m.write_input()
-    success, buff = m.run_model()
+    success, _buff = m.run_model()
     assert not success
     # Error/warning: upstream elevation is equal to downstream, slope is zero
     # TODO: improve processing to correct elevation errors
@@ -994,7 +994,7 @@ def test_set_elevations(tmp_path):
     # Run model
     m.model_ws = str(tmp_path)
     m.write_input()
-    success, buff = m.run_model()
+    success, _buff = m.run_model()
     assert success
     heads = read_head(tmp_path / "modflowtest.hds")
     sl = read_budget(
@@ -1049,7 +1049,7 @@ def test_coastal(tmp_path, coastal_lines_gdf, coastal_flow_m):
     m.model_ws = str(tmp_path)
     # this model works without SFR
     m.write_input()
-    success, buff = m.run_model()
+    success, _buff = m.run_model()
     assert success
     # Create a SWN with adjusted elevation profiles
     n = swn.SurfaceWaterNetwork.from_lines(coastal_lines_gdf.geometry)
@@ -1063,7 +1063,7 @@ def test_coastal(tmp_path, coastal_lines_gdf, coastal_flow_m):
     # and breaks with default SFR due to elevation errors
     assert m.sfr.unit_number == [24]
     m.write_input()
-    success, buff = m.run_model()
+    success, _buff = m.run_model()
     assert not success
     # Check dataframes
     assert len(nm.segments) == 304
@@ -1204,7 +1204,7 @@ def test_coastal_elevations(coastal_swn, coastal_flow_m, tmp_path):
     # Run model
     m.model_ws = str(tmp_path)
     m.write_input()
-    success, buff = m.run_model()
+    success, _buff = m.run_model()
     assert success
 
 
@@ -1321,7 +1321,7 @@ def test_coastal_reduced(coastal_lines_gdf, coastal_flow_m, tmp_path):
     m.sfr.istcb2 = -51
     m.add_output_file(51, extension="sfo", binflag=True)
     m.write_input()
-    success, buff = m.run_model()
+    success, _buff = m.run_model()
     assert not success
     # Error/warning: upstream elevation is equal to downstream, slope is zero
     # TODO: improve processing to correct elevation errors
@@ -1437,7 +1437,7 @@ def test_coastal_ibound_modify(coastal_swn, coastal_flow_m, tmp_path):
     m.sfr.istcb2 = -51
     m.add_output_file(51, extension="sfo", binflag=True)
     m.write_input()
-    success, buff = m.run_model()
+    success, _buff = m.run_model()
     assert not success
     # Error/warning: upstream elevation is equal to downstream, slope is zero
     # TODO: improve processing to correct elevation errors
@@ -1504,7 +1504,7 @@ def test_include_downstream_reach_outside_model(tmp_path):
 
     # Run model and read outputs
     m.write_input()
-    success, buff = m.run_model()
+    success, _buff = m.run_model()
     assert success
     sfl_fname = tmp_path / "modflowtest.sfl"
     sfl = read_sfl(sfl_fname, nm.reaches)
@@ -1613,7 +1613,7 @@ def test_diversions(tmp_path):
     # Run model and read outputs
     m.model_ws = str(tmp_path)
     m.write_input()
-    success, buff = m.run_model()
+    success, _buff = m.run_model()
     assert success
     cbc_fname = tmp_path / "modflowtest.cbc"
     sfl_fname = tmp_path / "modflowtest.sfl"
@@ -1645,7 +1645,7 @@ def test_diversions(tmp_path):
         m.sfr.segment_data[0]["flow"], [2.0, 3.0, 0.0, 0.0, 0.0, 0.0, 0.0]
     )
     m.sfr.write_file()
-    success, buff = m.run_model()
+    success, _buff = m.run_model()
     assert success
     sl = read_budget(cbc_fname, "STREAM LEAKAGE", nm.reaches, "sfrleakage")
     sfl = read_sfl(sfl_fname, nm.reaches)
@@ -1665,7 +1665,7 @@ def test_diversions(tmp_path):
         m.sfr.segment_data[0]["flow"], [2.0, 3.0, 0.0, 1.1, 0.0, 0.0, 0.0]
     )
     m.sfr.write_file()
-    success, buff = m.run_model()
+    success, _buff = m.run_model()
     assert success
     sl = read_budget(cbc_fname, "STREAM LEAKAGE", nm.reaches, "sfrleakage")
     sfl = read_sfl(sfl_fname, nm.reaches)
@@ -1685,7 +1685,7 @@ def test_diversions(tmp_path):
         m.sfr.segment_data[0]["flow"], [2.0, 3.0, 0.0, 1.1, 3.3, 0.0, 0.0]
     )
     m.sfr.write_file()
-    success, buff = m.run_model()
+    success, _buff = m.run_model()
     assert success
     sl = read_budget(cbc_fname, "STREAM LEAKAGE", nm.reaches, "sfrleakage")
     sfl = read_sfl(sfl_fname, nm.reaches)
@@ -1861,7 +1861,7 @@ def test_write_package_period(tmp_path):
         """
             )
         )
-        success, buff = m.run_model()
+        success, _buff = m.run_model()
         assert success
         dl = read_budget(tmp_path / "modflowtest.cbc", "DRAINS")
         expected_q = np.array(
@@ -1891,7 +1891,7 @@ def test_write_package_period(tmp_path):
         """
             )
         )
-        success, buff = m.run_model()
+        success, _buff = m.run_model()
         assert success
         dl = read_budget(tmp_path / "modflowtest.cbc", "DRAINS")
         np.testing.assert_almost_equal(dl["q"], expected_q)
@@ -1948,7 +1948,7 @@ def test_flopy_package_period(tmp_path):
     if mf2005_exe:
         _ = nm.set_package_obj("drn", ipakcb=52)
         m.write_input()
-        success, buff = m.run_model()
+        success, _buff = m.run_model()
         assert success
         dl = read_budget(tmp_path / "modflowtest.cbc", "DRAINS")
         expected_q = np.array(
@@ -1994,7 +1994,7 @@ def test_flopy_package_period(tmp_path):
         txt = drn_fname.read_text().splitlines()
         txt[1] += " AUX RLEN"
         drn_fname.write_text("\n".join(txt))
-        success, buff = m.run_model()
+        success, _buff = m.run_model()
         assert success
         dl = read_budget(tmp_path / "modflowtest.cbc", "DRAINS")
         np.testing.assert_almost_equal(dl["q"], expected_q)
