@@ -1736,35 +1736,59 @@ class SwnMf6(SwnModflowBase):
                 layerbots[k + 1] = layerbots[k] - laythick
             self.model.dis.botm.set_data(layerbots)
 
-    def _fix_dis(self, buffer=0.5, move_top=True):
+    def _fix_dis(self, buffer=0.5, move_top=False):
+        """
+        Ensure botm[0] is below rtp - rbth - buffer for all cells.
+        Sets botm[0] based on the reach with the lowest rtp in each cell.
+        """
         botm = self.model.dis.botm.get_data()
         top = self.model.dis.top.get_data()
         rdf = self.reaches.copy()
 
-        idx = rdf.index.name
-        rdf["botm0"] = rdf[["i", "j"]].apply(lambda x: botm[0, x[0], x[1]], axis=1)
-        rdf["maxbot"] = rdf[["rtp", "rbth"]].apply(
-            lambda x: x[0] - x[1] - buffer, axis=1
-        )
-        rdf["bdz"] = rdf["botm0"] - rdf["maxbot"]
-        rdf["bdz"].clip(0, None, inplace=True)
-        rdf[idx] = rdf.index
-        # need to get min bdz for each cell (unique 'ij')
-        rdf["ij"] = rdf[["i", "j"]].apply(lambda x: (x[0], x[1]), axis=1)
-        rdf = rdf.select_dtypes(include=[np.number, tuple]).groupby(["ij"]).max()
-        rdf.set_index(idx, inplace=True)
-        # shift all layers in model column, TODO: enforce min layer thickness instead?
-        for r in rdf.index:
-            botm[:, rdf.loc[r, "i"], rdf.loc[r, "j"]] = (
-                botm[:, rdf.loc[r, "i"], rdf.loc[r, "j"]] - rdf.loc[r, "bdz"]
-            )
-            if move_top:
-                top[rdf.loc[r, "i"], rdf.loc[r, "j"]] = (
-                    top[rdf.loc[r, "i"], rdf.loc[r, "j"]] - rdf.loc[r, "bdz"]
-                )
-        # may do funny things to flopy external file reference?
-        self.model.dis.botm.set_data(botm)
-        self.model.dis.top.set_data(top)
+        # Ensure numeric types (in case rbth is int)
+        rdf['rtp'] = rdf['rtp'].astype(float)
+        rdf['rbth'] = rdf['rbth'].astype(float)
+
+        # Calculate required maximum bottom elevation for each reach
+        rdf['required_botm0'] = rdf['rtp'] - rdf['rbth'] - buffer
+
+        # For each cell, find the LOWEST required_botm0 (most restrictive reach)
+        rdf['ij'] = list(zip(rdf['i'], rdf['j']))
+        cell_requirements = rdf.groupby('ij', as_index=False).agg({
+            'required_botm0': 'min',  # MINIMUM (lowest rtp - most restrictive)
+            'i': 'first',
+            'j': 'first'
+        })
+
+        # Get current botm[0] and calculate shifts needed
+        i_idx = cell_requirements['i'].values.astype(int)
+        j_idx = cell_requirements['j'].values.astype(int)
+
+        current_botm0 = botm[0, i_idx, j_idx]
+        required = cell_requirements['required_botm0'].values
+        shifts = np.maximum(0, current_botm0 - required)
+
+        # Apply only where adjustment needed
+        mask = shifts > 0
+
+        if mask.any():
+            i_adjust = i_idx[mask]
+            j_adjust = j_idx[mask]
+            shift_vals = shifts[mask]
+            required_vals = required[mask]
+
+            for i, j, shift, req in zip(i_adjust, j_adjust, shift_vals, required_vals):
+                # Shift all layers
+                botm[:, i, j] -= shift
+                # Explicitly set botm[0] to exact required value
+                botm[0, i, j] = req
+
+                if move_top:
+                    top[i, j] -= shift
+
+            self.model.dis.botm.set_data(botm)
+            self.model.dis.top.set_data(top)
+        return mask.sum()
 
     def _to_rno_elevs(
         self, minslope=0.0001, minincise=0.2, minthick=0.5, buffer=0.5, fix_dis=True
