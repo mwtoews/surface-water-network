@@ -1746,26 +1746,28 @@ class SwnMf6(SwnModflowBase):
         rdf = self.reaches.copy()
 
         # Ensure numeric types (in case rbth is int)
-        rdf['rtp'] = rdf['rtp'].astype(float)
-        rdf['rbth'] = rdf['rbth'].astype(float)
+        rdf["rtp"] = rdf["rtp"].astype(float)
+        rdf["rbth"] = rdf["rbth"].astype(float)
 
         # Calculate required maximum bottom elevation for each reach
-        rdf['required_botm0'] = rdf['rtp'] - rdf['rbth'] - buffer
+        rdf["required_botm0"] = rdf["rtp"] - rdf["rbth"] - buffer
 
         # For each cell, find the LOWEST required_botm0 (most restrictive reach)
-        rdf['ij'] = list(zip(rdf['i'], rdf['j']))
-        cell_requirements = rdf.groupby('ij', as_index=False).agg({
-            'required_botm0': 'min',  # MINIMUM (lowest rtp - most restrictive)
-            'i': 'first',
-            'j': 'first'
-        })
+        rdf["ij"] = list(zip(rdf["i"], rdf["j"]))
+        cell_requirements = rdf.groupby("ij", as_index=False).agg(
+            {
+                "required_botm0": "min",  # MINIMUM (lowest rtp - most restrictive)
+                "i": "first",
+                "j": "first",
+            }
+        )
 
         # Get current botm[0] and calculate shifts needed
-        i_idx = cell_requirements['i'].values.astype(int)
-        j_idx = cell_requirements['j'].values.astype(int)
+        i_idx = cell_requirements["i"].values.astype(int)
+        j_idx = cell_requirements["j"].values.astype(int)
 
         current_botm0 = botm[0, i_idx, j_idx]
-        required = cell_requirements['required_botm0'].values
+        required = cell_requirements["required_botm0"].values
         shifts = np.maximum(0, current_botm0 - required)
 
         # Apply only where adjustment needed
