@@ -29,7 +29,7 @@ requires-python = ">=3.10"
 dependencies = [
     "geopandas",
     "packaging",
-    "pandas",
+    "pandas <3",
     "pyproj",
     "rtree",
     "shapely",
@@ -93,6 +93,7 @@ select = [
 ]
 ignore = [
     "RUF005",  # Consider iterable unpacking instead of concatenation
+    "UP038",  # This rule has been removed
 ]
 
 [tool.ruff.lint.per-file-ignores]
