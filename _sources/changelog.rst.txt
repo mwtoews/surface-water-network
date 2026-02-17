@@ -3,6 +3,22 @@ Change log
 
 .. currentmodule:: swn
 
+Version 0.9
+-----------
+
+:Date: 17 February 2026
+
+Breaking changes
+~~~~~~~~~~~~~~~~
+- Minimum requirements are Python 3.10 (:pr:`105`, :pr:`114`)
+- Require pandas<3.0 to temporarily avoid breaking changes (:pr:`121`)
+
+Other changes
+~~~~~~~~~~~~~
+- Move to a src-dir layout (:pr:`110`)
+- Fix typos with codespell (:pr:`107`)
+- Show warning if lines and polygons don't spatially intersect (:pr:`115`)
+
 Version 0.8
 -----------
 
