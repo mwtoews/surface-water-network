@@ -1,13 +1,12 @@
 
-
 <!DOCTYPE html>
 
 
-<html lang="en" data-content_root="" >
+<html lang="en" data-content_root="./" >
 
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
     <title>Change log &#8212; Surface water network 2022 documentation</title>
   
@@ -17,38 +16,39 @@
     document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
     document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
   </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
   
   <!-- Loaded before other Sphinx assets -->
-  <link href="_static/styles/theme.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
-<link href="_static/styles/bootstrap.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
-<link href="_static/styles/pydata-sphinx-theme.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+  <link href="_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 
-  
-  <link href="_static/vendor/fontawesome/6.5.2/css/all.min.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
-  <link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.5.2/webfonts/fa-solid-900.woff2" />
-<link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.5.2/webfonts/fa-brands-400.woff2" />
-<link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.5.2/webfonts/fa-regular-400.woff2" />
-
-    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=8f2a1f02" />
     <link rel="stylesheet" type="text/css" href="_static/plot_directive.css" />
   
+  <!-- So that users can add custom icons -->
+  <script src="_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
   <!-- Pre-loaded scripts that we'll load fully later -->
-  <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=dfe6caa3a7d634c4db9b" />
-<link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=dfe6caa3a7d634c4db9b" />
-  <script src="_static/vendor/fontawesome/6.5.2/js/all.min.js?digest=dfe6caa3a7d634c4db9b"></script>
+  <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
-    <script src="_static/jquery.js"></script>
-    <script src="_static/underscore.js"></script>
-    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
-    <script src="_static/doctools.js"></script>
-    <script src="_static/sphinx_highlight.js"></script>
+    <script src="_static/documentation_options.js?v=001ecc8c"></script>
+    <script src="_static/doctools.js?v=9bcbadda"></script>
+    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script>DOCUMENTATION_OPTIONS.pagename = 'changelog';</script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="prev" title="swn.spatial.location_pair_geoms" href="ref/swn.spatial.location_pair_geoms.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
   </head>
   
   
@@ -64,19 +64,8 @@
     <i class="fa-solid fa-arrow-up"></i>Back to top</button>
 
   
-  <input type="checkbox"
-          class="sidebar-toggle"
-          id="pst-primary-sidebar-checkbox"/>
-  <label class="overlay overlay-primary" for="pst-primary-sidebar-checkbox"></label>
-  
-  <input type="checkbox"
-          class="sidebar-toggle"
-          id="pst-secondary-sidebar-checkbox"/>
-  <label class="overlay overlay-secondary" for="pst-secondary-sidebar-checkbox"></label>
-  
-  <div class="search-button__wrapper">
-    <div class="search-button__overlay"></div>
-    <div class="search-button__search-container">
+  <dialog id="pst-search-dialog">
+    
 <form class="bd-search d-flex align-items-center"
       action="search.html"
       method="get">
@@ -84,7 +73,6 @@
   <input type="search"
          class="form-control"
          name="q"
-         id="search-input"
          placeholder="Search the docs ..."
          aria-label="Search the docs ..."
          autocomplete="off"
@@ -92,8 +80,8 @@
          autocapitalize="off"
          spellcheck="false"/>
   <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
-</form></div>
-  </div>
+</form>
+  </dialog>
 
   <div class="pst-async-banner-revealer d-none">
   <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
@@ -127,7 +115,7 @@
     
     
     <img src="_static/swn_logo.svg" class="logo__image only-light" alt="Surface water network 2022 documentation - Home"/>
-    <script>document.write(`<img src="_static/swn_logo.svg" class="logo__image only-dark" alt="Surface water network 2022 documentation - Home"/>`);</script>
+    <img src="_static/swn_logo.svg" class="logo__image only-dark pst-js-only" alt="Surface water network 2022 documentation - Home"/>
   
   
 </a></div>
@@ -173,29 +161,21 @@
         <div class="navbar-item navbar-persistent--container">
           
 
- <script>
- document.write(`
-   <button class="btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
-    <i class="fa-solid fa-magnifying-glass"></i>
-    <span class="search-button__default-text">Search</span>
-    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
-   </button>
- `);
- </script>
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
         </div>
       
       
         <div class="navbar-item">
 
-<script>
-document.write(`
-  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
-    <i class="theme-switch fa-solid fa-sun fa-lg" data-mode="light"></i>
-    <i class="theme-switch fa-solid fa-moon fa-lg" data-mode="dark"></i>
-    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"></i>
-  </button>
-`);
-</script></div>
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
       
         <div class="navbar-item"><ul class="navbar-icon-links"
     aria-label="Icon Links">
@@ -220,15 +200,11 @@ document.write(`
   
     <div class="navbar-persistent--mobile">
 
- <script>
- document.write(`
-   <button class="btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
-    <i class="fa-solid fa-magnifying-glass"></i>
-    <span class="search-button__default-text">Search</span>
-    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
-   </button>
- `);
- </script>
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
     </div>
   
 
@@ -247,7 +223,8 @@ document.write(`
       
       
       
-      <div class="bd-sidebar-primary bd-sidebar">
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
         
 
   
@@ -294,15 +271,11 @@ document.write(`
         
           <div class="navbar-item">
 
-<script>
-document.write(`
-  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
-    <i class="theme-switch fa-solid fa-sun fa-lg" data-mode="light"></i>
-    <i class="theme-switch fa-solid fa-moon fa-lg" data-mode="dark"></i>
-    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"></i>
-  </button>
-`);
-</script></div>
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
         
           <div class="navbar-item"><ul class="navbar-icon-links"
     aria-label="Icon Links">
@@ -335,9 +308,14 @@ document.write(`
   
   
   <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
   </div>
-  
-  <div id="rtd-footer-container"></div>
 
 
       </div>
@@ -355,8 +333,6 @@ document.write(`
       
         <div class="header-article-item">
 
-
-
 <nav aria-label="Breadcrumb" class="d-print-none">
   <ul class="bd-breadcrumbs">
     
@@ -365,7 +341,7 @@ document.write(`
         <i class="fa-solid fa-home"></i>
       </a>
     </li>
-    <li class="breadcrumb-item active" aria-current="page">Change log</li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Change log</span></li>
   </ul>
 </nav>
 </div>
@@ -383,23 +359,23 @@ document.write(`
                 <article class="bd-article">
                   
   <section id="change-log">
-<h1>Change log<a class="headerlink" href="#change-log" title="Permalink to this heading">#</a></h1>
+<h1>Change log<a class="headerlink" href="#change-log" title="Link to this heading">#</a></h1>
 <section id="version-0-9">
-<h2>Version 0.9<a class="headerlink" href="#version-0-9" title="Permalink to this heading">#</a></h2>
+<h2>Version 0.9<a class="headerlink" href="#version-0-9" title="Link to this heading">#</a></h2>
 <dl class="field-list simple">
 <dt class="field-odd">Date<span class="colon">:</span></dt>
 <dd class="field-odd"><p>17 February 2026</p>
 </dd>
 </dl>
 <section id="breaking-changes">
-<h3>Breaking changes<a class="headerlink" href="#breaking-changes" title="Permalink to this heading">#</a></h3>
+<h3>Breaking changes<a class="headerlink" href="#breaking-changes" title="Link to this heading">#</a></h3>
 <ul class="simple">
 <li><p>Minimum requirements are Python 3.10 (<a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/105">#105</a>, <a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/114">#114</a>)</p></li>
 <li><p>Require pandas&lt;3.0 to temporarily avoid breaking changes (<a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/121">#121</a>)</p></li>
 </ul>
 </section>
 <section id="other-changes">
-<h3>Other changes<a class="headerlink" href="#other-changes" title="Permalink to this heading">#</a></h3>
+<h3>Other changes<a class="headerlink" href="#other-changes" title="Link to this heading">#</a></h3>
 <ul class="simple">
 <li><p>Move to a src-dir layout (<a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/110">#110</a>)</p></li>
 <li><p>Fix typos with codespell (<a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/107">#107</a>)</p></li>
@@ -408,21 +384,21 @@ document.write(`
 </section>
 </section>
 <section id="version-0-8">
-<h2>Version 0.8<a class="headerlink" href="#version-0-8" title="Permalink to this heading">#</a></h2>
+<h2>Version 0.8<a class="headerlink" href="#version-0-8" title="Link to this heading">#</a></h2>
 <dl class="field-list simple">
 <dt class="field-odd">Date<span class="colon">:</span></dt>
 <dd class="field-odd"><p>3 July 2024</p>
 </dd>
 </dl>
 <section id="new-things">
-<h3>New things<a class="headerlink" href="#new-things" title="Permalink to this heading">#</a></h3>
+<h3>New things<a class="headerlink" href="#new-things" title="Link to this heading">#</a></h3>
 <ul class="simple">
 <li><p>Add <a class="reference internal" href="ref/swn.modflow.SwnMf6.gather_reaches.html#swn.modflow.SwnMf6.gather_reaches" title="swn.modflow.SwnMf6.gather_reaches"><code class="xref py py-meth docutils literal notranslate"><span class="pre">modflow.SwnMf6.gather_reaches()</span></code></a> (<a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/92">#92</a>)</p></li>
 <li><p>Add <a class="reference internal" href="ref/swn.SurfaceWaterNetwork.coarsen.html#swn.SurfaceWaterNetwork.coarsen" title="swn.SurfaceWaterNetwork.coarsen"><code class="xref py py-meth docutils literal notranslate"><span class="pre">swn.SurfaceWaterNetwork.coarsen()</span></code></a> to create stream networks with a higher stream order (<a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/100">#100</a>)</p></li>
 </ul>
 </section>
 <section id="id1">
-<h3>Other changes<a class="headerlink" href="#id1" title="Permalink to this heading">#</a></h3>
+<h3>Other changes<a class="headerlink" href="#id1" title="Link to this heading">#</a></h3>
 <ul class="simple">
 <li><p>Fix warnings and test with <a class="reference internal" href="ref/swn.SurfaceWaterNetwork.locate_geoms.html#swn.SurfaceWaterNetwork.locate_geoms" title="swn.SurfaceWaterNetwork.locate_geoms"><code class="xref py py-meth docutils literal notranslate"><span class="pre">locate_geoms()</span></code></a> (<a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/96">#96</a>)</p></li>
 <li><p>Change build to hatch, use only ruff format and lint tools, add workflow to publish to PyPI (<a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/97">#97</a>)</p></li>
@@ -432,7 +408,7 @@ document.write(`
 </section>
 </section>
 <section id="version-0-7">
-<h2>Version 0.7<a class="headerlink" href="#version-0-7" title="Permalink to this heading">#</a></h2>
+<h2>Version 0.7<a class="headerlink" href="#version-0-7" title="Link to this heading">#</a></h2>
 <dl class="field-list simple">
 <dt class="field-odd">Date<span class="colon">:</span></dt>
 <dd class="field-odd"><p>7 December 2023</p>
@@ -447,21 +423,21 @@ document.write(`
 </ul>
 </section>
 <section id="version-0-6">
-<h2>Version 0.6<a class="headerlink" href="#version-0-6" title="Permalink to this heading">#</a></h2>
+<h2>Version 0.6<a class="headerlink" href="#version-0-6" title="Link to this heading">#</a></h2>
 <dl class="field-list simple">
 <dt class="field-odd">Date<span class="colon">:</span></dt>
 <dd class="field-odd"><p>25 May 2023</p>
 </dd>
 </dl>
 <section id="id2">
-<h3>Breaking changes<a class="headerlink" href="#id2" title="Permalink to this heading">#</a></h3>
+<h3>Breaking changes<a class="headerlink" href="#id2" title="Link to this heading">#</a></h3>
 <ul class="simple">
 <li><p>Minimum requirements are Python 3.8, geopandas 0.9 (<a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/58">#58</a>, <a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/69">#69</a>)</p></li>
 <li><p>Remove legacy <code class="docutils literal notranslate"><span class="pre">modflow.MfSfrNetwork</span></code> (<a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/56">#56</a>)</p></li>
 </ul>
 </section>
 <section id="id3">
-<h3>New things<a class="headerlink" href="#id3" title="Permalink to this heading">#</a></h3>
+<h3>New things<a class="headerlink" href="#id3" title="Link to this heading">#</a></h3>
 <ul class="simple">
 <li><p>Add <a class="reference internal" href="ref/swn.file.read_formatted_frame.html#swn.file.read_formatted_frame" title="swn.file.read_formatted_frame"><code class="xref py py-meth docutils literal notranslate"><span class="pre">swn.file.read_formatted_frame()</span></code></a> and <a class="reference internal" href="ref/swn.file.write_formatted_frame.html#swn.file.write_formatted_frame" title="swn.file.write_formatted_frame"><code class="xref py py-meth docutils literal notranslate"><span class="pre">write_formatted_frame()</span></code></a> methods (<a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/62">#62</a>, <a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/73">#73</a>)</p></li>
 <li><p>Add functionality to allow other MF6 packages to use reaches data with <a class="reference internal" href="ref/swn.modflow.SwnMf6.package_period_frame.html#swn.modflow.SwnMf6.package_period_frame" title="swn.modflow.SwnMf6.package_period_frame"><code class="xref py py-meth docutils literal notranslate"><span class="pre">modflow.SwnMf6.package_period_frame()</span></code></a>, <a class="reference internal" href="ref/swn.modflow.SwnMf6.write_package_period.html#swn.modflow.SwnMf6.write_package_period" title="swn.modflow.SwnMf6.write_package_period"><code class="xref py py-meth docutils literal notranslate"><span class="pre">write_package_period()</span></code></a>, <a class="reference internal" href="ref/swn.modflow.SwnMf6.flopy_package_period.html#swn.modflow.SwnMf6.flopy_package_period" title="swn.modflow.SwnMf6.flopy_package_period"><code class="xref py py-meth docutils literal notranslate"><span class="pre">flopy_package_period()</span></code></a>, and <a class="reference internal" href="ref/swn.modflow.SwnMf6.set_package_obj.html#swn.modflow.SwnMf6.set_package_obj" title="swn.modflow.SwnMf6.set_package_obj"><code class="xref py py-meth docutils literal notranslate"><span class="pre">set_package_obj()</span></code></a> (<a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/72">#72</a>)</p></li>
@@ -469,14 +445,14 @@ document.write(`
 </ul>
 </section>
 <section id="id4">
-<h3>Other changes<a class="headerlink" href="#id4" title="Permalink to this heading">#</a></h3>
+<h3>Other changes<a class="headerlink" href="#id4" title="Link to this heading">#</a></h3>
 <ul class="simple">
 <li><p>Better <code class="docutils literal notranslate"><span class="pre">from_swn_flopy</span></code> performance (<a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/57">#57</a>)</p></li>
 <li><p>Change <a class="reference internal" href="ref/swn.spatial.find_location_pairs.html#swn.spatial.find_location_pairs" title="swn.spatial.find_location_pairs"><code class="xref py py-meth docutils literal notranslate"><span class="pre">swn.spatial.find_location_pairs()</span></code></a> adding <code class="docutils literal notranslate"><span class="pre">all_pairs</span></code> and <code class="docutils literal notranslate"><span class="pre">exclude_branches</span></code> parameters (<a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/68">#68</a>)</p></li>
 </ul>
 </section>
 <section id="deprecations">
-<h3>Deprecations<a class="headerlink" href="#deprecations" title="Permalink to this heading">#</a></h3>
+<h3>Deprecations<a class="headerlink" href="#deprecations" title="Link to this heading">#</a></h3>
 <ul class="simple">
 <li><p><code class="xref py py-meth docutils literal notranslate"><span class="pre">swn.spatial.get_sindex()</span></code> (<a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/58">#58</a>)</p></li>
 <li><p><code class="xref py py-meth docutils literal notranslate"><span class="pre">swn.spatial.wkt_to_dataframe()</span></code>, <code class="xref py py-meth docutils literal notranslate"><span class="pre">swn.spatial.wkt_to_geodataframe()</span></code>, <code class="xref py py-meth docutils literal notranslate"><span class="pre">swn.spatial.wkt_to_geoseries()</span></code> (<a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/70">#70</a>)</p></li>
@@ -484,14 +460,14 @@ document.write(`
 </section>
 </section>
 <section id="version-0-5">
-<h2>Version 0.5<a class="headerlink" href="#version-0-5" title="Permalink to this heading">#</a></h2>
+<h2>Version 0.5<a class="headerlink" href="#version-0-5" title="Link to this heading">#</a></h2>
 <dl class="field-list simple">
 <dt class="field-odd">Date<span class="colon">:</span></dt>
 <dd class="field-odd"><p>20 July 2022</p>
 </dd>
 </dl>
 <section id="id5">
-<h3>Breaking changes<a class="headerlink" href="#id5" title="Permalink to this heading">#</a></h3>
+<h3>Breaking changes<a class="headerlink" href="#id5" title="Link to this heading">#</a></h3>
 <ul class="simple">
 <li><p>Minimum requirements are Python 3.7, pandas 1.2 (<a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/38">#38</a>)</p></li>
 <li><p>Add outside segnum to modflow if it is downstream from others (<a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/50">#50</a>)</p></li>
@@ -499,7 +475,7 @@ document.write(`
 </ul>
 </section>
 <section id="id6">
-<h3>New things<a class="headerlink" href="#id6" title="Permalink to this heading">#</a></h3>
+<h3>New things<a class="headerlink" href="#id6" title="Link to this heading">#</a></h3>
 <ul class="simple">
 <li><p>Add <a class="reference internal" href="ref/swn.SurfaceWaterNetwork.locate_geoms.html#swn.SurfaceWaterNetwork.locate_geoms" title="swn.SurfaceWaterNetwork.locate_geoms"><code class="xref py py-meth docutils literal notranslate"><span class="pre">SurfaceWaterNetwork.locate_geoms()</span></code></a> method (<a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/41">#41</a>, <a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/48">#48</a>, <a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/51">#51</a>)</p></li>
 <li><p>Add <code class="docutils literal notranslate"><span class="pre">run</span></code> option to <a class="reference internal" href="ref/swn.file.topnet2ts.html#swn.file.topnet2ts" title="swn.file.topnet2ts"><code class="xref py py-func docutils literal notranslate"><span class="pre">topnet2ts()</span></code></a>, improve error messages (<a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/44">#44</a>)</p></li>
@@ -510,7 +486,7 @@ document.write(`
 </ul>
 </section>
 <section id="id7">
-<h3>Other changes<a class="headerlink" href="#id7" title="Permalink to this heading">#</a></h3>
+<h3>Other changes<a class="headerlink" href="#id7" title="Link to this heading">#</a></h3>
 <ul class="simple">
 <li><p>Add packing dependency to check package version (<a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/37">#37</a>)</p></li>
 <li><p>Convert class attributes to properties for <a class="reference internal" href="ref/swn.modflow.SwnModflow.segment_data.html#swn.modflow.SwnModflow.segment_data" title="swn.modflow.SwnModflow.segment_data"><code class="xref py py-attr docutils literal notranslate"><span class="pre">modflow.SwnModflow.segment_data</span></code></a> and <a class="reference internal" href="ref/swn.modflow.SwnModflow.segment_data_ts.html#swn.modflow.SwnModflow.segment_data_ts" title="swn.modflow.SwnModflow.segment_data_ts"><code class="xref py py-attr docutils literal notranslate"><span class="pre">segment_data_ts</span></code></a> (<a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/42">#42</a>)</p></li>
@@ -521,14 +497,14 @@ document.write(`
 </section>
 </section>
 <section id="version-0-4">
-<h2>Version 0.4<a class="headerlink" href="#version-0-4" title="Permalink to this heading">#</a></h2>
+<h2>Version 0.4<a class="headerlink" href="#version-0-4" title="Link to this heading">#</a></h2>
 <dl class="field-list simple">
 <dt class="field-odd">Date<span class="colon">:</span></dt>
 <dd class="field-odd"><p>20 October 2021</p>
 </dd>
 </dl>
 <section id="id8">
-<h3>Breaking changes<a class="headerlink" href="#id8" title="Permalink to this heading">#</a></h3>
+<h3>Breaking changes<a class="headerlink" href="#id8" title="Link to this heading">#</a></h3>
 <ul class="simple">
 <li><p>Change <code class="docutils literal notranslate"><span class="pre">SurfaceWaterNetwork(lines.geometry)</span></code> → <a class="reference internal" href="ref/swn.SurfaceWaterNetwork.from_lines.html#swn.SurfaceWaterNetwork.from_lines" title="swn.SurfaceWaterNetwork.from_lines"><code class="xref py py-meth docutils literal notranslate"><span class="pre">SurfaceWaterNetwork.from_lines(lines.geometry)</span></code></a></p></li>
 <li><p>Change <code class="docutils literal notranslate"><span class="pre">MfSfrNetwork(n,</span> <span class="pre">m,</span> <span class="pre">...)</span></code> → <a class="reference internal" href="ref/swn.modflow.SwnModflow.from_swn_flopy.html#swn.modflow.SwnModflow.from_swn_flopy" title="swn.modflow.SwnModflow.from_swn_flopy"><code class="xref py py-meth docutils literal notranslate"><span class="pre">SwnModflow.from_swn_flopy(n,</span> <span class="pre">m)</span></code></a></p></li>
@@ -536,7 +512,7 @@ document.write(`
 </ul>
 </section>
 <section id="id9">
-<h3>New things<a class="headerlink" href="#id9" title="Permalink to this heading">#</a></h3>
+<h3>New things<a class="headerlink" href="#id9" title="Link to this heading">#</a></h3>
 <ul class="simple">
 <li><p>Add <code class="docutils literal notranslate"><span class="pre">.to_pickle()</span></code> and <code class="docutils literal notranslate"><span class="pre">.from_pickle()</span></code> methods to core classes</p></li>
 <li><p>Support MODFLOW 6 models with <a class="reference internal" href="ref/swn.modflow.SwnMf6.html#swn.modflow.SwnMf6" title="swn.modflow.SwnMf6"><code class="xref py py-class docutils literal notranslate"><span class="pre">modflow.SwnMf6</span></code></a> (<a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/12">#12</a>)</p></li>
@@ -547,7 +523,7 @@ document.write(`
 </ul>
 </section>
 <section id="id10">
-<h3>Other changes<a class="headerlink" href="#id10" title="Permalink to this heading">#</a></h3>
+<h3>Other changes<a class="headerlink" href="#id10" title="Link to this heading">#</a></h3>
 <ul class="simple">
 <li><p>Improve performance of <a class="reference internal" href="ref/swn.SurfaceWaterNetwork.from_lines.html#swn.SurfaceWaterNetwork.from_lines" title="swn.SurfaceWaterNetwork.from_lines"><code class="xref py py-meth docutils literal notranslate"><span class="pre">SurfaceWaterNetwork.from_lines()</span></code></a> (<a class="reference external" href="https://github.com/mwtoews/surface-water-network/pull/33">#33</a>)</p></li>
 <li><p>Add <code class="docutils literal notranslate"><span class="pre">mult</span></code> multiplier to <a class="reference internal" href="ref/swn.file.topnet2ts.html#swn.file.topnet2ts" title="swn.file.topnet2ts"><code class="xref py py-func docutils literal notranslate"><span class="pre">topnet2ts()</span></code></a></p></li>
@@ -556,7 +532,7 @@ document.write(`
 </section>
 </section>
 <section id="version-0-3">
-<h2>Version 0.3<a class="headerlink" href="#version-0-3" title="Permalink to this heading">#</a></h2>
+<h2>Version 0.3<a class="headerlink" href="#version-0-3" title="Link to this heading">#</a></h2>
 <dl class="field-list simple">
 <dt class="field-odd">Date<span class="colon">:</span></dt>
 <dd class="field-odd"><p>10 March 2021</p>
@@ -570,7 +546,7 @@ document.write(`
 </ul>
 </section>
 <section id="version-0-2">
-<h2>Version 0.2<a class="headerlink" href="#version-0-2" title="Permalink to this heading">#</a></h2>
+<h2>Version 0.2<a class="headerlink" href="#version-0-2" title="Link to this heading">#</a></h2>
 <dl class="field-list simple">
 <dt class="field-odd">Date<span class="colon">:</span></dt>
 <dd class="field-odd"><p>11 December 2019</p>
@@ -585,7 +561,7 @@ document.write(`
 </ul>
 </section>
 <section id="version-0-1">
-<h2>Version 0.1<a class="headerlink" href="#version-0-1" title="Permalink to this heading">#</a></h2>
+<h2>Version 0.1<a class="headerlink" href="#version-0-1" title="Link to this heading">#</a></h2>
 <dl class="field-list simple">
 <dt class="field-odd">Date<span class="colon">:</span></dt>
 <dd class="field-odd"><p>6 November 2019</p>
@@ -624,7 +600,8 @@ document.write(`
             
             
               
-                <div class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
 
 
   <div class="sidebar-secondary-item">
@@ -672,13 +649,13 @@ document.write(`
   </nav></div>
 
   <div class="sidebar-secondary-item">
-
-  <div class="tocsection sourcelink">
-    <a href="_sources/changelog.rst.txt">
-      <i class="fa-solid fa-file-lines"></i> Show Source
-    </a>
-  </div>
-</div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/changelog.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div></div>
 
 </div></div>
               
@@ -693,8 +670,8 @@ document.write(`
   </div>
   
   <!-- Scripts loaded after <body> so the DOM is not blocked -->
-  <script src="_static/scripts/bootstrap.js?digest=dfe6caa3a7d634c4db9b"></script>
-<script src="_static/scripts/pydata-sphinx-theme.js?digest=dfe6caa3a7d634c4db9b"></script>
+  <script defer src="_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
 
   <footer class="bd-footer">
 <div class="bd-footer__inner bd-page-width">
@@ -714,7 +691,7 @@ document.write(`
         <div class="footer-item">
 
   <p class="sphinx-version">
-    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 5.3.0.
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.1.3.
     <br/>
   </p>
 </div>
@@ -727,7 +704,8 @@ document.write(`
       
         <div class="footer-item">
 <p class="theme-version">
-  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.15.4.
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.16.1.
 </p></div>
       
     </div>
