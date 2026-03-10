@@ -42,7 +42,7 @@ doc = [
     "matplotlib",
     "numpydoc",
     "pydata-sphinx-theme",
-    "sphinx <6",
+    "sphinx<9",
     "sphinx-issues",
 ]
 extra = [
