@@ -149,7 +149,7 @@ def pytest_report_header(config):
     lines.append("required packages: " + ", ".join(items))
     installed = []
     not_found = []
-    for name in extra["extra"]:
+    for name in extra["optional"]:
         if name in processed:
             continue
         processed.add(name)
