@@ -36,24 +36,33 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["surface-water-network[doc,extra,test]", "pre-commit", "ruff"]
-doc = [
+optional = [
+    "flopy",
+    "matplotlib",
+    "netcdf4",
+]
+
+[dependency-groups]
+dev = [
+    {include-group = "lint"},
+    {include-group = "tests"},
+]
+lint = [
+    "ruff",
+    "pre-commit",
+]
+tests = [
+    "pytest",
+    "pytest-cov",
+    "pytest-xdist",
+]
+docs = [
     "ipython",
     "matplotlib",
     "numpydoc",
     "pydata-sphinx-theme",
     "sphinx<9",
     "sphinx-issues",
-]
-extra = [
-    "flopy >=3.3.6",
-    "matplotlib",
-    "netcdf4",
-]
-test = [
-    "pytest",
-    "pytest-cov",
-    "pytest-xdist",
 ]
 
 [project.urls]

@@ -28,41 +28,47 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v6
+        uses: astral-sh/setup-uv@v7
         with:
           python-version: ${{ matrix.python-version }}
-          cache: 'pip'
-          cache-dependency-path: pyproject.toml
 
       - name: Install Modflow executables
         uses: modflowpy/install-modflow-action@v1
 
-      - name: Install dependencies
-        run: |
-          python -m pip install pip --upgrade --disable-pip-version-check
-          pip install -e .[test]
+      - name: Install required dependencies
+        run: uv sync --group tests
 
       - name: Run tests with required packages
-        run: pytest -v --cov
+        run: uv run pytest -v
 
       - name: Install PyQt5 for macOS
         if: ${{ startsWith(matrix.os, 'macos') }}
         run: pip install PyQt5
 
-      - name: Run tests with optional packages
+      - name: Install optional packages
         run: |
-          pip install -e .[extra]
-          pytest -v -n2 --cov --cov-append
+          uv sync --extra optional --upgrade
+          # Avoid: Matplotlib is building the font cache; this may take a moment
+          uv run python -c "import matplotlib; matplotlib.get_cachedir()"
+
+      - name: Run tests with optional packages
+        run: uv run pytest -v -n2 --cov --cov-append
 
       - name: Run doctest
         if: matrix.python-version == '3.12'
-        run: |
-          pytest -v --doctest-modules src
+        run: uv run pytest -v --doctest-modules src
 
-      - name: Run tests with older flopy and other packages
+      - name: Run tests with older optional packages
         if: matrix.python-version == '3.10'
         run: |
-          pip install "flopy<3.5" "pandas<2.0" "geopandas<1.0" "shapely<2.0" "numpy<2.0"
+          uv run --group tests --extra optional \
+          -P "numpy<2.0" \
+          -P "pytest<7.0" \
+          -P "flopy<3.5" \
+          -P "geopandas<1.0" \
+          -P "matplotlib<3.7" \
+          -P "pandas<2.0" \
+          -P "shapely<2.0" \
           pytest -v -n2 --cov --cov-append
 
       - name: Upload coverage reports to Codecov
