@@ -599,7 +599,7 @@ class SwnModflowBase:
                     matches.reverse()
                 reach_c["d1"] = reach_c["pt"].apply(lambda p: p.distance(matches[0][1]))
                 reach_c["d2"] = reach_c["pt"].apply(lambda p: p.distance(matches[1][1]))
-                reach_c["dm"] = reach_c[["d1", "d2"]].min(1)
+                reach_c["dm"] = reach_c[["d1", "d2"]].min(axis=1)
                 # try a simple split where distances switch
                 ds = reach_c["d1"] < reach_c["d2"]
                 cidx = ds[ds].index[-1]
@@ -683,7 +683,7 @@ class SwnModflowBase:
                         matches.reverse()
                     rem_c["d1"] = rem_c["pt"].apply(lambda p: p.distance(matches[0][2]))
                     rem_c["d2"] = rem_c["pt"].apply(lambda p: p.distance(matches[1][2]))
-                    rem_c["dm"] = rem_c[["d1", "d2"]].min(1)
+                    rem_c["dm"] = rem_c[["d1", "d2"]].min(axis=1)
                     mdist = rem_c["dm"].max()
                     if mdist > threshold:
                         obj.logger.debug(
@@ -825,7 +825,7 @@ class SwnModflowBase:
                 if domain_action == "modify" and domain[i, j] == 0:
                     num_domain_modified += 1
                     domain[i, j] = 1
-                    obj.grid_cells[obj.domain_label].at[i, j] = 1
+                    obj.grid_cells.at[(i, j), obj.domain_label] = 1
 
         if domain_action == "modify":
             if num_domain_modified:
@@ -896,7 +896,13 @@ class SwnModflowBase:
         if has_diversions:
             diversions = swn.diversions.copy()
             reaches["diversion"] = False
-            reaches["divid"] = diversions.index.dtype.type()
+            if pd.api.types.is_integer_dtype(diversions.index.dtype):
+                divid_na = 0
+            elif pd.api.types.is_float_dtype(diversions.index.dtype):
+                divid_na = np.nan
+            else:
+                divid_na = pd.NA
+            reaches["divid"] = divid_na
             # Mark diversions that are not used / outside model
             diversions["in_model"] = True
             outside_model = []
@@ -1094,7 +1100,7 @@ class SwnModflowBase:
                 method = "continuous"
             else:
                 value = self._swn.segments_series(value)
-                if np.issubdtype(value, np.floating):
+                if pd.api.types.is_float_dtype(value.dtype):
                     method = "continuous"
                 else:
                     method = "constant"
@@ -1102,7 +1108,7 @@ class SwnModflowBase:
                 "set_reach_data_from_segments: choosing method=%r", method
             )
         if method == "continuous":
-            if not np.issubdtype(value.dtype, np.floating):
+            if not pd.api.types.is_float_dtype(value.dtype):
                 value = value.astype(float)
         segdat = self._swn.pair_segments_frame(value, value_out, method=method)
         c1, c2 = segdat.columns

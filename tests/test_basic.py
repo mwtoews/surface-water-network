@@ -13,7 +13,7 @@ import swn
 from swn.compat import GEOPANDAS_GE_100, ignore_shapely_warnings_for_object_array
 from swn.spatial import force_2d, round_coords
 
-from .conftest import matplotlib, plt
+from .common import matplotlib, plt
 
 # a few static objects (not fixtures)
 

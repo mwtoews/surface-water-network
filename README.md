@@ -44,7 +44,7 @@ Read from Shapefile:
 ```python
 shp_srs = "tests/data/DN2_Coastal_strahler1z_stream_vf.shp"
 lines = geopandas.read_file(shp_srs)
-lines.set_index("nzsegment", inplace=True, verify_integrity=True)  # optional
+lines.set_index("nzsegment", inplace=True)  # optional
 ```
 
 Or, read from PostGIS:
@@ -55,7 +55,7 @@ con_url = engine.url.URL(drivername="postgresql", database="scigen")
 con = create_engine(con_url)
 sql = "SELECT * FROM wrc.rec2_riverlines_coastal"
 lines = geopandas.read_postgis(sql, con)
-lines.set_index("nzsegment", inplace=True, verify_integrity=True)  # optional
+lines.set_index("nzsegment", inplace=True)  # optional
 ```
 
 Initialise and create network:

@@ -50,10 +50,10 @@ def test_is_location_frame():
         is_location_frame(gdf.drop(columns="segnum"))
     with pytest.raises(ValueError, match="must have 'seg_ndist' column"):
         is_location_frame(gdf.drop(columns="seg_ndist"))
-    gdf.geometry.at[2] = gdf.geometry.at[1].centroid
+    gdf.at[2, "geometry"] = gdf.loc[1, "geometry"].centroid
     with pytest.raises(ValueError, match="geometry expected to be LineString"):
         is_location_frame(gdf, True)
-    gdf.geometry.at[2] = LineString([(0, 0), (1, 1), (3, 3)])
+    gdf.at[2, "geometry"] = LineString([(0, 0), (1, 1), (3, 3)])
     with pytest.raises(
         ValueError, match="geometry expected to only have two coordinate"
     ):

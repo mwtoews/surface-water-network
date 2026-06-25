@@ -14,7 +14,7 @@ import swn
 from swn.file import gdf_to_shapefile
 from swn.spatial import force_2d, interp_2d_to_3d
 
-from .conftest import datadir, matplotlib, plt
+from .common import datadir, matplotlib, plt
 
 try:
     import flopy
@@ -350,16 +350,24 @@ def test_n3d_defaults(tmp_path, has_diversions):
         assert nm.diversions_frame("native").shape == (0, 4)
         assert nm.flopy_diversions() == []
     else:
+        expected_frame = pd.DataFrame(
+            {
+                ridxname: [3, 5, 6, 6],
+                "idv": [1, 1, 1, 2],
+                "iconr": [8, 9, 10, 11],
+                "cprior": "upto",
+            }
+        )
+        try:
+            expected_frame["cprior"] = expected_frame["cprior"].astype(
+                pd.StringDtype(na_value=pd.NA)
+            )
+        except TypeError:
+            expected_frame["cprior"] = expected_frame["cprior"].astype(pd.StringDtype())
+
         pd.testing.assert_frame_equal(
             nm.diversions_frame("native"),
-            pd.DataFrame(
-                {
-                    ridxname: [3, 5, 6, 6],
-                    "idv": [1, 1, 1, 2],
-                    "iconr": [8, 9, 10, 11],
-                    "cprior": "upto",
-                }
-            ),
+            expected_frame,
         )
         expected = [
             [2, 0, 7, "upto"],
@@ -523,8 +531,10 @@ def test_model_property():
     # Success!
     nm.model = gwf
 
+    # nm.time_index can be either datetime64[us] vs datetime64[ns]
+    assert pd.api.types.is_datetime64_any_dtype(nm.time_index.dtype)
     pd.testing.assert_index_equal(
-        nm.time_index, pd.DatetimeIndex(["2001-02-03"], dtype="datetime64[ns]")
+        nm.time_index, pd.DatetimeIndex(["2001-02-03"], dtype=nm.time_index.dtype)
     )
     assert nm.grid_cells.shape == (6, 2)
 
@@ -749,8 +759,8 @@ def test_packagedata(tmp_path):
     # With auxiliary and boundname
     gwf.remove_package("sfr")
     nm.reaches["boundname"] = nm.reaches["segnum"].astype(str)
-    nm.reaches.boundname.at[1] = "another reach"
-    nm.reaches.boundname.at[2] = "longname" * 6
+    nm.reaches.at[1, "boundname"] = "another reach"
+    nm.reaches.at[2, "boundname"] = "longname" * 6
     nm.reaches["var1"] = np.arange(len(nm.reaches), dtype=float) * 12.0
     nm.set_sfr_obj(auxiliary=["var1"])
     assert list(gwf.sfr.packagedata.array.dtype.names) == [
@@ -1211,16 +1221,25 @@ def test_n3d_defaults_with_div_on_outlet(tmp_path):
     ]
     assert nm.flopy_connectiondata() == expected
     nm.write_diversions(tmp_path / "diversions.dat")
+
+    expected_frame = pd.DataFrame(
+        {
+            ridxname: [3, 5, 7, 7],
+            "idv": [1, 1, 1, 2],
+            "iconr": [8, 9, 10, 11],
+            "cprior": "upto",
+        }
+    )
+    try:
+        expected_frame["cprior"] = expected_frame["cprior"].astype(
+            pd.StringDtype(na_value=pd.NA)
+        )
+    except TypeError:
+        expected_frame["cprior"] = expected_frame["cprior"].astype(pd.StringDtype())
+
     pd.testing.assert_frame_equal(
         nm.diversions_frame("native"),
-        pd.DataFrame(
-            {
-                ridxname: [3, 5, 7, 7],
-                "idv": [1, 1, 1, 2],
-                "iconr": [8, 9, 10, 11],
-                "cprior": "upto",
-            }
-        ),
+        expected_frame,
     )
     expected = [
         [2, 0, 7, "upto"],
@@ -1365,14 +1384,11 @@ def test_diversions(tmp_path):
     df = nm.packagedata_frame("native")
     for col in "kij":
         df[col] = df[col].astype(np.int64)
-    pd.testing.assert_frame_equal(
-        df,
-        swn.file.read_formatted_frame(tmp_path / "packagedata.dat").set_index(ridxname),
-    )
-    pd.testing.assert_frame_equal(
-        nm.diversions_frame("native").reset_index(drop=True),
-        swn.file.read_formatted_frame(tmp_path / "diversions.dat"),
-    )
+    r = swn.file.read_formatted_frame(tmp_path / "packagedata.dat").set_index(ridxname)
+    pd.testing.assert_frame_equal(df, r)
+    df = nm.diversions_frame("native").reset_index(drop=True)
+    r = swn.file.read_formatted_frame(tmp_path / "diversions.dat")
+    pd.testing.assert_frame_equal(df, r)
 
     # Route some flow from headwater reaches
     perioddata = [
@@ -1626,6 +1642,11 @@ def test_package_period_frame():
             [(1, ridx + 1) for ridx in range(7)], names=["per", ridxname]
         ),
     )
+    for col in list("kij"):
+        try:
+            exp_native[col] = exp_native[col].astype(pd.StringDtype(na_value=pd.NA))
+        except TypeError:
+            exp_native[col] = exp_native[col].astype(pd.StringDtype())
     exp_flopy = pd.DataFrame(
         {
             "cellid": [
@@ -1667,13 +1688,30 @@ def test_package_period_frame():
     )
 
     # with boundname
+    boundname_l = ["1", "1", "1", "2", "2", "0", "0"]
+    try:
+        boundname_series = pd.Series(
+            boundname_l, index=exp_native.index, dtype=pd.StringDtype(na_value=pd.NA)
+        )
+    except TypeError:
+        boundname_series = pd.Series(
+            boundname_l, index=exp_native.index, dtype=pd.StringDtype()
+        )
     pd.testing.assert_frame_equal(
         nm.package_period_frame("drn", "native"),
-        exp_native.assign(boundname=["1", "1", "1", "2", "2", "0", "0"]),
+        exp_native.assign(boundname=boundname_series),
     )
+    try:
+        boundname_series = pd.Series(
+            boundname_l, index=exp_flopy.index, dtype=pd.StringDtype(na_value=pd.NA)
+        )
+    except TypeError:
+        boundname_series = pd.Series(
+            boundname_l, index=exp_flopy.index, dtype=pd.StringDtype()
+        )
     pd.testing.assert_frame_equal(
         nm.package_period_frame("drn", "flopy"),
-        exp_flopy.assign(boundname=["1", "1", "1", "2", "2", "0", "0"]),
+        exp_flopy.assign(boundname=boundname_series),
     )
 
     # with boundname and auxiliary
