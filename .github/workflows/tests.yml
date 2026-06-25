@@ -60,15 +60,15 @@ jobs:
 
       - name: Run tests with older optional packages
         if: matrix.python-version == '3.10'
-        run: |
-          uv run --group tests --extra optional \
-          -P "numpy<2.0" \
-          -P "pytest<7.0" \
-          -P "flopy<3.5" \
-          -P "geopandas<1.0" \
-          -P "matplotlib<3.7" \
-          -P "pandas<2.0" \
-          -P "shapely<2.0" \
+        run: >
+          uv run --group tests --extra optional
+          -P "numpy<2.0"
+          -P "pytest<7.0"
+          -P "flopy<3.5"
+          -P "geopandas<1.0"
+          -P "matplotlib<3.7"
+          -P "pandas<2.0"
+          -P "shapely<2.0"
           pytest -v -n2 --cov --cov-append --cov-report=xml
 
       - name: Upload coverage reports to Codecov
