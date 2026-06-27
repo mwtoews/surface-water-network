@@ -5,6 +5,7 @@ import warnings
 
 import geopandas
 import numpy as np
+import pandas as pd
 import shapely
 from packaging.version import Version
 
@@ -88,3 +89,36 @@ def sjoin_idx_names(left_df, right_df):
     else:
         right_idx_name = "index_right"
     return left_idx_name, right_idx_name
+
+
+def dataframe_str_na(df: pd.DataFrame) -> pd.DataFrame:
+    """Returns dataframe with consistent str-type columns.
+
+    A str-type column is detected if all rows are NA or if the non-NA
+    rows are str-type. These are cast with :py:meth:`pd.StringDtype` with
+    (where feasible) `na_value=pd.NA` instead of NaN.
+    """
+    df = df.copy()
+    for name, dtype in df.dtypes.items():
+        if pd.api.types.is_object_dtype(dtype):
+            isna = df[name].isna()
+            types = set(df.loc[~isna, name].map(type).unique())
+            if isna.all() or types == set({str}):
+                try:
+                    df[name] = df[name].astype(pd.StringDtype(na_value=pd.NA))
+                except TypeError:
+                    df[name] = df[name].astype(pd.StringDtype())
+                    if isna.any():
+                        df.loc[isna, name] = pd.NA
+        elif pd.api.types.is_string_dtype(dtype):
+            if hasattr(dtype, "na_value"):
+                if dtype.na_value is not pd.NA:
+                    try:
+                        # pandas 3+: change to NA missing type (probably from NaN)
+                        df[name] = df[name].astype(pd.StringDtype(na_value=pd.NA))
+                    except TypeError:
+                        df[name] = df[name].astype(pd.StringDtype())
+            elif (isna := df[name].isna()).any():
+                # pandas 2: ensure missing is NA
+                df.loc[isna, name] = pd.NA
+    return df

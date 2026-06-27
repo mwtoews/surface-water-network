@@ -1,34 +1,23 @@
-"""Common code for testing."""
+"""Pytest fixtures and features."""
 
 import re
 import sys
 from importlib import metadata
-from pathlib import Path
 
 import geopandas
 import pandas as pd
 import pytest
 from shapely import wkt
 
-try:
-    import matplotlib
-    import matplotlib.pyplot as plt
-except ImportError:
-    matplotlib = False
-    plt = None
-
-if matplotlib and sys.platform == "darwin":
-    matplotlib.use("qt5agg")
-
-
 # Import this local package for tests
 #  sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import swn
 from swn.compat import ignore_shapely_warnings_for_object_array
 
-PANDAS_VESRSION_TUPLE = tuple(int(x) for x in re.findall(r"\d+", pd.__version__))
+from .common import datadir, matplotlib
 
-datadir = Path("tests") / "data"
+if matplotlib and sys.platform == "darwin":
+    matplotlib.use("qt5agg")
 
 
 # https://commons.wikimedia.org/wiki/File:Flussordnung_(Strahler).svg
@@ -116,7 +105,7 @@ def coastal_flow_ts():
 
 @pytest.fixture(scope="module")
 def coastal_flow_m(coastal_flow_ts):
-    coastal_flow_m = pd.DataFrame(coastal_flow_ts.mean(0)).T
+    coastal_flow_m = pd.DataFrame(coastal_flow_ts.mean(axis=0)).T
     # coastal_flow_m.index = pd.DatetimeIndex(["2000-01-01"])
     return coastal_flow_m
 

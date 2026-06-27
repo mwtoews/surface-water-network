@@ -6,7 +6,7 @@ import pytest
 
 import swn
 
-from .conftest import matplotlib, plt
+from .common import matplotlib, plt
 
 
 def test_init(coastal_swn, coastal_lines_gdf):

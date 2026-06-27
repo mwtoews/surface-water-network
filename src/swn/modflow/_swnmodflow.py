@@ -876,7 +876,6 @@ class SwnModflow(SwnModflowBase):
                 ),
             ],
             axis=1,
-            copy=False,
         )
         for name, series in more_segment_columns.items():
             self.segments[name] = series
@@ -1742,11 +1741,7 @@ class SwnModflow(SwnModflowBase):
             ]
         else:
             segnum_iseg_df = self.reaches[["segnum", "iseg"]]
-        segnum_iseg = (
-            segnum_iseg_df.drop_duplicates()
-            .set_index("segnum", verify_integrity=True)
-            .iseg
-        )
+        segnum_iseg = segnum_iseg_df.drop_duplicates().set_index("segnum").iseg
 
         to_reachids_d = {}
         for segnum, iseg in segnum_iseg.items():

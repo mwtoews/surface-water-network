@@ -12,7 +12,7 @@ import numpy as np
 import pandas as pd
 from shapely import wkt
 
-from ..compat import ignore_shapely_warnings_for_object_array
+from ..compat import dataframe_str_na, ignore_shapely_warnings_for_object_array
 from ..file import write_formatted_frame
 from ..util import abbr_str
 from ._base import SwnModflowBase
@@ -369,6 +369,7 @@ class SwnMf6(SwnModflowBase):
         if missing:
             missing_list = ", ".join(missing)
             raise KeyError(f"missing {len(missing)} {what}: {missing_list}")
+        dat = dataframe_str_na(dat)
         return dat.loc[:, defcols_names]
 
     def packagedata_frame(self, style: str, auxiliary: list = [], boundname=None):
@@ -688,6 +689,7 @@ class SwnMf6(SwnModflowBase):
             dat[[self.reach_index_name, "idv", "iconr"]] -= 1
         else:
             raise ValueError("'style' must be either 'native' or 'flopy'")
+        dat = dataframe_str_na(dat)
         return dat[defcols_names]
 
     def write_diversions(self, fname: str):

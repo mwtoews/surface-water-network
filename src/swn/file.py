@@ -8,9 +8,9 @@ __all__ = [
 ]
 
 import geopandas
-import numpy as np
 import pandas as pd
 
+from .compat import dataframe_str_na
 from .logger import get_logger, logging
 
 
@@ -165,9 +165,9 @@ def gdf_to_shapefile(gdf, shp_fname, **kwargs):
     for col, dtype in gdf.dtypes.items():
         if col == geom_name:
             continue
-        if dtype is bool:
+        if pd.api.types.is_bool_dtype(dtype):
             gdf[col] = gdf[col].astype(int)
-        elif np.issubdtype(dtype, np.number):
+        elif pd.api.types.is_numeric_dtype(dtype):
             pass
         else:
             is_none = gdf[col].map(lambda x: x is None).fillna(True)
@@ -251,12 +251,7 @@ def read_formatted_frame(fname):
     finally:
         if not fname_is_filelike:
             f.close()
-    # Ensure that object type (including str) use None for missing instead of NaN
-    for name, dtype in df.dtypes.items():
-        if np.issubdtype(dtype, object):
-            sel = df[name].isna()
-            df.loc[sel, name] = None
-    return df
+    return dataframe_str_na(df)
 
 
 def write_formatted_frame(df, fname, index=True, comment_header=True):
@@ -357,12 +352,20 @@ def write_formatted_frame(df, fname, index=True, comment_header=True):
     formatters = {}
     # scan for str type columns
     for icol, name in enumerate(df.columns):
-        # add single quotes around items with space chars
-        try:
-            sel = df[name].str.contains(" ").astype(bool)
+        na = df[name].isna()
+        if na.all() or not pd.api.types.is_string_dtype(df[name].dtype):
+            continue
+        try:  # skip over non-string columns, including object types
+            df[name].str.contains(" ")
         except AttributeError:
             continue
-        na = df[name].isna()
+        # add single quotes around items with space chars
+        sel = na.copy()
+        sel[:] = False
+        try:
+            sel.loc[~na] = df.loc[~na, name].str.contains(" ").astype(bool)
+        except AttributeError:
+            continue
         if sel.any():
             df.loc[sel, name] = df.loc[sel, name].map(lambda x: f"'{x}'")
             df.loc[~sel, name] = df.loc[~sel, name].map(lambda x: f" {x} ")

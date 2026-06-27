@@ -14,10 +14,8 @@ import swn
 from swn.file import gdf_to_shapefile
 from swn.spatial import force_2d, interp_2d_to_3d
 
-if __name__ != "__main__":
-    from .conftest import datadir, matplotlib, plt
-else:
-    from conftest import datadir, matplotlib, plt
+from .common import datadir, matplotlib, plt
+
 try:
     import flopy
 except ImportError:
@@ -367,8 +365,10 @@ def test_model_property():
     # Success!
     nm.model = m
 
+    # nm.time_index can be either datetime64[us] vs datetime64[ns]
+    assert pd.api.types.is_datetime64_any_dtype(nm.time_index.dtype)
     pd.testing.assert_index_equal(
-        nm.time_index, pd.DatetimeIndex(["2001-02-03"], dtype="datetime64[ns]")
+        nm.time_index, pd.DatetimeIndex(["2001-02-03"], dtype=nm.time_index.dtype)
     )
     assert nm.grid_cells.shape == (6, 2)
 

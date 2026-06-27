@@ -9,7 +9,7 @@ from shapely.geometry import Point
 
 import swn
 
-from .conftest import PANDAS_VESRSION_TUPLE, datadir
+from .common import PANDAS_VERSION_TUPLE, datadir
 
 # same valid network used in test_basic
 n3d_lines = geopandas.GeoSeries.from_wkt(
@@ -42,7 +42,7 @@ def test_topnet2ts(coastal_flow_ts):
     assert list(pd.unique(flow.dtypes)) == [np.float32]
     # remove time and truncate to closest day
     try:
-        flow.index = flow.index.floor("d")
+        flow.index = flow.index.floor("D")
     except AttributeError:
         # older pandas
         flow.index = pd.to_datetime(flow.index.map(lambda x: x.strftime("%Y-%m-%d")))
@@ -65,10 +65,10 @@ def test_gdf_to_shapefile(tmp_path, coastal_swn):
     assert "from_segnums" in gdf.columns
     assert "from_seg" not in gdf.columns
     shp = geopandas.read_file(fname)
-    assert np.issubdtype(shp["nzsegment"].dtype, np.integer)
-    assert np.issubdtype(shp["from_seg"].dtype, np.object_)
-    assert np.issubdtype(shp["to_seg"].dtype, np.integer)
-    assert np.issubdtype(shp["upstr_len"].dtype, np.floating)
+    assert pd.api.types.is_integer_dtype(shp["nzsegment"])
+    assert pd.api.types.is_string_dtype(shp["from_seg"])
+    assert pd.api.types.is_integer_dtype(shp["to_seg"])
+    assert pd.api.types.is_float_dtype(shp["upstr_len"])
     shp.set_index("nzsegment", inplace=True)
     assert list(shp.columns) == [
         "to_seg",
@@ -120,11 +120,15 @@ def test_read_write_formatted_frame(tmp_path):
         {
             "value1": [-1e10, -1e-10, 0, 1e-10, 1, 1000],
             "value2": [1, 10, 100, 1000, 10000, 100000],
-            "value3": ["first one", "two", "three", None, "five", "six"],
+            "value3": ["first one", "two", "three", pd.NA, "five", "six"],
         },
         index=[1, 12, 33, 40, 450, 6267],
     )
     df1.index.name = "rno"
+    try:
+        df1["value3"] = df1["value3"].astype(pd.StringDtype(na_value=pd.NA))
+    except TypeError:
+        df1["value3"] = df1["value3"].astype(pd.StringDtype())
 
     # test default write method
     fname = tmp_path / "file.dat"
@@ -165,7 +169,7 @@ def test_read_write_formatted_frame(tmp_path):
     lines = fname.read_text().splitlines()
     assert len(lines) == 7
     # check first line, space between object columns differ between versions!
-    if (2, 0, 0) <= PANDAS_VESRSION_TUPLE <= (2, 0, 2):
+    if (2, 0, 0) <= PANDAS_VERSION_TUPLE <= (2, 0, 2):
         expected = "#      value1  value2  value3"
     else:
         expected = "#      value1  value2 value3"

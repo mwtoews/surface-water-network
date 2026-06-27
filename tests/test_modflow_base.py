@@ -21,7 +21,7 @@ import swn
 import swn.modflow
 from swn.spatial import force_2d, interp_2d_to_3d
 
-from .conftest import datadir, matplotlib, plt
+from .common import datadir, matplotlib, plt
 
 try:
     import flopy
@@ -1222,7 +1222,7 @@ def test_get_segments_inflow():
         pd.DataFrame(dtype=float, index=nm.time_index),
     )
 
-    nm.segments.from_segnums.at[1] = {4}
+    nm.segments.at[1, "from_segnums"] = {4}
 
     pd.testing.assert_series_equal(
         nm._get_segments_inflow({4: 1.1}), pd.Series({1: 1.1})
@@ -1242,7 +1242,7 @@ def test_get_segments_inflow():
         pd.DataFrame({1: [1.1]}, index=nm.time_index),
     )
 
-    nm.segments.from_segnums.at[1] = {4, 5}
+    nm.segments.at[1, "from_segnums"] = {4, 5}
 
     pd.testing.assert_series_equal(
         nm._get_segments_inflow({5: 2.2, 4: 1.1}), pd.Series({1: 3.3})
@@ -1272,7 +1272,7 @@ def test_get_segments_inflow():
         pd.DataFrame(dtype=float, index=nm.time_index),
     )
 
-    nm.segments.from_segnums.at[1] = {4}
+    nm.segments.at[1, "from_segnums"] = {4}
 
     pd.testing.assert_series_equal(
         nm._get_segments_inflow({4: 1.1}), pd.Series({1: 1.1})
@@ -1292,7 +1292,7 @@ def test_get_segments_inflow():
         pd.DataFrame({1: [1.1, 1.2]}, index=nm.time_index),
     )
 
-    nm.segments.from_segnums.at[1] = {4, 5}
+    nm.segments.at[1, "from_segnums"] = {4, 5}
 
     pd.testing.assert_series_equal(
         nm._get_segments_inflow({5: 2.2, 4: 1.1}), pd.Series({1: 3.3})

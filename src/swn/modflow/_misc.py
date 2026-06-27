@@ -229,9 +229,7 @@ def invert_series(series):
     assert series_name, series_name
     index_name = series.index.name
     assert index_name, index_name
-    return series.reset_index().set_index(series_name, verify_integrity=True)[
-        index_name
-    ]
+    return series.reset_index().set_index(series_name)[index_name]
 
 
 def tile_series_as_frame(series, index):
