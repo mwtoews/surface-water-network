@@ -22,17 +22,12 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Install Hatch
-        run: pipx install hatch
+      - name: Install the latest version of uv
+        uses: astral-sh/setup-uv@v7
 
       - name: Build dist
-        run: hatch build
-
-      - uses: actions/upload-artifact@v7
-        with:
-          name: swn-build
-          path: dist/*
+        run: uv build
 
       - name: Publish on PyPI
         if: github.event_name == 'release' && github.event.action == 'published'
-        run: hatch publish
+        uses: pypa/gh-action-pypi-publish@release/v1
