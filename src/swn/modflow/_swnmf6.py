@@ -657,6 +657,7 @@ class SwnMf6(SwnModflowBase):
         12     4    0      8   upto
         13     5    0      9   upto
         14     5    1     10   upto
+
         """
         from flopy.mf6 import ModflowGwfsfr as Mf6Sfr
 
@@ -802,6 +803,7 @@ class SwnMf6(SwnModflowBase):
             4    (0, 1, 1)  10.0  105.409255
             5    (0, 1, 1)  10.0  100.000000
             6    (0, 2, 1)  10.0  100.000000
+
         """
         Mf6pak = get_flopy_mf6_package(package)
         lst_tpl = Mf6pak.stress_period_data
@@ -1477,9 +1479,6 @@ class SwnMf6(SwnModflowBase):
             Default: 'downstream',
             set elevations from headwaters to outlets.
 
-        Returns
-        -------
-
         """
 
         def _check_reach_v_laybot(r, botms, buffer=1.0, rbed_elev=None):
@@ -1741,8 +1740,9 @@ class SwnMf6(SwnModflowBase):
     def _to_rno_elevs(
         self, minslope=0.0001, minincise=0.2, minthick=0.5, buffer=0.5, fix_dis=True
     ):
-        """Wes's hacky attempt to set reach elevations. Doesn't really ensure
-        anything, but the goal is:
+        """Wes's hacky attempt to set reach elevations.
+
+        Doesn't really ensure anything, but the goal is:
 
             0. get a list of cells with to_rtp > rtp-minslope*(delr+delc)/2
             1. drop rtp of downstream reach (to_rno) when higher than rtp
@@ -2010,6 +2010,7 @@ class SwnMf6(SwnModflowBase):
         3    1  1  12.018504
         6    1  1  10.000000
         7    2  1  10.000000
+
         """
         if start not in self.reaches.index:
             raise IndexError(f"invalid start {self.reach_index_name} {start}")
@@ -2176,7 +2177,7 @@ class SwnMf6(SwnModflowBase):
 
 
 def get_flopy_mf6_package(name: str):
-    """Returns a flopy.mf6 package.
+    """Return a flopy.mf6 package.
 
     Parameters
     ----------

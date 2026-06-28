@@ -68,7 +68,7 @@ GEOPANDAS_GE_100 = Version(geopandas.__version__) >= Version("1.0.0")
 
 
 def sjoin_idx_names(left_df, right_df):
-    """Returns left and right index names from geopandas.sjoin methods.
+    """Return left and right index names from :py:func:`geopandas.sjoin`.
 
     Handles breaking change from geopandas 1.0.0.
     """
@@ -92,10 +92,10 @@ def sjoin_idx_names(left_df, right_df):
 
 
 def dataframe_str_na(df: pd.DataFrame) -> pd.DataFrame:
-    """Returns dataframe with consistent str-type columns.
+    """Return dataframe with consistent str-type columns.
 
     A str-type column is detected if all rows are NA or if the non-NA
-    rows are str-type. These are cast with :py:meth:`pd.StringDtype` with
+    rows are str-type. These are cast with :py:class:`pandas.StringDtype` with
     (where feasible) `na_value=pd.NA` instead of NaN.
     """
     df = df.copy()

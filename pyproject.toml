@@ -29,7 +29,7 @@ requires-python = ">=3.10"
 dependencies = [
     "geopandas",
     "packaging",
-    "pandas>=1.0",
+    "pandas",
     "pyproj",
     "rtree",
     "shapely",
@@ -82,7 +82,6 @@ only-include = ["src", "tests"]
 packages = ["src/swn"]
 
 [tool.pytest.ini_options]
-minversion = "6.0"
 doctest_optionflags = "NORMALIZE_WHITESPACE"
 testpaths = ["tests"]
 filterwarnings = [
@@ -92,6 +91,7 @@ filterwarnings = [
 
 [tool.ruff.lint]
 select = [
+    "D",    # pydocstyle
     "E",    # pycodestyle
     "F",    # Pyflakes
     "I",    # isort
@@ -101,12 +101,18 @@ select = [
     "UP",   # pyupgrade
 ]
 ignore = [
+    "D205",  # 1 blank line required between summary line and description
+    "D401",  # First line of docstring should be in imperative mood
     "RUF005",  # Consider iterable unpacking instead of concatenation
-    "UP038",  # This rule has been removed
 ]
 
 [tool.ruff.lint.per-file-ignores]
+"./docs/source/conf.py" = ["D"]
+"./src/swn/compat.py" = ["D103"]
 "**/{tests}/*" = ["ANN", "D", "RET504"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
 
 [tool.codespell]
 skip = "./docs/build,dist"

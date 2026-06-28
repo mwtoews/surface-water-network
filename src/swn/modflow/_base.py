@@ -1397,6 +1397,7 @@ class SwnModflowBase:
         10     3  0  1  1     1       3       1.664101
         11     7  0  2  1     3       2       2.000000
         >>> loc_reach_df = pd.concat([loc_df, r_df], axis=1)
+
         """
         loc_df = loc_df.copy()
         try:

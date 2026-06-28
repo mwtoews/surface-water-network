@@ -515,6 +515,7 @@ class SurfaceWaterNetwork:
         100          0   {101, 102}        100              1         3             2
         101        100           {}        100              2         1             1
         102        100           {}        100              2         2             1
+
         """
         return getattr(self, "_segments")
 
@@ -1364,6 +1365,7 @@ class SurfaceWaterNetwork:
         See Also
         --------
         coarsen : Coarsen stream networks to a higher stream order.
+
         """
         from shapely.ops import linemerge, unary_union
 
@@ -1592,6 +1594,7 @@ class SurfaceWaterNetwork:
         aggregate : Aggregate segments (and catchments) to a coarser network of
             segnums.
         remove : Remove segments.
+
         """
         from shapely.ops import linemerge, unary_union
 
