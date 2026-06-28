@@ -3,6 +3,16 @@ Change log
 
 .. currentmodule:: swn
 
+Version 1.0
+-----------
+
+:Date: 28 June 2026
+
+Other changes
+~~~~~~~~~~~~~
+- Compatibility fixes for pandas 1 thru 3, use StringDtype (:pr:`153``)
+- Use PEP 735 for dependency groups, rename "extra" to "optional" (:pr:`152`)
+
 Version 0.9
 -----------
 

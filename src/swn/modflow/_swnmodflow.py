@@ -118,6 +118,7 @@ class SwnModflow(SwnModflowBase):
         5           102  1  1     2       2  10.540926
         6           100  1  1     3       1  10.000000
         7           100  2  1     3       2  10.000000
+
         """
         if ibound_action not in ("freeze", "modify"):
             raise ValueError("ibound_action must be one of freeze or modify")
@@ -349,6 +350,7 @@ class SwnModflow(SwnModflowBase):
         See Also
         --------
         default_segment_data : High-level frame constructor for segment data.
+
         """
         from flopy.modflow.mfsfr2 import ModflowSfr2
 
@@ -459,6 +461,7 @@ class SwnModflow(SwnModflowBase):
         --------
         set_segment_data_from_segments : Set all segment data from segments.
         set_segment_data_from_diversions: Set all segment data from diversions.
+
         """
         self._check_segment_data_name(name)
         if not np.isscalar(data):
@@ -566,6 +569,7 @@ class SwnModflow(SwnModflowBase):
         --------
         set_segment_data_from_scalar : Set all segment data to one value.
         set_segment_data_from_diversions: Set all segment data from diversions.
+
         """
         self._check_segment_data_name(name)
         if np.isscalar(data):
@@ -634,6 +638,7 @@ class SwnModflow(SwnModflowBase):
         --------
         set_segment_data_from_scalar : Set all segment data to one value.
         set_segment_data_from_segments : Set all segment data from segments.
+
         """
         self._check_segment_data_name(name)
         if np.isscalar(data):
@@ -825,6 +830,7 @@ class SwnModflow(SwnModflowBase):
         See Also
         --------
         new_segment_data : Create an empty segment data frame.
+
         """
         self.logger.info("default_segment_data: using high-level function")
         if self.segment_data is None:
@@ -1726,6 +1732,7 @@ class SwnModflow(SwnModflowBase):
         3           1       3  1  1  12.018504
         6           3       1  1  1  10.000000
         7           3       2  2  1  10.000000
+
         """
         if start not in self.reaches.index:
             raise IndexError(f"invalid start reachID {start}")
@@ -2095,7 +2102,7 @@ class SwnModflow(SwnModflowBase):
 
 
 def get_flopy_modflow_package(name: str):
-    """Returns a flopy.modflow package.
+    """Return a flopy.modflow package.
 
     Parameters
     ----------

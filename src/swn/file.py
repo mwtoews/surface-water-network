@@ -224,6 +224,7 @@ def read_formatted_frame(fname):
     40    1.000000e-10    1000       None
     450   1.000000e+00   10000       five
     6267  1.000000e+03  100000        six
+
     """
     fname_is_filelike = hasattr(fname, "readline")
     try:
@@ -304,6 +305,7 @@ def write_formatted_frame(df, fname, index=True, comment_header=True):
     40      1.000000e-10    1000
     450     1.000000e+00   10000   five
     6267    1.000000e+03  100000   six
+
     """
     if not isinstance(df, pd.DataFrame):
         raise TypeError("expected df to be a pandas.DataFrame")
