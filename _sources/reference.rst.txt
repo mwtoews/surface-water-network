@@ -11,5 +11,6 @@ This reference manual details classes, functions, and public objects implemented
    swn
    swnmodflow
    swnmf6
+   compat
    file
    spatial

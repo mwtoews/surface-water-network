@@ -1,0 +1,6 @@
+﻿swn.compat.sjoin\_idx\_names
+============================
+
+.. currentmodule:: swn.compat
+
+.. autofunction:: sjoin_idx_names

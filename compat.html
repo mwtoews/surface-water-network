@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>File reading/writing helpers &#8212; Surface water network 2022 documentation</title>
+    <title>Compatibility helpers &#8212; Surface water network 2022 documentation</title>
   
   
   
@@ -42,12 +42,12 @@
     <script src="_static/documentation_options.js?v=001ecc8c"></script>
     <script src="_static/doctools.js?v=9bcbadda"></script>
     <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'file';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'compat';</script>
     <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="swn.file.topnet2ts" href="ref/swn.file.topnet2ts.html" />
-    <link rel="prev" title="swn.compat.dataframe_str_na" href="ref/swn.compat.dataframe_str_na.html" />
+    <link rel="next" title="swn.compat.sjoin_idx_names" href="ref/swn.compat.sjoin_idx_names.html" />
+    <link rel="prev" title="swn.modflow.SwnMf6.route_reaches" href="ref/swn.modflow.SwnMf6.route_reaches.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
@@ -417,12 +417,12 @@
 <li class="toctree-l2"><a class="reference internal" href="ref/swn.modflow.SwnMf6.route_reaches.html">swn.modflow.SwnMf6.route_reaches</a></li>
 </ul>
 </details></li>
-<li class="toctree-l1 has-children"><a class="reference internal" href="compat.html">Compatibility helpers</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l1 current active has-children"><a class="current reference internal" href="#">Compatibility helpers</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="ref/swn.compat.sjoin_idx_names.html">swn.compat.sjoin_idx_names</a></li>
 <li class="toctree-l2"><a class="reference internal" href="ref/swn.compat.dataframe_str_na.html">swn.compat.dataframe_str_na</a></li>
 </ul>
 </details></li>
-<li class="toctree-l1 current active has-children"><a class="current reference internal" href="#">File reading/writing helpers</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l1 has-children"><a class="reference internal" href="file.html">File reading/writing helpers</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="ref/swn.file.topnet2ts.html">swn.file.topnet2ts</a></li>
 <li class="toctree-l2"><a class="reference internal" href="ref/swn.file.gdf_to_shapefile.html">swn.file.gdf_to_shapefile</a></li>
 <li class="toctree-l2"><a class="reference internal" href="ref/swn.file.read_formatted_frame.html">swn.file.read_formatted_frame</a></li>
@@ -477,7 +477,7 @@
     
     <li class="breadcrumb-item"><a href="reference.html" class="nav-link">Module reference</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">File reading/writing helpers</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Compatibility helpers</span></li>
   </ul>
 </nav>
 </div>
@@ -494,23 +494,17 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="module-swn.file">
-<span id="file-reading-writing-helpers"></span><h1>File reading/writing helpers<a class="headerlink" href="#module-swn.file" title="Link to this heading">#</a></h1>
+  <section id="module-swn.compat">
+<span id="compatibility-helpers"></span><h1>Compatibility helpers<a class="headerlink" href="#module-swn.compat" title="Link to this heading">#</a></h1>
 <section id="methods">
 <h2>Methods<a class="headerlink" href="#methods" title="Link to this heading">#</a></h2>
 <div class="pst-scrollable-table-container"><table class="autosummary longtable table autosummary">
 <tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="ref/swn.file.topnet2ts.html#swn.file.topnet2ts" title="swn.file.topnet2ts"><code class="xref py py-obj docutils literal notranslate"><span class="pre">topnet2ts</span></code></a>(nc_path, varname, *[, mult, run, ...])</p></td>
-<td><p>Read TopNet data from a netCDF file into a pandas.DataFrame timeseries.</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="ref/swn.compat.sjoin_idx_names.html#swn.compat.sjoin_idx_names" title="swn.compat.sjoin_idx_names"><code class="xref py py-obj docutils literal notranslate"><span class="pre">sjoin_idx_names</span></code></a>(left_df, right_df)</p></td>
+<td><p>Return left and right index names from <a class="reference external" href="https://geopandas.org/en/stable/docs/reference/api/geopandas.sjoin.html#geopandas.sjoin" title="(in GeoPandas v1.1.4)"><code class="xref py py-func docutils literal notranslate"><span class="pre">geopandas.sjoin()</span></code></a>.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="ref/swn.file.gdf_to_shapefile.html#swn.file.gdf_to_shapefile" title="swn.file.gdf_to_shapefile"><code class="xref py py-obj docutils literal notranslate"><span class="pre">gdf_to_shapefile</span></code></a>(gdf, shp_fname, **kwargs)</p></td>
-<td><p>Write any GeoDataFrame to a shapefile.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="ref/swn.file.read_formatted_frame.html#swn.file.read_formatted_frame" title="swn.file.read_formatted_frame"><code class="xref py py-obj docutils literal notranslate"><span class="pre">read_formatted_frame</span></code></a>(fname)</p></td>
-<td><p>Read a free formatted table to data frame.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="ref/swn.file.write_formatted_frame.html#swn.file.write_formatted_frame" title="swn.file.write_formatted_frame"><code class="xref py py-obj docutils literal notranslate"><span class="pre">write_formatted_frame</span></code></a>(df, fname[, index, ...])</p></td>
-<td><p>Write a data frame as a free formatted table.</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="ref/swn.compat.dataframe_str_na.html#swn.compat.dataframe_str_na" title="swn.compat.dataframe_str_na"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dataframe_str_na</span></code></a>(df)</p></td>
+<td><p>Return dataframe with consistent str-type columns.</p></td>
 </tr>
 </tbody>
 </table>
@@ -529,20 +523,20 @@
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="ref/swn.compat.dataframe_str_na.html"
+       href="ref/swn.modflow.SwnMf6.route_reaches.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">swn.compat.dataframe_str_na</p>
+        <p class="prev-next-title">swn.modflow.SwnMf6.route_reaches</p>
       </div>
     </a>
     <a class="right-next"
-       href="ref/swn.file.topnet2ts.html"
+       href="ref/swn.compat.sjoin_idx_names.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">swn.file.topnet2ts</p>
+        <p class="prev-next-title">swn.compat.sjoin_idx_names</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -572,7 +566,7 @@
   <div class="sidebar-secondary-item">
 
   <div class="tocsection sourcelink">
-    <a href="_sources/file.rst.txt">
+    <a href="_sources/compat.rst.txt">
       <i class="fa-solid fa-file-lines"></i> Show Source
     </a>
   </div>
