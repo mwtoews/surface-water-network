@@ -82,14 +82,11 @@ n = swn.SurfaceWaterNetwork.from_pickle("network.pkl")
 Remove segments that meet a condition (stream order), or that are
 upstream/downstream from certain locations:
 ```python
-n.remove(
-    n.segments.stream_order == 1,
-    segnums=n.gather_segnums(upstream=3047927))
+n.remove(n.segments.stream_order == 1, segnums=n.gather_segnums(upstream=3047927))
 ```
 
 Read flow data from a TopNet netCDF file, convert from m3/s to m3/day:
 ```python
-
 nc_path = "tests/data/streamq_20170115_20170128_topnet_03046727_strahler1.nc"
 flow = swn.file.topnet2ts(nc_path, "mod_flow", 86400)
 # remove time and truncate to closest day
