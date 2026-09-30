@@ -398,7 +398,7 @@ illustrates Strahler number.</p>
 
 <span class="gp">In [3]: </span><span class="kn">from</span><span class="w"> </span><span class="nn">shapely</span><span class="w"> </span><span class="kn">import</span> <span class="n">wkt</span>
 
-<span class="gp">In [4]: </span><span class="n">lines</span> <span class="o">=</span> <span class="n">geopandas</span><span class="o">.</span><span class="n">GeoSeries</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">wkt</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="s2">&quot;&quot;&quot;</span><span class="se">\</span>
+<span class="gp">In [4]: </span><span class="n">lines</span> <span class="o">=</span> <span class="n">geopandas</span><span class="o">.</span><span class="n">GeoSeries</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">wkt</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="s2">"""</span><span class="se">\</span>
 <span class="gp">   ...: </span><span class="s2">MULTILINESTRING(</span>
 <span class="gp">   ...: </span><span class="s2">    (380 490, 370 420), (300 460, 370 420), (370 420, 420 330),</span>
 <span class="gp">   ...: </span><span class="s2">    (190 250, 280 270), (225 180, 280 270), (280 270, 420 330),</span>
@@ -406,12 +406,12 @@ illustrates Strahler number.</p>
 <span class="gp">   ...: </span><span class="s2">    (740 270, 710 160), (735 350, 740 270), (880 320, 740 270),</span>
 <span class="gp">   ...: </span><span class="s2">    (925 370, 880 320), (974 300, 880 320), (760 460, 735 350),</span>
 <span class="gp">   ...: </span><span class="s2">    (650 430, 735 350), (710 160, 770 100), (700  90, 770 100),</span>
-<span class="gp">   ...: </span><span class="s2">    (770 100, 820  40))&quot;&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">geoms</span><span class="p">))</span>
+<span class="gp">   ...: </span><span class="s2">    (770 100, 820  40))"""</span><span class="p">)</span><span class="o">.</span><span class="n">geoms</span><span class="p">))</span>
 <span class="gp">   ...: </span>
 
 <span class="gp">In [5]: </span><span class="n">lines</span><span class="o">.</span><span class="n">index</span> <span class="o">+=</span> <span class="mi">100</span>
 
-<span class="gp">In [6]: </span><span class="n">lines</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;idx&quot;</span>
+<span class="gp">In [6]: </span><span class="n">lines</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">"idx"</span>
 </pre></div>
 </div>
 <p>Create a surface water network object from the lines using
@@ -425,7 +425,7 @@ illustrates Strahler number.</p>
 <span class="go">  1 outlets: [118]</span>
 <span class="go">  no diversions /&gt;</span>
 
-<span class="gp">In [9]: </span><span class="nb">print</span><span class="p">(</span><span class="n">n</span><span class="o">.</span><span class="n">segments</span><span class="p">[[</span><span class="s2">&quot;to_segnum&quot;</span><span class="p">,</span> <span class="s2">&quot;from_segnums&quot;</span><span class="p">,</span> <span class="s2">&quot;stream_order&quot;</span><span class="p">,</span> <span class="s2">&quot;num_to_outlet&quot;</span><span class="p">]])</span>
+<span class="gp">In [9]: </span><span class="nb">print</span><span class="p">(</span><span class="n">n</span><span class="o">.</span><span class="n">segments</span><span class="p">[[</span><span class="s2">"to_segnum"</span><span class="p">,</span> <span class="s2">"from_segnums"</span><span class="p">,</span> <span class="s2">"stream_order"</span><span class="p">,</span> <span class="s2">"num_to_outlet"</span><span class="p">]])</span>
 <span class="go">     to_segnum from_segnums  stream_order  num_to_outlet</span>
 <span class="go">idx                                                     </span>
 <span class="go">100        102           {}             1              6</span>

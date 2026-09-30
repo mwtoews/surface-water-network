@@ -525,16 +525,16 @@ as a scalar, list or dict is cast as a Series with
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">geopandas</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">swn</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">lines</span> <span class="o">=</span> <span class="n">geopandas</span><span class="o">.</span><span class="n">GeoSeries</span><span class="o">.</span><span class="n">from_wkt</span><span class="p">([</span>
-<span class="gp">... </span>   <span class="s2">&quot;LINESTRING (60 100, 60  80)&quot;</span><span class="p">,</span>
-<span class="gp">... </span>   <span class="s2">&quot;LINESTRING (40 130, 60 100)&quot;</span><span class="p">,</span>
-<span class="gp">... </span>   <span class="s2">&quot;LINESTRING (70 130, 60 100)&quot;</span><span class="p">])</span>
+<span class="gp">... </span>   <span class="s2">"LINESTRING (60 100, 60  80)"</span><span class="p">,</span>
+<span class="gp">... </span>   <span class="s2">"LINESTRING (40 130, 60 100)"</span><span class="p">,</span>
+<span class="gp">... </span>   <span class="s2">"LINESTRING (70 130, 60 100)"</span><span class="p">])</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">n</span> <span class="o">=</span> <span class="n">swn</span><span class="o">.</span><span class="n">SurfaceWaterNetwork</span><span class="o">.</span><span class="n">from_lines</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">n</span><span class="o">.</span><span class="n">segments_series</span><span class="p">(</span><span class="mf">1.2</span><span class="p">)</span>
 <span class="go">0    1.2</span>
 <span class="go">1    1.2</span>
 <span class="go">2    1.2</span>
 <span class="go">dtype: float64</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">n</span><span class="o">.</span><span class="n">segments_series</span><span class="p">([</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="s2">&quot;codes&quot;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">n</span><span class="o">.</span><span class="n">segments_series</span><span class="p">([</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="s2">"codes"</span><span class="p">)</span>
 <span class="go">0    3</span>
 <span class="go">1    2</span>
 <span class="go">2    1</span>

@@ -559,19 +559,19 @@ surface water network segment.</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">geopandas</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">swn</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">lines</span> <span class="o">=</span> <span class="n">geopandas</span><span class="o">.</span><span class="n">GeoSeries</span><span class="o">.</span><span class="n">from_wkt</span><span class="p">([</span>
-<span class="gp">... </span>   <span class="s2">&quot;LINESTRING (60 100, 60  80)&quot;</span><span class="p">,</span>
-<span class="gp">... </span>   <span class="s2">&quot;LINESTRING (40 130, 60 100)&quot;</span><span class="p">,</span>
-<span class="gp">... </span>   <span class="s2">&quot;LINESTRING (70 130, 60 100)&quot;</span><span class="p">])</span>
+<span class="gp">... </span>   <span class="s2">"LINESTRING (60 100, 60  80)"</span><span class="p">,</span>
+<span class="gp">... </span>   <span class="s2">"LINESTRING (40 130, 60 100)"</span><span class="p">,</span>
+<span class="gp">... </span>   <span class="s2">"LINESTRING (70 130, 60 100)"</span><span class="p">])</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">n</span> <span class="o">=</span> <span class="n">swn</span><span class="o">.</span><span class="n">SurfaceWaterNetwork</span><span class="o">.</span><span class="n">from_lines</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">lines</span><span class="o">.</span><span class="n">index</span> <span class="o">+=</span> <span class="mi">101</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">obs_gs</span> <span class="o">=</span> <span class="n">geopandas</span><span class="o">.</span><span class="n">GeoSeries</span><span class="o">.</span><span class="n">from_wkt</span><span class="p">([</span>
-<span class="gp">... </span>   <span class="s2">&quot;POINT (56 103)&quot;</span><span class="p">,</span>
-<span class="gp">... </span>   <span class="s2">&quot;LINESTRING (58 90, 62 90)&quot;</span><span class="p">,</span>
-<span class="gp">... </span>   <span class="s2">&quot;POLYGON ((60 107, 59 113, 61 113, 60 107))&quot;</span><span class="p">,</span>
-<span class="gp">... </span>   <span class="s2">&quot;POINT (55 130)&quot;</span><span class="p">])</span>
+<span class="gp">... </span>   <span class="s2">"POINT (56 103)"</span><span class="p">,</span>
+<span class="gp">... </span>   <span class="s2">"LINESTRING (58 90, 62 90)"</span><span class="p">,</span>
+<span class="gp">... </span>   <span class="s2">"POLYGON ((60 107, 59 113, 61 113, 60 107))"</span><span class="p">,</span>
+<span class="gp">... </span>   <span class="s2">"POINT (55 130)"</span><span class="p">])</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">obs_gs</span><span class="o">.</span><span class="n">index</span> <span class="o">+=</span> <span class="mi">11</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">obs_match</span> <span class="o">=</span> <span class="n">n</span><span class="o">.</span><span class="n">locate_geoms</span><span class="p">(</span><span class="n">obs_gs</span><span class="p">,</span> <span class="n">override</span><span class="o">=</span><span class="p">{</span><span class="mi">14</span><span class="p">:</span> <span class="mi">2</span><span class="p">})</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">obs_match</span><span class="p">[[</span><span class="s2">&quot;method&quot;</span><span class="p">,</span> <span class="s2">&quot;segnum&quot;</span><span class="p">,</span> <span class="s2">&quot;seg_ndist&quot;</span><span class="p">,</span> <span class="s2">&quot;dist_to_seg&quot;</span><span class="p">]]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">obs_match</span><span class="p">[[</span><span class="s2">"method"</span><span class="p">,</span> <span class="s2">"segnum"</span><span class="p">,</span> <span class="s2">"seg_ndist"</span><span class="p">,</span> <span class="s2">"dist_to_seg"</span><span class="p">]]</span>
 <span class="go">      method  segnum  seg_ndist  dist_to_seg</span>
 <span class="go">11   nearest       1   0.869231     1.664101</span>
 <span class="go">12   nearest       0   0.500000     0.000000</span>
